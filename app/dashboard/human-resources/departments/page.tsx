@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import DepartmentList from "./_components/department-list";
 import Header from "./_components/header";
 import { DepartmentWithRelations } from "./_components/department-list";
-import DepartmentsLoading from "./_components/loading";
+import DepartmentsLoading from "../../categories/_components/loading";
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<DepartmentWithRelations[]>([]);
