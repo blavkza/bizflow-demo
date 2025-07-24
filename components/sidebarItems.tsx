@@ -77,13 +77,13 @@ const getSidebarData = (role: string): { navMain: NavSection[] } => {
             icon: Home,
             color: "text-blue-500",
           },
-          /*   {
+          {
             title: "Notifications",
             url: "/dashboard/notifications",
             icon: Bell,
             badge: "3",
             color: "text-red-500",
-          }, */
+          },
         ],
       },
       {

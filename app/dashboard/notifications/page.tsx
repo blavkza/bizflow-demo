@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,7 +17,8 @@ import {
   Clock,
   Trash2,
   Eye,
-  BookMarkedIcon as MarkAsUnread,
+  Bookmark as MarkAsUnread,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,90 +28,44 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 
-const notifications = [
-  {
-    id: "1",
-    type: "alert",
-    priority: "high",
-    title: "Payment Overdue",
-    message:
-      "Invoice #INV-2024-001 from ABC Corp is 15 days overdue (R15,750.00)",
-    timestamp: "2024-01-15T10:30:00Z",
-    read: false,
-    category: "payment",
-    actionUrl: "/invoices/1",
-  },
-  {
-    id: "2",
-    type: "reminder",
-    priority: "medium",
-    title: "Budget Limit Warning",
-    message:
-      "Marketing budget has reached 85% of monthly limit (R8,500 / R10,000)",
-    timestamp: "2024-01-15T09:15:00Z",
-    read: false,
-    category: "budget",
-    actionUrl: "/budget",
-  },
-  {
-    id: "3",
-    type: "info",
-    priority: "low",
-    title: "Monthly Report Ready",
-    message:
-      "Your December 2023 financial report has been generated and is ready for review",
-    timestamp: "2024-01-15T08:00:00Z",
-    read: true,
-    category: "report",
-    actionUrl: "/reports/summary",
-  },
-  {
-    id: "4",
-    type: "alert",
-    priority: "high",
-    title: "Payroll Due",
-    message: "Employee payroll processing is due in 2 days (January 17, 2024)",
-    timestamp: "2024-01-14T16:45:00Z",
-    read: false,
-    category: "payroll",
-    actionUrl: "/workers",
-  },
-  {
-    id: "5",
-    type: "success",
-    priority: "low",
-    title: "Payment Received",
-    message:
-      "Payment of R25,000.00 received from XYZ Ltd for Invoice #INV-2024-003",
-    timestamp: "2024-01-14T14:20:00Z",
-    read: true,
-    category: "payment",
-    actionUrl: "/transactions",
-  },
-];
+type Notification = {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  isRead: boolean;
+  actionUrl?: string;
+  metadata?: any;
+  channels: string[];
+  sentAt: string;
+  readAt?: string | null;
+  createdAt: string;
+};
 
 const getNotificationIcon = (type: string) => {
   switch (type) {
-    case "alert":
+    case "ALERT":
       return <AlertTriangle className="h-4 w-4 text-red-500" />;
-    case "reminder":
+    case "REMINDER":
       return <Clock className="h-4 w-4 text-yellow-500" />;
-    case "info":
+    case "INFO":
       return <Info className="h-4 w-4 text-blue-500" />;
-    case "success":
+    case "SUCCESS":
       return <CheckCircle className="h-4 w-4 text-green-500" />;
     default:
       return <Bell className="h-4 w-4" />;
   }
 };
 
-const getPriorityColor = (priority: string) => {
+const getPriorityColor = (priority: "LOW" | "MEDIUM" | "HIGH") => {
   switch (priority) {
-    case "high":
+    case "HIGH":
       return "destructive";
-    case "medium":
+    case "MEDIUM":
       return "default";
-    case "low":
+    case "LOW":
       return "secondary";
     default:
       return "default";
@@ -118,8 +73,31 @@ const getPriorityColor = (priority: string) => {
 };
 
 export default function NotificationsPage() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTab, setSelectedTab] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isMutating, setIsMutating] = useState(false);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch("/api/notifications");
+        if (!response.ok) throw new Error("Failed to fetch notifications");
+        const data = await response.json();
+        setNotifications(data);
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNotifications();
+  }, []);
+
+  console.log(notifications);
 
   const filteredNotifications = notifications.filter((notification) => {
     const matchesSearch =
@@ -127,16 +105,95 @@ export default function NotificationsPage() {
       notification.message.toLowerCase().includes(searchTerm.toLowerCase());
 
     if (selectedTab === "all") return matchesSearch;
-    if (selectedTab === "unread") return matchesSearch && !notification.read;
+    if (selectedTab === "unread") return matchesSearch && !notification.isRead;
     if (selectedTab === "alerts")
-      return matchesSearch && notification.type === "alert";
+      return matchesSearch && notification.type === "ALERT";
     if (selectedTab === "reminders")
-      return matchesSearch && notification.type === "reminder";
+      return matchesSearch && notification.type === "REMINDER";
 
     return matchesSearch;
   });
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const markAsRead = async (notificationId: string, currentState: boolean) => {
+    try {
+      setIsMutating(true);
+      const response = await fetch(`/api/notifications/${notificationId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isRead: !currentState }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update notification");
+
+      setNotifications(
+        notifications.map((n) =>
+          n.id === notificationId
+            ? {
+                ...n,
+                isRead: !currentState,
+                readAt: currentState ? null : new Date().toISOString(),
+              }
+            : n
+        )
+      );
+    } catch (error) {
+      console.error("Failed to mark as read:", error);
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      setIsMutating(true);
+      const response = await fetch(`/api/notifications/${notificationId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete notification");
+
+      setNotifications(notifications.filter((n) => n.id !== notificationId));
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      setIsMutating(true);
+      const response = await fetch("/api/notifications/mark-all-read", {
+        method: "PATCH",
+      });
+
+      if (!response.ok) throw new Error("Failed to mark all as read");
+
+      setNotifications(
+        notifications.map((n) => ({
+          ...n,
+          isRead: true,
+          readAt: n.readAt || new Date().toISOString(),
+        }))
+      );
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+    } finally {
+      setIsMutating(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6 w-full">
@@ -149,9 +206,17 @@ export default function NotificationsPage() {
         </div>
         <div className="flex items-center space-x-2">
           <Badge variant="secondary">{unreadCount} unread</Badge>
-          <Button variant="outline" size="sm">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={markAllAsRead}
+            disabled={unreadCount === 0 || isMutating}
+          >
+            {isMutating ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              "Mark all as read"
+            )}
           </Button>
         </div>
       </div>
@@ -201,7 +266,7 @@ export default function NotificationsPage() {
                 <Card
                   key={notification.id}
                   className={`transition-colors hover:bg-muted/50 ${
-                    !notification.read ? "border-l-4 border-l-blue-500" : ""
+                    !notification.isRead ? "border-l-4 border-l-blue-500" : ""
                   }`}
                 >
                   <CardContent className="p-4">
@@ -214,7 +279,7 @@ export default function NotificationsPage() {
                           <div className="flex items-center space-x-2">
                             <h4
                               className={`text-sm font-medium ${
-                                !notification.read ? "font-semibold" : ""
+                                !notification.isRead ? "font-semibold" : ""
                               }`}
                             >
                               {notification.title}
@@ -223,9 +288,9 @@ export default function NotificationsPage() {
                               variant={getPriorityColor(notification.priority)}
                               className="text-xs"
                             >
-                              {notification.priority}
+                              {notification.priority.toLowerCase()}
                             </Badge>
-                            {!notification.read && (
+                            {!notification.isRead && (
                               <div className="h-2 w-2 bg-blue-500 rounded-full" />
                             )}
                           </div>
@@ -235,48 +300,74 @@ export default function NotificationsPage() {
                           <div className="flex items-center space-x-4 text-xs text-muted-foreground">
                             <span>
                               {new Date(
-                                notification.timestamp
+                                notification.createdAt
                               ).toLocaleDateString()}{" "}
                               at{" "}
                               {new Date(
-                                notification.timestamp
-                              ).toLocaleTimeString()}
+                                notification.createdAt
+                              ).toLocaleTimeString([], {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
                             </span>
-                            <Badge variant="outline" className="text-xs">
-                              {notification.category}
-                            </Badge>
+                            {notification.type && (
+                              <Badge variant="outline" className="text-xs">
+                                {notification.type.toLowerCase()}
+                              </Badge>
+                            )}
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link
-                            href={`/dashboard/notifications/${notification.id}`}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Link>
-                        </Button>
+                        {notification.actionUrl && (
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={notification.actionUrl}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Link>
+                          </Button>
+                        )}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isMutating}
+                            >
+                              {isMutating ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <MoreHorizontal className="h-4 w-4" />
+                              )}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() =>
+                                markAsRead(notification.id, notification.isRead)
+                              }
+                              disabled={isMutating}
+                            >
                               <MarkAsUnread className="h-4 w-4 mr-2" />
-                              {notification.read
+                              {notification.isRead
                                 ? "Mark as unread"
                                 : "Mark as read"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={notification.actionUrl}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                Go to source
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-red-600">
+                            {notification.actionUrl && (
+                              <DropdownMenuItem asChild>
+                                <Link href={notification.actionUrl}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Go to source
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              className="text-red-600"
+                              onClick={() =>
+                                deleteNotification(notification.id)
+                              }
+                              disabled={isMutating}
+                            >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete
                             </DropdownMenuItem>

@@ -1,5 +1,3 @@
-// app/api/invoices/route.ts
-
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
