@@ -32,14 +32,13 @@ export const PRODUCT_CATEGORIES = [
   "Sliding Doors",
   "Stable Doors",
   "Shop Front",
-  "Alminium Gates",
+  "Aluminum Gates",
   "Steel Gates",
   "Palisades etc",
   "Maxi Bricks",
   "Stock Bricks",
-  "Bugler Pross",
-  "Tralice  Bugler ",
-  "Other",
+  "Butler Pross",
+  "Tralice  Butler ",
 ] as const;
 
 export type ProductCategory = (typeof PRODUCT_CATEGORIES)[number];

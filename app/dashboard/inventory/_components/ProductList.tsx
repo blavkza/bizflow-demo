@@ -169,7 +169,7 @@ export function ProductList({ products, refreshData }: ProductListProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Product</TableHead>
+                    {/*  <TableHead>Product</TableHead> */}
                     <TableHead>Category</TableHead>
                     <TableHead>Size</TableHead>
                     <TableHead className="text-right">Price</TableHead>
@@ -180,7 +180,7 @@ export function ProductList({ products, refreshData }: ProductListProps) {
                 <TableBody>
                   {filteredProducts.map((product) => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium">
+                      {/*       <TableCell className="font-medium">
                         <div>
                           <div>{product.name || "Unnamed Product"}</div>
                           {product.description && (
@@ -189,7 +189,7 @@ export function ProductList({ products, refreshData }: ProductListProps) {
                             </div>
                           )}
                         </div>
-                      </TableCell>
+                      </TableCell> */}
                       <TableCell>
                         <Badge className={getCategoryColor(product.category)}>
                           {product.category || "Uncategorized"}
