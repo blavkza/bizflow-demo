@@ -1316,9 +1316,9 @@ model TaxRate {
 // ============================================================================
 
 enum UserRole {
-  SUPER_ADMIN
+  CHIEF_EXECUTIVE_OFFICER
   ADMIN_MANAGER
-  MANAGER_GENERAL
+  GENERAL_MANAGER
   MANAGER
   VIEWER
 }
