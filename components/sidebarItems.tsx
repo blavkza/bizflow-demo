@@ -81,7 +81,7 @@ const getSidebarData = (role: string): { navMain: NavSection[] } => {
             title: "Notifications",
             url: "/dashboard/notifications",
             icon: Bell,
-            badge: "3",
+            badge: "",
             color: "text-red-500",
           },
         ],
