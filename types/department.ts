@@ -1,0 +1,53 @@
+// components/department/types.ts
+export interface BudgetItem {
+  id: string;
+  name: string;
+  allocated: number;
+  spent: number;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  description: string | null;
+  location: string | null;
+  floor: string | null;
+  building: string | null;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  manager: {
+    id: string;
+    name: string | null;
+    email: string | null;
+  } | null;
+  employees: {
+    id: string;
+    avatar: string | null;
+    firstName: string;
+    lastName: string;
+    email: string;
+    position: string;
+  }[];
+  budgets: {
+    id: string;
+    name: string;
+    totalAmount: number;
+    items: {
+      id: string;
+      amount: number;
+      spent: number;
+      notes: string | null;
+    }[];
+    alerts: {
+      id: string;
+      type: string;
+      threshold: number;
+      triggered: boolean;
+    }[];
+  }[];
+}
+
+export interface TabsSectionProps {
+  department: Department;
+}

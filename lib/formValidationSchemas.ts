@@ -1,0 +1,250 @@
+import {
+  CategoryStatus,
+  CategoryType,
+  ClientType,
+  DiscountType,
+  EmployeeStatus,
+  InvoiceStatus,
+  PaymentMethod,
+  PaymentType,
+  QuotationStatus,
+  TransactionStatus,
+  TransactionType,
+  UserRole,
+  UserStatus,
+} from "@prisma/client";
+import { z } from "zod";
+
+export const createUserSchema = z
+  .object({
+    name: z.string().min(1, { message: "Name is required!" }),
+    userName: z.string().min(1, { message: "Username is required!" }),
+    phone: z.string().optional(),
+    email: z.string().email({ message: "Invalid email address!" }),
+    role: z.nativeEnum(UserRole),
+    status: z.nativeEnum(UserStatus),
+    password: z
+      .string()
+      .min(8, { message: "Password must be at least 8 characters long!" })
+      .regex(/[A-Z]/, {
+        message: "Must include at least one uppercase letter!",
+      })
+      .regex(/[a-z]/, {
+        message: "Must include at least one lowercase letter!",
+      })
+      .regex(/\d/, { message: "Must include at least one number!" })
+      .regex(/[^A-Za-z0-9]/, {
+        message: "Must include at least one special character!",
+      }),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ["confirmPassword"],
+  });
+
+export type createUserSchemaType = z.infer<typeof createUserSchema>;
+
+export const updateUserSchema = z.object({
+  name: z.string().min(1, { message: "Name is required!" }),
+  phone: z.string().optional(),
+  email: z.string().email({ message: "Invalid email address!" }),
+  role: z.nativeEnum(UserRole),
+  status: z.nativeEnum(UserStatus),
+});
+
+export type updateUserSchemaType = z.infer<typeof updateUserSchema>;
+
+export const clientSchema = z.object({
+  name: z.string().min(1, { message: "Name is required!" }),
+  company: z.string().optional(),
+  phone: z.string().min(1, { message: "Phone is required!" }),
+  email: z.string().email({ message: "Invalid email address!" }),
+  type: z.nativeEnum(ClientType),
+  taxNumber: z.string().optional(),
+  website: z.string().optional(),
+  address: z.string().optional(),
+});
+
+export type clientSchemaType = z.infer<typeof clientSchema>;
+
+export const departmentSchema = z.object({
+  name: z.string().min(1, { message: "Name is required!" }),
+  description: z.string().min(1, { message: "Description is required!" }),
+  managerId: z.string().optional(),
+  location: z.string().optional(),
+  floor: z.string().optional(),
+  building: z.string().optional(),
+});
+
+export type departmentSchemaType = z.infer<typeof departmentSchema>;
+
+export const employeeSchema = z.object({
+  firstName: z.string().min(1, { message: "First name is required" }),
+  lastName: z.string().min(1, { message: "Last name is required" }),
+  email: z.string().email({ message: "Invalid email address" }),
+  phone: z.string().min(1, { message: "Phone number is required" }),
+  position: z.string().min(1, { message: "Position is required" }),
+  departmentId: z.string().min(1, { message: "Department is required" }),
+  salary: z
+    .union([
+      z
+        .string()
+        .min(1, { message: "Salary is required" })
+        .refine((val) => !isNaN(Number(val)), {
+          message: "Must be a valid number",
+        }),
+      z.number().min(0, { message: "Salary must be positive" }),
+    ])
+    .transform((val) => Number(val)),
+  hireDate: z.date({ required_error: "Hire date is required" }),
+  status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
+  address: z.string().min(1, { message: "Address is required" }),
+});
+
+export type employeeSchemaType = z.infer<typeof employeeSchema>;
+
+export const CategorySchema = z.object({
+  name: z.string().min(1, { message: "Name is required!" }),
+  description: z.string().optional(),
+  status: z.nativeEnum(CategoryStatus),
+  type: z.nativeEnum(CategoryType),
+});
+
+export type categorySchemaType = z.infer<typeof CategorySchema>;
+
+export const PayrollSchema = z.object({
+  description: z.string().optional(),
+  type: z.nativeEnum(PaymentType),
+});
+
+export type PayrollSchemaType = z.infer<typeof PayrollSchema>;
+
+export const InvoiceSchema = z.object({
+  clientId: z.string().min(1, "Client is required"),
+  project: z.string().optional(),
+  issueDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+  dueDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+  status: z.nativeEnum(InvoiceStatus),
+  description: z.string().optional(),
+  currency: z.string().default("ZAR"),
+  items: z.array(
+    z.object({
+      description: z.string().min(1, "Description is required"),
+      quantity: z
+        .union([z.number(), z.string()])
+        .transform((val) => Number(val)),
+      unitPrice: z
+        .union([z.number(), z.string()])
+        .transform((val) => Number(val)),
+      taxRate: z
+        .union([z.number(), z.string()])
+        .transform((val) => Number(val))
+        .optional(),
+    })
+  ),
+  discountType: z.nativeEnum(DiscountType).optional(),
+  discountAmount: z
+    .union([z.number(), z.string()])
+    .transform((val) => Number(val))
+    .optional(),
+  taxRate: z
+    .union([z.number(), z.string()])
+    .transform((val) => Number(val))
+    .optional(),
+  paymentTerms: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const QuotationItemSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  quantity: z.number().min(0.01, "Quantity must be at least 0.01"),
+  unitPrice: z.number().min(0, "Price must be positive"),
+  taxRate: z.number().min(0).max(100).default(0),
+});
+
+export const QuotationSchema = z.object({
+  clientId: z.string().min(1, "Client is required"),
+  projectId: z.string().optional(),
+  departmentId: z.string().optional(),
+  title: z.string().min(1, "Title is required"),
+  issueDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid issue date format",
+  }),
+  validUntil: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: "Invalid valid until date format",
+  }),
+  description: z.string().optional(),
+  terms: z.string().optional(),
+  notes: z.string().optional(),
+  paymentTerms: z.string().optional(),
+  deliveryTerms: z.string().optional(),
+  items: z.array(QuotationItemSchema).min(1, "At least one item is required"),
+  discountType: z.nativeEnum(DiscountType).optional(),
+  discountAmount: z.number().min(0).optional(),
+  status: z.nativeEnum(QuotationStatus).optional().default("DRAFT"),
+});
+
+export const PRODUCT_CATEGORIES = [
+  "Solar Panel",
+  "Inverter",
+  "Battery",
+  "Mounting System",
+  "Accessories",
+] as const;
+
+export const productSchema = z.object({
+  category: z.string().min(1, "Category is required"),
+  size: z.string().min(1, "Size/Dimensions are required"),
+  price: z.number().min(0, "Price must be a positive number"),
+  panels: z.number().optional(),
+});
+
+export type ProductFormValues = z.infer<typeof productSchema>;
+
+export const GeneralSettingsSchema = z.object({
+  companyName: z.string().min(1, "Company name is required"),
+  taxId: z.string().optional(),
+  phone: z.string().min(1, "Address is required"),
+  website: z.string().optional(),
+  paymentTerms: z.string().optional(),
+  note: z.string().optional(),
+  bankAccount: z.string().optional(),
+  email: z.string().email({ message: "Invalid email address" }),
+  address: z.string().min(1, "Address is required"),
+  city: z.string().min(1, "City is required"),
+  province: z.string().min(1, "Province is required"),
+  postCode: z.string().min(1, "Post code is required"),
+});
+
+export type GeneralSettingsSchemaType = z.infer<typeof GeneralSettingsSchema>;
+
+export const transactionSchema = z.object({
+  amount: z.union([
+    z.number().positive("Amount must be positive"),
+    z.string().transform((val, ctx) => {
+      const parsed = parseFloat(val);
+      if (isNaN(parsed)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Not a valid number",
+        });
+        return z.NEVER;
+      }
+      return parsed;
+    }),
+  ]),
+  currency: z.string().default("ZAR"),
+  type: z.nativeEnum(TransactionType),
+  status: z.nativeEnum(TransactionStatus).default(TransactionStatus.PENDING),
+  description: z.string().min(1, "Description is required"),
+  reference: z.string().optional(),
+  date: z.date(),
+  invoiceId: z.string().optional(),
+  categoryId: z.string().optional(),
+  clientId: z.string().optional(),
+  method: z.nativeEnum(PaymentMethod).optional(),
+  vendor: z.string().optional(),
+});
+
+export type TransactionFormValues = z.infer<typeof transactionSchema>;
