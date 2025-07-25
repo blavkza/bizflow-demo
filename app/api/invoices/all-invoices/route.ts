@@ -25,14 +25,9 @@ export async function GET() {
         totalOutstanding: invoices
           .filter((inv) => inv.status !== "PAID")
           .reduce((sum, inv) => sum + inv.totalAmount.toNumber(), 0),
-        pendingInvoices: invoices.filter((inv) => inv.status === "SENT").length,
+        pendingInvoices: invoices.filter((inv) => inv.status !== "PAID").length,
         paidThisMonth: invoices
-          .filter(
-            (inv) =>
-              inv.status === "PAID" &&
-              new Date(inv.paidDate as Date).getMonth() ===
-                new Date().getMonth()
-          )
+          .filter((inv) => inv.status === "PAID")
           .reduce((sum, inv) => sum + inv.totalAmount.toNumber(), 0),
         paidInvoices: invoices.filter((inv) => inv.status === "PAID").length,
         overdueAmount: invoices

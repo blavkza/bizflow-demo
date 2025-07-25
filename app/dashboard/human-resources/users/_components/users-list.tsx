@@ -54,6 +54,7 @@ interface User {
 
 interface UserslistProps {
   users: User[];
+  fetchUsers: () => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -89,7 +90,7 @@ const getRoleColor = (role: string) => {
   }
 };
 
-export default function Userslist({ users }: UserslistProps) {
+export default function Userslist({ users, fetchUsers }: UserslistProps) {
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -286,7 +287,7 @@ export default function Userslist({ users }: UserslistProps) {
               onCancel={() => setIsEditDialogOpen(false)}
               onSubmitSuccess={() => {
                 setIsEditDialogOpen(false);
-                router.refresh();
+                if (fetchUsers) fetchUsers();
               }}
             />
           )}
@@ -300,7 +301,7 @@ export default function Userslist({ users }: UserslistProps) {
         onOpenChange={setIsDeleteDialogOpen}
         onDeleteSuccess={() => {
           setIsDeleteDialogOpen(false);
-          router.refresh();
+          if (fetchUsers) fetchUsers();
         }}
       />
     </>

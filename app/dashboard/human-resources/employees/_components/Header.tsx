@@ -17,7 +17,11 @@ import EmployeeForm from "./employee-Form";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function Header() {
+interface HeaderProps {
+  fetchEmployees?: () => void;
+}
+
+export default function Header({ fetchEmployees }: HeaderProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const router = useRouter();
 
@@ -55,6 +59,7 @@ export default function Header() {
               onSubmitSuccess={() => {
                 setIsAddDialogOpen(false);
                 router.refresh();
+                if (fetchEmployees) fetchEmployees();
               }}
             />
           </DialogContent>

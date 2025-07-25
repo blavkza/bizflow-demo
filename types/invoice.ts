@@ -34,8 +34,13 @@ export interface InvoiceProps {
       province?: string;
       postCode?: string;
       phone?: string;
+      phone2?: string;
+      phone3?: string;
       website?: string;
       bankAccount?: string;
+      bankAccount2?: string;
+      bankName?: string;
+      bankName2?: string;
       email?: string;
       taxId?: string;
       taxRate?: string;

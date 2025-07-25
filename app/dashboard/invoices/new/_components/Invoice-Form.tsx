@@ -579,8 +579,8 @@ export default function InvoiceForm({
                         <FormControl>
                           <Input
                             type="number"
-                            min="0.01"
-                            step="0.01"
+                            min="1"
+                            step="1"
                             placeholder="1"
                             {...field}
                             onChange={(e) => {
@@ -604,16 +604,15 @@ export default function InvoiceForm({
                         </FormLabel>
                         <FormControl>
                           <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
                             placeholder="0.00"
+                            type="number"
+                            step="1"
                             {...field}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value);
-                              field.onChange(isNaN(value) ? 0 : value);
-                              handleManualItemChange(index);
-                            }}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.valueAsNumber || e.target.value
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -631,15 +630,15 @@ export default function InvoiceForm({
                         </FormLabel>
                         <FormControl>
                           <Input
+                            placeholder="0.00"
                             type="number"
-                            min="0"
-                            step="0.01"
-                            placeholder="0"
+                            step="0.50"
                             {...field}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value);
-                              field.onChange(isNaN(value) ? 0 : value);
-                            }}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.valueAsNumber || e.target.value
+                              )
+                            }
                           />
                         </FormControl>
                         <FormMessage />
@@ -695,16 +694,36 @@ export default function InvoiceForm({
                       <Input
                         type="number"
                         min="0"
-                        step="0.01"
+                        max="10"
+                        step="1.00"
                         placeholder={
                           form.watch("discountType") === "PERCENTAGE"
                             ? "0.00%"
                             : "0.00"
                         }
-                        {...field}
+                        value={field.value === undefined ? "" : field.value}
                         onChange={(e) => {
-                          const value = parseFloat(e.target.value);
-                          field.onChange(isNaN(value) ? 0 : value);
+                          const input = e.target.value;
+
+                          // Allow backspace to clear the input
+                          if (input === "") {
+                            field.onChange(undefined);
+                            return;
+                          }
+
+                          let value = parseFloat(input);
+
+                          if (isNaN(value)) {
+                            field.onChange(undefined);
+                            return;
+                          }
+
+                          // Clamp to max = 10
+                          if (value > 10) {
+                            value = 10;
+                          }
+
+                          field.onChange(value);
                         }}
                       />
                     </FormControl>

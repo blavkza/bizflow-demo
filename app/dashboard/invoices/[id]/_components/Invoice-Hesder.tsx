@@ -15,8 +15,14 @@ interface InvoiceHeaderProps {
         province?: string;
         postCode?: string;
         phone?: string;
+        phone1?: string;
+        phone2?: string;
+        phone3?: string;
         website?: string;
         bankAccount?: string;
+        bankAccount2?: string;
+        bankName?: string;
+        bankName2?: string;
         email?: string;
         taxId?: string;
       }>;
@@ -68,7 +74,15 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
                 <div className="text-sm text-muted-foreground">
                   <div className="flex items-center space-x-2">
                     <Phone className="h-3 w-3" />
-                    <span>{generalSetting?.phone}</span>
+                    <span>
+                      {[
+                        generalSetting?.phone,
+                        generalSetting?.phone2,
+                        generalSetting?.phone3,
+                      ]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Mail className="h-3 w-3" />
@@ -80,10 +94,18 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
                   </div>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Tax Number: {generalSetting?.taxId || "N/A"}
+                  VAT Number: {generalSetting?.taxId || "N/A"}
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Bank Account: {generalSetting?.bankAccount || "N/A"}
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <div>
+                    <strong>{generalSetting?.bankName}</strong>{" "}
+                    {generalSetting?.bankAccount || "N/A"}
+                    <br />
+                  </div>
+                  <div>
+                    <strong>{generalSetting?.bankName2}</strong>{" "}
+                    {generalSetting?.bankAccount2 || "N/A"}
+                  </div>
                 </div>
               </div>
             </div>
@@ -113,7 +135,7 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
                     <span>{invoice.client.email || "N/A"}</span>
                   </div>
                   {invoice?.client?.taxNumber && (
-                    <div>Tax Number: {invoice?.client?.taxNumber} </div>
+                    <div>VAT Number: {invoice?.client?.taxNumber} </div>
                   )}
                 </div>
               </div>

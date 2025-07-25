@@ -20,7 +20,7 @@ interface StatsCardProps {
 export default function StatsCard({ employees, departments }: StatsCardProps) {
   const totalEmployees = employees.length;
   const activeEmployees = employees.filter(
-    (emp) => emp.status === "ACTIVE" // Changed to match enum case
+    (emp) => emp.status === "ACTIVE"
   ).length;
   const averageSalary =
     employees.length > 0

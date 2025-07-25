@@ -78,7 +78,7 @@ async function getMainStats() {
       : 0;
 
   // Get active employees count
-  const activeEmployees = await db.user.count({
+  const activeEmployees = await db.employee.count({
     where: {
       status: "ACTIVE",
     },

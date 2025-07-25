@@ -21,8 +21,10 @@ export type CategoryWithTransactions = {
 
 export default function CategoriesWrapper({
   categories,
+  fetchCategories,
 }: {
   categories: CategoryWithTransactions[];
+  fetchCategories: () => void;
 }) {
   const [filteredCategories, setFilteredCategories] = useState(categories);
 
@@ -52,8 +54,12 @@ export default function CategoriesWrapper({
         categories={categories}
         onSearch={handleSearch}
         onFilter={handleFilter}
+        fetchCategories={fetchCategories}
       />
-      <CategoryCard categories={filteredCategories} />
+      <CategoryCard
+        categories={filteredCategories}
+        fetchCategories={fetchCategories}
+      />
     </div>
   );
 }

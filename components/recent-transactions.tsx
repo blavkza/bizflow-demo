@@ -38,7 +38,8 @@ export function RecentTransactions({
           <div>
             <div className="font-medium">{tx.description}</div>
             <div className="text-sm text-muted-foreground">
-              {tx.client?.name || "No client"} •{" "}
+              {tx.client?.name ? tx.client?.name + "•" : ""}
+
               {tx.category?.name || "Uncategorized"}
             </div>
           </div>

@@ -19,7 +19,8 @@ export async function POST(req: Request) {
 
     if (
       !adminUser ||
-      (adminUser.role !== "ADMIN" && adminUser.role !== "SUPER_ADMIN")
+      (adminUser.role !== "CHIEF_EXECUTIVE_OFFICER" &&
+        adminUser.role !== "GENERAL_MANAGER")
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -34,9 +35,14 @@ export async function POST(req: Request) {
       paymentTerms,
       note,
       bankAccount,
+      bankAccount2,
+      bankName,
+      bankName2,
       postCode,
       province,
       phone,
+      phone2,
+      phone3,
       email,
     } = body;
 
@@ -69,9 +75,14 @@ export async function POST(req: Request) {
             paymentTerms,
             note,
             bankAccount,
+            bankAccount2,
+            bankName,
+            bankName2,
             postCode,
             province,
             phone,
+            phone2,
+            phone3,
             email,
           },
         });
@@ -92,9 +103,14 @@ export async function POST(req: Request) {
             paymentTerms,
             note,
             bankAccount,
+            bankAccount2,
+            bankName,
+            bankName2,
             postCode,
             province,
             phone,
+            phone2,
+            phone3,
             email,
           },
         });
@@ -145,10 +161,15 @@ export async function GET() {
         paymentTerms: true,
         note: true,
         bankAccount: true,
+        bankAccount2: true,
+        bankName: true,
+        bankName2: true,
         logo: true,
         province: true,
         postCode: true,
         phone: true,
+        phone2: true,
+        phone3: true,
         email: true,
       },
     });
@@ -167,10 +188,15 @@ export async function GET() {
       paymentTerms: settings.paymentTerms,
       note: settings.note,
       bankAccount: settings.bankAccount,
+      bankAccount2: settings.bankAccount2,
+      bankName: settings.bankName,
+      bankName2: settings.bankName2,
       logo: settings.logo,
       province: settings.province,
       postCode: settings.postCode,
       phone: settings.phone,
+      phone2: settings.phone2,
+      phone3: settings.phone3,
       email: settings.email,
     };
 

@@ -28,7 +28,7 @@ export const ClientInfoCard = ({
           <span>{quotation.client.phone || "No phone provided"}</span>
         </div>
         <div className="flex items-center space-x-2">
-          Tax Number :{" "}
+          VAT Number :{" "}
           <span>
             {" " + quotation.client.taxNumber || "No Tax Number provided"}
           </span>

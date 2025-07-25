@@ -154,7 +154,7 @@ export default function DashboardPage() {
         </Card>
 
         <div className="grid gap-4 md:grid-cols-7">
-          <div className="md:col-span-4">
+          <div className="md:col-span-6">
             <Card>
               <CardHeader>
                 <CardTitle>Financial Overview</CardTitle>
@@ -172,7 +172,7 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-          <div className="md:col-span-3 space-y-4">
+          <div className="md:col-span-1 space-y-4">
             <Card>
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
@@ -180,35 +180,6 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <QuickActions />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Upcoming Events
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {isLoading
-                  ? [1, 2, 3].map((i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <Skeleton className="w-2 h-2 rounded-full" />
-                        <div className="flex-1 space-y-2">
-                          <Skeleton className="h-4 w-3/4" />
-                          <Skeleton className="h-3 w-1/2" />
-                        </div>
-                      </div>
-                    ))
-                  : data?.upcomingEvents.map((event: any, index: number) => (
-                      <EventItem
-                        key={index}
-                        title={event.title}
-                        date={event.date}
-                        type={event.type}
-                      />
-                    ))}
               </CardContent>
             </Card>
           </div>

@@ -27,19 +27,19 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await axios.get("/api/category/all-category");
-        setCategories(response.data);
-      } catch (err) {
-        setError("Failed to fetch categories");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get("/api/category/all-category");
+      setCategories(response.data);
+    } catch (err) {
+      setError("Failed to fetch categories");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchCategories();
   }, []);
 
@@ -64,8 +64,11 @@ export default function CategoriesPage() {
           <h1 className="text-lg font-semibold">Categories</h1>
         </div>
       </header>
-      <CategoriesWrapper categories={categories} />
-      <CategoryList categories={categories} />
+      <CategoriesWrapper
+        categories={categories}
+        fetchCategories={fetchCategories}
+      />
+      <CategoryList categories={categories} fetchCategories={fetchCategories} />
     </div>
   );
 }

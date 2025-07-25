@@ -1,4 +1,3 @@
-// app/api/quotations/[id]/route.ts
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
@@ -31,6 +30,7 @@ export async function GET(
             phone: true,
             address: true,
             taxNumber: true,
+            company: true,
           },
         },
         creator: {
@@ -41,12 +41,18 @@ export async function GET(
                 companyName: true,
                 Address: true,
                 city: true,
+                taxId: true,
                 province: true,
                 postCode: true,
                 email: true,
                 phone: true,
+                phone2: true,
+                phone3: true,
                 website: true,
                 bankAccount: true,
+                bankAccount2: true,
+                bankName: true,
+                bankName2: true,
               },
             },
           },

@@ -11,6 +11,7 @@ interface EmployeesPageWrapperProps {
   departments: any[];
   initialStatuses: string[];
   initialWorkTypes: string[];
+  fetchEmployees: () => void;
 }
 
 export default function EmployeesPageWrapper({
@@ -18,6 +19,7 @@ export default function EmployeesPageWrapper({
   departments,
   initialStatuses,
   initialWorkTypes,
+  fetchEmployees,
 }: EmployeesPageWrapperProps) {
   const [employees, setEmployees] = useState(initialEmployees);
   const [searchTerm, setSearchTerm] = useState("");
@@ -50,7 +52,7 @@ export default function EmployeesPageWrapper({
 
   return (
     <div className="space-y-6 p-6">
-      <Header />
+      <Header fetchEmployees={fetchEmployees} />
       <StatsCard employees={filteredEmployees} departments={departments} />
       <Filters
         departments={departments.map((dept) => dept.name)}

@@ -26,19 +26,19 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await axios.get("/api/users/all-users");
-        setUsers(response.data);
-      } catch (err) {
-        setError("Failed to fetch users");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get("/api/users/all-users");
+      setUsers(response.data);
+    } catch (err) {
+      setError("Failed to fetch users");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -56,9 +56,9 @@ export default function UsersPage() {
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <Header />
+      <Header fetchUsers={fetchUsers} />
       <StatsCard users={users} />
-      <Userslist users={users} />
+      <Userslist users={users} fetchUsers={fetchUsers} />
     </div>
   );
 }

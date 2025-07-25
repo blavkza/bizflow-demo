@@ -56,10 +56,10 @@ export async function POST(request: Request) {
       type === "client"
         ? clientId
         : type === "employee"
-        ? employeeId
-        : type === "settings"
-        ? settingsId
-        : userId;
+          ? employeeId
+          : type === "settings"
+            ? settingsId
+            : userId;
 
     if (
       (type === "client" && !clientId) ||

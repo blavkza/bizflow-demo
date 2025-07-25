@@ -41,6 +41,7 @@ export default function QuotationDetailPage({
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchQuotation();
   }, [id]);

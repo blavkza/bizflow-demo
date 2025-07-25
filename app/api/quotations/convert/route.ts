@@ -58,7 +58,7 @@ export async function POST(request: Request) {
         clientId: quotation.clientId,
         amount,
         currency: quotation.currency || "ZAR",
-        status: "PAID",
+        status: "DRAFT",
         issueDate: new Date(),
         dueDate: new Date(quotation.validUntil),
         description: quotation.description || undefined,

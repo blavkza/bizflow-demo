@@ -47,8 +47,10 @@ const colorClasses = [
 
 export default function CategoryCard({
   categories,
+  fetchCategories,
 }: {
   categories: CategoryWithTransactions[];
+  fetchCategories: () => void;
 }) {
   const router = useRouter();
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
@@ -115,7 +117,7 @@ export default function CategoryCard({
                         onCancel={() => setEditingCategoryId(null)}
                         onSubmitSuccess={() => {
                           setEditingCategoryId(null);
-                          router.refresh();
+                          if (fetchCategories) fetchCategories();
                         }}
                       />
                     </DialogContent>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, Calendar, Users } from "lucide-react";
 import { Employee } from "@prisma/client";
@@ -27,17 +26,18 @@ interface EmployeeWithDetails extends Employee {
 }
 
 interface StatsCardProps {
-  employees: EmployeeWithDetails[];
+  employees?: EmployeeWithDetails[];
 }
 
-export default function StatsCard({ employees }: StatsCardProps) {
+export default function StatsCard({ employees = [] }: StatsCardProps) {
   const totalPayroll = employees.reduce(
     (sum, employee) =>
-      employee.status === "ACTIVE" ? sum + Number(employee.salary) : sum,
+      employee?.status === "ACTIVE" ? sum + Number(employee?.salary || 0) : sum,
     0
   );
+
   const activeWorkers = employees.filter(
-    (employee) => employee.status === "ACTIVE"
+    (employee) => employee?.status === "ACTIVE"
   ).length;
 
   return (

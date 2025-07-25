@@ -23,8 +23,8 @@ export function QuickActions() {
   const router = useRouter();
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      <Button variant="outline" className="h-16 flex-col gap-2">
+    <div className="grid grid-cols-1 gap-2">
+      <Button variant="outline" className="h-16 w-30 flex-col gap-2">
         <Link
           className="flex flex-col gap-3 items-center "
           href={"/dashboard/invoices/new"}
@@ -33,7 +33,7 @@ export function QuickActions() {
           <span>New Invoice</span>
         </Link>
       </Button>
-      <Button variant="outline" className="h-16 flex-col gap-2">
+      <Button variant="outline" className="h-16 w-30 flex-col gap-2">
         <Link
           className="flex flex-col gap-3 items-center "
           href={"/dashboard/invoices/new"}
@@ -45,7 +45,7 @@ export function QuickActions() {
       </Button>
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" className="h-16 flex-col gap-2">
+          <Button variant="outline" className="h-16 w-30 flex-col gap-2">
             <Plus className="h-4 w-4" />
             <span>Transation</span>
           </Button>
@@ -69,7 +69,7 @@ export function QuickActions() {
       </Dialog>
       <Dialog open={isClientDialogOpen} onOpenChange={setIsClientDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" className="h-16 flex-col gap-2">
+          <Button variant="outline" className="h-16 w-30 flex-col gap-2">
             <Plus className="h-4 w-4" />
             <span>Add Client</span>
           </Button>

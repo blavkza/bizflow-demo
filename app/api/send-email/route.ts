@@ -58,8 +58,11 @@ export async function POST(request: Request) {
       ],
     });
 
-    const updatedInvoiveStatus = await db.invoice.update({
-      where: { id: invoice.id },
+    const updatedInvoiveStatus = await db.invoice.updateMany({
+      where: {
+        id: invoice.id,
+        status: { not: "PAID" },
+      },
       data: { status: "SENT" },
     });
 

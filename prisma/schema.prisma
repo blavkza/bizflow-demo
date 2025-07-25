@@ -74,10 +74,15 @@ model GeneralSetting {
   companyName  String
   taxId        String
   phone        String
+  phone2       String?
+  phone3       String?
   website      String?
   paymentTerms String?
   note         String?
   bankAccount  String?
+  bankAccount2 String?
+  bankName     String?
+  bankName2    String?
   logo         String?
   email        String
   Address      String

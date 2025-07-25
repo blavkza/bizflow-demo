@@ -36,22 +36,22 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const response = await axios.get("/api/employees");
-        setEmployees(response.data.employees);
-        setDepartments(response.data.departments);
-        setStatuses(response.data.statuses);
-        setWorkTypes(response.data.workTypes);
-      } catch (err) {
-        setError("Failed to fetch employees");
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchEmployees = async () => {
+    try {
+      const response = await axios.get("/api/employees");
+      setEmployees(response.data.employees);
+      setDepartments(response.data.departments);
+      setStatuses(response.data.statuses);
+      setWorkTypes(response.data.workTypes);
+    } catch (err) {
+      setError("Failed to fetch employees");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchEmployees();
   }, []);
 
@@ -73,6 +73,7 @@ export default function EmployeesPage() {
       departments={departments}
       initialStatuses={statuses}
       initialWorkTypes={workTypes}
+      fetchEmployees={fetchEmployees}
     />
   );
 }

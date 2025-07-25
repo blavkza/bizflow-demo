@@ -41,12 +41,14 @@ interface HeaderProps {
   categories: CategoryWithTransactions[];
   onSearch: (term: string) => void;
   onFilter: (type: "all" | "INCOME" | "EXPENSE") => void;
+  fetchCategories: () => void;
 }
 
 export default function Header({
   categories,
   onSearch,
   onFilter,
+  fetchCategories,
 }: HeaderProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const router = useRouter();
@@ -102,7 +104,7 @@ export default function Header({
               onCancel={() => setIsAddDialogOpen(false)}
               onSubmitSuccess={() => {
                 setIsAddDialogOpen(false);
-                router.refresh();
+                if (fetchCategories) fetchCategories();
               }}
             />
           </DialogContent>

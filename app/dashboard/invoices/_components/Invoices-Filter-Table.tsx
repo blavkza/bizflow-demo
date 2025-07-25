@@ -155,7 +155,6 @@ export default function InvoicesFilterTable({
                   <TableRow>
                     <TableHead>Invoice #</TableHead>
                     <TableHead>Client</TableHead>
-                    <TableHead>Description</TableHead>
                     <TableHead>Issue Date</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Amount</TableHead>
@@ -175,9 +174,7 @@ export default function InvoicesFilterTable({
                         </Link>
                       </TableCell>
                       <TableCell>{invoice.client}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {invoice.description}
-                      </TableCell>
+
                       <TableCell>{formatDate(invoice.issueDate)}</TableCell>
                       <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                       <TableCell>{formatCurrency(invoice.amount)}</TableCell>

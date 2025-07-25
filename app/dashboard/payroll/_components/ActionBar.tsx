@@ -30,12 +30,14 @@ interface ActionBarProps {
   onSearch: (searchTerm: string) => void;
   onDepartmentFilter: (department: string) => void;
   employees: EmployeeWithDetails[];
+  fetchEmployees: () => void;
 }
 
 export default function ActionBar({
   onSearch,
   onDepartmentFilter,
   employees,
+  fetchEmployees,
 }: ActionBarProps) {
   const [isPayrollDialogOpen, setIsPayrollDialogOpen] = useState(false);
   const router = useRouter();
@@ -113,7 +115,7 @@ export default function ActionBar({
                 onCancel={() => setIsPayrollDialogOpen(false)}
                 onSubmitSuccess={() => {
                   setIsPayrollDialogOpen(false);
-                  router.refresh();
+                  if (fetchEmployees) fetchEmployees();
                 }}
               />
             </DialogContent>

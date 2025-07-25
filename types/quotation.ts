@@ -4,7 +4,14 @@ import { Decimal } from "@prisma/client/runtime/library";
 export type QuotationWithRelations = Quotation & {
   client: Pick<
     Client,
-    "id" | "name" | "email" | "phone" | "address" | "taxNumber"
+    | "id"
+    | "name"
+    | "email"
+    | "phone"
+    | "address"
+    | "taxNumber"
+    | "taxNumber"
+    | "company"
   >;
   items: (QuotationItem & {
     quantity: number | Decimal;
@@ -21,12 +28,18 @@ export type QuotationWithRelations = Quotation & {
       companyName?: string;
       Address?: string;
       city?: string;
+      taxId?: string;
       province?: string;
       postCode?: string;
       email?: string;
       phone?: string;
+      phone2?: string;
+      phone3?: string;
       website?: string;
       bankAccount?: string;
+      bankAccount2?: string;
+      bankName?: string;
+      bankName2?: string;
     }>;
   };
   activities?: {

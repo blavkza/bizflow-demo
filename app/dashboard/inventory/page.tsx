@@ -47,7 +47,7 @@ export default function InventoryPage() {
 
   const handleProductCreated = () => {
     setIsDialogOpen(false);
-    fetchProducts(); // Reuse the same fetch function
+    fetchProducts();
     router.refresh();
   };
 

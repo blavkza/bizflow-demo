@@ -63,20 +63,20 @@ export default function TransactionsPage() {
     "all"
   );
 
-  useEffect(() => {
-    const fetchTransactions = async () => {
-      try {
-        const res = await fetch("/api/transactions");
-        if (!res.ok) throw new Error("Failed to fetch");
-        const data = await res.json();
-        setTransactions(data);
-      } catch (error) {
-        console.error("Failed to fetch transactions:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchTransactions = async () => {
+    try {
+      const res = await fetch("/api/transactions");
+      if (!res.ok) throw new Error("Failed to fetch");
+      const data = await res.json();
+      setTransactions(data);
+    } catch (error) {
+      console.error("Failed to fetch transactions:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchTransactions();
   }, []);
 
@@ -165,7 +165,7 @@ export default function TransactionsPage() {
                   onCancel={() => setIsAddDialogOpen(false)}
                   onSubmitSuccess={() => {
                     setIsAddDialogOpen(false);
-                    router.refresh();
+                    if (fetchTransactions) fetchTransactions();
                   }}
                 />
               </DialogContent>

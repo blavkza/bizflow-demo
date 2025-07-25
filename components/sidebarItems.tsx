@@ -20,6 +20,7 @@ import {
   TrendingUp,
   ChevronRight,
   Store,
+  Palette,
 } from "lucide-react";
 
 import {
@@ -46,6 +47,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import clsx from "clsx";
 import Profile from "./profile";
+import Image from "next/image";
 
 interface AppSidebarProps {
   role: string;
@@ -197,6 +199,17 @@ const getSidebarData = (role: string): { navMain: NavSection[] } => {
             : []),
         ],
       },
+      {
+        title: "System",
+        items: [
+          {
+            title: "Appearance",
+            url: "/dashboard/appearance",
+            icon: Palette,
+            color: "text-yellow-500",
+          },
+        ],
+      },
     ],
   };
 };
@@ -213,9 +226,15 @@ export function SidebarIterms({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <DollarSign className="size-4" />
+              <Link href="/">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg dark:bg-zinc-100 bg-zinc-200 text-sidebar-primary-foreground">
+                  <Image
+                    src="/logo.png"
+                    alt="Logo"
+                    width={80}
+                    height={80}
+                    className="object-contain"
+                  />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">FinanceFlow</span>

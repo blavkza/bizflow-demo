@@ -1,4 +1,3 @@
-// components/emails/invoice-email.tsx
 import {
   Html,
   Head,
@@ -36,31 +35,39 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
       <Head>
         <title>Invoice #{invoice.invoiceNumber}</title>
         <style>{`
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
-            body {
-              font-family: 'Inter', sans-serif;
-              color: ${primaryColor};
-            }
-            .watermark {
-              position: absolute;
-              inset: 0;
-              opacity: 0.05;
-              z-index: 0;
-              pointer-events: none;
-              background-repeat: no-repeat;
-              background-position: center;
-              background-size: contain;
-              filter: grayscale(100%);
-              transform: rotate(-10deg);
-            }
-            .status-badge {
-              display: inline-block;
-              padding: 0.25rem 0.75rem;
-              border-radius: 9999px;
-              font-size: 0.75rem;
-              font-weight: 600;
-            }
-          `}</style>
+          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+          body {
+            font-family: 'Inter', sans-serif;
+            color: ${primaryColor};
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          .watermark {
+            position: absolute;
+            inset: 0;
+            opacity: 0.05;
+            z-index: 0;
+            pointer-events: none;
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 100%;
+            filter: grayscale(100%);
+            transform: rotate(-10deg);
+          }
+          .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+          }
+          .compact-table td, .compact-table th {
+            padding: 0.25rem 0.5rem !important;
+          }
+          .border-gray-200 {
+            border-color: #E5E7EB;
+          }
+        `}</style>
       </Head>
       <Body style={{ backgroundColor: "#ffffff", position: "relative" }}>
         {/* Watermark */}
@@ -77,53 +84,64 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
           style={{
             maxWidth: "800px",
             margin: "0 auto",
-            padding: "2rem",
+            padding: "1rem",
             position: "relative",
             zIndex: 10,
           }}
         >
           {/* Header */}
-          <Section style={{ marginBottom: "2rem" }}>
+          <Section style={{ marginBottom: "0.5rem" }}>
             <Row>
-              <Column style={{ width: "50%" }}>
+              <Column style={{ width: "60%" }}>
                 {invoice.creator.GeneralSetting[0]?.logo && (
                   <Img
                     src={invoice.creator.GeneralSetting[0].logo}
                     alt="Company Logo"
-                    style={{ height: "0px", marginBottom: "1rem" }}
+                    style={{ height: "40px", marginBottom: "0.5rem" }}
                   />
                 )}
+                <Text
+                  style={{
+                    fontSize: "1rem",
+                    fontWeight: 700,
+                    textTransform: "uppercase",
+                    marginBottom: "0.25rem",
+                    color: "#374151",
+                  }}
+                >
+                  {invoice.creator.GeneralSetting[0]?.companyName}
+                </Text>
                 <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                  <Text
-                    style={{
-                      fontSize: "1rem",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      marginBottom: "0.5rem",
-                      color: "#374151",
-                    }}
-                  >
-                    {invoice.creator.GeneralSetting[0]?.companyName}
-                  </Text>
-                  <br />
                   {invoice.creator.GeneralSetting[0]?.Address}
                   <br />
                   {invoice.creator.GeneralSetting[0]?.city},{" "}
                   {invoice.creator.GeneralSetting[0]?.province}{" "}
                   {invoice.creator.GeneralSetting[0]?.postCode}
                   <br />
-                  {invoice.creator.GeneralSetting[0]?.email} |{" "}
-                  {invoice.creator.GeneralSetting[0]?.phone}
+                  {invoice.creator.GeneralSetting[0]?.email}
                   <br />
-                  Tax Number : {invoice.creator.GeneralSetting[0]?.taxId}
+                  {[
+                    invoice.creator.GeneralSetting[0]?.phone,
+                    invoice.creator.GeneralSetting[0]?.phone2,
+                    invoice.creator.GeneralSetting[0]?.phone3,
+                  ]
+                    .filter(Boolean)
+                    .join(" | ")}
+                  {invoice.creator.GeneralSetting[0]?.taxId && (
+                    <>
+                      <br />
+                      VAT Number: {invoice.creator.GeneralSetting[0]?.taxId}
+                    </>
+                  )}
                 </Text>
               </Column>
-              <Column style={{ width: "50%", textAlign: "right" }}>
+              <Column style={{ width: "40%", textAlign: "right" }}>
                 <Heading
                   style={{
-                    fontSize: "2.25rem",
+                    fontSize: "1.5rem",
                     color: accentColor,
-                    marginBottom: "1rem",
+                    marginBottom: "0.5rem",
+                    fontWeight: 700,
                   }}
                 >
                   INVOICE
@@ -131,13 +149,13 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
                 <div
                   style={{
                     backgroundColor: secondaryColor,
-                    padding: "1rem",
-                    borderRadius: "0.375rem",
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
                     display: "inline-block",
                     textAlign: "left",
                   }}
                 >
-                  <Text style={{ fontWeight: 700 }}>
+                  <Text style={{ fontWeight: 700, fontSize: "0.75rem" }}>
                     #{invoice.invoiceNumber}
                   </Text>
                   <Text style={{ fontSize: "0.75rem" }}>
@@ -154,46 +172,48 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
           </Section>
 
           {/* BILL TO + STATUS */}
-          <Section style={{ marginBottom: "2rem" }}>
+          <Section style={{ marginBottom: "0.5rem" }}>
             <Row>
               <Column
                 style={{
                   width: "50%",
                   backgroundColor: secondaryColor,
-                  padding: "1rem",
-                  borderRadius: "0.375rem",
+                  padding: "0.5rem",
+                  borderRadius: "0.25rem",
                 }}
               >
                 <Text
                   style={{
                     fontSize: "0.75rem",
                     fontWeight: 700,
-                    marginBottom: "0.5rem",
+                    marginBottom: "0.25rem",
                     color: "#374151",
                   }}
                 >
                   BILL TO
                 </Text>
                 {invoice.client.company && (
-                  <Text style={{ fontWeight: 500 }}>
+                  <Text style={{ fontWeight: 500, fontSize: "0.75rem" }}>
                     {invoice.client.company}
                   </Text>
                 )}
-                <Text style={{ fontWeight: 500 }}>{invoice.client.name}</Text>
+                <Text style={{ fontWeight: 500, fontSize: "0.75rem" }}>
+                  {invoice.client.name}
+                </Text>
                 <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
                   {invoice.client.email}
                 </Text>
                 <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
                   {invoice.client.phone}
                 </Text>
+                {invoice.client.taxNumber && (
+                  <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
+                    VAT Number: {invoice.client.taxNumber}
+                  </Text>
+                )}
                 {invoice.client.address && (
                   <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
                     {invoice.client.address}
-                  </Text>
-                )}
-                {invoice.client.taxNumber && (
-                  <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                    Tax Number : {invoice.client.taxNumber}
                   </Text>
                 )}
               </Column>
@@ -201,8 +221,8 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
                 style={{
                   width: "50%",
                   backgroundColor: secondaryColor,
-                  padding: "1rem",
-                  borderRadius: "0.375rem",
+                  padding: "0.5rem",
+                  borderRadius: "0.25rem",
                   textAlign: "right",
                 }}
               >
@@ -210,7 +230,7 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
                   style={{
                     fontSize: "0.75rem",
                     fontWeight: 700,
-                    marginBottom: "0.5rem",
+                    marginBottom: "0.25rem",
                     color: "#374151",
                   }}
                 >
@@ -237,58 +257,107 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
                     Paid on {new Date(invoice.issueDate).toLocaleDateString()}
                   </Text>
                 )}
-                {invoice.creator.GeneralSetting[0]?.bankAccount && (
-                  <>
-                    <Text
-                      style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 700,
-                        marginTop: "1rem",
-                        color: "#374151",
-                      }}
-                    >
-                      Payment Information
-                    </Text>
+
+                <div style={{ marginTop: "1rem" }}>
+                  <Text
+                    style={{
+                      fontSize: "0.75rem",
+                      fontWeight: 700,
+                      marginBottom: "0.25rem",
+                      color: "#374151",
+                    }}
+                  >
+                    Payment Terms
+                  </Text>
+                  {invoice.paymentTerms && (
                     <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                      Please make payments to the account below:
+                      {invoice.paymentTerms}
                     </Text>
-                    <Text
-                      style={{
-                        fontSize: "0.75rem",
-                        marginTop: "0.25rem",
-                        color: "#4B5563",
-                      }}
-                    >
-                      <strong>Account #:</strong>{" "}
-                      {invoice.creator.GeneralSetting[0].bankAccount}
+                  )}
+                </div>
+
+                <div style={{ marginTop: "0.5rem" }}>
+                  {invoice.creator.GeneralSetting[0]?.bankName && (
+                    <Text style={{ fontSize: "0.75rem", fontWeight: 700 }}>
+                      {invoice.creator.GeneralSetting[0]?.bankName}
                     </Text>
-                  </>
+                  )}
+                  {invoice.creator.GeneralSetting[0]?.bankAccount && (
+                    <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
+                      {invoice.creator.GeneralSetting[0]?.bankAccount}
+                    </Text>
+                  )}
+                </div>
+
+                {invoice.creator.GeneralSetting[0]?.bankName2 && (
+                  <div style={{ marginTop: "0.25rem" }}>
+                    <Text style={{ fontSize: "0.75rem", fontWeight: 700 }}>
+                      {invoice.creator.GeneralSetting[0]?.bankName2}
+                    </Text>
+                    {invoice.creator.GeneralSetting[0]?.bankAccount2 && (
+                      <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
+                        {invoice.creator.GeneralSetting[0]?.bankAccount2}
+                      </Text>
+                    )}
+                  </div>
                 )}
               </Column>
             </Row>
           </Section>
 
           {/* Items Table */}
-          <Section style={{ marginBottom: "2rem" }}>
+          <Section style={{ marginBottom: "0.5rem" }}>
             <table
+              className="compact-table"
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
                 fontSize: "0.75rem",
+                border: `1px solid #E5E7EB`,
+                borderRadius: "0.25rem",
+                overflow: "hidden",
               }}
             >
               <thead style={{ backgroundColor: secondaryColor }}>
                 <tr>
-                  <th style={{ textAlign: "left", padding: "0.75rem" }}>
+                  <th
+                    style={{
+                      textAlign: "left",
+                      padding: "0.25rem 0.5rem",
+                      fontWeight: 600,
+                      color: "#374151",
+                    }}
+                  >
                     Description
                   </th>
-                  <th style={{ textAlign: "center", padding: "0.75rem" }}>
+                  <th
+                    style={{
+                      textAlign: "center",
+                      padding: "0.25rem 0.5rem",
+                      fontWeight: 600,
+                      color: "#374151",
+                    }}
+                  >
                     Qty
                   </th>
-                  <th style={{ textAlign: "right", padding: "0.75rem" }}>
+                  <th
+                    style={{
+                      textAlign: "right",
+                      padding: "0.25rem 0.5rem",
+                      fontWeight: 600,
+                      color: "#374151",
+                    }}
+                  >
                     Unit Price
                   </th>
-                  <th style={{ textAlign: "right", padding: "0.75rem" }}>
+                  <th
+                    style={{
+                      textAlign: "right",
+                      padding: "0.25rem 0.5rem",
+                      fontWeight: 600,
+                      color: "#374151",
+                    }}
+                  >
                     Amount
                   </th>
                 </tr>
@@ -300,25 +369,38 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
                     style={{
                       backgroundColor:
                         index % 2 === 0 ? "#FFFFFF" : secondaryColor,
+                      borderTop: `1px solid #E5E7EB`,
                     }}
                   >
-                    <td style={{ padding: "0.75rem" }}>{item.description}</td>
-                    <td style={{ padding: "0.75rem", textAlign: "center" }}>
+                    <td style={{ padding: "0.25rem 0.5rem" }}>
+                      {item.description}
+                    </td>
+                    <td
+                      style={{
+                        padding: "0.25rem 0.5rem",
+                        textAlign: "center",
+                      }}
+                    >
                       {item.quantity}
                     </td>
-                    <td style={{ padding: "0.75rem", textAlign: "right" }}>
-                      R
-                      {Number(item.unitPrice).toLocaleString("en-ZA", {
-                        minimumFractionDigits: 2,
-                      })}
+                    <td
+                      style={{
+                        padding: "0.25rem 0.5rem",
+                        textAlign: "right",
+                      }}
+                    >
+                      R{Number(item.unitPrice).toFixed(2)}
                     </td>
-                    <td style={{ padding: "0.75rem", textAlign: "right" }}>
+                    <td
+                      style={{
+                        padding: "0.25rem 0.5rem",
+                        textAlign: "right",
+                      }}
+                    >
                       R
-                      {(
-                        Number(item.quantity) * Number(item.unitPrice)
-                      ).toLocaleString("en-ZA", {
-                        minimumFractionDigits: 2,
-                      })}
+                      {(Number(item.quantity) * Number(item.unitPrice)).toFixed(
+                        2
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -402,38 +484,25 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
             </div>
           </Section>
 
-          {/* Notes & Footer */}
-          <Section>
+          {/* Footer */}
+          <Section style={{ marginTop: "1rem" }}>
             {invoice.note && (
-              <Row>
-                <Column>
-                  <Text
-                    style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 700,
-                      color: "#374151",
-                    }}
-                  >
-                    Notes
-                  </Text>
-                  <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                    {invoice.note}
-                  </Text>
-                </Column>
-              </Row>
+              <Text
+                style={{
+                  fontSize: "0.75rem",
+                  color: "#4B5563",
+                  textAlign: "center",
+                }}
+              >
+                {invoice.note}
+              </Text>
             )}
-            <Hr
-              style={{
-                borderColor: "#E5E7EB",
-                marginTop: "2rem",
-                marginBottom: "1rem",
-              }}
-            />
             <Text
               style={{
                 fontSize: "0.75rem",
                 color: "#9CA3AF",
                 textAlign: "center",
+                marginTop: "0.5rem",
               }}
             >
               {invoice.creator.GeneralSetting[0]?.website}
@@ -446,24 +515,6 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
               }}
             >
               Thank you for your business!
-            </Text>
-            <Text
-              style={{
-                fontSize: "0.75rem",
-                color: "#9CA3AF",
-                textAlign: "center",
-              }}
-            >
-              {invoice.creator.GeneralSetting[0]?.companyName || "Company Name"}{" "}
-              • Terms: Net{" "}
-              {invoice.dueDate
-                ? Math.ceil(
-                    (new Date(invoice.dueDate).getTime() -
-                      new Date(invoice.issueDate).getTime()) /
-                      (1000 * 60 * 60 * 24)
-                  )
-                : 30}{" "}
-              Days
             </Text>
           </Section>
         </Container>

@@ -40,8 +40,13 @@ interface QuotationHeaderProps {
         postCode?: string;
         email?: string;
         phone?: string;
+        phone2?: string;
+        phone3?: string;
         website?: string;
         bankAccount?: string;
+        bankAccount2?: string;
+        bankName?: string;
+        bankName2?: string;
       }>;
     };
   };
@@ -125,10 +130,6 @@ export const QuotationHeader = ({
       }
       setIsGeneratingPdf(false);
     }
-  };
-
-  const handleSuccessAction = () => {
-    router.refresh(); // Refresh the page to update the status
   };
 
   return (
@@ -229,6 +230,9 @@ export const QuotationHeader = ({
         open={isConvertDialogOpen}
         onOpenChange={setIsConvertDialogOpen}
         quotation={quotation}
+        refresh={() => {
+          if (refresh) refresh();
+        }}
       />
 
       <SendQuotationDialog
@@ -242,7 +246,9 @@ export const QuotationHeader = ({
         onOpenChange={setCancelDialogOpen}
         quotationId={quotation.id}
         status={quotation.status}
-        refresh={refresh}
+        refresh={() => {
+          if (refresh) refresh();
+        }}
       />
 
       <DeleteQuotationDialog

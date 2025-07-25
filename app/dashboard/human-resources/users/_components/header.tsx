@@ -15,9 +15,15 @@ import { Plus } from "lucide-react";
 import UserForm from "./user-Form";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { useRouter } from "next/navigation";
 
-export default function Header() {
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+interface HeaderProps {
+  fetchUsers?: () => void;
+}
+
+export default function Header({ fetchUsers }: HeaderProps) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const router = useRouter();
 
   return (
     <div className="flex items-center justify-between space-y-2">
@@ -37,7 +43,7 @@ export default function Header() {
         </div>
       </header>
 
-      <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
           <Button>
             <Plus className="h-4 w-4 mr-2" />
@@ -51,7 +57,14 @@ export default function Header() {
               Create a new user account with appropriate permissions.
             </DialogDescription>
           </DialogHeader>
-          <UserForm type="create" />
+          <UserForm
+            type="create"
+            onCancel={() => setIsDialogOpen(false)}
+            onSubmitSuccess={() => {
+              setIsDialogOpen(false);
+              if (fetchUsers) fetchUsers();
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>

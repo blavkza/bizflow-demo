@@ -8,9 +8,13 @@ import WorkersList from "./Workers-List";
 
 interface TableFilterProps {
   initialEmployees: EmployeeWithDetails[];
+  fetchEmployees: () => void;
 }
 
-export default function TableFilter({ initialEmployees }: TableFilterProps) {
+export default function TableFilter({
+  initialEmployees,
+  fetchEmployees,
+}: TableFilterProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
 
@@ -37,6 +41,7 @@ export default function TableFilter({ initialEmployees }: TableFilterProps) {
         employees={initialEmployees}
         onSearch={setSearchTerm}
         onDepartmentFilter={setDepartmentFilter}
+        fetchEmployees={fetchEmployees}
       />
       <WorkersList employees={filteredEmployees} />
     </>

@@ -7,6 +7,7 @@ import ClientWrapper from "@/components/ClientWrapper";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "./providers";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,12 +26,19 @@ export default function RootLayout({
       {" "}
       <html lang="en">
         <body className={inter.className}>
-          <SidebarProvider defaultOpen={true}>
-            <ClientWrapper>
-              <Providers>{children}</Providers>
-            </ClientWrapper>
-            <Toaster />
-          </SidebarProvider>
+          <NextThemesProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <SidebarProvider defaultOpen={true}>
+              <ClientWrapper>
+                <Providers>{children}</Providers>
+              </ClientWrapper>
+              <Toaster />
+            </SidebarProvider>
+          </NextThemesProvider>
         </body>
       </html>
     </ClerkProvider>

@@ -52,8 +52,6 @@ export default function ClientForm({
   onCancel,
   onSubmitSuccess,
 }: UserFormProps) {
-  const router = useRouter();
-
   const form = useForm<clientSchemaType>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -82,7 +80,6 @@ export default function ClientForm({
 
       form.reset();
       onSubmitSuccess?.();
-      router.refresh();
       onCancel?.();
     } catch (error) {
       toast.error("Something went wrong!");

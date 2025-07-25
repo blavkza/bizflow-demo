@@ -20,7 +20,7 @@ interface QuotationEmailProps {
 export function QuotationEmail({ quotation }: QuotationEmailProps) {
   const primaryColor = "#1F2937";
   const secondaryColor = "#F3F4F6";
-  const accentColor = "#3B82F6"; // Blue color for quotations
+  const accentColor = "#3B82F6";
 
   const subtotal = Number(quotation.totalAmount);
   const taxAmount = Number(quotation.taxAmount) || 0;
@@ -38,6 +38,7 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
             body {
               font-family: 'Inter', sans-serif;
               color: ${primaryColor};
+              font-size: 12px;
             }
             .watermark {
               position: absolute;
@@ -47,16 +48,19 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
               pointer-events: none;
               background-repeat: no-repeat;
               background-position: center;
-              background-size: contain;
+              background-size: 50%;
               filter: grayscale(100%);
               transform: rotate(-10deg);
             }
             .status-badge {
               display: inline-block;
-              padding: 0.25rem 0.75rem;
+              padding: 0.25rem 0.5rem;
               border-radius: 9999px;
               font-size: 0.75rem;
               font-weight: 600;
+            }
+            .compact-table td, .compact-table th {
+              padding: 0.25rem !important;
             }
           `}</style>
       </Head>
@@ -72,29 +76,29 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
           style={{
             maxWidth: "800px",
             margin: "0 auto",
-            padding: "2rem",
+            padding: "1.5rem",
             position: "relative",
             zIndex: 10,
           }}
         >
           {/* Header */}
-          <Section style={{ marginBottom: "2rem" }}>
+          <Section style={{ marginBottom: "1rem" }}>
             <Row>
-              <Column style={{ width: "50%" }}>
+              <Column style={{ width: "60%" }}>
                 {creatorSettings.logo && (
                   <Img
                     src={creatorSettings.logo}
                     alt="Company Logo"
-                    style={{ height: "40px", marginBottom: "1rem" }}
+                    style={{ height: "60px", marginBottom: "0.5rem" }}
                   />
                 )}
-                <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
+                <Text style={{ color: "#4B5563" }}>
                   <Text
                     style={{
                       fontSize: "1rem",
                       fontWeight: 700,
                       textTransform: "uppercase",
-                      marginBottom: "0.5rem",
+                      marginBottom: "0.25rem",
                       color: "#374151",
                     }}
                   >
@@ -106,15 +110,26 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                   {creatorSettings.city}, {creatorSettings.province}{" "}
                   {creatorSettings.postCode}
                   <br />
-                  {creatorSettings.email} | {creatorSettings.phone}
+                  {creatorSettings.email}
+                  <br />
+                  {[
+                    creatorSettings.phone,
+                    creatorSettings.phone2,
+                    creatorSettings.phone3,
+                  ]
+                    .filter(Boolean)
+                    .join(" | ")}
+                  <br />
+                  {creatorSettings.taxId &&
+                    `VAT Number: ${creatorSettings.taxId}`}
                 </Text>
               </Column>
-              <Column style={{ width: "50%", textAlign: "right" }}>
+              <Column style={{ width: "40%", textAlign: "right" }}>
                 <Heading
                   style={{
-                    fontSize: "2.25rem",
+                    fontSize: "1.5rem",
                     color: accentColor,
-                    marginBottom: "1rem",
+                    marginBottom: "0.5rem",
                   }}
                 >
                   QUOTATION
@@ -122,8 +137,8 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                 <div
                   style={{
                     backgroundColor: secondaryColor,
-                    padding: "1rem",
-                    borderRadius: "0.375rem",
+                    padding: "0.5rem",
+                    borderRadius: "0.25rem",
                     display: "inline-block",
                     textAlign: "left",
                   }}
@@ -131,11 +146,11 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                   <Text style={{ fontWeight: 700 }}>
                     #{quotation.quotationNumber}
                   </Text>
-                  <Text style={{ fontSize: "0.75rem" }}>
+                  <Text>
                     <strong>Issued:</strong>{" "}
                     {new Date(quotation.issueDate).toLocaleDateString()}
                   </Text>
-                  <Text style={{ fontSize: "0.75rem" }}>
+                  <Text>
                     <strong>Valid Until:</strong>{" "}
                     {new Date(quotation.validUntil).toLocaleDateString()}
                   </Text>
@@ -145,35 +160,44 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
           </Section>
 
           {/* Client Info + Status */}
-          <Section style={{ marginBottom: "2rem" }}>
+          <Section style={{ marginBottom: "1rem" }}>
             <Row>
               <Column
                 style={{
                   width: "50%",
                   backgroundColor: secondaryColor,
-                  padding: "1rem",
-                  borderRadius: "0.375rem",
+                  padding: "0.5rem",
+                  borderRadius: "0.25rem",
                 }}
               >
                 <Text
                   style={{
-                    fontSize: "0.75rem",
                     fontWeight: 700,
-                    marginBottom: "0.5rem",
+                    marginBottom: "0.25rem",
                     color: "#374151",
                   }}
                 >
                   QUOTATION FOR
                 </Text>
+                {quotation.client.company && (
+                  <Text style={{ fontWeight: 500 }}>
+                    {quotation.client.company}
+                  </Text>
+                )}
                 <Text style={{ fontWeight: 500 }}>{quotation.client.name}</Text>
-                <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
+                <Text style={{ color: "#4B5563" }}>
                   {quotation.client.email}
                 </Text>
-                <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
+                <Text style={{ color: "#4B5563" }}>
                   {quotation.client.phone}
                 </Text>
+                {quotation.client.taxNumber && (
+                  <Text style={{ color: "#4B5563" }}>
+                    VAT Number: {quotation.client.taxNumber}
+                  </Text>
+                )}
                 {quotation.client.address && (
-                  <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
+                  <Text style={{ color: "#4B5563" }}>
                     {quotation.client.address}
                   </Text>
                 )}
@@ -182,16 +206,15 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                 style={{
                   width: "50%",
                   backgroundColor: secondaryColor,
-                  padding: "1rem",
-                  borderRadius: "0.375rem",
+                  padding: "0.5rem",
+                  borderRadius: "0.25rem",
                   textAlign: "right",
                 }}
               >
                 <Text
                   style={{
-                    fontSize: "0.75rem",
                     fontWeight: 700,
-                    marginBottom: "0.5rem",
+                    marginBottom: "0.25rem",
                     color: "#374151",
                   }}
                 >
@@ -214,33 +237,72 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                           : "#92400E",
                   }}
                 >
-                  {quotation.status}
+                  {quotation.status === "ACCEPTED"
+                    ? "ACCEPTED"
+                    : quotation.status}
                 </span>
+
+                <div
+                  style={{
+                    marginTop: "1rem",
+                    borderTop: "1px solid #E5E7EB",
+                    paddingTop: "0.5rem",
+                  }}
+                >
+                  <Text style={{ fontWeight: 700, color: "#374151" }}>
+                    Payment Terms
+                  </Text>
+                  <Text style={{ color: "#4B5563", marginBottom: "0.5rem" }}>
+                    {quotation.paymentTerms || "Standard payment terms apply"}
+                  </Text>
+
+                  {creatorSettings.bankName && creatorSettings.bankAccount && (
+                    <div style={{ marginBottom: "0.25rem" }}>
+                      <Text style={{ fontWeight: 600 }}>
+                        {creatorSettings.bankName}
+                      </Text>
+                      <Text>{creatorSettings.bankAccount}</Text>
+                    </div>
+                  )}
+
+                  {creatorSettings.bankName2 &&
+                    creatorSettings.bankAccount2 && (
+                      <div>
+                        <Text style={{ fontWeight: 600 }}>
+                          {creatorSettings.bankName2}
+                        </Text>
+                        <Text>{creatorSettings.bankAccount2}</Text>
+                      </div>
+                    )}
+                </div>
               </Column>
             </Row>
           </Section>
 
           {/* Items Table */}
-          <Section style={{ marginBottom: "2rem" }}>
+          <Section style={{ marginBottom: "1rem" }}>
             <table
+              className="compact-table"
               style={{
                 width: "100%",
                 borderCollapse: "collapse",
-                fontSize: "0.75rem",
+                border: "1px solid #E5E7EB",
+                borderRadius: "0.25rem",
+                overflow: "hidden",
               }}
             >
               <thead style={{ backgroundColor: secondaryColor }}>
                 <tr>
-                  <th style={{ textAlign: "left", padding: "0.75rem" }}>
+                  <th style={{ textAlign: "left", padding: "0.25rem" }}>
                     Description
                   </th>
-                  <th style={{ textAlign: "center", padding: "0.75rem" }}>
+                  <th style={{ textAlign: "center", padding: "0.25rem" }}>
                     Qty
                   </th>
-                  <th style={{ textAlign: "right", padding: "0.75rem" }}>
+                  <th style={{ textAlign: "right", padding: "0.25rem" }}>
                     Unit Price
                   </th>
-                  <th style={{ textAlign: "right", padding: "0.75rem" }}>
+                  <th style={{ textAlign: "right", padding: "0.25rem" }}>
                     Amount
                   </th>
                 </tr>
@@ -254,21 +316,18 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                         index % 2 === 0 ? "#FFFFFF" : secondaryColor,
                     }}
                   >
-                    <td style={{ padding: "0.75rem" }}>{item.description}</td>
-                    <td style={{ padding: "0.75rem", textAlign: "center" }}>
+                    <td style={{ padding: "0.25rem" }}>{item.description}</td>
+                    <td style={{ padding: "0.25rem", textAlign: "center" }}>
                       {Number(item.quantity)}
                     </td>
-                    <td style={{ padding: "0.75rem", textAlign: "right" }}>
-                      R
-                      {Number(item.unitPrice).toLocaleString("en-ZA", {
-                        minimumFractionDigits: 2,
-                      })}
+                    <td style={{ padding: "0.25rem", textAlign: "right" }}>
+                      R{Number(item.unitPrice).toFixed(2)}
                     </td>
-                    <td style={{ padding: "0.75rem", textAlign: "right" }}>
+                    <td style={{ padding: "0.25rem", textAlign: "right" }}>
                       R
-                      {(
-                        Number(item.quantity) * Number(item.unitPrice)
-                      ).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                      {(Number(item.quantity) * Number(item.unitPrice)).toFixed(
+                        2
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -277,13 +336,12 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
           </Section>
 
           {/* Totals */}
-          <Section>
+          <Section style={{ marginBottom: "1rem" }}>
             <div style={{ display: "flex" }}>
               <div
                 style={{
                   marginLeft: "auto",
                   width: "33%",
-                  fontSize: "0.75rem",
                 }}
               >
                 {/* Subtotal */}
@@ -291,7 +349,7 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                   style={{ display: "flex", justifyContent: "space-between" }}
                 >
                   <Text>Subtotal:</Text>
-                  <Text>R{subtotal.toLocaleString()}</Text>
+                  <Text>R{subtotal.toFixed(2)}</Text>
                 </div>
 
                 {/* Tax */}
@@ -300,15 +358,9 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                     style={{ display: "flex", justifyContent: "space-between" }}
                   >
                     <Text>
-                      Tax ({((taxAmount / Number(subtotal)) * 100).toFixed(2)}
-                      %):
+                      Tax ({((taxAmount / subtotal) * 100).toFixed(2)}%):
                     </Text>
-                    <Text>
-                      R
-                      {taxAmount.toLocaleString("en-ZA", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </Text>
+                    <Text>R{taxAmount.toFixed(2)}</Text>
                   </div>
                 )}
 
@@ -318,12 +370,7 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                     style={{ display: "flex", justifyContent: "space-between" }}
                   >
                     <Text>Discount:</Text>
-                    <Text>
-                      R
-                      {discount.toLocaleString("en-ZA", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </Text>
+                    <Text>-R{discount.toFixed(2)}</Text>
                   </div>
                 )}
 
@@ -333,51 +380,29 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
                     display: "flex",
                     justifyContent: "space-between",
                     fontWeight: "bold",
-                    fontSize: "1rem",
+                    fontSize: "0.875rem",
                   }}
                 >
                   <Text>Total:</Text>
                   <Text style={{ color: accentColor }}>
-                    R
-                    {total.toLocaleString("en-ZA", {
-                      minimumFractionDigits: 2,
-                    })}
+                    R{total.toFixed(2)}
                   </Text>
                 </div>
               </div>
             </div>
           </Section>
 
-          {/* Notes & Footer */}
+          {/* Footer */}
           <Section>
-            {quotation.notes && (
-              <Row>
-                <Column>
-                  <Text
-                    style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 700,
-                      color: "#374151",
-                    }}
-                  >
-                    Notes
-                  </Text>
-                  <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                    {quotation.notes}
-                  </Text>
-                </Column>
-              </Row>
-            )}
             <Hr
               style={{
                 borderColor: "#E5E7EB",
-                marginTop: "2rem",
-                marginBottom: "1rem",
+                marginTop: "1rem",
+                marginBottom: "0.5rem",
               }}
             />
             <Text
               style={{
-                fontSize: "0.75rem",
                 color: "#9CA3AF",
                 textAlign: "center",
               }}
@@ -386,7 +411,6 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
             </Text>
             <Text
               style={{
-                fontSize: "0.75rem",
                 color: "#9CA3AF",
                 textAlign: "center",
               }}
@@ -396,7 +420,6 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
             </Text>
             <Text
               style={{
-                fontSize: "0.75rem",
                 color: "#9CA3AF",
                 textAlign: "center",
               }}

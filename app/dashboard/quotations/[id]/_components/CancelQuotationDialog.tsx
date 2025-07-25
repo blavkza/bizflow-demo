@@ -42,8 +42,7 @@ export const CancelQuotationDialog = ({
         `Quotation ${status === "CANCELLED" ? "uncancelled" : "cancelled"} successfully`
       );
 
-      router.refresh();
-      refresh;
+      refresh?.();
     } catch (error) {
       console.error("Error processing quotation:", error);
       toast.error(

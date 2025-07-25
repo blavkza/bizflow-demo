@@ -45,8 +45,13 @@ export default function GeneralSettingsForm() {
       companyName: "",
       taxId: "",
       phone: "",
+      phone2: "",
+      phone3: "",
       email: "",
       bankAccount: "",
+      bankAccount2: "",
+      bankName: "",
+      bankName2: "",
       website: "",
       paymentTerms: "",
       note: "",
@@ -82,6 +87,8 @@ export default function GeneralSettingsForm() {
             companyName: settings.companyName,
             taxId: settings.taxId || "",
             phone: settings.phone || "",
+            phone2: settings.phone2 || "",
+            phone3: settings.phone3 || "",
             email: settings.email || "",
             address: settings.address,
             city: settings.city,
@@ -89,6 +96,9 @@ export default function GeneralSettingsForm() {
             paymentTerms: settings.paymentTerms,
             note: settings.wenotebsite,
             bankAccount: settings.bankAccount,
+            bankAccount2: settings.bankAccount2,
+            bankName: settings.bankName,
+            bankName2: settings.bankName2,
             province: settings.province,
             postCode: settings.postCode,
           });
@@ -168,10 +178,10 @@ export default function GeneralSettingsForm() {
                 name="taxId"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel>Tax Id (Optional)</FormLabel>
+                    <FormLabel>VAT (Optional)</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Enter Tax Id"
+                        placeholder="Enter VAT"
                         {...field}
                         className="w-full"
                       />
@@ -219,6 +229,43 @@ export default function GeneralSettingsForm() {
                 )}
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="phone2"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel>2nd Number</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter 2nd Number"
+                        {...field}
+                        className="w-full"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="phone3"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel>3rd Number</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter 3rd Number"
+                        {...field}
+                        className="w-full"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <div className="grid grid-cols-2 gap-4">
               <FormField
@@ -238,13 +285,33 @@ export default function GeneralSettingsForm() {
                   </FormItem>
                 )}
               />
+            </div>
+            <p className="font-semibold text-xl">Bank Information</p>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="bankName"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel>Back Name (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter Bank Name"
+                        {...field}
+                        className="w-full"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
                 name="bankAccount"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel>Back Account (Optional)</FormLabel>
+                    <FormLabel>Bank Account (Optional)</FormLabel>
                     <FormControl>
                       <Input
                         placeholder="Enter Bank Account"
@@ -257,9 +324,46 @@ export default function GeneralSettingsForm() {
                 )}
               />
             </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="bankName2"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel>Bank 2nd Name (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter 2nd Bank Name"
+                        {...field}
+                        className="w-full"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="bankAccount2"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <FormLabel>2nd Bank Account (Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter 2nd Bank Account"
+                        {...field}
+                        className="w-full"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/*INVOICE*/}
-            <p>INVOICE / Quotation SETTINGS</p>
+            <p className="font-semibold text-xl">INVOICE / Quotation</p>
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -269,7 +373,7 @@ export default function GeneralSettingsForm() {
                     <FormLabel>Payment Terms (Optional)</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Enter company Website"
+                        placeholder="Enter Invoice Payment Terms"
                         {...field}
                         className="w-full"
                       />
@@ -284,10 +388,10 @@ export default function GeneralSettingsForm() {
                 name="note"
                 render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel>Invoice / Quotation Notes (Optional)</FormLabel>
+                    <FormLabel>Invoice / Quotation Note (Optional)</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="Enter Bank Account"
+                        placeholder="Enter Invoice / Quotation Note"
                         {...field}
                         className="w-full"
                       />

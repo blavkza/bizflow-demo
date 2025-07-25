@@ -500,16 +500,36 @@ export function QuotationForm({
                     <Input
                       type="number"
                       min="0"
-                      step="0.01"
+                      max="10"
+                      step="1.00"
                       placeholder={
                         form.watch("discountType") === "PERCENTAGE"
                           ? "0.00%"
                           : "0.00"
                       }
-                      {...field}
+                      value={field.value === undefined ? "" : field.value}
                       onChange={(e) => {
-                        const value = parseFloat(e.target.value);
-                        field.onChange(isNaN(value) ? 0 : value);
+                        const input = e.target.value;
+
+                        // Allow backspace to clear the input
+                        if (input === "") {
+                          field.onChange(undefined);
+                          return;
+                        }
+
+                        let value = parseFloat(input);
+
+                        if (isNaN(value)) {
+                          field.onChange(undefined);
+                          return;
+                        }
+
+                        // Clamp to max = 10
+                        if (value > 10) {
+                          value = 10;
+                        }
+
+                        field.onChange(value);
                       }}
                     />
                   </FormControl>
@@ -586,8 +606,8 @@ export function QuotationForm({
                       <FormControl>
                         <Input
                           type="number"
-                          min="0.01"
-                          step="0.01"
+                          min="1"
+                          step="1"
                           placeholder="1"
                           {...field}
                           onChange={(e) => {
@@ -612,14 +632,14 @@ export function QuotationForm({
                       </FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
+                          type="text"
                           placeholder="0.00"
-                          {...field}
+                          value={field.value ?? ""}
                           onChange={(e) => {
-                            const value = parseFloat(e.target.value);
-                            field.onChange(isNaN(value) ? 0 : value);
+                            const val = e.target.value;
+                            field.onChange(
+                              val === "" ? undefined : parseFloat(val)
+                            );
                             handleManualItemChange(index);
                           }}
                         />
@@ -640,14 +660,15 @@ export function QuotationForm({
                       </FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          placeholder="0"
-                          {...field}
+                          type="text"
+                          placeholder="0.00%"
+                          value={field.value ?? ""}
                           onChange={(e) => {
-                            const value = parseFloat(e.target.value);
-                            field.onChange(isNaN(value) ? 0 : value);
+                            const val = e.target.value;
+                            field.onChange(
+                              val === "" ? undefined : parseFloat(val)
+                            );
+                            handleManualItemChange(index);
                           }}
                         />
                       </FormControl>

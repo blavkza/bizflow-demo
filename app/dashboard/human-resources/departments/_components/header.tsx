@@ -18,9 +18,12 @@ import { Plus } from "lucide-react";
 import DepartmentForm from "./department-Form";
 import { useRouter } from "next/navigation";
 
-export default function Header() {
+interface HeaderProps {
+  fetchDepartments?: () => void;
+}
+
+export default function Header({ fetchDepartments }: HeaderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const router = useRouter();
 
   return (
@@ -39,19 +42,19 @@ export default function Header() {
         <DialogTrigger asChild>
           <Button>
             <Plus className="mr-2 h-4 w-4" />
-            Add Product
+            Add Department
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-[525px]">
           <DialogHeader>
-            <DialogTitle>Create New Product</DialogTitle>
+            <DialogTitle>Create New Department</DialogTitle>
           </DialogHeader>
           <DepartmentForm
             type="create"
-            onCancel={() => setIsEditDialogOpen(false)}
+            onCancel={() => setIsDialogOpen(false)}
             onSubmitSuccess={() => {
-              setIsEditDialogOpen(false);
-              router.refresh();
+              setIsDialogOpen(false);
+              if (fetchDepartments) fetchDepartments();
             }}
           />
         </DialogContent>

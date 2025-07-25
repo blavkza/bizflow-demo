@@ -1,4 +1,4 @@
-"use client"; // Convert to client component
+"use client";
 
 import axios from "axios";
 import { useEffect, useState } from "react";
@@ -13,17 +13,18 @@ export default function WorkersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  const fetchEmployees = async () => {
+    try {
+      const response = await axios.get("/api/payroll");
+      setEmployees(response.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const response = await axios.get("/api/payroll");
-        setEmployees(response.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchEmployees();
   }, []);
 
@@ -46,7 +47,10 @@ export default function WorkersPage() {
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <StatsCard employees={employees} />
-        <TableFilter initialEmployees={employees} />
+        <TableFilter
+          initialEmployees={employees}
+          fetchEmployees={fetchEmployees}
+        />
       </div>
     </div>
   );

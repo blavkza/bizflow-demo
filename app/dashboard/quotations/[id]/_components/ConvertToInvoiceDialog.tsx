@@ -18,10 +18,12 @@ export const ConvertToInvoiceDialog = ({
   open,
   onOpenChange,
   quotation,
+  refresh,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   quotation: QuotationWithRelations;
+  refresh: () => void;
 }) => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +49,7 @@ export const ConvertToInvoiceDialog = ({
 
       toast.success("Quotation converted to invoice successfully");
       router.push(`/dashboard/invoices/${invoice.id}`);
-      router.refresh();
+      refresh?.();
     } catch (error) {
       console.error("Conversion error:", error);
       toast.error("Failed to convert quotation to invoice");

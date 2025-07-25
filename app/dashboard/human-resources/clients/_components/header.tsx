@@ -18,9 +18,12 @@ import { Plus } from "lucide-react";
 import ClientForm from "./client-Form";
 import { useRouter } from "next/navigation";
 
-export default function Header() {
+interface HeaderProps {
+  fetchClients?: () => void;
+}
+
+export default function Header({ fetchClients }: HeaderProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const router = useRouter();
 
   return (
@@ -55,10 +58,10 @@ export default function Header() {
             </DialogHeader>
             <ClientForm
               type="create"
-              onCancel={() => setIsEditDialogOpen(false)}
+              onCancel={() => setIsAddDialogOpen(false)}
               onSubmitSuccess={() => {
-                setIsEditDialogOpen(false);
-                router.refresh();
+                setIsAddDialogOpen(false);
+                if (fetchClients) fetchClients();
               }}
             />
           </DialogContent>
