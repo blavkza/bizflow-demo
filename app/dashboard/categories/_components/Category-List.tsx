@@ -123,7 +123,7 @@ export default function CategoryList({
                           : "text-red-600"
                       }
                     >
-                      {category.totalAmount >= 0 ? "+" : "-"}$
+                      {category.totalAmount >= 0 ? "+" : "-"}R
                       {Math.abs(category.totalAmount).toLocaleString()}
                     </TableCell>
                     <TableCell>

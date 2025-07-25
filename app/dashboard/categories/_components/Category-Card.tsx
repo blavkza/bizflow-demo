@@ -137,7 +137,7 @@ export default function CategoryCard({
                         : "text-red-600"
                     }
                   >
-                    {category.totalAmount >= 0 ? "+" : "-"}$
+                    {category.totalAmount >= 0 ? "+" : "-"}R
                     {Math.abs(category.totalAmount).toLocaleString()}
                   </span>
                 </div>
