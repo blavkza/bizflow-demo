@@ -38,7 +38,7 @@ interface Employee {
   id: string;
   employeeId: string;
   name: string;
-  email: string;
+  email?: string;
   phone: string;
   position: string;
   department: string;
@@ -133,7 +133,7 @@ export default function EmployeesList({ employees }: EmployeesListProps) {
             <div className="space-y-2 text-sm">
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <Mail className="h-4 w-4" />
-                <span className="truncate">{employee.email}</span>
+                <span className="truncate">{employee.email || ""}</span>
               </div>
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <Phone className="h-4 w-4" />

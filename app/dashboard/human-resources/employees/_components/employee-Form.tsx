@@ -70,7 +70,6 @@ export default function EmployeeForm({
     defaultValues: {
       firstName: data?.firstName || "",
       lastName: data?.lastName || "",
-      email: data?.email || "",
       phone: data?.phone || "",
       position: data?.position || "",
       departmentId: data?.departmentId || "",
@@ -158,8 +157,7 @@ export default function EmployeeForm({
             )}
           />
 
-          {/* Email */}
-          <FormField
+          {/* Email  <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
@@ -171,7 +169,7 @@ export default function EmployeeForm({
                 <FormMessage />
               </FormItem>
             )}
-          />
+          />*/}
 
           {/* Phone */}
           <FormField

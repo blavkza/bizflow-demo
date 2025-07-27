@@ -26,7 +26,6 @@ export async function POST(req: Request) {
     const {
       firstName,
       lastName,
-      email,
       position,
       phone,
       departmentId,
@@ -48,7 +47,6 @@ export async function POST(req: Request) {
         employeeNumber,
         firstName,
         lastName,
-        email,
         position,
         phone,
         departmentId,
