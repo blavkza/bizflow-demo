@@ -107,7 +107,31 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // First delete all related invoice items
+    const { userId } = await auth();
+
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const creator = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!creator) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+    const invoice = await db.invoice.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!invoice) {
+      return new NextResponse("Invoice Not Found", { status: 401 });
+    }
+
     await db.invoiceItem.deleteMany({
       where: { invoiceId: params.id },
     });
@@ -115,6 +139,16 @@ export async function DELETE(
     // Then delete the invoice
     const deletedInvoice = await db.invoice.delete({
       where: { id: params.id },
+    });
+
+    await db.notification.create({
+      data: {
+        title: "Invoice Deleted",
+        message: `Invoice ${invoice?.invoiceNumber} , has been deleted By ${creator.name}.`,
+        type: "INVOICE",
+        isRead: false,
+        userId: creator.id,
+      },
     });
 
     return NextResponse.json(deletedInvoice);

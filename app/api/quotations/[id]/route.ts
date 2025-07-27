@@ -205,6 +205,18 @@ export async function DELETE(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    const creator = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!creator) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
     const existingQuotation = await db.quotation.findUnique({
       where: {
         id,
@@ -218,6 +230,16 @@ export async function DELETE(
     await db.quotation.delete({
       where: {
         id,
+      },
+    });
+
+    await db.notification.create({
+      data: {
+        title: "Quotation Deleted",
+        message: `Quotation ${existingQuotation?.quotationNumber} , has been deleted By ${creator.name}.`,
+        type: "QUOTATION",
+        isRead: false,
+        userId: creator.id,
       },
     });
 
