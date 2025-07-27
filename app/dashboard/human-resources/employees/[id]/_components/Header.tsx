@@ -75,7 +75,7 @@ export default function Header({ employee }: HeaderProps) {
     <div className="flex items-center justify-between p-6">
       <div className="flex flex-col  space-y-4">
         <Link href="/dashboard/human-resources/employees">
-          <Button variant="ghost" className="bg-white" size="sm">
+          <Button variant="outline" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>

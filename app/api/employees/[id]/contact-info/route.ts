@@ -59,6 +59,17 @@ export async function PUT(
       },
     });
 
+    await db.notification.create({
+      data: {
+        title: "Employee Contat-Info Updated",
+        message: `Employee ${updatedEmployee.lastName} ${updatedEmployee.firstName} , Contact Information have been Updated By ${updater.name}.`,
+        type: "EMPLOYEE",
+        isRead: false,
+        actionUrl: `/dashboard/human-resources/employees/${updatedEmployee.id}`,
+        userId: updater.id,
+      },
+    });
+
     return NextResponse.json(updatedEmployee);
   } catch (error) {
     console.error("Error updating Employee contact info:", error);

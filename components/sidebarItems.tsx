@@ -51,6 +51,7 @@ import Image from "next/image";
 
 interface AppSidebarProps {
   role: string;
+  unreadCount?: number;
 }
 
 interface NavItem {
@@ -67,7 +68,10 @@ interface NavSection {
   items: NavItem[];
 }
 
-const getSidebarData = (role: string): { navMain: NavSection[] } => {
+const getSidebarData = (
+  role: string,
+  unreadCount: number = 0
+): { navMain: NavSection[] } => {
   return {
     navMain: [
       {
@@ -83,7 +87,7 @@ const getSidebarData = (role: string): { navMain: NavSection[] } => {
             title: "Notifications",
             url: "/dashboard/notifications",
             icon: Bell,
-            badge: "",
+            badge: unreadCount > 0 ? unreadCount.toString() : undefined,
             color: "text-red-500",
           },
         ],
@@ -101,13 +105,6 @@ const getSidebarData = (role: string): { navMain: NavSection[] } => {
                 },
               ]
             : []),
-
-          /*   {
-            title: "Budget Management",
-            url: "/dashboard/budget",
-            icon: Calculator,
-            color: "text-yellow-500",
-          }, */
           {
             title: "Quotations",
             url: "/dashboard/quotations",
@@ -124,7 +121,6 @@ const getSidebarData = (role: string): { navMain: NavSection[] } => {
                 },
               ]
             : []),
-
           ...(role === "GENERAL_MANAGER" || role === "CHIEF_EXECUTIVE_OFFICER"
             ? [
                 {
@@ -180,7 +176,6 @@ const getSidebarData = (role: string): { navMain: NavSection[] } => {
                 },
               ]
             : []),
-
           {
             title: "Clients",
             url: "/dashboard/human-resources/clients",
@@ -214,11 +209,12 @@ const getSidebarData = (role: string): { navMain: NavSection[] } => {
   };
 };
 
-export function SidebarIterms({
+export function SidebarItems({
   role,
+  unreadCount = 0,
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
-  const data = getSidebarData(role);
+  const data = getSidebarData(role, unreadCount);
 
   return (
     <Sidebar variant="inset" {...props}>

@@ -120,6 +120,17 @@ export async function POST(req: Request) {
         })),
       });
 
+      await db.notification.create({
+        data: {
+          title: "New Quotation Created",
+          message: `Quotation ${quotationNumber} , has been created By ${creator.name}.`,
+          type: "QUOTATION",
+          isRead: false,
+          actionUrl: `/dashboard/quotations/${quotation.id}`,
+          userId: creator.id,
+        },
+      });
+
       return quotation;
     });
 

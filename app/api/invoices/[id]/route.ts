@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { auth } from "@clerk/nextjs/server";
 
 export async function GET(
   req: Request,
@@ -33,6 +34,24 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const updater = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!updater) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { items, ...invoiceData } = body;
 
@@ -57,6 +76,17 @@ export async function PUT(
         ...item,
         invoiceId: params.id,
       })),
+    });
+
+    await db.notification.create({
+      data: {
+        title: "Invoice Updated",
+        message: `Invoice ${updatedInvoice.invoiceNumber} , has been Updated By ${updater.name}.`,
+        type: "INVOICE",
+        isRead: false,
+        actionUrl: `/dashboard/invoices/${updatedInvoice.id}`,
+        userId: updater.id,
+      },
     });
 
     return NextResponse.json({

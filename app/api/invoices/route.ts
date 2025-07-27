@@ -99,6 +99,17 @@ export async function POST(req: Request) {
         })),
       });
 
+      await db.notification.create({
+        data: {
+          title: "New Invoice Created",
+          message: `Invoice ${invoiceNumber} , has been created By ${creator.name}.`,
+          type: "INVOICE",
+          isRead: false,
+          actionUrl: `/dashboard/invoices/${invoice.id}`,
+          userId: creator.id,
+        },
+      });
+
       return invoice;
     });
 

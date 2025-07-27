@@ -112,6 +112,17 @@ export async function POST(req: Request) {
       return { transaction };
     });
 
+    await db.notification.create({
+      data: {
+        title: "Transaction Created",
+        message: `Transaction , has been Created By ${creator.name}.`,
+        type: "PAYMENT",
+        isRead: false,
+        actionUrl: `/dashboard/settings`,
+        userId: creator.id,
+      },
+    });
+
     return NextResponse.json(result.transaction, { status: 201 });
   } catch (error) {
     console.error("[TRANSACTIONS_POST]", error);

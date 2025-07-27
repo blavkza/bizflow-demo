@@ -11,9 +11,21 @@ const departmentSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const { userId: clerkUserId } = await auth();
+    const { userId } = await auth();
 
-    if (!clerkUserId) {
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const creater = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!creater) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -62,7 +74,18 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ department });
+    const notification = await db.notification.create({
+      data: {
+        title: "New Department Created",
+        message: `DEPARTMENT ${department.name} , has been created By ${creater.name}.`,
+        type: "DEPARTMENT",
+        isRead: false,
+        actionUrl: `/dashboard/human-resources/departments/${department.id}`,
+        userId: creater.id,
+      },
+    });
+
+    return NextResponse.json({ department, notification });
   } catch (error) {
     console.error("[DEPARTMENT_CREATE_ERROR]", error);
     return new NextResponse("Internal Server Error", { status: 500 });

@@ -4,14 +4,24 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    // Authenticate the admin user making this request
     const { userId } = await auth();
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Verify the requesting user has admin privileges
+    const creator = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!creator) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
     const adminUser = await db.user.findUnique({
       where: { userId },
       select: { role: true },
@@ -46,7 +56,6 @@ export async function POST(req: Request) {
       email,
     } = body;
 
-    // Get all users
     const allUsers = await db.user.findMany({
       select: { id: true },
     });
@@ -121,6 +130,17 @@ export async function POST(req: Request) {
         });
       }
     }
+
+    await db.notification.create({
+      data: {
+        title: "Settings Updated",
+        message: `Settings , has been Updated By ${creator.name}.`,
+        type: "SYSTEM",
+        isRead: false,
+        actionUrl: `/dashboard/settings`,
+        userId: creator.id,
+      },
+    });
 
     return NextResponse.json({
       message: "Batch operation completed",

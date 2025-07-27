@@ -1,14 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { SidebarIterms } from "./sidebarItems";
 import { useAuth } from "@clerk/nextjs";
 import { SidebarItermsSkeleton } from "./SidebarItermsSkeleton";
+import { useNotifications } from "@/contexts/notification-context";
+import { SidebarItems } from "./sidebarItems";
 
 export default function AppSidebar() {
   const { userId } = useAuth();
   const [role, setRole] = useState<string>("VIEWER");
   const [loading, setLoading] = useState(true);
+
+  const { unreadCount } = useNotifications();
 
   useEffect(() => {
     if (!userId) return;
@@ -43,7 +46,7 @@ export default function AppSidebar() {
 
   return (
     <div>
-      <SidebarIterms role={role} />
+      <SidebarItems role={role} unreadCount={unreadCount} />
     </div>
   );
 }

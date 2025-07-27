@@ -49,6 +49,17 @@ export async function PUT(
       },
     });
 
+    await db.notification.create({
+      data: {
+        title: "Client Updated",
+        message: `Client ${updatedClient.name} , client number : ${updatedClient.clientNumber} has been updated By ${updater.name}.`,
+        type: "CLIENT",
+        isRead: false,
+        actionUrl: `/dashboard/human-resources/clients/${updatedClient.id}`,
+        userId: updater.id,
+      },
+    });
+
     return NextResponse.json({ updatedClient });
   } catch (error) {
     console.error("Error updating Client:", error);

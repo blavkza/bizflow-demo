@@ -34,6 +34,17 @@ export async function POST(req: Request) {
       },
     });
 
+    db.notification.create({
+      data: {
+        title: "New Category Created",
+        message: `Category ${category.name} , has been created By ${creater.name}.`,
+        type: "CATEGORY",
+        isRead: false,
+        actionUrl: `/dashboard/categories`,
+        userId: creater.id,
+      },
+    });
+
     return NextResponse.json({ category });
   } catch (error) {
     console.error("[MESSAGE ERROR]", error);

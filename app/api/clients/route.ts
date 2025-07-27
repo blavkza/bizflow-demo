@@ -44,6 +44,17 @@ export async function POST(req: Request) {
       },
     });
 
+    await db.notification.create({
+      data: {
+        title: "New Client Created",
+        message: `Client ${client.name} , client number : ${client.clientNumber} has been created By ${creater.name}.`,
+        type: "CLIENT",
+        isRead: false,
+        actionUrl: `/dashboard/human-resources/clients/${client.id}`,
+        userId: creater.id,
+      },
+    });
+
     return NextResponse.json({ client });
   } catch (error) {
     console.error("[MESSAGE ERROR]", error);

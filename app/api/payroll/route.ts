@@ -89,6 +89,17 @@ export async function POST(req: Request) {
       return { transaction, payments };
     });
 
+    await db.notification.create({
+      data: {
+        title: "New Payroll Created",
+        message: `Payroll has been created By ${creater.name}.`,
+        type: "PAYMENT",
+        isRead: false,
+        actionUrl: `/dashboard/payroll`,
+        userId: creater.id,
+      },
+    });
+
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     return NextResponse.json(

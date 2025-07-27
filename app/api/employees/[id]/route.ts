@@ -61,6 +61,17 @@ export async function PUT(
       },
     });
 
+    await db.notification.create({
+      data: {
+        title: "Employee Updated",
+        message: `Employee ${updatedEmployee.lastName} ${updatedEmployee.firstName} , have been Updated By ${updater.name}.`,
+        type: "EMPLOYEE",
+        isRead: false,
+        actionUrl: `/dashboard/human-resources/employees/${updatedEmployee.id}`,
+        userId: updater.id,
+      },
+    });
+
     return NextResponse.json({ updatedEmployee });
   } catch (error) {
     console.error("Error updating Employee:", error);
@@ -78,11 +89,59 @@ export async function DELETE(
   const { id } = params;
 
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const updater = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!updater) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const employee = await db.employee.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+
+    if (!employee) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 404 }
+      );
+    }
+
     await db.employee.delete({
       where: { id },
     });
 
-    return NextResponse.json({ message: "employee deleted" }, { status: 200 });
+    await db.notification.create({
+      data: {
+        title: "Employee Deleted",
+        message: `Employee ${employee.firstName} ${employee.lastName} has been deleted by ${updater.name}.`,
+        type: "EMPLOYEE",
+        isRead: false,
+        actionUrl: `/dashboard/human-resources/employees`,
+        userId: updater.id,
+      },
+    });
+
+    return NextResponse.json(
+      { message: "Employee deleted successfully" },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error deleting employee:", error);
     return NextResponse.json(

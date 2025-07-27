@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Bell,
   Search,
-  Filter,
   MoreHorizontal,
   AlertTriangle,
   Info,
@@ -19,6 +18,10 @@ import {
   Eye,
   Bookmark as MarkAsUnread,
   Loader2,
+  FileText,
+  User,
+  PieChart,
+  Target,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -27,39 +30,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
+import { useNotifications } from "@/contexts/notification-context";
+import { NotificationPriority, NotificationType } from "@prisma/client";
+import { NotificationsSkeleton } from "./_components/FullPageSkeleton";
 
-type Notification = {
-  id: string;
-  userId: string;
-  title: string;
-  message: string;
-  type: string;
-  priority: "LOW" | "MEDIUM" | "HIGH";
-  isRead: boolean;
-  actionUrl?: string;
-  metadata?: any;
-  channels: string[];
-  sentAt: string;
-  readAt?: string | null;
-  createdAt: string;
-};
-
-const getNotificationIcon = (type: string) => {
+const getNotificationIcon = (type: NotificationType) => {
   switch (type) {
     case "ALERT":
       return <AlertTriangle className="h-4 w-4 text-red-500" />;
     case "REMINDER":
       return <Clock className="h-4 w-4 text-yellow-500" />;
-    case "INFO":
-      return <Info className="h-4 w-4 text-blue-500" />;
-    case "SUCCESS":
+
+    case "PAYMENT":
       return <CheckCircle className="h-4 w-4 text-green-500" />;
+    case "INVOICE":
+      return <FileText className="h-4 w-4 text-orange-500" />;
+    case "CLIENT":
+      return <User className="h-4 w-4 text-cyan-500" />;
+    case "BUDGET":
+      return <PieChart className="h-4 w-4 text-indigo-500" />;
+    case "TARGET":
+      return <Target className="h-4 w-4 text-pink-500" />;
     default:
       return <Bell className="h-4 w-4" />;
   }
 };
 
-const getPriorityColor = (priority: "LOW" | "MEDIUM" | "HIGH") => {
+const getPriorityColor = (priority: NotificationPriority) => {
   switch (priority) {
     case "HIGH":
       return "destructive";
@@ -73,31 +70,20 @@ const getPriorityColor = (priority: "LOW" | "MEDIUM" | "HIGH") => {
 };
 
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    markAsRead,
+    markAllAsRead,
+    refreshNotifications,
+    setNotifications,
+  } = useNotifications();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTab, setSelectedTab] = useState("all");
-  const [isLoading, setIsLoading] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
-
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch("/api/notifications");
-        if (!response.ok) throw new Error("Failed to fetch notifications");
-        const data = await response.json();
-        setNotifications(data);
-      } catch (error) {
-        console.error("Failed to fetch notifications:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchNotifications();
-  }, []);
-
-  console.log(notifications);
 
   const filteredNotifications = notifications.filter((notification) => {
     const matchesSearch =
@@ -114,31 +100,12 @@ export default function NotificationsPage() {
     return matchesSearch;
   });
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
-
-  const markAsRead = async (notificationId: string, currentState: boolean) => {
+  const handleMarkAsRead = async (id: string, isRead: boolean) => {
     try {
       setIsMutating(true);
-      const response = await fetch(`/api/notifications/${notificationId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ isRead: !currentState }),
-      });
-
-      if (!response.ok) throw new Error("Failed to update notification");
-
-      setNotifications(
-        notifications.map((n) =>
-          n.id === notificationId
-            ? {
-                ...n,
-                isRead: !currentState,
-                readAt: currentState ? null : new Date().toISOString(),
-              }
-            : n
-        )
+      await markAsRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: !isRead } : n))
       );
     } catch (error) {
       console.error("Failed to mark as read:", error);
@@ -147,39 +114,11 @@ export default function NotificationsPage() {
     }
   };
 
-  const deleteNotification = async (notificationId: string) => {
+  const handleMarkAllAsRead = async () => {
     try {
       setIsMutating(true);
-      const response = await fetch(`/api/notifications/${notificationId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) throw new Error("Failed to delete notification");
-
-      setNotifications(notifications.filter((n) => n.id !== notificationId));
-    } catch (error) {
-      console.error("Failed to delete notification:", error);
-    } finally {
-      setIsMutating(false);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    try {
-      setIsMutating(true);
-      const response = await fetch("/api/notifications/mark-all-read", {
-        method: "PATCH",
-      });
-
-      if (!response.ok) throw new Error("Failed to mark all as read");
-
-      setNotifications(
-        notifications.map((n) => ({
-          ...n,
-          isRead: true,
-          readAt: n.readAt || new Date().toISOString(),
-        }))
-      );
+      await markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (error) {
       console.error("Failed to mark all as read:", error);
     } finally {
@@ -187,10 +126,18 @@ export default function NotificationsPage() {
     }
   };
 
-  if (isLoading) {
+  if (loading) {
+    return (
+      <div className="container mx-auto">
+        <NotificationsSkeleton />
+      </div>
+    );
+  }
+
+  if (error) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-red-500">{error}</div>
       </div>
     );
   }
@@ -209,7 +156,7 @@ export default function NotificationsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={markAllAsRead}
+            onClick={handleMarkAllAsRead}
             disabled={unreadCount === 0 || isMutating}
           >
             {isMutating ? (
@@ -310,69 +257,31 @@ export default function NotificationsPage() {
                                 minute: "2-digit",
                               })}
                             </span>
-                            {notification.type && (
-                              <Badge variant="outline" className="text-xs">
-                                {notification.type.toLowerCase()}
-                              </Badge>
-                            )}
+                            <Badge variant="outline" className="text-xs">
+                              {notification.type.toLowerCase()}
+                            </Badge>
                           </div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         {notification.actionUrl && (
-                          <Button variant="outline" size="sm" asChild>
+                          <Button
+                            onClick={() =>
+                              handleMarkAsRead(
+                                notification.id,
+                                notification.isRead
+                              )
+                            }
+                            variant="outline"
+                            size="sm"
+                            asChild
+                          >
                             <Link href={notification.actionUrl}>
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Link>
                           </Button>
                         )}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={isMutating}
-                            >
-                              {isMutating ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <MoreHorizontal className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() =>
-                                markAsRead(notification.id, notification.isRead)
-                              }
-                              disabled={isMutating}
-                            >
-                              <MarkAsUnread className="h-4 w-4 mr-2" />
-                              {notification.isRead
-                                ? "Mark as unread"
-                                : "Mark as read"}
-                            </DropdownMenuItem>
-                            {notification.actionUrl && (
-                              <DropdownMenuItem asChild>
-                                <Link href={notification.actionUrl}>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Go to source
-                                </Link>
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              className="text-red-600"
-                              onClick={() =>
-                                deleteNotification(notification.id)
-                              }
-                              disabled={isMutating}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
                       </div>
                     </div>
                   </CardContent>

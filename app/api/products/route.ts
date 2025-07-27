@@ -23,6 +23,19 @@ export async function POST(request: Request) {
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
+
+    const creater = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!creater) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body: ProductFormValues = await request.json();
 
     const existingProduct = await db.product.findFirst({
@@ -48,6 +61,17 @@ export async function POST(request: Request) {
         size: body.size,
         price: body.price,
         panels: body.panels || undefined,
+      },
+    });
+
+    await db.notification.create({
+      data: {
+        title: "New Product Created",
+        message: `Product ${product.category} , has been created By ${creater.name}.`,
+        type: "PRODUCT",
+        isRead: false,
+        actionUrl: `/dashboard/categories`,
+        userId: creater.id,
       },
     });
 

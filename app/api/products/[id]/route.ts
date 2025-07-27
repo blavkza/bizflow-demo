@@ -38,6 +38,19 @@ export async function PUT(
     if (!userId) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
+
+    const updater = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!updater) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body: ProductFormValues = await request.json();
 
     const updatedProduct = await db.product.update({
@@ -47,6 +60,17 @@ export async function PUT(
         size: body.size,
         price: body.price,
         panels: body.panels || undefined,
+      },
+    });
+
+    await db.notification.create({
+      data: {
+        title: "Product Updated",
+        message: `Product ${updatedProduct.category} , has been Updated By ${updater.name}.`,
+        type: "PRODUCT",
+        isRead: false,
+        actionUrl: `/dashboard/categories`,
+        userId: updater.id,
       },
     });
 

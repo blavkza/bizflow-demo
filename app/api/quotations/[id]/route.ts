@@ -81,6 +81,24 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const updater = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!updater) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
     const body = await request.json();
 
     // First delete all items to recreate them
@@ -151,6 +169,17 @@ export async function PUT(
       include: {
         client: true,
         items: true,
+      },
+    });
+
+    await db.notification.create({
+      data: {
+        title: "Quotation Updated",
+        message: `Quotation ${quotation.quotationNumber} , has been updated By ${updater.name}.`,
+        type: "QUOTATION",
+        isRead: false,
+        actionUrl: `/dashboard/quotations/${quotation.id}`,
+        userId: updater.id,
       },
     });
 

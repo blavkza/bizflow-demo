@@ -583,8 +583,9 @@ export function QuotationForm({
                         <Input
                           placeholder="Item description"
                           {...field}
-                          onChange={(e) => {
-                            field.onChange(e);
+                          onChange={field.onChange}
+                          onBlur={(e) => {
+                            field.onBlur();
                             handleManualItemChange(index);
                           }}
                         />

@@ -14,6 +14,18 @@ export async function PATCH(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    const updater = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!updater) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
     const currentQuotation = await db.quotation.findUnique({
       where: { id },
     });
@@ -28,6 +40,17 @@ export async function PATCH(
     const updatedQuotation = await db.quotation.update({
       where: { id },
       data: { status: newStatus },
+    });
+
+    await db.notification.create({
+      data: {
+        title: `Quotation ${updatedQuotation.status === "CANCELLED" ? "Canceled" : "Uncanceled"} `,
+        message: `Quotation ${updatedQuotation.quotationNumber} , has been ${updatedQuotation.status === "CANCELLED" ? "Canceled" : "Uncanceled"} By ${updater.name}.`,
+        type: "QUOTATION",
+        isRead: false,
+        actionUrl: `/dashboard/quotations/${updatedQuotation.id}`,
+        userId: updater.id,
+      },
     });
 
     return NextResponse.json(updatedQuotation);

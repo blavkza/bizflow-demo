@@ -60,6 +60,17 @@ export async function POST(req: Request) {
       },
     });
 
+    await db.notification.create({
+      data: {
+        title: "New Employee Created",
+        message: `Employee ${employee.lastName} ${employee.firstName} , has been created By ${creater.name}.`,
+        type: "EMPLOYEE",
+        isRead: false,
+        actionUrl: `/dashboard/human-resources/employees/${employee.id}`,
+        userId: creater.id,
+      },
+    });
+
     return NextResponse.json({ employee });
   } catch (error) {
     console.error("[MESSAGE ERROR]", error);

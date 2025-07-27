@@ -8,6 +8,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "./providers";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
+import { NotificationProvider } from "@/contexts/notification-context";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,7 +35,9 @@ export default function RootLayout({
           >
             <SidebarProvider defaultOpen={true}>
               <ClientWrapper>
-                <Providers>{children}</Providers>
+                <Providers>
+                  <NotificationProvider>{children}</NotificationProvider>
+                </Providers>
               </ClientWrapper>
               <Toaster />
             </SidebarProvider>

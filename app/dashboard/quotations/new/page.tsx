@@ -29,7 +29,7 @@ export default function CreateQuotationPage() {
         <h1 className="text-2xl font-bold">Create New Quotation</h1>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="rounded-lg shadow-md overflow-hidden">
         <QuotationForm
           type="create"
           onCancel={handleCancel}

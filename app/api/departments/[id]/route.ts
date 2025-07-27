@@ -47,6 +47,17 @@ export async function PUT(
       },
     });
 
+    await db.notification.create({
+      data: {
+        title: "Department Updated",
+        message: `DEPARTMENT ${updatedDepartment.name} , has been Updated By ${updater.name}.`,
+        type: "DEPARTMENT",
+        isRead: false,
+        actionUrl: `/dashboard/human-resources/departments/${updatedDepartment.id}`,
+        userId: updater.id,
+      },
+    });
+
     return NextResponse.json({ updatedDepartment });
   } catch (error) {
     console.error("Error updating department:", error);

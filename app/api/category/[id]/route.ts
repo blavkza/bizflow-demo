@@ -44,6 +44,17 @@ export async function PUT(
       },
     });
 
+    await db.notification.create({
+      data: {
+        title: "Category Updated",
+        message: `Category ${updatedCategory.name} , has been updated By ${updater.name}.`,
+        type: "CATEGORY",
+        isRead: false,
+        actionUrl: `/dashboard/categories`,
+        userId: updater.id,
+      },
+    });
+
     return NextResponse.json({ updatedCategory });
   } catch (error) {
     console.error("Error updating category:", error);

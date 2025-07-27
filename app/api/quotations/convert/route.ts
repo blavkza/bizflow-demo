@@ -98,6 +98,28 @@ export async function POST(request: Request) {
       },
     });
 
+    await db.notification.create({
+      data: {
+        title: "Quotation Converted",
+        message: `Quotation ${quotation.quotationNumber} , has been converted By ${creator.name}.`,
+        type: "QUOTATION",
+        isRead: false,
+        actionUrl: `/dashboard/quotations/${quotation.id}`,
+        userId: creator.id,
+      },
+    });
+
+    await db.notification.create({
+      data: {
+        title: "New Invoice Created",
+        message: `Invoice ${invoiceNumber} , has been created By ${creator.name}.`,
+        type: "INVOICE",
+        isRead: false,
+        actionUrl: `/dashboard/invoices/${invoice.id}`,
+        userId: creator.id,
+      },
+    });
+
     return NextResponse.json({ invoice });
   } catch (error) {
     console.error("Conversion error:", error);
