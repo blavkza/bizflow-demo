@@ -14,9 +14,20 @@ import { Separator } from "@/components/ui/separator";
 import { useUser } from "@clerk/nextjs";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 
 export default function LandingPage() {
   const { isSignedIn } = useUser();
+  const [showImage, setShowImage] = useState(true);
+
+  useEffect(() => {
+    if (
+      window.location.href === "https://finance-flow-g86n.vercel.app/" ||
+      window.location.href === "http://localhost:3000/"
+    ) {
+      setShowImage(false);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-blue-50 to-white">
@@ -55,17 +66,19 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative py-20 px-4 sm:px-6 lg:px-8">
         {/* Centered Logo */}
-        <div className="max-w-7xl mx-auto mb-10 flex justify-center items-center">
-          <div className="relative w-20 h-20 rounded-xl overflow-hidden shadow-xl">
-            <img
-              src="/mjp.png"
-              alt="Financial Management Dashboard"
-              className="w-full h-full object-cover object-center"
-            />
-            {/* Optional overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-gray-900/20 to-transparent"></div>
+        {showImage && (
+          <div className="max-w-7xl mx-auto mb-10 flex justify-center items-center">
+            <div className="relative w-20 h-20 rounded-xl overflow-hidden shadow-xl">
+              <img
+                src="/mjp.png"
+                alt="Financial Management Dashboard"
+                className="w-full h-full object-cover object-center"
+              />
+              {/* Optional overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-gray-900/20 to-transparent"></div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Text content */}
         <div className="max-w-7xl mx-auto text-center mt-10">

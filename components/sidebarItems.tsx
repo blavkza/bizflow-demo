@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Store,
   Palette,
+  Bot,
 } from "lucide-react";
 
 import {
@@ -194,9 +195,16 @@ const getSidebarData = (
             : []),
         ],
       },
+
       {
-        title: "System",
+        title: "Tools",
         items: [
+          {
+            title: "AI-Assistant",
+            url: "/dashboard/ai-assistant",
+            icon: Bot,
+            color: "text-blue-500",
+          },
           {
             title: "Appearance",
             url: "/dashboard/appearance",
@@ -242,7 +250,7 @@ export function SidebarItems({
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="pb-8">
         {data.navMain.map((section) => (
           <SidebarGroup key={section.title}>
             <SidebarGroupLabel>{section.title}</SidebarGroupLabel>

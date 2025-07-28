@@ -131,10 +131,10 @@ export default function EmployeesList({ employees }: EmployeesListProps) {
             </div>
 
             <div className="space-y-2 text-sm">
-              <div className="flex items-center space-x-2 text-muted-foreground">
+              {/* <div className="flex items-center space-x-2 text-muted-foreground">
                 <Mail className="h-4 w-4" />
                 <span className="truncate">{employee.email || ""}</span>
-              </div>
+              </div>*/}
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <Phone className="h-4 w-4" />
                 <span>{employee.phone}</span>

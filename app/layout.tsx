@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "./providers";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { NotificationProvider } from "@/contexts/notification-context";
+import FinancialCalculator from "@/components/FinancialCalculator";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -36,7 +37,10 @@ export default function RootLayout({
             <SidebarProvider defaultOpen={true}>
               <ClientWrapper>
                 <Providers>
-                  <NotificationProvider>{children}</NotificationProvider>
+                  <NotificationProvider>
+                    {children}
+                    <FinancialCalculator />
+                  </NotificationProvider>
                 </Providers>
               </ClientWrapper>
               <Toaster />
