@@ -73,9 +73,7 @@ export default function Stats({ employee }: StatsProps) {
               </span>{" "}
             </div>
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">
-                Monthly Salary:
-              </span>
+              <span className="text-sm text-muted-foreground">Daily Rate:</span>
               <span className="text-sm font-medium">
                 R{employee.salary.toLocaleString()}
               </span>

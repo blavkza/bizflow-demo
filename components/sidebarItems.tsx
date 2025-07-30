@@ -22,6 +22,7 @@ import {
   Store,
   Palette,
   Bot,
+  File,
 } from "lucide-react";
 
 import {
@@ -200,9 +201,15 @@ const getSidebarData = (
         title: "Tools",
         items: [
           {
-            title: "AI-Assistant",
+            title: "AI Assistant",
             url: "/dashboard/ai-assistant",
             icon: Bot,
+            color: "text-blue-500",
+          },
+          {
+            title: "Bank Statement",
+            url: "/dashboard/uploaded-transactions",
+            icon: File,
             color: "text-blue-500",
           },
           {

@@ -43,7 +43,7 @@ export default function WorkersList({ employees }: WorkersListProps) {
               <TableHead>Employee</TableHead>
               <TableHead>Position</TableHead>
               <TableHead>Department</TableHead>
-              <TableHead>Salary</TableHead>
+              <TableHead>Daily Rate</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Hire Date</TableHead>
               <TableHead>Actions</TableHead>
@@ -53,7 +53,10 @@ export default function WorkersList({ employees }: WorkersListProps) {
             {employees.map((employee) => (
               <TableRow key={employee.id}>
                 <TableCell>
-                  <div className="flex items-center space-x-3">
+                  <Link
+                    href={`/dashboard/payroll/${employee.id}`}
+                    className="flex items-center space-x-3"
+                  >
                     <Avatar>
                       <AvatarImage
                         src={employee.avatar || "/placeholder.svg"}
@@ -71,7 +74,7 @@ export default function WorkersList({ employees }: WorkersListProps) {
                         {employee.email}
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 </TableCell>
                 <TableCell>{employee.position}</TableCell>
                 <TableCell>{employee.department?.name || "N/A"}</TableCell>

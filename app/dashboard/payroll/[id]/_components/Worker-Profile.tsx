@@ -96,7 +96,7 @@ export default function WorkerProfile({ employee }: WorkerProfileProps) {
               <DialogTrigger asChild>
                 <Button variant="outline">
                   <DollarSign className="h-4 w-4 mr-2" />
-                  Process Payroll
+                  Process Payment
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
