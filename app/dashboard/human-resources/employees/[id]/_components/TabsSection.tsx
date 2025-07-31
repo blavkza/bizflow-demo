@@ -164,7 +164,7 @@ export default function TabsSection({ employee }: TabsSectionProps) {
 
         <TabsContent value="payments" className="space-y-4">
           <Card className="border-none shadow-none">
-            <CardHeader className="px-0">
+            <CardHeader className="px-4">
               <CardTitle>Payment History</CardTitle>
             </CardHeader>
             <CardContent className="px-0">
@@ -173,68 +173,72 @@ export default function TabsSection({ employee }: TabsSectionProps) {
                   <p>Loading payment information...</p>
                 </div>
               ) : employee.payments && employee.payments.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Payslip</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {employee.payments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="py-3">
-                          {format(new Date(payment.payDate), "dd MMM yyyy")}
-                        </TableCell>
-                        <TableCell>{payment.description || "-"}</TableCell>
-                        <TableCell className="capitalize">
-                          {formatPaymentType(payment.type)}
-                        </TableCell>
-                        <TableCell>ZAR {payment.amount.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Badge
-                            className={getPaymentStatusColor(payment.status)}
-                          >
-                            {payment.status.toLowerCase()}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDownloadPayslip(payment.id)}
-                            disabled={
-                              generatingPayslipId === payment.id ||
-                              !companySettings
-                            }
-                            className="hover:bg-gray-100"
-                          >
-                            <DownloadIcon className="h-4 w-4 mr-2" />
-                            {generatingPayslipId === payment.id
-                              ? "Generating..."
-                              : !companySettings
-                                ? "Unavailable"
-                                : "Download"}
-                          </Button>
-                          {companySettings && (
-                            <PayslipPDF
-                              ref={(el) =>
-                                (payslipRefs.current[payment.id] = el)
-                              }
-                              employee={employee}
-                              payment={payment}
-                              companySettings={companySettings}
-                            />
-                          )}
-                        </TableCell>
+                <div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Payslip</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {employee.payments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>
+                            {format(new Date(payment.payDate), "dd MMM yyyy")}
+                          </TableCell>
+                          <TableCell className="truncate">
+                            {payment.description || "-"}
+                          </TableCell>
+                          <TableCell className="capitalize">
+                            {formatPaymentType(payment.type)}
+                          </TableCell>
+                          <TableCell>R {payment.amount.toFixed(2)}</TableCell>
+                          <TableCell>
+                            <Badge
+                              className={getPaymentStatusColor(payment.status)}
+                            >
+                              {payment.status.toLowerCase()}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadPayslip(payment.id)}
+                              disabled={
+                                generatingPayslipId === payment.id ||
+                                !companySettings
+                              }
+                              className="hover:bg-gray-100"
+                            >
+                              <DownloadIcon className="h-4 w-4 mr-2" />
+                              {generatingPayslipId === payment.id
+                                ? "Generating..."
+                                : !companySettings
+                                  ? "Unavailable"
+                                  : "Download"}
+                            </Button>
+                            {companySettings && (
+                              <PayslipPDF
+                                ref={(el) =>
+                                  (payslipRefs.current[payment.id] = el)
+                                }
+                                employee={employee}
+                                payment={payment}
+                                companySettings={companySettings}
+                              />
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               ) : (
                 <div className="flex justify-center py-8">
                   <p className="text-sm text-muted-foreground">
