@@ -18,7 +18,7 @@ export const ChatInput = ({
 }: ChatInputProps) => {
   return (
     <form onSubmit={onSubmit} className="fixed bottom-0 left-0 right-0 p-4  ">
-      <div className="max-w-3xl mx-auto flex space-x-2 ml-[560px]">
+      <div className="max-w-3xl mx-auto flex space-x-2 ml-[480px]">
         <div className="relative flex-1">
           <Textarea
             value={input}
