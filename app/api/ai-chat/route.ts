@@ -185,6 +185,7 @@ export async function POST(req: Request) {
     - ACTIVE: ${employees.filter((e) => e.status === "ACTIVE").length}
     - INACTIVE: ${employees.filter((e) => e.status === "INACTIVE").length}
     - ON LEAVE: ${employees.filter((e) => e.status === "ON_LEAVE").length}
+    - Employees salary is in daily rate
     `;
 
     // Add more specific context based on the prompt
