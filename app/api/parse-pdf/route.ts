@@ -10,32 +10,33 @@ export const config = {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const file = formData.get("file") as Blob | null;
-
-    console.log(formData);
+    const file = formData.get("file") as File | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    if (file.type !== "application/pdf") {
-      return NextResponse.json(
-        { error: "Only PDF files are allowed" },
-        { status: 400 }
-      );
-    }
+    // Convert to proper Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const pdfData = await pdfParse(buffer);
+    // Parse PDF
+    const data = await pdfParse(buffer);
 
-    // Here you would typically parse the text into transactions
-    // For now, we'll just return the raw text
     return NextResponse.json({
-      text: pdfData.text,
-      metadata: pdfData.info,
+      success: true,
+      fileName: file.name,
+      fileSize: file.size,
+      pageCount: data.numpages,
+      text: data.text,
+      previewText:
+        data.text.substring(0, 500) + (data.text.length > 500 ? "..." : ""),
     });
   } catch (error) {
-    console.error("Error parsing PDF:", error);
-    return NextResponse.json({ error: "Failed to parse PDF" }, { status: 500 });
+    console.error("PDF processing error:", error);
+    return NextResponse.json(
+      { error: "Failed to process PDF. Please try a different file." },
+      { status: 500 }
+    );
   }
 }

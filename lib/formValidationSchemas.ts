@@ -252,3 +252,17 @@ export const transactionSchema = z.object({
 });
 
 export type TransactionFormValues = z.infer<typeof transactionSchema>;
+
+export const transactionCeoSchema = z.object({
+  amount: z.number().min(0.01, "Amount must be greater than 0"),
+  type: z.nativeEnum(TransactionType),
+  status: z.nativeEnum(TransactionStatus).optional(),
+  description: z.string().min(1, "Description is required"),
+  date: z.date(),
+  categoryCeoId: z.string().optional(),
+  method: z.nativeEnum(PaymentMethod).optional(),
+  vendor: z.string().optional(),
+  reference: z.string().optional(),
+});
+
+export type TransactionCeoFormValues = z.infer<typeof transactionCeoSchema>;

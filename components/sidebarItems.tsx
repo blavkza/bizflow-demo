@@ -206,12 +206,12 @@ const getSidebarData = (
             icon: Bot,
             color: "text-blue-500",
           },
-          {
+          /* {
             title: "Bank Statement",
             url: "/dashboard/uploaded-transactions",
             icon: File,
             color: "text-blue-500",
-          },
+          }, */
           {
             title: "Appearance",
             url: "/dashboard/appearance",

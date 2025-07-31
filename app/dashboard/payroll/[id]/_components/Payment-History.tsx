@@ -25,9 +25,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { Search, Download } from "lucide-react";
 import { Employee, PaymentType } from "@prisma/client";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import { format } from "date-fns";
+import { PayslipPDF } from "@/app/dashboard/human-resources/employees/[id]/_components/PayslipPDF";
 
 interface PaymentHistoryProps {
   employee: Employee & {
@@ -47,28 +51,40 @@ interface PaymentHistoryProps {
       description?: string | null;
     }[];
   };
+  companySettings?: {
+    companyName: string;
+    logo?: string;
+    address?: string;
+    city?: string;
+    province?: string;
+    postCode?: string;
+    phone?: string;
+    email?: string;
+    taxId?: string;
+  };
 }
 
-export default function PaymentHistory({ employee }: PaymentHistoryProps) {
+export default function PaymentHistory({
+  employee,
+  companySettings,
+}: PaymentHistoryProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<PaymentType | "all">("all");
   const [yearFilter, setYearFilter] = useState("all");
+  const [generatingPayslipId, setGeneratingPayslipId] = useState<string | null>(
+    null
+  );
+  const payslipRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Filter payments based on search and filters
   const filteredPayments = employee.payments?.filter((payment) => {
-    // Search term filter (description or amount)
     const matchesSearch =
       searchTerm === "" ||
       payment.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.amount.toString().includes(searchTerm);
-
-    // Payment type filter
     const matchesType = typeFilter === "all" || payment.type === typeFilter;
-
-    // Year filter
     const paymentYear = new Date(payment.payDate).getFullYear().toString();
     const matchesYear = yearFilter === "all" || paymentYear === yearFilter;
-
     return matchesSearch && matchesType && matchesYear;
   });
 
@@ -80,6 +96,53 @@ export default function PaymentHistory({ employee }: PaymentHistoryProps) {
       ) || []
     ),
   ].sort((a, b) => parseInt(b) - parseInt(a));
+
+  const handleDownloadPayslip = async (paymentId: string) => {
+    const payslipRef = payslipRefs.current[paymentId];
+    if (!payslipRef || !companySettings) return;
+
+    setGeneratingPayslipId(paymentId);
+    try {
+      // Temporarily make the payslip visible for capture
+      payslipRef.style.position = "fixed";
+      payslipRef.style.top = "0";
+      payslipRef.style.left = "0";
+      payslipRef.style.zIndex = "9999";
+      payslipRef.style.visibility = "visible";
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const canvas = await html2canvas(payslipRef, {
+        scale: 2,
+        logging: true,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+
+      const imgData = canvas.toDataURL("image/png", 1.0);
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const imgWidth = 190;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
+      pdf.save(
+        `payslip-${employee.lastName}-${employee.firstName}-${format(new Date(), "yyyyMMdd")}.pdf`
+      );
+    } catch (error) {
+      console.error("Payslip generation error:", error);
+    } finally {
+      if (payslipRef) {
+        payslipRef.style.position = "absolute";
+        payslipRef.style.visibility = "hidden";
+      }
+      setGeneratingPayslipId(null);
+    }
+  };
 
   return (
     <div>
@@ -149,26 +212,29 @@ export default function PaymentHistory({ employee }: PaymentHistoryProps) {
                   <TableHead>Description</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Payslip</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredPayments?.map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell>
-                      {new Date(payment.payDate).toLocaleDateString("en-US", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {format(new Date(payment.payDate), "dd MMM yyyy")}
                     </TableCell>
                     <TableCell>
                       {payment.type.charAt(0).toUpperCase() +
                         payment.type.slice(1).toLowerCase()}
                     </TableCell>
-                    <TableCell className=" truncate  ">
+                    <TableCell className="truncate">
                       {payment.description || "No description"}
                     </TableCell>
-                    <TableCell>R{payment.amount.toLocaleString()}</TableCell>
+                    <TableCell>
+                      R
+                      {payment.amount.toLocaleString("en-ZA", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </TableCell>
                     <TableCell>
                       <Badge
                         variant={
@@ -177,6 +243,29 @@ export default function PaymentHistory({ employee }: PaymentHistoryProps) {
                       >
                         {payment.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownloadPayslip(payment.id)}
+                        disabled={
+                          generatingPayslipId === payment.id || !companySettings
+                        }
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {generatingPayslipId === payment.id
+                          ? "Generating..."
+                          : !companySettings
+                            ? "Unavailable"
+                            : "Download"}
+                      </Button>
+                      <PayslipPDF
+                        ref={(el) => (payslipRefs.current[payment.id] = el)}
+                        employee={employee}
+                        payment={payment}
+                        companySettings={companySettings}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}

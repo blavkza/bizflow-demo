@@ -1,4 +1,3 @@
-// app/dashboard/page.tsx
 "use client";
 
 import React, { useState } from "react";
@@ -8,6 +7,15 @@ import { BankStatementUpload } from "./_components/BankStatementUpload";
 import { Transaction } from "./_components/TransactionRow";
 import { useToast } from "@/hooks/use-toast";
 import { SAMPLE_TRANSACTIONS } from "@/lib/mockProducts";
+
+interface PdfParseResult {
+  success: boolean;
+  fileName: string;
+  fileSize: number;
+  pageCount: number;
+  text: string;
+  previewText: string;
+}
 
 const Page = () => {
   const [transactions, setTransactions] =
@@ -22,13 +30,7 @@ const Page = () => {
   const handleFileUpload = async (file: File) => {
     if (!file) return;
 
-    // 🧾 Log file before sending
-    console.log("📄 File to upload:");
-    console.log("Name:", file.name);
-    console.log("Type:", file.type);
-    console.log("Size:", file.size);
-    console.log("Last Modified:", new Date(file.lastModified).toLocaleString());
-
+    setIsUploading(true);
     const formData = new FormData();
     formData.append("file", file);
 
@@ -38,10 +40,29 @@ const Page = () => {
         body: formData,
       });
 
-      const data = await res.json();
-      console.log("✅ Parsed PDF:", data);
-    } catch (err) {
-      console.error("❌ Upload error:", err);
+      if (!res.ok) {
+        throw new Error(`Upload failed: ${res.statusText}`);
+      }
+
+      const data: PdfParseResult = await res.json();
+      console.log("Parsed PDF:", data);
+
+      toast({
+        title: "PDF processed successfully",
+        description: `Processed ${data.pageCount} pages from ${data.fileName}`,
+      });
+
+      return data;
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to process the PDF file",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsUploading(false);
     }
   };
 

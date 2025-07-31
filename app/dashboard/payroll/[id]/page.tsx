@@ -1,21 +1,22 @@
 import WorkerProfile from "./_components/Worker-Profile";
 import Stats from "./_components/Stats";
 import PaymentHistory from "./_components/Payment-History";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import db from "@/lib/db";
 import { EmployeeWithDetails } from "@/types/employee";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { getUserAuth } from "@/lib/auth";
 
 export default async function WorkerDetailPage({
   params,
 }: {
   params: { id: string };
 }) {
-  const id = await params.id;
+  const id = params.id;
 
+  // Fetch employee data
   const employee = await db.employee.findUnique({
     where: { id },
     include: {
@@ -46,9 +47,37 @@ export default async function WorkerDetailPage({
     },
   });
 
+  const companySettingsData = await db.generalSetting.findFirst({
+    select: {
+      companyName: true,
+      logo: true,
+      Address: true,
+      city: true,
+      province: true,
+      postCode: true,
+      phone: true,
+      email: true,
+      taxId: true,
+    },
+  });
+
   if (!employee) {
     return <div>Employee not found</div>;
   }
+
+  const companySettings = companySettingsData
+    ? {
+        companyName: companySettingsData.companyName,
+        logo: companySettingsData.logo || undefined,
+        address: companySettingsData.Address,
+        city: companySettingsData.city,
+        province: companySettingsData.province,
+        postCode: companySettingsData.postCode,
+        phone: companySettingsData.phone,
+        email: companySettingsData.email,
+        taxId: companySettingsData.taxId,
+      }
+    : undefined;
 
   const employeeWithDetails: EmployeeWithDetails = {
     ...employee,
@@ -71,14 +100,12 @@ export default async function WorkerDetailPage({
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        {/* Worker Profile */}
         <WorkerProfile employee={employeeWithDetails} />
-
-        {/* Worker Information & Stats */}
         <Stats employee={employeeWithDetails} />
-
-        {/* Payment History */}
-        <PaymentHistory employee={employeeWithDetails} />
+        <PaymentHistory
+          employee={employeeWithDetails}
+          companySettings={companySettings}
+        />
       </div>
     </div>
   );

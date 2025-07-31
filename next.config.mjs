@@ -9,9 +9,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  api: {
-    bodyParser: false,
-  },
+
   
 }
 

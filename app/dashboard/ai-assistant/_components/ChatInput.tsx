@@ -18,12 +18,12 @@ export const ChatInput = ({
 }: ChatInputProps) => {
   return (
     <form onSubmit={onSubmit} className="fixed bottom-0 left-0 right-0 p-4  ">
-      <div className="max-w-3xl mx-auto flex space-x-2 ml-[480px]">
+      <div className="max-w-3xl mx-auto flex space-x-2 ml-[560px]">
         <div className="relative flex-1">
           <Textarea
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
-            placeholder="Ask about school finances, invoices, payments..."
+            placeholder="Ask about finances, invoices, payments..."
             className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-24 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden"
             style={{
               height: "56px",

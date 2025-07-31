@@ -12,7 +12,7 @@ interface UploadedFile {
 }
 
 interface BankStatementUploadProps {
-  onFileUpload?: (file: File) => Promise<void>;
+  onFileUpload?: (file: File) => Promise<any>;
   isUploading?: boolean;
 }
 
@@ -71,16 +71,8 @@ export const BankStatementUpload: React.FC<BankStatementUploadProps> = ({
       if (onFileUpload) {
         await onFileUpload(file);
       }
-      toast({
-        title: "File uploaded successfully",
-        description: `${file.name} has been processed.`,
-      });
     } catch (error) {
-      toast({
-        title: "Upload failed",
-        description: "Failed to process the file.",
-        variant: "destructive",
-      });
+      console.error("Upload error:", error);
       handleRemoveFile();
     }
   };
@@ -181,7 +173,7 @@ export const BankStatementUpload: React.FC<BankStatementUploadProps> = ({
                 {isUploading ? (
                   <div className="flex items-center gap-2 text-primary">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Parsing...</span>
+                    <span className="text-sm">Processing...</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-green-600">

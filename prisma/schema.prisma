@@ -325,6 +325,30 @@ model Transaction {
   @@map("transactions")
 }
 
+model TransactionCeo {
+  id            String            @id @default(cuid())
+  amount        Decimal           @db.Decimal(15, 2)
+  currency      String            @default("ZAR")
+  type          TransactionType
+  status        TransactionStatus @default(PENDING)
+  description   String
+  reference     String?
+  date          DateTime
+  method        PaymentMethod?
+  categoryCeoId String?
+
+  // Additional Information
+  vendor String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  CategoryCeo CategoryCeo? @relation(fields: [categoryCeoId], references: [id])
+
+  @@map("transactionsCeo")
+}
+
 model TransactionSplit {
   id            String   @id @default(cuid())
   transactionId String
@@ -389,6 +413,31 @@ model Category {
   splits       TransactionSplit[]
 
   @@map("categories")
+}
+
+model CategoryCeo {
+  id          String         @id @default(cuid())
+  name        String         @unique
+  description String?
+  color       String?
+  icon        String?
+  type        CategoryType
+  parentId    String?
+  status      CategoryStatus @default(ACTIVE)
+  sortOrder   Int            @default(0)
+
+  // Tax Information
+  taxDeductible Boolean @default(false)
+  taxCategory   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  // Relations
+  transactions TransactionCeo[]
+
+  @@map("categoriesCeo")
 }
 
 // ============================================================================

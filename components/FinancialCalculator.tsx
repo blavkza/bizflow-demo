@@ -385,7 +385,7 @@ const FinancialCalculator = () => {
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  if (!isVisible && pathname !== "/") {
+  if (!isVisible) {
     return (
       <Button
         onClick={() => setIsVisible(true)}
@@ -399,215 +399,213 @@ const FinancialCalculator = () => {
     );
   }
 
-  if (!isVisible && pathname !== "/") {
-    return (
-      <Card
-        ref={calculatorRef}
-        className="fixed z-50 w-80 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg focus-within:outline-none"
-        tabIndex={-1}
-        style={{
-          left: `${position.x}px`,
-          top: `${position.y}px`,
-          cursor: isDragging ? "grabbing" : "grab",
-        }}
+  return (
+    <Card
+      ref={calculatorRef}
+      className="fixed z-50 w-80 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 shadow-lg focus-within:outline-none"
+      tabIndex={-1}
+      style={{
+        left: `${position.x}px`,
+        top: `${position.y}px`,
+        cursor: isDragging ? "grabbing" : "grab",
+      }}
+    >
+      <div
+        className="flex items-center justify-between p-3 border-b border-zinc-200 dark:border-zinc-700 cursor-grab active:cursor-grabbing bg-zinc-200 dark:bg-zinc-700"
+        onMouseDown={handleMouseDown}
       >
-        <div
-          className="flex items-center justify-between p-3 border-b border-zinc-200 dark:border-zinc-700 cursor-grab active:cursor-grabbing bg-zinc-200 dark:bg-zinc-700"
-          onMouseDown={handleMouseDown}
-        >
-          <div className="flex items-center gap-2 text-zinc-800 dark:text-zinc-100">
-            <Move size={16} />
-            <span className="text-sm font-medium">Financial Calculator</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsVisible(false)}
-            className="h-8 w-8 p-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-300 dark:hover:bg-zinc-600"
-          >
-            <X size={16} />
-          </Button>
+        <div className="flex items-center gap-2 text-zinc-800 dark:text-zinc-100">
+          <Move size={16} />
+          <span className="text-sm font-medium">Financial Calculator</span>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setIsVisible(false)}
+          className="h-8 w-8 p-0 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-300 dark:hover:bg-zinc-600"
+        >
+          <X size={16} />
+        </Button>
+      </div>
 
-        <div className="p-4">
-          <div className="bg-white dark:bg-zinc-900 p-4 rounded-lg mb-4 border border-zinc-200 dark:border-zinc-700">
-            <div className="text-right">
-              <div
-                className={`text-sm min-h-[20px] font-mono ${
-                  calculator.error
-                    ? "text-red-500 dark:text-red-400"
-                    : "text-zinc-500 dark:text-zinc-400"
-                }`}
-              >
-                {calculator.error || calculator.expression || "\u00A0"}
-              </div>
+      <div className="p-4">
+        <div className="bg-white dark:bg-zinc-900 p-4 rounded-lg mb-4 border border-zinc-200 dark:border-zinc-700">
+          <div className="text-right">
+            <div
+              className={`text-sm min-h-[20px] font-mono ${
+                calculator.error
+                  ? "text-red-500 dark:text-red-400"
+                  : "text-zinc-500 dark:text-zinc-400"
+              }`}
+            >
+              {calculator.error || calculator.expression || "\u00A0"}
+            </div>
 
-              <div
-                className={`text-2xl font-mono min-h-[32px] break-all ${
-                  calculator.error
-                    ? "text-red-600 dark:text-red-300"
-                    : "text-zinc-800 dark:text-zinc-100"
-                }`}
-              >
-                {calculator.error ? "Error" : calculator.display}
-              </div>
+            <div
+              className={`text-2xl font-mono min-h-[32px] break-all ${
+                calculator.error
+                  ? "text-red-600 dark:text-red-300"
+                  : "text-zinc-800 dark:text-zinc-100"
+              }`}
+            >
+              {calculator.error ? "Error" : calculator.display}
+            </div>
 
-              <div className="flex justify-between items-center mt-1">
-                {calculator.memory !== 0 && (
-                  <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                    M: {calculator.memory}
-                  </div>
-                )}
-                <div className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
-                  Keyboard enabled
+            <div className="flex justify-between items-center mt-1">
+              {calculator.memory !== 0 && (
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">
+                  M: {calculator.memory}
                 </div>
+              )}
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 text-right">
+                Keyboard enabled
               </div>
             </div>
           </div>
-
-          <div className="grid grid-cols-4 gap-2">
-            <Button
-              onClick={clearMemory}
-              className="h-12 text-sm bg-purple-500 hover:bg-purple-600 text-white"
-            >
-              MC
-            </Button>
-            <Button
-              onClick={recallMemory}
-              className="h-12 text-sm bg-purple-500 hover:bg-purple-600 text-white"
-            >
-              MR
-            </Button>
-            <Button
-              onClick={addToMemory}
-              className="h-12 text-sm bg-purple-500 hover:bg-purple-600 text-white"
-            >
-              M+
-            </Button>
-            <Button
-              onClick={clearAll}
-              className="h-12 text-sm bg-red-500 hover:bg-red-600 text-white"
-            >
-              AC
-            </Button>
-
-            <Button
-              onClick={clear}
-              className="h-12 text-sm bg-zinc-300 hover:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-100"
-            >
-              C
-            </Button>
-            <Button
-              onClick={calculatePercentage}
-              className="h-12 text-sm bg-zinc-300 hover:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-100"
-            >
-              %
-            </Button>
-            <Button
-              onClick={() => inputOperator("÷")}
-              className="h-12 text-sm bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              ÷
-            </Button>
-            <Button
-              onClick={() => inputOperator("×")}
-              className="h-12 text-sm bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              ×
-            </Button>
-
-            <Button
-              onClick={() => inputNumber("7")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              7
-            </Button>
-            <Button
-              onClick={() => inputNumber("8")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              8
-            </Button>
-            <Button
-              onClick={() => inputNumber("9")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              9
-            </Button>
-            <Button
-              onClick={() => inputOperator("-")}
-              className="h-12 text-lg bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              −
-            </Button>
-
-            <Button
-              onClick={() => inputNumber("4")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              4
-            </Button>
-            <Button
-              onClick={() => inputNumber("5")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              5
-            </Button>
-            <Button
-              onClick={() => inputNumber("6")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              6
-            </Button>
-            <Button
-              onClick={() => inputOperator("+")}
-              className="h-12 text-lg bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              +
-            </Button>
-
-            <Button
-              onClick={() => inputNumber("1")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              1
-            </Button>
-            <Button
-              onClick={() => inputNumber("2")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              2
-            </Button>
-            <Button
-              onClick={() => inputNumber("3")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              3
-            </Button>
-            <Button
-              onClick={calculate}
-              className="h-12 text-lg bg-blue-500 hover:bg-blue-600 text-white row-span-2"
-            >
-              =
-            </Button>
-
-            <Button
-              onClick={() => inputNumber("0")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100 col-span-2"
-            >
-              0
-            </Button>
-            <Button
-              onClick={() => inputNumber(".")}
-              className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
-            >
-              .
-            </Button>
-          </div>
         </div>
-      </Card>
-    );
-  }
+
+        <div className="grid grid-cols-4 gap-2">
+          <Button
+            onClick={clearMemory}
+            className="h-12 text-sm bg-purple-500 hover:bg-purple-600 text-white"
+          >
+            MC
+          </Button>
+          <Button
+            onClick={recallMemory}
+            className="h-12 text-sm bg-purple-500 hover:bg-purple-600 text-white"
+          >
+            MR
+          </Button>
+          <Button
+            onClick={addToMemory}
+            className="h-12 text-sm bg-purple-500 hover:bg-purple-600 text-white"
+          >
+            M+
+          </Button>
+          <Button
+            onClick={clearAll}
+            className="h-12 text-sm bg-red-500 hover:bg-red-600 text-white"
+          >
+            AC
+          </Button>
+
+          <Button
+            onClick={clear}
+            className="h-12 text-sm bg-zinc-300 hover:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-100"
+          >
+            C
+          </Button>
+          <Button
+            onClick={calculatePercentage}
+            className="h-12 text-sm bg-zinc-300 hover:bg-zinc-400 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-800 dark:text-zinc-100"
+          >
+            %
+          </Button>
+          <Button
+            onClick={() => inputOperator("÷")}
+            className="h-12 text-sm bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            ÷
+          </Button>
+          <Button
+            onClick={() => inputOperator("×")}
+            className="h-12 text-sm bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            ×
+          </Button>
+
+          <Button
+            onClick={() => inputNumber("7")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            7
+          </Button>
+          <Button
+            onClick={() => inputNumber("8")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            8
+          </Button>
+          <Button
+            onClick={() => inputNumber("9")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            9
+          </Button>
+          <Button
+            onClick={() => inputOperator("-")}
+            className="h-12 text-lg bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            −
+          </Button>
+
+          <Button
+            onClick={() => inputNumber("4")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            4
+          </Button>
+          <Button
+            onClick={() => inputNumber("5")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            5
+          </Button>
+          <Button
+            onClick={() => inputNumber("6")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            6
+          </Button>
+          <Button
+            onClick={() => inputOperator("+")}
+            className="h-12 text-lg bg-blue-500 hover:bg-blue-600 text-white"
+          >
+            +
+          </Button>
+
+          <Button
+            onClick={() => inputNumber("1")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            1
+          </Button>
+          <Button
+            onClick={() => inputNumber("2")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            2
+          </Button>
+          <Button
+            onClick={() => inputNumber("3")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            3
+          </Button>
+          <Button
+            onClick={calculate}
+            className="h-12 text-lg bg-blue-500 hover:bg-blue-600 text-white row-span-2"
+          >
+            =
+          </Button>
+
+          <Button
+            onClick={() => inputNumber("0")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100 col-span-2"
+          >
+            0
+          </Button>
+          <Button
+            onClick={() => inputNumber(".")}
+            className="h-12 text-lg bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 text-zinc-800 dark:text-zinc-100"
+          >
+            .
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
 };
 
 export default FinancialCalculator;

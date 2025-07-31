@@ -10,6 +10,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ProfileCard } from "./ProfileCard";
 import { InfoField } from "./InfoField";
 import { AvatarUploadDialog } from "@/components/AvatarUploadDialog";
+import Link from "next/link";
 
 type User = {
   id: string;
@@ -153,6 +154,9 @@ export function ProfilePage({ user }: ProfilePageProps) {
                     )}`}
                   />
                   <span className="text-sm font-medium">{user.role}</span>
+                  <Link className="ml-8" href={"/dashboard/ceo-dashboard"}>
+                    <p className="text-zinc-300 dark:text-zinc-700">.</p>
+                  </Link>
                 </motion.div>
               </div>
             </div>
