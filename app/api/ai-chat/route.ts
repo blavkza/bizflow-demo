@@ -160,7 +160,8 @@ export async function POST(req: Request) {
     - Net Revenue: R${totalRevenue.toFixed(2)}
     - Overdue Amount: R${totalOverdueAmount.toFixed(2)}
     - Recent Payments (30 days): R${recentPayments.reduce((sum, p) => sum + Number(p.amount), 0).toFixed(2)}
-    - All transations : ${transactions}
+    - All expense transations : ${expenseTransactions}
+    - All income transations : ${incomeTransactions}
 
     === CLIENTS (${clients.length}) ===
     ${clients.map((c) => `- ${c.name} (${c.status}): ${c.invoices.length} invoices, ${c.quotations.length} quotations`).join("\n")}
