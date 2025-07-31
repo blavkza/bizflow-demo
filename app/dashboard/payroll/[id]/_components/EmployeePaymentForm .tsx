@@ -114,8 +114,11 @@ export function EmployeePaymentForm({
                   placeholder="Enter amount"
                   value={field.value === 0 ? "" : field.value}
                   onChange={(e) => {
-                    const value =
-                      e.target.value === "" ? 0 : parseFloat(e.target.value);
+                    if (e.target.value === "") {
+                      field.onChange(0);
+                      return;
+                    }
+                    const value = parseFloat(e.target.value);
                     field.onChange(isNaN(value) ? 0 : value);
                   }}
                   onBlur={() => {
