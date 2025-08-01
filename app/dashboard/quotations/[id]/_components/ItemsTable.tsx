@@ -15,6 +15,15 @@ export const ItemsTable = ({
 }: {
   quotation: QuotationWithRelations;
 }) => {
+  const discountType = quotation?.discountType;
+  const subtotal = Number(quotation.amount);
+
+  // Calculate discount amount based on type
+  const discountAmount =
+    discountType === "PERCENTAGE"
+      ? subtotal * (Number(quotation.discountAmount) / 100)
+      : Number(quotation.discountAmount);
+
   return (
     <Table>
       <TableHeader>
@@ -47,24 +56,24 @@ export const ItemsTable = ({
             Subtotal
           </TableCell>
           <TableCell className="font-medium">
-            R{Number(quotation.amount).toLocaleString("en-ZA")}
+            R{subtotal.toLocaleString("en-ZA")}
           </TableCell>
         </TableRow>
         <TableRow>
           <TableCell colSpan={4} className="font-medium">
             Tax
           </TableCell>
-
           <TableCell className="font-medium">
             R{Number(quotation.taxAmount).toLocaleString("en-ZA")}
           </TableCell>
         </TableRow>
         <TableRow className="border-t-2">
           <TableCell colSpan={4} className="font-medium">
-            Discount
+            Discount{" "}
+            {discountType === "PERCENTAGE" && `(${quotation.discountAmount}%)`}
           </TableCell>
-          <TableCell className="font-medium ">
-            R{Number(quotation.discountAmount).toLocaleString("en-ZA")}
+          <TableCell className="font-medium">
+            R{discountAmount.toLocaleString("en-ZA")}
           </TableCell>
         </TableRow>
         <TableRow className="border-t-2">

@@ -77,6 +77,8 @@ export function QuotationForm({
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
 
+  console.log(data);
+
   const form = useForm<z.infer<typeof QuotationSchema>>({
     resolver: zodResolver(QuotationSchema),
     defaultValues: {
@@ -633,16 +635,15 @@ export function QuotationForm({
                       </FormLabel>
                       <FormControl>
                         <Input
-                          type="text"
                           placeholder="0.00"
-                          value={field.value ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
+                          type="number"
+                          step="1"
+                          {...field}
+                          onChange={(e) =>
                             field.onChange(
-                              val === "" ? undefined : parseFloat(val)
-                            );
-                            handleManualItemChange(index);
-                          }}
+                              e.target.valueAsNumber || e.target.value
+                            )
+                          }
                         />
                       </FormControl>
                       <FormMessage />
@@ -661,16 +662,15 @@ export function QuotationForm({
                       </FormLabel>
                       <FormControl>
                         <Input
-                          type="text"
-                          placeholder="0.00%"
-                          value={field.value ?? ""}
-                          onChange={(e) => {
-                            const val = e.target.value;
+                          placeholder="0.00"
+                          type="number"
+                          step="0.50"
+                          {...field}
+                          onChange={(e) =>
                             field.onChange(
-                              val === "" ? undefined : parseFloat(val)
-                            );
-                            handleManualItemChange(index);
-                          }}
+                              e.target.valueAsNumber || e.target.value
+                            )
+                          }
                         />
                       </FormControl>
                       <FormMessage />

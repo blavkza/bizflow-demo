@@ -57,11 +57,7 @@ export async function GET(
             },
           },
         },
-        items: {
-          orderBy: {
-            sortOrder: "asc",
-          },
-        },
+        items: true,
       },
     });
 
