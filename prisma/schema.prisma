@@ -37,7 +37,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Only this relation matters for being a manager
-  managedDepartments Department[] @relation("DepartmentManager")
+  managedDepartments Department[]  @relation("DepartmentManager")
+  projectTeams       ProjectTeam[]
 
   // Everything else is unrelated
   createdTransactions Transaction[]
@@ -50,6 +51,7 @@ model User {
   passwordResets      PasswordReset[]
   createdQuotations   Quotation[]
   GeneralSetting      GeneralSetting[]
+  Project             Project[]
 
   @@map("users")
 }
@@ -139,7 +141,7 @@ model Department {
   name        String
   description String?
   code        String           @unique
-  managerId   String? // FK to User
+  managerId   String?
   parentId    String?
   status      DepartmentStatus @default(ACTIVE)
   currency    String           @default("ZAR")
@@ -220,13 +222,14 @@ model Employee {
 
   // Relations
   department    Department?    @relation("DepartmentEmployees", fields: [departmentId], references: [id])
-  assignedTasks Task[]         @relation(name: "TaskAssignee")
+  assignedTasks Task[]         @relation(name: "TaskAssignments")
   payments      Payment[]
   documents     Document[]
   targets       Target[]
   kpiResults    KpiResult[]
   timeEntries   TimeEntry[]
   leaveRequests LeaveRequest[]
+  Note          Note[]
 
   @@index([departmentId])
   @@index([status])
@@ -315,6 +318,7 @@ model Transaction {
   Payment    Payment[]
   Account    Account?           @relation(fields: [accountId], references: [id])
   accountId  String?
+  Note       Note[]
 
   @@index([invoiceId])
   @@index([categoryId])
@@ -485,6 +489,7 @@ model Client {
   documents    Document[]
   projects     Project[]
   quotations   Quotation[]
+  Note         Note[]
 
   @@index([status])
   @@index([type])
@@ -496,12 +501,16 @@ model Client {
 // ============================================================================
 
 model Project {
-  id          String        @id @default(cuid())
-  name        String
-  description String?
-  clientId    String
-  status      ProjectStatus @default(PLANNING)
-  priority    Priority      @default(MEDIUM)
+  id            String        @id @default(cuid())
+  projectNumber String
+  title         String
+  description   String?
+  clientId      String?
+  managerId     String
+  status        ProjectStatus @default(PLANNING)
+  priority      Priority      @default(MEDIUM)
+  starred       Boolean       @default(false)
+  archived      Boolean       @default(false)
 
   // Timeline
   startDate DateTime?
@@ -509,9 +518,10 @@ model Project {
   deadline  DateTime?
 
   // Financial
-  budget     Decimal? @db.Decimal(15, 2)
-  currency   String   @default("ZAR")
-  hourlyRate Decimal? @db.Decimal(10, 2)
+  budget      Decimal? @db.Decimal(15, 2)
+  budgetSpent Decimal? @db.Decimal(15, 2)
+  currency    String   @default("ZAR")
+  hourlyRate  Decimal? @db.Decimal(10, 2)
 
   // Progress
   progress Int @default(0) // 0-100
@@ -520,25 +530,60 @@ model Project {
   updatedAt DateTime @updatedAt
 
   // Relations
-  client      Client      @relation(fields: [clientId], references: [id])
+  client      Client?       @relation(fields: [clientId], references: [id])
+  manager     User?         @relation(fields: [managerId], references: [id])
+  teamMembers ProjectTeam[]
+
   tasks       Task[]
   timeEntries TimeEntry[]
   invoices    Invoice[]
   quotations  Quotation[]
+  documents   Document[]
+  Note        Note[]
+  Folder      Folder[]
+  comment     comment[]
 
   @@index([clientId])
   @@index([status])
   @@map("projects")
 }
 
+model ProjectTeam {
+  id        String  @id @default(cuid())
+  projectId String
+  userId    String
+  role      String?
+
+  // Permissions
+  canEditTask      Boolean @default(false)
+  canDeleteTask    Boolean @default(false)
+  canDeleteFiles   Boolean @default(false)
+  canCreateTask    Boolean @default(false)
+  canAddInvoice    Boolean @default(false)
+  canUploadFiles   Boolean @default(false)
+  canEditFile      Boolean @default(false)
+  canViewFinancial Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+  @@map("project_teams")
+}
+
 model Task {
   id          String     @id @default(cuid())
+  taskNumber  String
   title       String
   description String?
   projectId   String
-  assigneeId  String?
   status      TaskStatus @default(TODO)
   priority    Priority   @default(MEDIUM)
+  noteId      String?
 
   // Timeline
   dueDate     DateTime?
@@ -552,14 +597,128 @@ model Task {
   updatedAt DateTime @updatedAt
 
   // Relations
-  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee    Employee?   @relation(name: "TaskAssignee", fields: [assigneeId], references: [id])
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignees Employee[] @relation("TaskAssignments")
+
   timeEntries TimeEntry[]
 
   @@index([projectId])
-  @@index([assigneeId])
   @@index([status])
   @@map("tasks")
+}
+
+model Document {
+  id           String       @id @default(cuid())
+  name         String
+  originalName String?
+  type         DocumentType
+  url          String
+  size         Int?
+  mimeType     String?
+  checksum     String?
+
+  // Relations (polymorphic)
+  employeeId    String?
+  clientId      String?
+  transactionId String?
+  projectId     String?
+
+  folderId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee    Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client      Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  Project Project? @relation(fields: [projectId], references: [id])
+  folder  Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([employeeId])
+  @@index([clientId])
+  @@index([transactionId])
+  @@map("documents")
+}
+
+model Note {
+  id            String   @id @default(cuid())
+  title         String
+  content       String
+  tags          String[]
+  // Relations (polymorphic)
+  employeeId    String?
+  clientId      String?
+  transactionId String?
+  projectId     String?
+  folderId      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee    Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client      Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  Project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  folder      Folder?      @relation(fields: [folderId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([clientId])
+  @@index([transactionId])
+}
+
+model comment {
+  id      String @id @default(cuid())
+  content String
+
+  projectId       String?
+  liked           Boolean @default(false)
+  pinned          Boolean @default(false)
+  commenterName   String
+  commenterId     String
+  commenterAvatar String?
+  commenterRole   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  commentReply commentReply[]
+}
+
+model commentReply {
+  id        String  @id @default(cuid())
+  content   String
+  commentId String
+  liked     Boolean @default(false)
+
+  commenterName   String
+  commenterId     String
+  commenterAvatar String?
+  commenterRole   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  comment   comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+}
+
+model Folder {
+  id    String @id @default(cuid())
+  title String
+
+  // Relations (polymorphic)
+  projectId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Project  Project?   @relation(fields: [projectId], references: [id])
+  Note     Note[]
+  Document Document[]
+
+  @@index([projectId])
 }
 
 model TimeEntry {
@@ -1046,43 +1205,6 @@ model KpiResult {
   @@index([kpiId])
   @@index([period])
   @@map("kpi_results")
-}
-
-// ============================================================================
-// DOCUMENT MANAGEMENT
-// ============================================================================
-
-model Document {
-  id           String       @id @default(cuid())
-  name         String
-  originalName String?
-  type         DocumentType
-  url          String
-  size         Int?
-  mimeType     String?
-  checksum     String?
-
-  // Relations (polymorphic)
-  employeeId    String?
-  clientId      String?
-  transactionId String?
-
-  parentId String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  employee    Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  client      Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  parent      Document?    @relation("DocumentVersions", fields: [parentId], references: [id])
-  versions    Document[]   @relation("DocumentVersions")
-
-  @@index([type])
-  @@index([employeeId])
-  @@index([clientId])
-  @@index([transactionId])
-  @@map("documents")
 }
 
 // ============================================================================
@@ -1676,6 +1798,7 @@ enum NotificationType {
   DEPARTMENT
   BUDGET
   TARGET
+  PROJECT
 }
 
 enum NotificationPriority {

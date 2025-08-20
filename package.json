@@ -12,6 +12,8 @@
   "dependencies": {
     "@clerk/elements": "^0.23.24",
     "@clerk/nextjs": "^6.19.1",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^3.9.1",
     "@prisma/client": "^6.5.0",
@@ -74,6 +76,8 @@
     "react-hook-form": "^7.54.1",
     "react-icons": "^5.5.0",
     "react-markdown": "^10.1.0",
+    "react-pdf": "^10.1.0",
+    "react-quill": "^2.0.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "latest",
     "rehype-raw": "^7.0.0",

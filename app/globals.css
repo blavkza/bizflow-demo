@@ -92,3 +92,52 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@import "react-quill/dist/quill.snow.css";
+
+
+/* Custom scrollbar styling */
+.sidebar-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.dark .sidebar-content::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+.sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+.dark .sidebar-content::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Active state styling */
+.bg-accent\/90 {
+  background-color: hsl(var(--accent) / 0.9);
+}
+
+.border-primary {
+  border-color: hsl(var(--primary));
+}
+
+.dark .bg-accent\/90 {
+  background-color: hsl(var(--accent) / 0.8);
+}
+
+/* Dashboard specific styling */
+.dashboard-active {
+  background-color: hsl(var(--primary) / 0.1);
+  border-left: 4px solid hsl(var(--primary));
+}
+

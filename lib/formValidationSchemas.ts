@@ -7,13 +7,15 @@ import {
   InvoiceStatus,
   PaymentMethod,
   PaymentType,
+  Priority,
   QuotationStatus,
+  TaskStatus,
   TransactionStatus,
   TransactionType,
   UserRole,
   UserStatus,
 } from "@prisma/client";
-import { z } from "zod";
+import { optional, z } from "zod";
 
 export const createUserSchema = z
   .object({
@@ -79,6 +81,47 @@ export const departmentSchema = z.object({
 
 export type departmentSchemaType = z.infer<typeof departmentSchema>;
 
+export const projectSchema = z.object({
+  title: z.string().min(1, { message: "Name is required!" }),
+  description: z.string().min(1, { message: "Description is required!" }),
+  clientId: z.string().optional(),
+  priority: z.nativeEnum(Priority),
+  managerId: z.string().min(1, "Manager is required"),
+  startDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+  endDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+  deadline: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+});
+
+export type projectSchemaType = z.infer<typeof projectSchema>;
+
+export const taskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  projectId: z.string().min(1, "Project is required"),
+  status: z.nativeEnum(TaskStatus),
+  priority: z.nativeEnum(Priority),
+  dueDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+  estimatedHours: z.number().optional(),
+  assigneeIds: z.array(z.string()).min(1, "At least one assignee is required"),
+});
+
+export type taskSchemaType = z.infer<typeof taskSchema>;
+
+export const folderSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  projectId: z.string().min(1, "Project is required"),
+});
+
+export type foldwerSchemaType = z.infer<typeof folderSchema>;
+
+export const memberSchema = z.object({
+  user: z.string().min(1, "Project is required"),
+  role: z.string().min(1, "Role is required"),
+  projectId: z.string().min(1, "Project is required"),
+});
+
+export type MemberSchemaType = z.infer<typeof memberSchema>;
+
 export const employeeSchema = z.object({
   firstName: z.string().min(1, { message: "First name is required" }),
   lastName: z.string().min(1, { message: "Last name is required" }),
@@ -100,6 +143,12 @@ export const employeeSchema = z.object({
   status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
   address: z.string().min(1, { message: "Address is required" }),
 });
+
+export const projectInvoiceSchema = z.object({
+  invoiceId: z.string().min(1, { message: "invoiceId is required!" }),
+});
+
+export type ProjectInvoiceSchemaType = z.infer<typeof projectInvoiceSchema>;
 
 export type employeeSchemaType = z.infer<typeof employeeSchema>;
 
@@ -266,3 +315,50 @@ export const transactionCeoSchema = z.object({
 });
 
 export type TransactionCeoFormValues = z.infer<typeof transactionCeoSchema>;
+
+export const TeamRole = z.enum([
+  "MEMBER",
+  "LEADER",
+  "CONTRIBUTOR",
+  "REVIEWER",
+  "FINANCIAL",
+]);
+export type TeamRole = z.infer<typeof TeamRole>;
+
+export const ProjectTeamMemberSchema = z.object({
+  userId: z.string().min(1, "User ID is required"),
+  role: TeamRole,
+  permissions: z
+    .object({
+      tasks: z
+        .object({
+          create: z.boolean().default(false),
+          edit: z.boolean().default(false),
+          delete: z.boolean().default(false),
+        })
+        .default({}),
+      invoices: z
+        .object({
+          create: z.boolean().default(false),
+          edit: z.boolean().default(false),
+          view: z.boolean().default(false),
+        })
+        .default({}),
+      files: z
+        .object({
+          upload: z.boolean().default(false),
+          delete: z.boolean().default(false),
+        })
+        .default({}),
+      financial: z
+        .object({
+          view: z.boolean().default(false),
+          edit: z.boolean().default(false),
+        })
+        .default({}),
+    })
+    .default({}),
+});
+
+export const ProjectTeamCreateSchema = z.array(ProjectTeamMemberSchema);
+export type ProjectTeamCreateSchema = z.infer<typeof ProjectTeamCreateSchema>;

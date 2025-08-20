@@ -21,6 +21,7 @@ export async function GET(request: Request) {
       },
       select: {
         role: true,
+        id: true,
       },
     });
 

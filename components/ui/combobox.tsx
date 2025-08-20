@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 
 interface ComboboxProps {
   options: { label: string; value: string }[];
@@ -16,7 +16,7 @@ export const Combobox = ({
   options,
   value,
   onChange,
-  isLoading,
+  isLoading = false,
   placeholder = "Select option...",
   disabled = false,
 }: ComboboxProps) => {
@@ -30,10 +30,11 @@ export const Combobox = ({
   }, [options, searchTerm]);
 
   const selectedOptionLabel = React.useMemo(() => {
+    if (isLoading) return "Loading...";
     return value
       ? options.find((option) => option.value === value)?.label
       : placeholder;
-  }, [options, value, placeholder]);
+  }, [options, value, placeholder, isLoading]);
 
   const handleOptionSelect = (optionValue: string) => {
     onChange(optionValue);
@@ -54,8 +55,19 @@ export const Combobox = ({
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <span className="truncate">{selectedOptionLabel}</span>
-        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        <span className="truncate">
+          {isLoading ? (
+            <span className="flex items-center">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading...
+            </span>
+          ) : (
+            selectedOptionLabel
+          )}
+        </span>
+        {!isLoading && (
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        )}
       </button>
 
       {/* Dropdown */}
@@ -86,8 +98,9 @@ export const Combobox = ({
           {/* Options */}
           <div className="max-h-60 overflow-y-auto">
             {isLoading ? (
-              <div className="relative cursor-default select-none px-3 py-2 text-sm text-muted-foreground">
-                Loading...
+              <div className="flex items-center justify-center p-2">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <span>Loading options...</span>
               </div>
             ) : filteredOptions.length > 0 ? (
               <ul role="listbox">
@@ -112,7 +125,9 @@ export const Combobox = ({
               </ul>
             ) : (
               <div className="relative cursor-default select-none px-3 py-2 text-sm text-muted-foreground">
-                No option found.
+                {searchTerm
+                  ? "No matching options found"
+                  : "No options available"}
               </div>
             )}
           </div>

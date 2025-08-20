@@ -4,6 +4,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import AppSidebar from "./app-sidebar";
 import { NotificationProvider } from "@/contexts/notification-context";
+import { Providers } from "@/app/providers";
 
 export default function ClientWrapper({
   children,
@@ -17,7 +18,11 @@ export default function ClientWrapper({
   return (
     <div className="flex min-h-screen w-full">
       <NotificationProvider>
-        {!isHome && !isSignIn && <AppSidebar />}
+        {!isHome && !isSignIn && (
+          <Providers>
+            <AppSidebar />
+          </Providers>
+        )}
         <main className="flex-1 overflow-auto">{children}</main>
       </NotificationProvider>
     </div>

@@ -10,6 +10,7 @@ import { InvoiceProps, InvoiceStatus } from "@/types/invoice";
 import { StatusBadge } from "./StatusBadge";
 import { InvoiceActions } from "./InvoiceActions";
 import { InvoicePDF } from "./InvoicePDF";
+import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   invoice: InvoiceProps;
@@ -19,11 +20,9 @@ export default function Header({ invoice }: HeaderProps) {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
-
-  console.log(invoice.status);
+  const router = useRouter();
 
   useEffect(() => {
-    // Preload logo image
     if (invoice.creator.GeneralSetting[0]?.logo) {
       const img = new Image();
       img.src = invoice.creator.GeneralSetting[0].logo;
@@ -93,12 +92,10 @@ export default function Header({ invoice }: HeaderProps) {
           <Button
             variant="outline"
             size="icon"
-            asChild
-            aria-label="Back to invoices"
+            className="shrink-0"
+            onClick={() => router.back()}
           >
-            <Link href="/dashboard/invoices">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
             <h1 className="text-3xl font-bold">{invoice.invoiceNumber}</h1>

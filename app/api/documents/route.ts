@@ -51,6 +51,7 @@ export async function POST(request: Request) {
       | "employee"
       | "client"
       | "transaction"
+      | "Project"
       | null;
     const entityId = formData.get("entityId") as string | null;
     const parentId = formData.get("parentId") as string | null;
