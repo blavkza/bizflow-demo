@@ -423,7 +423,7 @@ export function SidebarItems({
                     </Link>
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight select-none">
-                    <span className="truncate font-semibold">FinanceFlow</span>
+                    <span className="truncate font-semibold">BizFlow</span>
                     <span className="truncate text-xs">Management System</span>
                   </div>
                 </div>

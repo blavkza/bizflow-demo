@@ -14,7 +14,7 @@ import FinancialCalculator from "@/components/FinancialCalculator";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Biz Flow Management System ",
+  title: "BizFlow Management System ",
   description:
     "Comprehensive financial tracking, projects tracking and management platform",
 };

@@ -247,7 +247,7 @@ export default function LandingPage() {
                   </Link>
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight select-none">
-                  <span className="truncate font-semibold">FinanceFlow</span>
+                  <span className="truncate font-semibold">BizFlow</span>
                   <span className="truncate text-xs">Management System</span>
                 </div>
               </div>
@@ -387,7 +387,7 @@ export default function LandingPage() {
                   Current {activeMetric}
                 </div>
                 <div className="text-2xl font-bold">
-                  $
+                  R
                   {financialData[activeMetric][
                     financialData[activeMetric].length - 1
                   ].toLocaleString()}
@@ -401,7 +401,7 @@ export default function LandingPage() {
               <div className="bg-slate-700/30 rounded-lg p-4">
                 <div className="text-sm text-gray-300 mb-1">Average</div>
                 <div className="text-2xl font-bold">
-                  $
+                  R
                   {Math.round(
                     financialData[activeMetric].reduce((a, b) => a + b, 0) /
                       financialData[activeMetric].length
@@ -413,7 +413,7 @@ export default function LandingPage() {
               <div className="bg-slate-700/30 rounded-lg p-4">
                 <div className="text-sm text-gray-300 mb-1">Forecast</div>
                 <div className="text-2xl font-bold">
-                  $
+                  R
                   {Math.round(
                     financialData[activeMetric][
                       financialData[activeMetric].length - 1
@@ -597,8 +597,8 @@ export default function LandingPage() {
                 Ready to Transform Your Financial Management?
               </h2>
               <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-                Join thousands of businesses using FinanceFlow to optimize their
-                financial operations with mathematical precision.
+                Join 10 + businesses using BizFlow to optimize their financial
+                operations with mathematical precision.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 {/*  <Button
@@ -637,7 +637,7 @@ export default function LandingPage() {
                 <BarChart3 className="h-5 w-5 text-white" />
               </div>
               <div className="font-bold text-lg bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-                FinanceFlow
+                BizFlow
               </div>
             </div>
 
