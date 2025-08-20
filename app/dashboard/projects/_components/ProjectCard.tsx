@@ -59,7 +59,7 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
           <div className="flex gap-2">
             <Badge className={getStatusColor(project.status)}>
               {project.status === "ON_HOLD"
-                ? "ON HOLD"
+                ? "HOLD"
                 : project.status.replace("_", " ")}
             </Badge>
             <Badge className={getPriorityColor(project.priority)}>

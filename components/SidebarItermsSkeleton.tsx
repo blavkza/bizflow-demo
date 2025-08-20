@@ -45,11 +45,13 @@ export function SidebarItermsSkeleton() {
                   </div>
                 </div>
                 <Button
-                  variant={"ghost"}
-                  size={"icon"}
-                  onClick={() => window.location.reload()}
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    window.location.href = window.location.href;
+                  }}
                 >
-                  <IoReloadOutline size={24} />
+                  <IoReloadOutline className="h-6 w-6" />
                 </Button>
               </div>
             </SidebarMenuButton>
