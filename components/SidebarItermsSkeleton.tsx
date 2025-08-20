@@ -44,7 +44,11 @@ export function SidebarItermsSkeleton() {
                     <span className="truncate text-xs">Management System</span>
                   </div>
                 </div>
-                <Button variant={"ghost"} size={"icon"}>
+                <Button
+                  variant={"ghost"}
+                  size={"icon"}
+                  onClick={() => window.location.reload()}
+                >
                   <IoReloadOutline size={24} />
                 </Button>
               </div>
