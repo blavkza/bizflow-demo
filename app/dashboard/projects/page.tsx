@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ProjectCard } from "./_components/ProjectCard";
 import { ProjectCalendarView } from "./_components/ProjectCalendarView";
@@ -41,7 +41,8 @@ async function fetchUserData(userId: string) {
   return response.json();
 }
 
-const Page = () => {
+// Create a component that uses useSearchParams
+function ProjectsContent() {
   const { userId } = useAuth();
   const searchParams = useSearchParams();
 
@@ -296,6 +297,15 @@ const Page = () => {
         </Card>
       </div>
     </div>
+  );
+}
+
+// Main page component with Suspense boundary
+const Page = () => {
+  return (
+    <Suspense fallback={<ProjectsSkeleton />}>
+      <ProjectsContent />
+    </Suspense>
   );
 };
 
