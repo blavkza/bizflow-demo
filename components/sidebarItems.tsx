@@ -427,8 +427,14 @@ export function SidebarItems({
                     <span className="truncate text-xs">Management System</span>
                   </div>
                 </div>
-                <Button variant={"ghost"} size={"icon"}>
-                  <IoReloadOutline size={24} />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    window.location.href = window.location.href;
+                  }}
+                >
+                  <IoReloadOutline className="h-6 w-6" />
                 </Button>
               </div>
             </SidebarMenuButton>
