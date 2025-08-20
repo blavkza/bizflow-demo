@@ -53,12 +53,14 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
     >
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
-          <CardTitle className="text-lg font-semibold truncate">
+          <CardTitle className="text-lg font-semibold truncate pr-4">
             {project.title}
           </CardTitle>
           <div className="flex gap-2">
             <Badge className={getStatusColor(project.status)}>
-              {project.status.replace("_", " ")}
+              {project.status === "ON_HOLD"
+                ? "ON HOLD"
+                : project.status.replace("_", " ")}
             </Badge>
             <Badge className={getPriorityColor(project.priority)}>
               {project.priority}

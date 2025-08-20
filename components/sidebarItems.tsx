@@ -57,9 +57,10 @@ import clsx from "clsx";
 import Profile from "./profile";
 import Image from "next/image";
 import { Project } from "@/types/sidebar";
-import { getStatusColor } from "@/app/dashboard/projects/[id]/utils";
 import { GlobalSearch } from "./GlobalSearch";
 import { toast } from "sonner";
+import { IoReloadOutline } from "react-icons/io5";
+import { Button } from "./ui/button";
 
 interface AppSidebarProps {
   role: string;
@@ -271,7 +272,7 @@ const getFolderColor = (status: string | null) => {
     case "ON_HOLD":
       return "text-orange-500 ";
     default:
-      return "text-muted ";
+      return "text-zinc-700 dark:text-zinc-200";
   }
 };
 
@@ -408,21 +409,28 @@ export function SidebarItems({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/" className="flex items-center gap-3">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-100">
-                  <Image
-                    src="/logo.png"
-                    alt="Logo"
-                    width={80}
-                    height={80}
-                    className="object-contain"
-                  />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-100">
+                    <Link href="/">
+                      <Image
+                        src="/logo.png"
+                        alt="Logo"
+                        width={80}
+                        height={80}
+                        className="object-contain"
+                      />
+                    </Link>
+                  </div>
+                  <div className="grid flex-1 text-left text-sm leading-tight select-none">
+                    <span className="truncate font-semibold">FinanceFlow</span>
+                    <span className="truncate text-xs">Management System</span>
+                  </div>
                 </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">FinanceFlow</span>
-                  <span className="truncate text-xs">Management System</span>
-                </div>
-              </Link>
+                <Button variant={"ghost"} size={"icon"}>
+                  <IoReloadOutline size={24} />
+                </Button>
+              </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
@@ -573,138 +581,138 @@ export function SidebarItems({
                                 </CollapsibleTrigger>
                                 <CollapsibleContent className="ml-4 space-y-1 py-1">
                                   {Array.isArray(project.folder) &&
-                                  project.folder.length > 0 ? (
-                                    <>
-                                      {project.folder
-                                        .sort(
-                                          (a, b) =>
-                                            new Date(b.createdAt).getTime() -
-                                            new Date(a.createdAt).getTime()
-                                        )
-                                        .slice(0, 2)
-                                        .map((folder) => (
-                                          <Collapsible
-                                            key={folder.id}
-                                            open={expandedFolders.has(
-                                              folder.id
-                                            )}
-                                            onOpenChange={() =>
-                                              toggleFolder(folder.id)
-                                            }
-                                          >
-                                            <CollapsibleTrigger asChild>
-                                              <SidebarMenuButton
-                                                asChild
-                                                className={clsx(
-                                                  "w-full hover:bg-accent/50",
-                                                  isActive(
-                                                    `/dashboard/projects/${project.id}/folders/${folder.id}`
-                                                  ) &&
-                                                    "bg-accent/90 hover:bg-accent "
-                                                )}
-                                              >
-                                                <div>
-                                                  {expandedFolders.has(
-                                                    folder.id
-                                                  ) ? (
-                                                    <FolderOpen
-                                                      className={clsx(
-                                                        "mr-2 h-4 w-4"
-                                                      )}
-                                                    />
-                                                  ) : (
-                                                    <Folder
-                                                      className={clsx(
-                                                        "mr-2 h-4 w-4"
-                                                      )}
-                                                    />
-                                                  )}
-                                                  <span className="truncate">
-                                                    {folder.title}
-                                                  </span>
-                                                  <ChevronRight
-                                                    className={clsx(
-                                                      "ml-auto h-4 w-4 transition-transform duration-200",
-                                                      expandedFolders.has(
-                                                        folder.id
-                                                      ) && "rotate-90"
-                                                    )}
-                                                  />
-                                                </div>
-                                              </SidebarMenuButton>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="ml-4 space-y-1 py-1">
-                                              {folder.notes?.map((note) => (
-                                                <SidebarMenuSubItem
-                                                  key={note.id}
-                                                >
-                                                  <SidebarMenuSubButton asChild>
-                                                    <Link
-                                                      href={`/dashboard/projects/${project.id}/folders/${folder.id}/notes/${note.id}`}
-                                                      className={clsx(
-                                                        "hover:bg-accent/30 py-1",
-                                                        isActive(
-                                                          `/dashboard/projects/${project.id}/folders/${folder.id}/notes/${note.id}`
-                                                        ) &&
-                                                          "bg-accent/90 hover:bg-accent "
-                                                      )}
-                                                    >
-                                                      <List className="mr-2 h-4 w-4" />
-                                                      <span className="truncate">
-                                                        {note.title}
-                                                      </span>
-                                                    </Link>
-                                                  </SidebarMenuSubButton>
-                                                </SidebarMenuSubItem>
-                                              ))}
-                                              {folder.Document?.map((doc) => (
-                                                <SidebarMenuSubItem
-                                                  key={doc.id}
-                                                >
-                                                  <SidebarMenuSubButton asChild>
-                                                    <Link
-                                                      href={`/dashboard/projects/${project.id}/folders/${folder.id}/documents/${doc.id}`}
-                                                      className={clsx(
-                                                        "hover:bg-accent/30 py-1",
-                                                        isActive(
-                                                          `/dashboard/projects/${project.id}/folders/${folder.id}/documents/${doc.id}`
-                                                        ) &&
-                                                          "bg-accent/90 hover:bg-accent "
-                                                      )}
-                                                    >
-                                                      <FileText className="mr-2 h-4 w-4" />
-                                                      <span className="truncate">
-                                                        {doc.originalName}
-                                                      </span>
-                                                    </Link>
-                                                  </SidebarMenuSubButton>
-                                                </SidebarMenuSubItem>
-                                              ))}
-                                            </CollapsibleContent>
-                                          </Collapsible>
-                                        ))}
-                                      {project.folder.length > 2 && (
-                                        <SidebarMenuItem>
-                                          <SidebarMenuButton asChild>
-                                            <Link
-                                              href={`/dashboard/projects/${project.id}`}
-                                              className="text-xs text-muted-foreground hover:text-foreground"
+                                    project.folder.length > 0 && (
+                                      <>
+                                        {project.folder
+                                          .sort(
+                                            (a, b) =>
+                                              new Date(b.createdAt).getTime() -
+                                              new Date(a.createdAt).getTime()
+                                          )
+                                          .slice(0, 2)
+                                          .map((folder) => (
+                                            <Collapsible
+                                              key={folder.id}
+                                              open={expandedFolders.has(
+                                                folder.id
+                                              )}
+                                              onOpenChange={() =>
+                                                toggleFolder(folder.id)
+                                              }
                                             >
-                                              <span>
-                                                View all folders (
-                                                {project.folder.length})
-                                              </span>
-                                              <ChevronRight className="ml-1 h-3 w-3" />
-                                            </Link>
-                                          </SidebarMenuButton>
-                                        </SidebarMenuItem>
-                                      )}
-                                    </>
-                                  ) : (
-                                    <SidebarMenuItem>
-                                      <span className="text-muted-foreground text-sm italic px-3"></span>
-                                    </SidebarMenuItem>
-                                  )}
+                                              <CollapsibleTrigger asChild>
+                                                <SidebarMenuButton
+                                                  asChild
+                                                  className={clsx(
+                                                    "w-full hover:bg-accent/50",
+                                                    isActive(
+                                                      `/dashboard/projects/${project.id}/folders/${folder.id}`
+                                                    ) &&
+                                                      "bg-accent/90 hover:bg-accent "
+                                                  )}
+                                                >
+                                                  <div>
+                                                    {expandedFolders.has(
+                                                      folder.id
+                                                    ) ? (
+                                                      <FolderOpen
+                                                        className={clsx(
+                                                          "mr-2 h-4 w-4"
+                                                        )}
+                                                      />
+                                                    ) : (
+                                                      <Folder
+                                                        className={clsx(
+                                                          "mr-2 h-4 w-4"
+                                                        )}
+                                                      />
+                                                    )}
+                                                    <span className="truncate">
+                                                      {folder.title}
+                                                    </span>
+                                                    <ChevronRight
+                                                      className={clsx(
+                                                        "ml-auto h-4 w-4 transition-transform duration-200",
+                                                        expandedFolders.has(
+                                                          folder.id
+                                                        ) && "rotate-90"
+                                                      )}
+                                                    />
+                                                  </div>
+                                                </SidebarMenuButton>
+                                              </CollapsibleTrigger>
+                                              <CollapsibleContent className="ml-4 space-y-1 py-1">
+                                                {folder.notes?.map((note) => (
+                                                  <SidebarMenuSubItem
+                                                    key={note.id}
+                                                  >
+                                                    <SidebarMenuSubButton
+                                                      asChild
+                                                    >
+                                                      <Link
+                                                        href={`/dashboard/projects/${project.id}/folders/${folder.id}/notes/${note.id}`}
+                                                        className={clsx(
+                                                          "hover:bg-accent/30 py-1",
+                                                          isActive(
+                                                            `/dashboard/projects/${project.id}/folders/${folder.id}/notes/${note.id}`
+                                                          ) &&
+                                                            "bg-accent/90 hover:bg-accent "
+                                                        )}
+                                                      >
+                                                        <List className="mr-2 h-4 w-4" />
+                                                        <span className="truncate">
+                                                          {note.title}
+                                                        </span>
+                                                      </Link>
+                                                    </SidebarMenuSubButton>
+                                                  </SidebarMenuSubItem>
+                                                ))}
+                                                {folder.Document?.map((doc) => (
+                                                  <SidebarMenuSubItem
+                                                    key={doc.id}
+                                                  >
+                                                    <SidebarMenuSubButton
+                                                      asChild
+                                                    >
+                                                      <Link
+                                                        href={`/dashboard/projects/${project.id}/folders/${folder.id}/documents/${doc.id}`}
+                                                        className={clsx(
+                                                          "hover:bg-accent/30 py-1",
+                                                          isActive(
+                                                            `/dashboard/projects/${project.id}/folders/${folder.id}/documents/${doc.id}`
+                                                          ) &&
+                                                            "bg-accent/90 hover:bg-accent "
+                                                        )}
+                                                      >
+                                                        <FileText className="mr-2 h-4 w-4" />
+                                                        <span className="truncate">
+                                                          {doc.originalName}
+                                                        </span>
+                                                      </Link>
+                                                    </SidebarMenuSubButton>
+                                                  </SidebarMenuSubItem>
+                                                ))}
+                                              </CollapsibleContent>
+                                            </Collapsible>
+                                          ))}
+                                        {project.folder.length > 2 && (
+                                          <SidebarMenuItem>
+                                            <SidebarMenuButton asChild>
+                                              <Link
+                                                href={`/dashboard/projects/${project.id}`}
+                                                className="text-xs text-muted-foreground hover:text-foreground"
+                                              >
+                                                <span>
+                                                  View all folders (
+                                                  {project.folder.length})
+                                                </span>
+                                                <ChevronRight className="ml-1 h-3 w-3" />
+                                              </Link>
+                                            </SidebarMenuButton>
+                                          </SidebarMenuItem>
+                                        )}
+                                      </>
+                                    )}
                                   {Array.isArray(project.tasks) &&
                                   project.tasks.length > 0 ? (
                                     <>

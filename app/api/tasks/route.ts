@@ -32,23 +32,30 @@ export async function POST(req: Request) {
 
     const { data } = validation;
 
-    const projectExists = await db.project.findUnique({
+    const project = await db.project.findUnique({
       where: { id: data.projectId },
       select: { id: true, title: true, status: true },
     });
 
-    if (!projectExists) {
+    if (!project) {
       return NextResponse.json(
         { error: "Specified project does not exist" },
         { status: 404 }
       );
     }
-    if (projectExists.status === "COMPLETED") {
+
+    const taskCount = await db.task.count({
+      where: { projectId: project.id },
+    });
+
+    if (
+      taskCount === 0 &&
+      project.status !== "ACTIVE" &&
+      project.status !== "ON_HOLD"
+    ) {
       await db.project.update({
-        where: { id: projectExists.id },
-        data: {
-          status: "ACTIVE",
-        },
+        where: { id: project.id },
+        data: { status: "ACTIVE" },
       });
     }
 
@@ -87,15 +94,11 @@ export async function POST(req: Request) {
         },
         include: {
           assignees: true,
-          project: {
-            select: {
-              title: true,
-            },
-          },
+          project: { select: { title: true } },
         },
       });
 
-      // Create notification for creator
+      // Notification for creator
       await prisma.notification.create({
         data: {
           title: "New Task Created",
@@ -106,20 +109,6 @@ export async function POST(req: Request) {
           userId: creator.id,
         },
       });
-
-      // Create notifications for assignees if any
-      /*   if (task.assignees.length > 0) {
-        await prisma.notification.createMany({
-          data: task.assignees.map((assignee) => ({
-            title: "New Task Assigned",
-            message: `You've been assigned to task "${task.title}" in project ${task.project.title}`,
-            type: "TASK_ASSIGNED",
-            isRead: false,
-            actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
-            userId: assignee.id,
-          })),
-        });
- */
 
       return task;
     });

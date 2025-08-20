@@ -41,7 +41,6 @@ async function fetchUserData(userId: string) {
   return response.json();
 }
 
-// Create a component that uses useSearchParams
 function ProjectsContent() {
   const { userId } = useAuth();
   const searchParams = useSearchParams();
@@ -300,7 +299,6 @@ function ProjectsContent() {
   );
 }
 
-// Main page component with Suspense boundary
 const Page = () => {
   return (
     <Suspense fallback={<ProjectsSkeleton />}>
