@@ -141,3 +141,51 @@ body {
   border-left: 4px solid hsl(var(--primary));
 }
 
+@keyframes rotate {
+  0% {
+    transform: rotateX(0) rotateY(0) rotateZ(0);
+  }
+  100% {
+    transform: rotateX(360deg) rotateY(360deg) rotateZ(360deg);
+  }
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.animate-rotate {
+  animation: rotate 20s infinite linear;
+}
+
+.transform {
+  transform-style: preserve-3d;
+}
+
+.translate-z-20 {
+  transform: translateZ(20px);
+}
+
+.rotate-y-180deg {
+  transform: rotateY(180deg);
+}
+
+.rotate-y-90deg {
+  transform: rotateY(90deg);
+}
+
+.rotate-y-270deg {
+  transform: rotateY(270deg);
+}
+
+.rotate-x-90deg {
+  transform: rotateX(90deg);
+}
+
+.rotate-x-270deg {
+  transform: rotateX(270deg);
+}

@@ -14,8 +14,9 @@ import FinancialCalculator from "@/components/FinancialCalculator";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Financial Management System (MPJ)",
-  description: "Comprehensive financial tracking and management platform",
+  title: "Biz Flow Management System ",
+  description:
+    "Comprehensive financial tracking, projects tracking and management platform",
 };
 
 export default function RootLayout({
