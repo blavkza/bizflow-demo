@@ -11,6 +11,8 @@ export async function GET() {
       performanceMetrics,
       upcomingEvents,
       overviewChartData,
+      projectMetrics,
+      taskMetrics,
     ] = await Promise.all([
       getMainStats(),
       getCashFlowForecast(),
@@ -18,6 +20,8 @@ export async function GET() {
       getPerformanceMetrics(),
       getUpcomingEvents(),
       getOverviewChartData(),
+      getProjectMetrics(),
+      getTaskMetrics(),
     ]);
 
     return NextResponse.json({
@@ -27,6 +31,8 @@ export async function GET() {
       performanceMetrics,
       upcomingEvents,
       overviewChartData,
+      projectMetrics,
+      taskMetrics,
     });
   } catch (error) {
     console.error("[DASHBOARD_ERROR]", error);
@@ -35,76 +41,67 @@ export async function GET() {
 }
 
 async function getMainStats() {
-  // Get all transactions
-  const allTransactions = await db.transaction.findMany();
-
-  // Calculate all-time totals
-  const allTimeRevenue = allTransactions
-    .filter((t) => t.type === "INCOME")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-
-  const allTimeExpenses = allTransactions
-    .filter((t) => t.type === "EXPENSE")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-
-  // Get transactions from last month for percentage changes
   const now = new Date();
+
+  // Define months
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
-  const lastMonthTransactions = await db.transaction.findMany({
-    where: {
-      date: { gte: lastMonthStart, lte: lastMonthEnd },
-    },
-  });
+  // Fetch all transactions (all-time) and monthly transactions
+  const [allTransactions, lastMonthTransactions, thisMonthTransactions] =
+    await Promise.all([
+      db.transaction.findMany(),
+      db.transaction.findMany({
+        where: { date: { gte: lastMonthStart, lte: lastMonthEnd } },
+      }),
+      db.transaction.findMany({
+        where: { date: { gte: thisMonthStart, lte: now } },
+      }),
+    ]);
 
-  const lastMonthRevenue = lastMonthTransactions
-    .filter((t) => t.type === "INCOME")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+  // Helper to calculate totals
+  const calcTotals = (transactions: typeof allTransactions) => {
+    const revenue = transactions
+      .filter((t) => t.type === "INCOME")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const expenses = transactions
+      .filter((t) => t.type === "EXPENSE")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const netProfit = revenue - expenses;
+    return { revenue, expenses, netProfit };
+  };
 
-  const lastMonthExpenses = lastMonthTransactions
-    .filter((t) => t.type === "EXPENSE")
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+  const allTimeTotals = calcTotals(allTransactions);
+  const lastMonthTotals = calcTotals(lastMonthTransactions);
+  const thisMonthTotals = calcTotals(thisMonthTransactions);
 
-  // Calculate percentage changes (compared to last month)
-  const revenueChange =
-    lastMonthRevenue > 0
-      ? ((allTimeRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
-      : 0;
+  // Helper to calculate percentage change safely
+  const calcChange = (current: number, previous: number) => {
+    if (previous === 0) return current === 0 ? 0 : 100;
+    return ((current - previous) / previous) * 100;
+  };
 
-  const expensesChange =
-    lastMonthExpenses > 0
-      ? ((allTimeExpenses - lastMonthExpenses) / lastMonthExpenses) * 100
-      : 0;
-
-  // Get active employees count
   const activeEmployees = await db.employee.count({
-    where: {
-      status: "ACTIVE",
-    },
+    where: { status: "ACTIVE" },
   });
 
   return {
     totalRevenue: {
-      amount: allTimeRevenue,
-      change: revenueChange,
+      amount: allTimeTotals.revenue,
+      change: calcChange(thisMonthTotals.revenue, lastMonthTotals.revenue),
     },
     expenses: {
-      amount: allTimeExpenses,
-      change: expensesChange,
+      amount: allTimeTotals.expenses,
+      change: calcChange(thisMonthTotals.expenses, lastMonthTotals.expenses),
     },
     netProfit: {
-      amount: allTimeRevenue - allTimeExpenses,
-      change:
-        ((allTimeRevenue -
-          allTimeExpenses -
-          (lastMonthRevenue - lastMonthExpenses)) /
-          (lastMonthRevenue - lastMonthExpenses)) *
-          100 || 0,
+      amount: allTimeTotals.revenue - allTimeTotals.expenses,
+      change: calcChange(thisMonthTotals.netProfit, lastMonthTotals.netProfit),
     },
     activeEmployees: {
       count: activeEmployees,
-      change: 0, // Placeholder
+      change: 0,
     },
   };
 }
@@ -235,7 +232,7 @@ async function getRecentTransactions() {
     orderBy: {
       date: "desc",
     },
-    take: 5,
+    take: 6,
     include: {
       client: true,
       category: true,
@@ -395,5 +392,134 @@ async function getOverviewChartData() {
     labels,
     incomeData,
     expensesData,
+  };
+}
+
+async function getProjectMetrics() {
+  const activeProjects = await db.project.count({
+    where: {
+      status: { in: ["PLANNING", "ACTIVE"] },
+      archived: false,
+    },
+  });
+
+  const completedProjects = await db.project.count({
+    where: {
+      status: "COMPLETED",
+      archived: false,
+    },
+  });
+
+  const topProjects = await db.project.findMany({
+    where: {
+      archived: false,
+    },
+    take: 6,
+    orderBy: {
+      updatedAt: "desc",
+    },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      progress: true,
+      budget: true,
+      budgetSpent: true,
+      tasks: true,
+    },
+  });
+
+  // Calculate open issues (tasks with issues)
+  const openIssues = await db.task.count({
+    where: {
+      status: { in: ["TODO", "IN_PROGRESS"] },
+      priority: "HIGH",
+    },
+  });
+
+  // Get upcoming project deadlines
+  const upcomingDeadlines = await db.task.findMany({
+    where: {
+      dueDate: {
+        gte: new Date(),
+        lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+      status: { in: ["TODO", "IN_PROGRESS"] },
+    },
+    take: 3,
+    orderBy: {
+      dueDate: "asc",
+    },
+    select: {
+      id: true,
+      title: true,
+      dueDate: true,
+      priority: true,
+    },
+  });
+
+  return {
+    activeProjects,
+    completedProjects,
+    topProjects,
+    openIssues,
+    upcomingDeadlines,
+  };
+}
+
+async function getTaskMetrics() {
+  const completedTasks = await db.task.count({
+    where: {
+      status: "COMPLETED",
+    },
+  });
+
+  const overdueTasks = await db.task.count({
+    where: {
+      dueDate: {
+        lt: new Date(),
+      },
+      status: { in: ["TODO", "IN_PROGRESS"] },
+    },
+  });
+
+  // Task status distribution
+  const statusDistribution = await db.task.groupBy({
+    by: ["status"],
+    _count: {
+      id: true,
+    },
+  });
+
+  // Task priority distribution
+  const priorityDistribution = await db.task.groupBy({
+    by: ["priority"],
+    _count: {
+      id: true,
+    },
+  });
+
+  // Convert to object format for easier use in components
+  const statusDistributionObj = statusDistribution.reduce(
+    (acc, item) => {
+      acc[item.status] = item._count.id;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  const priorityDistributionObj = priorityDistribution.reduce(
+    (acc, item) => {
+      acc[item.priority] = item._count.id;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+
+  return {
+    completedTasks,
+    overdueTasks,
+    statusDistribution: statusDistributionObj,
+    priorityDistribution: priorityDistributionObj,
   };
 }

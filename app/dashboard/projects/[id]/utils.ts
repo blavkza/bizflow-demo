@@ -10,7 +10,7 @@ export const getStatusColor = (status: string | null) => {
     case "ON_HOLD":
       return "bg-orange-500 text-white";
     default:
-      return "bg-zinc-700 dark:bg-zinc-200 text-white";
+      return "bg-zinc-700 dark:bg-zinc-500 text-white";
   }
 };
 

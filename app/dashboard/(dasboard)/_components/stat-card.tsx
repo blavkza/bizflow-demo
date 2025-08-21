@@ -1,6 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, CreditCard, TrendingUp, Users } from "lucide-react";
+import {
+  DollarSign,
+  CreditCard,
+  TrendingUp,
+  Users,
+  Loader2,
+} from "lucide-react";
 
 interface StatCardProps {
   isLoading: boolean;
@@ -38,8 +44,7 @@ export function StatCard({
       <CardContent>
         {isLoading ? (
           <>
-            <Skeleton className="h-8 w-full mb-1" />
-            <Skeleton className="h-4 w-3/4" />
+            <Loader2 className="h-4 w-4 animate-spin mt-1" />
           </>
         ) : (
           <>
