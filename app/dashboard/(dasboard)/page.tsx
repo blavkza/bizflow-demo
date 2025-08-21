@@ -404,9 +404,7 @@ export default function DashboardPage() {
                       <div className="grid grid-cols-1  gap-6 pb-5">
                         {/* Status Distribution with Progress Bars */}
                         <div className="space-y-4 py-4">
-                          <h4 className="text-lg uppercase">
-                            Status Distribution
-                          </h4>
+                          <h4 className=" font-bold ">Status Distribution</h4>
                           {Object.entries(
                             data?.taskMetrics?.statusDistribution || {}
                           ).map(([status, count]) => {
@@ -450,9 +448,7 @@ export default function DashboardPage() {
 
                         {/* Priority Distribution with Color Coding */}
                         <div className="space-y-4">
-                          <h4 className="text-lg uppercase">
-                            Priority Distribution
-                          </h4>
+                          <h4 className="font-bold">Priority Distribution</h4>
                           {Object.entries(
                             data?.taskMetrics?.priorityDistribution || {}
                           ).map(([priority, count]) => {
