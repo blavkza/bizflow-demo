@@ -34,12 +34,14 @@ import { Search, Plus, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { Client } from "@prisma/client";
 import { ClientWithRelations } from "./types";
+import InvoicePaymentForm from "./PaymentForm";
 
 interface PaymentsTabProps {
   client: ClientWithRelations;
+  fetchClient: () => void;
 }
 
-export function PaymentsTab({ client }: PaymentsTabProps) {
+export function PaymentsTab({ client, fetchClient }: PaymentsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -141,57 +143,15 @@ export function PaymentsTab({ client }: PaymentsTabProps) {
                 Record a payment received from {client.name}.
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  Amount
-                </Label>
-                <Input
-                  id="amount"
-                  placeholder="0.00"
-                  className="col-span-3"
-                  value={paymentAmount}
-                  onChange={(e) => setPaymentAmount(e.target.value)}
-                  type="number"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="method" className="text-right">
-                  Method
-                </Label>
-                <Select
-                  value={paymentMethod}
-                  onValueChange={(value) => setPaymentMethod(value)}
-                >
-                  <SelectTrigger id="method" className="col-span-3">
-                    <SelectValue placeholder="Payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bank">Bank Transfer</SelectItem>
-                    <SelectItem value="card">Credit Card</SelectItem>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="check">Check</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
-                  Description
-                </Label>
-                <Input
-                  id="description"
-                  placeholder="Payment description"
-                  className="col-span-3"
-                  value={paymentDescription}
-                  onChange={(e) => setPaymentDescription(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleRecordPayment}>Record Payment</Button>
-            </DialogFooter>
+            <InvoicePaymentForm
+              type="create"
+              clientId={client.id}
+              onCancel={() => setIsPaymentDialogOpen(false)}
+              onSubmitSuccess={() => {
+                setIsPaymentDialogOpen(false);
+                if (fetchClient) fetchClient();
+              }}
+            />
           </DialogContent>
         </Dialog>
       </div>

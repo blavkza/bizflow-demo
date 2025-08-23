@@ -39,7 +39,7 @@ interface ClientWithInvoices {
     status: string;
     payments: {
       amount: number;
-      createAt: Date | null;
+      paidAt: Date | null;
     }[];
   }[];
 }
@@ -100,7 +100,7 @@ export default function ClientList({
       .filter((invoice) => invoice.status !== "PAID")
       .reduce((sum, invoice) => {
         const paidAmount = invoice.payments
-          .filter((p) => p.createAt)
+          .filter((p) => p.paidAt)
           .reduce((paidSum, payment) => paidSum + payment.amount, 0);
         return sum + (invoice.totalAmount - paidAmount);
       }, 0);
@@ -176,18 +176,20 @@ export default function ClientList({
                     R{outstandingBalance.toLocaleString()}
                   </span>
                 </div>
-                {/*    <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Last Payment
-                  </span>
-                  <span className="text-sm">
-                    {client.invoices?.[0]?.payments?.[0]?.createAt
-                      ? new Date(
-                          client.invoices[0].payments[0].createAt
-                        ).toLocaleDateString()
-                      : "None"}
-                  </span>
-                </div> */}
+                <div className="flex items-center justify-between">
+                  {client.invoices?.[0]?.payments?.[0]?.paidAt && (
+                    <>
+                      <span className="text-sm text-muted-foreground">
+                        Last Payment
+                      </span>
+                      <span className="text-sm">
+                        {new Date(
+                          client.invoices[0].payments[0].paidAt
+                        ).toLocaleDateString()}
+                      </span>
+                    </>
+                  )}
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
                     Total Revenue

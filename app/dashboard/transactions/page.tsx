@@ -48,6 +48,7 @@ import axios from "axios";
 import { Transaction, CompanySettings, TimeRange } from "./_components/types";
 import { StatsCards } from "./_components/StatsCards";
 import { PaginationControls } from "../../../components/PaginationControls";
+import { cn } from "@/lib/utils";
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -292,11 +293,9 @@ export default function TransactionsPage() {
                       <TableCell>{transaction.category?.name || "-"}</TableCell>
                       <TableCell>
                         <Badge
-                          variant={
-                            transaction.type === "INCOME"
-                              ? "outline"
-                              : "destructive"
-                          }
+                          className={cn(
+                            `text-white, ${transaction.type === "INCOME" ? "bg-green-500" : "bg-red-500"}`
+                          )}
                         >
                           {transaction.type}
                         </Badge>

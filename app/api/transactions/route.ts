@@ -101,9 +101,17 @@ export async function POST(req: Request) {
           },
         });
 
+        const invoice = await db.invoice.findUnique({
+          where: { id: body.invoiceId },
+        });
+
+        const outStanding = invoicePayment.amount === invoice?.totalAmount;
+
+        const invoiceStatus = outStanding ? "PAID" : "PARTIALLY_PAID";
+
         const upadeteInvoiceStatus = await db.invoice.update({
           where: { id: body.invoiceId },
-          data: { status: "PAID" },
+          data: { status: invoiceStatus },
         });
 
         return { transaction, invoicePayment, upadeteInvoiceStatus };

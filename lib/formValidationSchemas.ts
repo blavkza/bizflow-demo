@@ -16,6 +16,7 @@ import {
   UserStatus,
 } from "@prisma/client";
 import { optional, z } from "zod";
+import { InvoicePaymentStatus } from "./generated/prisma";
 
 export const createUserSchema = z
   .object({
@@ -204,6 +205,30 @@ export const InvoiceSchema = z.object({
   paymentTerms: z.string().optional(),
   notes: z.string().optional(),
 });
+
+export const invoicePaymentSchema = z.object({
+  invoiceId: z.string().min(1, "Invoice is required"),
+  amount: z
+    .string()
+    .min(1, "Amount is required")
+    .refine(
+      (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
+      "Amount must be a positive number"
+    )
+    .transform((val) => parseFloat(val)),
+  currency: z.string().default("ZAR"),
+  method: z.nativeEnum(PaymentMethod, {
+    required_error: "Payment method is required",
+  }),
+  reference: z.string().optional(),
+  notes: z.string().optional(),
+  status: z
+    .nativeEnum(InvoicePaymentStatus)
+    .default(InvoicePaymentStatus.COMPLETED),
+  paidAt: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+});
+
+export type InvoicePaymentSchemaType = z.infer<typeof invoicePaymentSchema>;
 
 export const QuotationItemSchema = z.object({
   description: z.string().min(1, "Description is required"),

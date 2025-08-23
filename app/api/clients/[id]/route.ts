@@ -48,7 +48,7 @@ export async function GET(
           },
           where: {
             status: {
-              not: "DRAFT",
+              not: "CANCELLED",
             },
           },
         },

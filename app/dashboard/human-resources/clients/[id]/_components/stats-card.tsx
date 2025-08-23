@@ -17,10 +17,18 @@ export default function StatsCard({ client }: StatsCardProps) {
   const pendingInvoices =
     client.invoices?.filter((invoice) => invoice.status !== "PAID") || [];
 
-  const outstandingBalance = pendingInvoices.reduce(
-    (sum, invoice) => sum + invoice.totalAmount,
-    0
-  );
+  const paidBalance = pendingInvoices.reduce((sum, invoice) => {
+    const paidAmount = invoice.payments.reduce(
+      (pSum, payment) => pSum + payment.amount,
+      0
+    );
+
+    return sum + paidAmount;
+  }, 0);
+
+  const outstandingBalance = pendingInvoices.reduce((sum, invoice) => {
+    return sum + (invoice.totalAmount - paidBalance);
+  }, 0);
 
   const allPayments =
     client.invoices?.flatMap((invoice) => invoice.payments) || [];
@@ -30,7 +38,7 @@ export default function StatsCard({ client }: StatsCardProps) {
   );
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -42,6 +50,21 @@ export default function StatsCard({ client }: StatsCardProps) {
           </div>
           <p className="text-xs text-muted-foreground">
             Since {new Date(client.createdAt).toLocaleDateString()}
+          </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Paid Balance</CardTitle>
+          <DollarSign className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-blue-500">
+            R{paidBalance.toLocaleString()}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            from {client.invoices?.length || 0} invoice
+            {pendingInvoices.length !== 1 ? "s" : ""}
           </p>
         </CardContent>
       </Card>

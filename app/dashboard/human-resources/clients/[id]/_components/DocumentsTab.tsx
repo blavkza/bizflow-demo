@@ -67,9 +67,10 @@ interface DocumentsTabProps {
   client: Client & {
     documents?: Document[];
   };
+  fetchClient: () => void;
 }
 
-export function DocumentsTab({ client }: DocumentsTabProps) {
+export function DocumentsTab({ client, fetchClient }: DocumentsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -109,6 +110,7 @@ export function DocumentsTab({ client }: DocumentsTabProps) {
       toast.success("Document uploaded successfully");
       setIsUploadDialogOpen(false);
       setSelectedFile(null);
+      if (fetchClient) fetchClient();
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
       console.error("Upload error:", error);
@@ -128,7 +130,7 @@ export function DocumentsTab({ client }: DocumentsTabProps) {
       if (!response.ok) {
         throw new Error("Delete failed");
       }
-
+      if (fetchClient) fetchClient();
       toast.success("Document deleted successfully");
     } catch (error) {
       console.error("Delete error:", error);

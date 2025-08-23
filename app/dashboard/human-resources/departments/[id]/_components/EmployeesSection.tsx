@@ -62,7 +62,7 @@ export default function EmployeesSection({ department }: TabsSectionProps) {
                     className="cursor-pointer "
                     onClick={() =>
                       router.push(
-                        `/dashboard/human-resources/departments/${employee.id}`
+                        `/dashboard/human-resources/employees/${employee.id}`
                       )
                     }
                   >

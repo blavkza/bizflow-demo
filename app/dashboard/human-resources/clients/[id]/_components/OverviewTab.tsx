@@ -103,7 +103,7 @@ export function OverviewTab({ client }: OverviewTabProps) {
             <div className="text-2xl font-bold">
               {client.invoices?.length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className=" text-muted-foreground">
               {client.invoices?.filter((i) => i.status === "PAID").length || 0}{" "}
               paid
             </p>
@@ -124,7 +124,7 @@ export function OverviewTab({ client }: OverviewTabProps) {
                 ) || 0
               ).toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className=" text-muted-foreground">
               R{" "}
               {(
                 client.invoices
@@ -145,7 +145,7 @@ export function OverviewTab({ client }: OverviewTabProps) {
             <div className="text-2xl font-bold">
               {client.documents?.length || 0}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground">
               {client.documents?.filter((d) => d.type === "CONTRACT").length ||
                 0}{" "}
               {client.documents?.filter((d) => d.type === "CONTRACT").length ===

@@ -7,9 +7,10 @@ import { ClientWithRelations } from "./types";
 
 export interface TabsSectionProps {
   client: ClientWithRelations;
+  fetchClient: () => void;
 }
 
-export default function TabsSection({ client }: TabsSectionProps) {
+export default function TabsSection({ client, fetchClient }: TabsSectionProps) {
   return (
     <div>
       <Tabs defaultValue="overview" className="space-y-4">
@@ -33,7 +34,7 @@ export default function TabsSection({ client }: TabsSectionProps) {
         </TabsContent>
 
         <TabsContent value="documents">
-          <DocumentsTab client={client} />
+          <DocumentsTab client={client} fetchClient={fetchClient} />
         </TabsContent>
       </Tabs>
     </div>

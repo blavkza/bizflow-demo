@@ -32,6 +32,7 @@ export default function ClientDetailPage({
       }
 
       const data = await response.json();
+
       setClient(data);
     } catch (err) {
       toast.error("Failed to fetch client");
@@ -76,7 +77,7 @@ export default function ClientDetailPage({
       <StatsCard client={client} />
 
       {/* Tabs */}
-      <TabsSection client={client} />
+      <TabsSection client={client} fetchClient={fetchClient} />
     </div>
   );
 }
