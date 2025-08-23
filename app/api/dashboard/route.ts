@@ -244,9 +244,11 @@ async function getPerformanceMetrics() {
   // Invoice collection rate
   const invoices = await db.invoice.findMany({
     where: {
-      status: { in: ["PAID", "SENT", "OVERDUE"] },
+      status: { notIn: ["CANCELLED", "REFUNDED"] },
     },
   });
+
+  const invoicesLength = invoices.length;
 
   const paidInvoices = invoices.filter((i) => i.status === "PAID");
   const collectionRate =
@@ -289,6 +291,7 @@ async function getPerformanceMetrics() {
     collectionRate,
     expenseRatio,
     conversionRate,
+    invoicesLength,
     paidInvoicesCount: paidInvoices.length,
   };
 }

@@ -34,7 +34,7 @@ export default function FinancialTabs({ isLoading, data }: FinancialTabsProps) {
           </CardHeader>
           <CardContent className="pl-2">
             {isLoading ? (
-              <Skeleton className="h-[300px] w-full" />
+              <Skeleton className="h-[520px] w-full" />
             ) : (
               <OverviewChart
                 labels={data?.overviewChartData?.labels || []}

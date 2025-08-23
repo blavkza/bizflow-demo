@@ -26,7 +26,7 @@ export default function TabsSection({ client, fetchClient }: TabsSectionProps) {
         </TabsContent>
 
         <TabsContent value="payments">
-          <PaymentsTab client={client} />
+          <PaymentsTab client={client} fetchClient={fetchClient} />
         </TabsContent>
 
         <TabsContent value="invoices">

@@ -14,7 +14,7 @@ export default function MetricCards({ isLoading, data }: MetricCardsProps) {
         value={data?.performanceMetrics?.collectionRate || 0}
         progress={data?.performanceMetrics?.collectionRate || 0}
         icon="check-circle"
-        description={`Based on ${data?.performanceMetrics?.paidInvoicesCount || 0} paid invoices`}
+        description={`Based on ${data?.performanceMetrics?.paidInvoicesCount || 0} paid out of ${data?.performanceMetrics?.invoicesLength} invoices`}
       />
       <MetricCard
         isLoading={isLoading}
