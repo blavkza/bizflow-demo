@@ -7,10 +7,13 @@ import { Separator } from "@/components/ui/separator";
 import CategoriesWrapper from "./_components/CategoriesWrapper";
 import CategoryList from "./_components/Category-List";
 import CategoryLoading from "./_components/loading";
+import { CategoryStatus, CategoryType } from "@prisma/client";
 
 interface Category {
   id: string;
   name: string;
+  type: CategoryType;
+  status: CategoryStatus;
   description: string | null;
   color: string | null;
   icon: string | null;

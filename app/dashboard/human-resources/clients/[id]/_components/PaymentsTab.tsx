@@ -33,31 +33,13 @@ import {
 import { Search, Plus, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { Client } from "@prisma/client";
-
-export interface Invoice {
-  id: string;
-  number: string;
-  totalAmount: number;
-  status?: string;
-  issueDate?: Date | string;
-  dueDate?: Date | string;
-  payments?: {
-    id: string;
-    amount: number;
-    method: string;
-    description: string;
-    paidAt: Date | null;
-  }[];
-}
+import { ClientWithRelations } from "./types";
 
 interface PaymentsTabProps {
-  client: Client & {
-    invoices?: Invoice[];
-  };
-  fetchInvoices: () => Promise<void>;
+  client: ClientWithRelations;
 }
 
-export function PaymentsTab({ client, fetchInvoices }: PaymentsTabProps) {
+export function PaymentsTab({ client }: PaymentsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -69,7 +51,7 @@ export function PaymentsTab({ client, fetchInvoices }: PaymentsTabProps) {
     (invoice.payments || []).map((payment) => ({
       ...payment,
       invoiceId: invoice.id,
-      invoiceNumber: invoice.number,
+      invoiceNumber: invoice.invoiceNumber,
       invoiceAmount: invoice.totalAmount,
       status: payment.paidAt ? "Paid" : "Pending",
       date: payment.paidAt
@@ -78,10 +60,8 @@ export function PaymentsTab({ client, fetchInvoices }: PaymentsTabProps) {
     }))
   );
 
-  const filteredPayments = allPayments.filter(
-    (payment) =>
-      payment.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPayments = allPayments.filter((payment) =>
+    payment.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
@@ -124,7 +104,6 @@ export function PaymentsTab({ client, fetchInvoices }: PaymentsTabProps) {
       setPaymentAmount("");
       setPaymentMethod("bank");
       setPaymentDescription("");
-      await fetchInvoices();
     } catch (error) {
       console.error("Payment error:", error);
       toast.error("Failed to record payment");
@@ -237,7 +216,6 @@ export function PaymentsTab({ client, fetchInvoices }: PaymentsTabProps) {
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Invoice</TableHead>
-                <TableHead>Description</TableHead>
                 <TableHead>Method</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Status</TableHead>
@@ -248,7 +226,6 @@ export function PaymentsTab({ client, fetchInvoices }: PaymentsTabProps) {
                 <TableRow key={payment.id}>
                   <TableCell>{payment.date}</TableCell>
                   <TableCell>{payment.invoiceNumber}</TableCell>
-                  <TableCell>{payment.description}</TableCell>
                   <TableCell>{payment.method}</TableCell>
                   <TableCell>R{payment.amount.toLocaleString()}</TableCell>
                   <TableCell>

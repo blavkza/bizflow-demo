@@ -45,24 +45,9 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { ReceiptPDF } from "./_components/ReceiptPDF";
 import axios from "axios";
-
-type Transaction = {
-  id: string;
-  date: string;
-  description: string;
-  category?: { name: string } | null;
-  type: TransactionType;
-  amount: number;
-  status: TransferStatus;
-  method: PaymentMethod;
-};
-
-type CompanySettings = {
-  name: string;
-  address: string;
-  contactNumber: string;
-  // Add other settings fields as needed
-};
+import { Transaction, CompanySettings, TimeRange } from "./_components/types";
+import { StatsCards } from "./_components/StatsCards";
+import { PaginationControls } from "../../../components/PaginationControls";
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -76,9 +61,12 @@ export default function TransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<"all" | "INCOME" | "EXPENSE">(
     "all"
   );
+  const [timeRange, setTimeRange] = useState<TimeRange>("month");
   const [generatingReceiptId, setGeneratingReceiptId] = useState<string | null>(
     null
   );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const receiptRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const fetchTransactions = async () => {
@@ -177,6 +165,25 @@ export default function TransactionsPage() {
     });
   }, [transactions, searchTerm, typeFilter]);
 
+  // Pagination logic
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTransactions, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handleItemsPerPageChange = (value: string) => {
+    setItemsPerPage(Number(value));
+    setCurrentPage(1); // Reset to first page when changing items per page
+  };
+
   if (loading || loadingSettings) {
     return <TransactionsSkeleton />;
   }
@@ -192,6 +199,13 @@ export default function TransactionsPage() {
       </header>
 
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        {/* Stats Cards Section */}
+        <StatsCards
+          transactions={transactions}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange}
+        />
+
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-1 gap-2">
             <div className="relative flex-1 max-w-sm">
@@ -268,8 +282,8 @@ export default function TransactionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTransactions.length > 0 ? (
-                  filteredTransactions.map((transaction) => (
+                {paginatedTransactions.length > 0 ? (
+                  paginatedTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
                       <TableCell>
                         {new Date(transaction.date).toLocaleDateString()}
@@ -343,6 +357,17 @@ export default function TransactionsPage() {
                 )}
               </TableBody>
             </Table>
+
+            {/* Pagination Controls */}
+            {filteredTransactions.length > 0 && (
+              <PaginationControls
+                itemsPerPage={itemsPerPage}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onItemsPerPageChange={handleItemsPerPageChange}
+                onPageChange={handlePageChange}
+              />
+            )}
           </CardContent>
         </Card>
       </div>

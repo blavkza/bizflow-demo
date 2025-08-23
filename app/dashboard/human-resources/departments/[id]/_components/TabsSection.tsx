@@ -25,14 +25,14 @@ export default function TabsSection({ department }: TabsSectionProps) {
           <TabsTrigger value="employees" className="flex items-center gap-2">
             Employees
           </TabsTrigger>
-          <TabsTrigger value="budget" className="flex items-center gap-2">
+          {/* <TabsTrigger value="budget" className="flex items-center gap-2">
             Budget
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
-
         <OverviewSection department={department} />
         <EmployeesSection department={department} />
-        <BudgetSection department={department} />
+        {/*         <BudgetSection department={department} />
+         */}{" "}
       </Tabs>
     </div>
   );

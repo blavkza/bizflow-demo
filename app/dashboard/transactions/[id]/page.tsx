@@ -1,15 +1,27 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -18,9 +30,16 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -32,11 +51,15 @@ import {
   User,
   CreditCard,
   Receipt,
-} from "lucide-react"
+} from "lucide-react";
 
-export default function TransactionDetailPage({ params }: { params: { id: string } }) {
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+export default function TransactionDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   // Mock transaction data - in real app, fetch based on params.id
   const [transaction, setTransaction] = useState({
@@ -51,7 +74,8 @@ export default function TransactionDetailPage({ params }: { params: { id: string
     reference: "TXN-2024-001",
     vendor: "Office Depot Inc.",
     status: "Completed",
-    notes: "Monthly office supplies order including paper, pens, and printer cartridges",
+    notes:
+      "Monthly office supplies order including paper, pens, and printer cartridges",
     receiptUrl: "/placeholder.svg?height=400&width=300",
     createdBy: "John Smith",
     approvedBy: "Sarah Johnson",
@@ -60,10 +84,16 @@ export default function TransactionDetailPage({ params }: { params: { id: string
     netAmount: 1125.0,
     accountCode: "6001",
     projectCode: "PROJ-001",
-  })
+  });
 
   const relatedTransactions = [
-    { id: "TXN-2024-002", date: "2024-01-10", description: "Office Supplies Return", amount: -150.0, type: "Refund" },
+    {
+      id: "TXN-2024-002",
+      date: "2024-01-10",
+      description: "Office Supplies Return",
+      amount: -150.0,
+      type: "Refund",
+    },
     {
       id: "TXN-2023-245",
       date: "2023-12-15",
@@ -78,7 +108,7 @@ export default function TransactionDetailPage({ params }: { params: { id: string
       amount: 1320.0,
       type: "Expense",
     },
-  ]
+  ];
 
   const auditLog = [
     {
@@ -99,18 +129,23 @@ export default function TransactionDetailPage({ params }: { params: { id: string
       user: "Sarah Johnson",
       details: "Transaction approved for processing",
     },
-    { date: "2024-01-16 10:30", action: "Status Changed", user: "System", details: "Status changed to Completed" },
-  ]
+    {
+      date: "2024-01-16 10:30",
+      action: "Status Changed",
+      user: "System",
+      details: "Status changed to Completed",
+    },
+  ];
 
   const handleEditTransaction = (formData: FormData) => {
-    console.log("Updating transaction:", formData)
-    setIsEditDialogOpen(false)
-  }
+    console.log("Updating transaction:", formData);
+    setIsEditDialogOpen(false);
+  };
 
   const handleDeleteTransaction = () => {
-    console.log("Deleting transaction:", transaction.id)
-    setIsDeleteDialogOpen(false)
-  }
+    console.log("Deleting transaction:", transaction.id);
+    setIsDeleteDialogOpen(false);
+  };
 
   return (
     <SidebarInset>
@@ -147,12 +182,20 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                       )}
                     </div>
                     <div>
-                      <CardTitle className="text-2xl">{transaction.description}</CardTitle>
+                      <CardTitle className="text-2xl">
+                        {transaction.description}
+                      </CardTitle>
                       <CardDescription className="text-lg">
                         {transaction.type} • {transaction.reference}
                       </CardDescription>
                       <div className="flex items-center gap-2 mt-2">
-                        <Badge variant={transaction.status === "Completed" ? "default" : "secondary"}>
+                        <Badge
+                          variant={
+                            transaction.status === "Completed"
+                              ? "default"
+                              : "secondary"
+                          }
+                        >
                           {transaction.status}
                         </Badge>
                         <Badge variant="outline">{transaction.category}</Badge>
@@ -163,15 +206,20 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                     <div
                       className={`text-3xl font-bold ${transaction.type === "Income" ? "text-green-600" : "text-red-600"}`}
                     >
-                      {transaction.type === "Income" ? "+" : "-"}${transaction.amount.toLocaleString()}
+                      {transaction.type === "Income" ? "+" : "-"}$
+                      {transaction.amount.toLocaleString()}
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      Net: ${transaction.netAmount.toLocaleString()} | Tax: ${transaction.taxAmount.toLocaleString()}
+                      Net: ${transaction.netAmount.toLocaleString()} | Tax: $
+                      {transaction.taxAmount.toLocaleString()}
                     </div>
                   </div>
                 </div>
                 <div className="flex gap-2 mt-4">
-                  <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                  <Dialog
+                    open={isEditDialogOpen}
+                    onOpenChange={setIsEditDialogOpen}
+                  >
                     <DialogTrigger asChild>
                       <Button variant="outline">
                         <Edit className="h-4 w-4 mr-2" />
@@ -181,13 +229,22 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                     <DialogContent className="max-w-2xl">
                       <DialogHeader>
                         <DialogTitle>Edit Transaction</DialogTitle>
-                        <DialogDescription>Update transaction information</DialogDescription>
+                        <DialogDescription>
+                          Update transaction information
+                        </DialogDescription>
                       </DialogHeader>
-                      <form action={handleEditTransaction} className="space-y-4">
+                      <form
+                        action={handleEditTransaction}
+                        className="space-y-4"
+                      >
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="description">Description</Label>
-                            <Input id="description" name="description" defaultValue={transaction.description} />
+                            <Input
+                              id="description"
+                              name="description"
+                              defaultValue={transaction.description}
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="amount">Amount</Label>
@@ -208,38 +265,64 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                               <SelectContent>
                                 <SelectItem value="Income">Income</SelectItem>
                                 <SelectItem value="Expense">Expense</SelectItem>
-                                <SelectItem value="Transfer">Transfer</SelectItem>
+                                <SelectItem value="Transfer">
+                                  Transfer
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="category">Category</Label>
-                            <Select name="category" defaultValue={transaction.category}>
+                            <Select
+                              name="category"
+                              defaultValue={transaction.category}
+                            >
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="Office Supplies">Office Supplies</SelectItem>
-                                <SelectItem value="Marketing">Marketing</SelectItem>
+                                <SelectItem value="Office Supplies">
+                                  Office Supplies
+                                </SelectItem>
+                                <SelectItem value="Marketing">
+                                  Marketing
+                                </SelectItem>
                                 <SelectItem value="Travel">Travel</SelectItem>
-                                <SelectItem value="Utilities">Utilities</SelectItem>
-                                <SelectItem value="Software">Software</SelectItem>
+                                <SelectItem value="Utilities">
+                                  Utilities
+                                </SelectItem>
+                                <SelectItem value="Software">
+                                  Software
+                                </SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="vendor">Vendor</Label>
-                            <Input id="vendor" name="vendor" defaultValue={transaction.vendor} />
+                            <Input
+                              id="vendor"
+                              name="vendor"
+                              defaultValue={transaction.vendor}
+                            />
                           </div>
                           <div className="space-y-2">
-                            <Label htmlFor="paymentMethod">Payment Method</Label>
-                            <Select name="paymentMethod" defaultValue={transaction.paymentMethod}>
+                            <Label htmlFor="paymentMethod">
+                              Payment Method
+                            </Label>
+                            <Select
+                              name="paymentMethod"
+                              defaultValue={transaction.paymentMethod}
+                            >
                               <SelectTrigger>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="Credit Card">Credit Card</SelectItem>
-                                <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                                <SelectItem value="Credit Card">
+                                  Credit Card
+                                </SelectItem>
+                                <SelectItem value="Bank Transfer">
+                                  Bank Transfer
+                                </SelectItem>
                                 <SelectItem value="Cash">Cash</SelectItem>
                                 <SelectItem value="Check">Check</SelectItem>
                               </SelectContent>
@@ -248,10 +331,18 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="notes">Notes</Label>
-                          <Textarea id="notes" name="notes" defaultValue={transaction.notes} />
+                          <Textarea
+                            id="notes"
+                            name="notes"
+                            defaultValue={transaction.notes}
+                          />
                         </div>
                         <DialogFooter>
-                          <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsEditDialogOpen(false)}
+                          >
                             Cancel
                           </Button>
                           <Button type="submit">Save Changes</Button>
@@ -260,7 +351,10 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                     </DialogContent>
                   </Dialog>
 
-                  <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                  <Dialog
+                    open={isDeleteDialogOpen}
+                    onOpenChange={setIsDeleteDialogOpen}
+                  >
                     <DialogTrigger asChild>
                       <Button variant="destructive">
                         <Trash2 className="h-4 w-4 mr-2" />
@@ -271,14 +365,21 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                       <DialogHeader>
                         <DialogTitle>Delete Transaction</DialogTitle>
                         <DialogDescription>
-                          Are you sure you want to delete this transaction? This action cannot be undone.
+                          Are you sure you want to delete this transaction? This
+                          action cannot be undone.
                         </DialogDescription>
                       </DialogHeader>
                       <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsDeleteDialogOpen(false)}
+                        >
                           Cancel
                         </Button>
-                        <Button variant="destructive" onClick={handleDeleteTransaction}>
+                        <Button
+                          variant="destructive"
+                          onClick={handleDeleteTransaction}
+                        >
                           Delete Transaction
                         </Button>
                       </DialogFooter>
@@ -297,71 +398,123 @@ export default function TransactionDetailPage({ params }: { params: { id: string
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Transaction Info</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Transaction Info
+                  </CardTitle>
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Date:</span>
-                    <span className="text-sm font-medium">{transaction.date}</span>
+                    <span className="text-sm font-medium">
+                      {transaction.date}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Reference:</span>
-                    <span className="text-sm font-medium">{transaction.reference}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Reference:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {transaction.reference}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Account Code:</span>
-                    <span className="text-sm font-medium">{transaction.accountCode}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Account Code:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {transaction.accountCode}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Project:</span>
-                    <span className="text-sm font-medium">{transaction.projectCode}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Project:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {transaction.projectCode}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Payment Details</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Payment Details
+                  </CardTitle>
                   <CreditCard className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Method:</span>
-                    <span className="text-sm font-medium">{transaction.paymentMethod}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Method:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {transaction.paymentMethod}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Vendor:</span>
-                    <span className="text-sm font-medium">{transaction.vendor}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Vendor:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {transaction.vendor}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Category:</span>
-                    <span className="text-sm font-medium">{transaction.category}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Category:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {transaction.category}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Subcategory:</span>
-                    <span className="text-sm font-medium">{transaction.subcategory}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Subcategory:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {transaction.subcategory}
+                    </span>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Approval Info</CardTitle>
+                  <CardTitle className="text-sm font-medium">
+                    Approval Info
+                  </CardTitle>
                   <User className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Created By:</span>
-                    <span className="text-sm font-medium">{transaction.createdBy}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Created By:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {transaction.createdBy}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Approved By:</span>
-                    <span className="text-sm font-medium">{transaction.approvedBy}</span>
+                    <span className="text-sm text-muted-foreground">
+                      Approved By:
+                    </span>
+                    <span className="text-sm font-medium">
+                      {transaction.approvedBy}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Status:</span>
-                    <Badge variant={transaction.status === "Completed" ? "default" : "secondary"}>
+                    <span className="text-sm text-muted-foreground">
+                      Status:
+                    </span>
+                    <Badge
+                      variant={
+                        transaction.status === "Completed"
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
                       {transaction.status}
                     </Badge>
                   </div>
@@ -376,7 +529,9 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                   <CardTitle className="text-base">Notes</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">{transaction.notes}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {transaction.notes}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -402,7 +557,9 @@ export default function TransactionDetailPage({ params }: { params: { id: string
             <Card>
               <CardHeader>
                 <CardTitle>Related Transactions</CardTitle>
-                <CardDescription>Transactions related to this vendor or category</CardDescription>
+                <CardDescription>
+                  Transactions related to this vendor or category
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -423,7 +580,11 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                         <TableCell>{txn.date}</TableCell>
                         <TableCell>{txn.description}</TableCell>
                         <TableCell>{txn.type}</TableCell>
-                        <TableCell className={txn.amount < 0 ? "text-red-600" : "text-green-600"}>
+                        <TableCell
+                          className={
+                            txn.amount < 0 ? "text-red-600" : "text-green-600"
+                          }
+                        >
                           ${Math.abs(txn.amount).toLocaleString()}
                         </TableCell>
                         <TableCell>
@@ -443,7 +604,9 @@ export default function TransactionDetailPage({ params }: { params: { id: string
             <Card>
               <CardHeader>
                 <CardTitle>Transaction Documents</CardTitle>
-                <CardDescription>Receipts and supporting documents</CardDescription>
+                <CardDescription>
+                  Receipts and supporting documents
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2">
@@ -468,7 +631,9 @@ export default function TransactionDetailPage({ params }: { params: { id: string
                   </div>
                   <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
                     <FileText className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground mb-2">Upload additional documents</p>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Upload additional documents
+                    </p>
                     <Button size="sm">Choose Files</Button>
                   </div>
                 </div>
@@ -480,20 +645,31 @@ export default function TransactionDetailPage({ params }: { params: { id: string
             <Card>
               <CardHeader>
                 <CardTitle>Audit Log</CardTitle>
-                <CardDescription>Complete history of changes to this transaction</CardDescription>
+                <CardDescription>
+                  Complete history of changes to this transaction
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {auditLog.map((entry, index) => (
-                    <div key={index} className="flex gap-4 pb-4 border-b last:border-b-0">
+                    <div
+                      key={index}
+                      className="flex gap-4 pb-4 border-b last:border-b-0"
+                    >
                       <div className="w-2 h-2 bg-blue-600 rounded-full mt-2"></div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between">
                           <span className="font-medium">{entry.action}</span>
-                          <span className="text-sm text-muted-foreground">{entry.date}</span>
+                          <span className="text-sm text-muted-foreground">
+                            {entry.date}
+                          </span>
                         </div>
-                        <p className="text-sm text-muted-foreground">{entry.details}</p>
-                        <p className="text-xs text-muted-foreground">by {entry.user}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {entry.details}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          by {entry.user}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -504,5 +680,5 @@ export default function TransactionDetailPage({ params }: { params: { id: string
         </Tabs>
       </div>
     </SidebarInset>
-  )
+  );
 }

@@ -104,7 +104,7 @@ export function ProjectOverview({
               <div>
                 <p className="text-sm text-muted-foreground">Total Budget</p>
                 <p className="font-medium">
-                  {project.currency} {project.budget?.toLocaleString() || "0"}
+                  R {project.budget?.toLocaleString() || "0"}
                 </p>
               </div>
             </div>
@@ -115,7 +115,7 @@ export function ProjectOverview({
               <div>
                 <p className="text-sm text-muted-foreground">Total Invoiced</p>
                 <p className="font-medium">
-                  {project.currency} {invoiceTotal?.toLocaleString() || "0"}
+                  R {invoiceTotal?.toLocaleString() || "0"}
                 </p>
               </div>
             </div>

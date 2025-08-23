@@ -59,6 +59,7 @@ export default async function DepartmentDetailsPage({
           id: true,
           avatar: true,
           firstName: true,
+          salary: true,
           lastName: true,
           email: true,
           position: true,

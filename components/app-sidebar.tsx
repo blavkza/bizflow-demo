@@ -5,9 +5,9 @@ import { useAuth } from "@clerk/nextjs";
 import { SidebarItermsSkeleton } from "./SidebarItermsSkeleton";
 import { useNotifications } from "@/contexts/notification-context";
 import { Project } from "@/types/sidebar";
-import { SidebarItems } from "./sidebarItems";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { SidebarItems } from "./sidebar/sidebar-items";
 
 async function fetchProjectData() {
   const response = await fetch("/api/projects");

@@ -25,43 +25,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Search, Plus, FileText, Eye, Send, Download } from "lucide-react";
 import { toast } from "sonner";
-import { Client } from "@prisma/client";
 import Link from "next/link";
-
-export interface Invoice {
-  id: string;
-  invoiceNumber: string; // changed from `number`
-  clientId: string;
-  amount: string | number; // amount can be string or number from your data
-  status?: string;
-  issueDate?: string | Date;
-  dueDate?: string | Date;
-  payments?: {
-    id: string;
-    amount: number;
-    method: string;
-    description: string;
-    paidAt: Date | null;
-  }[];
-}
+import { ClientWithRelations } from "./types";
+import { useRouter } from "next/navigation";
 
 interface InvoicesTabProps {
-  client: Client & {
-    invoices?: Invoice[];
-  };
-  fetchInvoices: () => Promise<void>;
+  client: ClientWithRelations;
 }
 
-export function InvoicesTab({ client, fetchInvoices }: InvoicesTabProps) {
+export function InvoicesTab({ client }: InvoicesTabProps) {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
-  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
-  const [invoiceAmount, setInvoiceAmount] = useState("");
-  const [invoiceDescription, setInvoiceDescription] = useState("");
-  const [invoiceDueDate, setInvoiceDueDate] = useState("");
-
-  const filteredInvoices = (client.invoices || []).filter((invoice) =>
-    invoice.invoiceNumber?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -76,125 +50,69 @@ export function InvoicesTab({ client, fetchInvoices }: InvoicesTabProps) {
     }
   };
 
-  const handleCreateInvoice = async () => {
-    try {
-      const response = await fetch("/api/invoices", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: parseFloat(invoiceAmount),
-          description: invoiceDescription,
-          dueDate: invoiceDueDate,
-          clientId: client.id,
-        }),
-      });
+  const filteredInvoices =
+    client.invoices?.filter((invoice) => {
+      if (!searchTerm) return true;
 
-      if (!response.ok) {
-        throw new Error("Invoice creation failed");
-      }
-
-      toast.success("Invoice created successfully");
-      setIsInvoiceDialogOpen(false);
-      setInvoiceAmount("");
-      setInvoiceDescription("");
-      setInvoiceDueDate("");
-      await fetchInvoices();
-    } catch (error) {
-      console.error("Invoice error:", error);
-      toast.error("Failed to create invoice");
-    }
-  };
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        invoice.invoiceNumber?.toLowerCase().includes(searchLower) ||
+        invoice.status?.toLowerCase().includes(searchLower) ||
+        invoice.totalAmount?.toString().includes(searchTerm) ||
+        (invoice.dueDate &&
+          new Date(invoice.dueDate)
+            .toLocaleDateString()
+            .includes(searchTerm)) ||
+        (invoice.issueDate &&
+          new Date(invoice.issueDate).toLocaleDateString().includes(searchTerm))
+      );
+    }) || [];
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search invoices..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 w-80"
-            />
-          </div>
+      <div className="flex items-center space-x-2">
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search Invoice..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8 w-80"
+          />
         </div>
-        <Dialog
-          open={isInvoiceDialogOpen}
-          onOpenChange={setIsInvoiceDialogOpen}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Invoice
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Invoice</DialogTitle>
-              <DialogDescription>
-                Create an invoice for {client.name}.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  Amount
-                </Label>
-                <Input
-                  id="amount"
-                  placeholder="0.00"
-                  className="col-span-3"
-                  value={invoiceAmount}
-                  onChange={(e) => setInvoiceAmount(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">
-                  Description
-                </Label>
-                <Input
-                  id="description"
-                  placeholder="Invoice description"
-                  className="col-span-3"
-                  value={invoiceDescription}
-                  onChange={(e) => setInvoiceDescription(e.target.value)}
-                />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="dueDate" className="text-right">
-                  Due Date
-                </Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  className="col-span-3"
-                  value={invoiceDueDate}
-                  onChange={(e) => setInvoiceDueDate(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleCreateInvoice}>Create Invoice</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
-
       <Card>
         {filteredInvoices.length === 0 ? (
           <CardContent className="flex flex-col items-center justify-center py-8">
-            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No invoices created</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              Create invoices for this client to track their billing history.
-            </p>
-            <Button onClick={() => setIsInvoiceDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create First Invoice
-            </Button>
+            {client.invoices?.length === 0 ? (
+              <>
+                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  No invoices created
+                </h3>
+                <p className="text-muted-foreground text-center mb-4">
+                  Create invoices for this client to track their billing
+                  history.
+                </p>
+                <Button onClick={() => router.push(`/dashboard/invoices/new`)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create First Invoice
+                </Button>
+              </>
+            ) : (
+              <>
+                <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">
+                  No invoices found
+                </h3>
+                <p className="text-muted-foreground text-center mb-4">
+                  No invoices match your search criteria.
+                </p>
+                <Button variant="outline" onClick={() => setSearchTerm("")}>
+                  Clear search
+                </Button>
+              </>
+            )}
           </CardContent>
         ) : (
           <Table>
@@ -210,7 +128,6 @@ export function InvoicesTab({ client, fetchInvoices }: InvoicesTabProps) {
             </TableHeader>
             <TableBody>
               {filteredInvoices.map((invoice) => {
-                // Safely parse dates and status
                 const dueDate = invoice.dueDate
                   ? new Date(invoice.dueDate)
                   : null;
@@ -226,9 +143,15 @@ export function InvoicesTab({ client, fetchInvoices }: InvoicesTabProps) {
                   : invoice.status || "Pending";
 
                 return (
-                  <TableRow key={invoice.id}>
+                  <TableRow
+                    key={invoice.id}
+                    onClick={() =>
+                      router.push(`/dashboard/invoices/${invoice.id}`)
+                    }
+                    className="cursor-pointer hover:bg-muted/50"
+                  >
                     <TableCell className="font-medium">
-                      {invoice.invoiceNumber}
+                      {invoice.invoiceNumber || `INV-${invoice.id.slice(-6)}`}
                     </TableCell>
                     <TableCell>
                       {issueDate ? issueDate.toLocaleDateString() : "—"}
@@ -237,16 +160,20 @@ export function InvoicesTab({ client, fetchInvoices }: InvoicesTabProps) {
                       {dueDate ? dueDate.toLocaleDateString() : "—"}
                     </TableCell>
                     <TableCell>
-                      R{Number(invoice.amount).toLocaleString()}
+                      R{Number(invoice.totalAmount || 0).toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(status)}>{status}</Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center space-x-2">
-                        <Button variant="ghost" size="sm">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          asChild
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Link href={`/dashboard/invoices/${invoice.id}`}>
-                            {" "}
                             <Eye className="h-4 w-4" />
                           </Link>
                         </Button>

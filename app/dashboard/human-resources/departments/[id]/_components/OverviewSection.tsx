@@ -39,7 +39,7 @@ export default function OverviewSection({ department }: TabsSectionProps) {
 
   return (
     <TabsContent value="overview" className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1  gap-4">
         <Card>
           <CardHeader>
             <CardTitle>Department Information</CardTitle>
@@ -83,7 +83,7 @@ export default function OverviewSection({ department }: TabsSectionProps) {
           </CardContent>
         </Card>
 
-        <Card>
+        {/*   <Card>
           <CardHeader>
             <CardTitle>Budget Overview</CardTitle>
             <CardDescription>
@@ -136,7 +136,7 @@ export default function OverviewSection({ department }: TabsSectionProps) {
               </div>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       <Card>
@@ -160,7 +160,7 @@ export default function OverviewSection({ department }: TabsSectionProps) {
                 <p className="text-xs text-muted-foreground">2 days ago</p>
               </div>
             </div>
-            <div className="flex items-start gap-4">
+            {/*    <div className="flex items-start gap-4">
               <div className="rounded-full bg-green-100 p-2">
                 <DollarSign className="h-4 w-4 text-green-600" />
               </div>
@@ -171,8 +171,8 @@ export default function OverviewSection({ department }: TabsSectionProps) {
                 </p>
                 <p className="text-xs text-muted-foreground">1 week ago</p>
               </div>
-            </div>
-            <div className="flex items-start gap-4">
+            </div> */}
+            {/* <div className="flex items-start gap-4">
               <div className="rounded-full bg-amber-100 p-2">
                 <PenLine className="h-4 w-4 text-amber-600" />
               </div>
@@ -190,7 +190,7 @@ export default function OverviewSection({ department }: TabsSectionProps) {
                     : formatDate(department.updatedAt)}
                 </p>
               </div>
-            </div>
+            </div> */}
           </div>
         </CardContent>
       </Card>

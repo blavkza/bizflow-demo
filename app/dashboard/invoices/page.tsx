@@ -6,43 +6,26 @@ import Header from "./_components/Header";
 import InvoicesFilterTable from "./_components/Invoices-Filter-Table";
 import Stats from "./_components/Stats";
 import Loading from "./_components/loading";
-
-interface InvoiceData {
-  rawInvoices: any[];
-  statsData: {
-    totalOutstanding: number;
-    pendingInvoices: number;
-    paidThisMonth: number;
-    paidInvoices: number;
-    overdueAmount: number;
-    overdueInvoices: number;
-    averageInvoice: number;
-    totalInvoices: number;
-  };
-  tableData: {
-    id: string;
-    invoiceNumber: string;
-    client: string;
-    description: string;
-    issueDate: string;
-    dueDate: string;
-    amount: number;
-    status: string;
-  }[];
-}
+import { Client } from "@prisma/client";
+import { FullInvoice } from "@/types/invoice";
 
 export default function InvoicesPage() {
-  const [data, setData] = useState<InvoiceData | null>(null);
+  const [invoices, setInvoices] = useState<FullInvoice[] | []>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchInvoices = async () => {
       try {
-        const response = await axios.get<InvoiceData>(
-          "/api/invoices/all-invoices"
-        );
-        setData(response.data);
+        const response = await fetch("/api/invoices/all-invoices");
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch invoices");
+        }
+
+        const data = await response.json();
+
+        setInvoices(data);
       } catch (err) {
         setError("Failed to fetch invoices");
         console.error(err);
@@ -66,7 +49,7 @@ export default function InvoicesPage() {
     return <div className="p-6 text-red-500">{error}</div>;
   }
 
-  if (!data) {
+  if (!invoices) {
     return <div className="p-6">No invoice data available</div>;
   }
 
@@ -76,10 +59,10 @@ export default function InvoicesPage() {
 
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         {/* Summary Cards */}
-        <Stats {...data.statsData} />
+        <Stats invoices={invoices} />
 
         {/* Controls */}
-        <InvoicesFilterTable invoices={data.tableData} />
+        <InvoicesFilterTable invoices={invoices} />
       </div>
     </div>
   );

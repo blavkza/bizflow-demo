@@ -12,28 +12,10 @@ import {
   FileDigit,
 } from "lucide-react";
 import { Client } from "@prisma/client";
-
-export interface Invoice {
-  id: string;
-  number: string;
-  totalAmount: number;
-  status: string;
-  issueDate: Date;
-  dueDate: Date;
-  payments: {
-    id: string;
-    amount: number;
-    method: string;
-    description: string;
-    paidAt: Date | null;
-  }[];
-}
+import { ClientWithRelations } from "./types";
 
 interface OverviewTabProps {
-  client: Client & {
-    invoices?: Invoice[];
-    documents?: any[];
-  };
+  client: ClientWithRelations;
 }
 
 export function OverviewTab({ client }: OverviewTabProps) {
@@ -133,16 +115,17 @@ export function OverviewTab({ client }: OverviewTabProps) {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {/* <div className="text-2xl font-bold">
+            <div className="text-2xl font-bold">
               R
               {(
                 client.invoices?.reduce(
-                  (sum, invoice) => sum + invoice.,
+                  (sum, invoice) => sum + (invoice.totalAmount || 0),
                   0
                 ) || 0
               ).toLocaleString()}
-            </div> */}
+            </div>
             <p className="text-xs text-muted-foreground">
+              R{" "}
               {(
                 client.invoices
                   ?.flatMap((i) => i.payments)
@@ -165,7 +148,10 @@ export function OverviewTab({ client }: OverviewTabProps) {
             <p className="text-xs text-muted-foreground">
               {client.documents?.filter((d) => d.type === "CONTRACT").length ||
                 0}{" "}
-              contracts
+              {client.documents?.filter((d) => d.type === "CONTRACT").length ===
+              1
+                ? "Contract"
+                : "Contracts"}
             </p>
           </CardContent>
         </Card>

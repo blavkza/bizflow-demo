@@ -20,8 +20,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus } from "lucide-react";
 import { TabsContent } from "@/components/ui/tabs";
 import { TabsSectionProps } from "@/types/department";
+import { useRouter } from "next/navigation";
 
 export default function EmployeesSection({ department }: TabsSectionProps) {
+  const router = useRouter();
+
   return (
     <TabsContent value="employees" className="space-y-4">
       <Card>
@@ -48,13 +51,21 @@ export default function EmployeesSection({ department }: TabsSectionProps) {
                 <TableRow>
                   <TableHead>Employee</TableHead>
                   <TableHead>Position</TableHead>
+                  <TableHead>Daily Rate</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {department.employees.map((employee) => (
-                  <TableRow key={employee.id}>
+                  <TableRow
+                    key={employee.id}
+                    className="cursor-pointer "
+                    onClick={() =>
+                      router.push(
+                        `/dashboard/human-resources/departments/${employee.id}`
+                      )
+                    }
+                  >
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar>
@@ -63,24 +74,15 @@ export default function EmployeesSection({ department }: TabsSectionProps) {
                             alt={`${employee.firstName} ${employee.lastName}`}
                           />
                           <AvatarFallback>
-                            {`${employee.firstName.charAt(
-                              0
-                            )}${employee.lastName.charAt(0)}`}
+                            {`${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`}
                           </AvatarFallback>
                         </Avatar>
                         <div>{`${employee.firstName} ${employee.lastName}`}</div>
                       </div>
                     </TableCell>
                     <TableCell>{employee.position}</TableCell>
+                    <TableCell>R {employee.salary.toLocaleString()}</TableCell>
                     <TableCell>{employee.email}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">
-                        View
-                      </Button>
-                      <Button variant="ghost" size="sm">
-                        Edit
-                      </Button>
-                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

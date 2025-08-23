@@ -64,8 +64,6 @@ export default function ProjectsDetailsPage({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
 
-  console.log(project);
-
   async function fetchProjectData() {
     const response = await fetch(`/api/projects/${id}`);
     if (!response.ok) {
@@ -201,6 +199,8 @@ export default function ProjectsDetailsPage({
     (member) => member.userId === currentUserId
   );
 
+  const remaingBalance = (project.budget || 0) - (project.budgetSpent || 0);
+
   const currentUserRole = currentMember?.role || null;
   const currentUserPermissions = currentMember
     ? {
@@ -264,9 +264,7 @@ export default function ProjectsDetailsPage({
               className="text-success"
             />
             <StatsCard
-              value={`${project.currency} ${Number(
-                project.budgetSpent
-              ).toLocaleString()}`}
+              value={`R ${Number(remaingBalance).toLocaleString()}`}
               label="Remaining"
               className="text-info"
             />

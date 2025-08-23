@@ -17,6 +17,7 @@ import { CategoryStatus, CategoryType } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Decimal } from "@prisma/client/runtime/library";
+import { cn } from "@/lib/utils";
 
 export type CategoryWithTransactions = {
   id: string;
@@ -81,12 +82,9 @@ export default function CategoryCard({
                   <div>
                     <CardTitle className="text-base">{category.name}</CardTitle>
                     <Badge
-                      variant={
-                        category.type === CategoryType.INCOME
-                          ? "default"
-                          : "secondary"
-                      }
-                      className="mt-1"
+                      className={cn(
+                        `mt-1 text-white, ${category.type === CategoryType.INCOME ? "bg-green-500" : "bg-red-500"}`
+                      )}
                     >
                       {category.type.toLowerCase()}
                     </Badge>
@@ -132,12 +130,12 @@ export default function CategoryCard({
                   <span>Transactions: {category.transactionCount}</span>
                   <span
                     className={
-                      category.totalAmount >= 0
+                      category.type === CategoryType.INCOME
                         ? "text-green-600"
                         : "text-red-600"
                     }
                   >
-                    {category.totalAmount >= 0 ? "+" : "-"}R
+                    {category.type === CategoryType.INCOME ? "+" : "-"}R
                     {Math.abs(category.totalAmount).toLocaleString()}
                   </span>
                 </div>

@@ -1,23 +1,36 @@
-import { Client, GeneralSetting, InvoiceItem } from "@prisma/client";
+import {
+  Client,
+  GeneralSetting,
+  InvoiceItem,
+  InvoicePayment,
+} from "@prisma/client";
 
 export interface Invoice {
   id: string;
   invoiceNumber: string;
-  client: string;
+  client: Client;
   description: string;
   issueDate: string;
   dueDate: string;
   amount: number;
-  status: "Draft" | "Sent" | "Paid" | "Pending" | "Overdue";
+  status: InvoiceStatus;
 }
 
 export interface InvoicesFilterTableProps {
   invoices: Invoice[];
 }
 
-export type FullInvoice = Invoice & {
+export type FullInvoice = {
+  id: string;
+  invoiceNumber: string;
+  clientId: string;
+  totalAmount: number;
+  status: InvoiceStatus;
+  issueDate: string;
+  dueDate: string;
   client: Client;
   items: InvoiceItem[];
+  payments: InvoicePayment[];
   creator: {
     name: string;
     GeneralSetting: GeneralSetting | null;
@@ -49,6 +62,7 @@ export interface InvoiceProps {
     name: string;
   };
   client: {
+    id: string;
     name: string;
     company: string;
     address?: string;

@@ -1,7 +1,8 @@
-import { Skeleton } from "@/components/ui/skeleton"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import React from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-export default function ClientDetailLoading() {
+export default function Loading() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       {/* Header */}
@@ -64,5 +65,5 @@ export default function ClientDetailLoading() {
         </div>
       </div>
     </div>
-  )
+  );
 }

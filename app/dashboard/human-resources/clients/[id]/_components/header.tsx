@@ -19,22 +19,14 @@ import { Client, ClientStatus } from "@prisma/client";
 import ClientForm from "../../_components/client-Form";
 import { useRouter } from "next/navigation";
 import { AvatarUploadDialog } from "@/components/AvatarUploadDialog";
+import { ClientWithRelations } from "./types";
 
 interface HeaderProps {
-  client: Client & {
-    invoices?: {
-      totalAmount: Number;
-      status: string;
-      issueDate: Date;
-      payments: {
-        amount: Number;
-        paidAt: Date | null;
-      }[];
-    }[];
-  };
+  client: ClientWithRelations;
+  fetchClient: () => void;
 }
 
-export default function Header({ client }: HeaderProps) {
+export default function Header({ client, fetchClient }: HeaderProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(client.avatar);
@@ -128,7 +120,7 @@ export default function Header({ client }: HeaderProps) {
                 onCancel={() => setIsEditDialogOpen(false)}
                 onSubmitSuccess={() => {
                   setIsEditDialogOpen(false);
-                  router.refresh();
+                  if (fetchClient) fetchClient();
                 }}
               />
             </div>

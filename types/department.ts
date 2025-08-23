@@ -26,6 +26,7 @@ export interface Department {
     avatar: string | null;
     firstName: string;
     lastName: string;
+    salary: Number;
     email: string;
     position: string;
   }[];

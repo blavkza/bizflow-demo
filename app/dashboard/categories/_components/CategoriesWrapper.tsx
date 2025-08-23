@@ -3,14 +3,14 @@
 import { useState } from "react";
 import CategoryCard from "./Category-Card";
 import Header from "./Header";
-import { CategoryType } from "@prisma/client";
+import { CategoryStatus, CategoryType } from "@prisma/client";
 
 export type CategoryWithTransactions = {
   id: string;
   name: string;
   description: string | null;
   type: CategoryType;
-
+  status: CategoryStatus;
   transactions: {
     id: string;
     amount: number;

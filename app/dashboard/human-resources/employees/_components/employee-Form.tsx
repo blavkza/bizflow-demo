@@ -72,6 +72,7 @@ export default function EmployeeForm({
       lastName: data?.lastName || "",
       phone: data?.phone || "",
       position: data?.position || "",
+      email: data?.email || "",
       departmentId: data?.departmentId || "",
       salary: data?.salary ? Number(data.salary) : 0,
       hireDate: data?.hireDate || new Date(),
@@ -141,7 +142,6 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
-
           {/* Last Name */}
           <FormField
             control={form.control}
@@ -157,20 +157,19 @@ export default function EmployeeForm({
             )}
           />
 
-          {/* Email  <FormField
+          <FormField
             control={form.control}
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Email (Optinal)</FormLabel>
                 <FormControl>
                   <Input placeholder="Email" type="email" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
-          />*/}
-
+          />
           {/* Phone */}
           <FormField
             control={form.control}
@@ -185,7 +184,6 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
-
           {/* Position */}
           <FormField
             control={form.control}
@@ -200,7 +198,6 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
-
           {/* Department */}
           <FormField
             control={form.control}
@@ -226,7 +223,6 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
-
           {/* Salary */}
           <FormField
             control={form.control}
@@ -250,7 +246,6 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
-
           {/* Hire Date */}
           <FormField
             control={form.control}
@@ -293,7 +288,6 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
-
           {/* Status */}
           <FormField
             control={form.control}
@@ -323,7 +317,6 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
-
           {/* Address */}
           <FormField
             control={form.control}

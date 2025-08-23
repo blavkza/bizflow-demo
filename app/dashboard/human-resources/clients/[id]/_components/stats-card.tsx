@@ -2,19 +2,10 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, FileText } from "lucide-react";
 import { Client } from "@prisma/client";
+import { ClientWithRelations } from "./types";
 
 interface StatsCardProps {
-  client: Client & {
-    invoices?: {
-      totalAmount: number;
-      status: string;
-      issueDate: Date;
-      payments: {
-        amount: number;
-        paidAt: Date | null;
-      }[];
-    }[];
-  };
+  client: ClientWithRelations;
 }
 
 export default function StatsCard({ client }: StatsCardProps) {

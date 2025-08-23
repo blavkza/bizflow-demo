@@ -95,9 +95,9 @@ export default function CategoryList({
                     </TableCell>
                     <TableCell>
                       <Badge
-                        variant={
-                          category.type === "INCOME" ? "default" : "secondary"
-                        }
+                        className={cn(
+                          `mt-1 text-white, ${category.type === CategoryType.INCOME ? "bg-green-500" : "bg-red-500"}`
+                        )}
                       >
                         {category.type.toLowerCase()}
                       </Badge>
@@ -105,8 +105,8 @@ export default function CategoryList({
                     <TableCell>
                       <Badge
                         className={cn(
-                          "bg-green-600/80",
-                          category.status === "INACTIVE" && "bg-red-600/80"
+                          "bg-green-600/80 text-white",
+                          category.status === "INACTIVE" && "bg-red-500"
                         )}
                       >
                         {category.status.toLowerCase()}
@@ -118,12 +118,12 @@ export default function CategoryList({
                     <TableCell>{category.transactionCount}</TableCell>
                     <TableCell
                       className={
-                        category.totalAmount >= 0
+                        category.type === "INCOME"
                           ? "text-green-600"
                           : "text-red-600"
                       }
                     >
-                      {category.totalAmount >= 0 ? "+" : "-"}R
+                      {category.type === "INCOME" ? "+" : "-"}R
                       {Math.abs(category.totalAmount).toLocaleString()}
                     </TableCell>
                     <TableCell>
