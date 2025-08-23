@@ -4,6 +4,7 @@ import {
   ClientType,
   DiscountType,
   EmployeeStatus,
+  InvoicePaymentStatus,
   InvoiceStatus,
   PaymentMethod,
   PaymentType,
@@ -16,7 +17,6 @@ import {
   UserStatus,
 } from "@prisma/client";
 import { optional, z } from "zod";
-import { InvoicePaymentStatus } from "./generated/prisma";
 
 export const createUserSchema = z
   .object({
