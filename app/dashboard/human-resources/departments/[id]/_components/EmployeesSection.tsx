@@ -19,11 +19,39 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Plus } from "lucide-react";
 import { TabsContent } from "@/components/ui/tabs";
-import { TabsSectionProps } from "@/types/department";
 import { useRouter } from "next/navigation";
+import { Department } from "@/types/department";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import EmployeeForm from "../../../employees/_components/employee-Form";
+import { useState } from "react";
+import { Employee } from "@prisma/client";
 
-export default function EmployeesSection({ department }: TabsSectionProps) {
+interface EmployeesSectionProps {
+  department: Department;
+  canCreateEmployees: boolean;
+  canViewEmployees: boolean;
+  hasFullAccess: boolean;
+  fetchDepartment: () => void;
+  departmentId: string;
+}
+
+export default function EmployeesSection({
+  department,
+  canCreateEmployees,
+  canViewEmployees,
+  hasFullAccess,
+  fetchDepartment,
+  departmentId,
+}: EmployeesSectionProps) {
   const router = useRouter();
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   return (
     <TabsContent value="employees" className="space-y-4">
@@ -35,10 +63,34 @@ export default function EmployeesSection({ department }: TabsSectionProps) {
               Manage employees in this department
             </CardDescription>
           </div>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Employee
-          </Button>
+          {(canCreateEmployees || hasFullAccess) && (
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Employee
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Add New Employee</DialogTitle>
+                  <DialogDescription>
+                    Enter the employee's information to add them to your team.
+                  </DialogDescription>
+                </DialogHeader>
+                <EmployeeForm
+                  type="create"
+                  data={{ departmentId }}
+                  onCancel={() => setIsAddDialogOpen(false)}
+                  onSubmitSuccess={() => {
+                    setIsAddDialogOpen(false);
+                    router.refresh();
+                    fetchDepartment;
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          )}
         </CardHeader>
         <CardContent>
           {department.employees.length === 0 ? (
@@ -61,6 +113,7 @@ export default function EmployeesSection({ department }: TabsSectionProps) {
                     key={employee.id}
                     className="cursor-pointer "
                     onClick={() =>
+                      (canViewEmployees || hasFullAccess) &&
                       router.push(
                         `/dashboard/human-resources/employees/${employee.id}`
                       )

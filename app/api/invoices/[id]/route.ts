@@ -7,11 +7,23 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const invoice = await db.invoice.findUnique({
       where: { id: params.id },
       include: {
         client: true,
         items: true,
+        creator: {
+          select: {
+            GeneralSetting: true,
+            name: true,
+          },
+        },
       },
     });
 

@@ -36,61 +36,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import UserForm from "./user-Form";
-import { UserRole, UserStatus } from "@prisma/client";
+import { UserPermission, UserRole, UserStatus } from "@prisma/client";
 import DeleteUserDialog from "./delete-user-dialog";
-
-interface User {
-  id: string;
-  name: string;
-  userName: string;
-  email: string;
-  phone: string | null;
-  role: UserRole;
-  avatar: string | null;
-  status: UserStatus;
-  createdAt: Date;
-  lastLogin: Date | null;
-}
+import { getRoleColor, getStatusColor, User } from "@/types/user";
 
 interface UserslistProps {
   users: User[];
   fetchUsers: () => void;
+  canDeleteUsers: boolean;
+  canEditUsers: boolean;
+  hasFullAccess: boolean;
 }
 
-const getStatusColor = (status: string) => {
-  switch (status.toLowerCase()) {
-    case "active":
-      return "default";
-    case "inactive":
-      return "secondary";
-    case "suspended":
-      return "destructive";
-    case "pending_verification":
-      return "outline";
-    default:
-      return "secondary";
-  }
-};
-
-const getRoleColor = (role: string) => {
-  switch (role) {
-    case "SUPER_ADMIN":
-    case "MANAGER_GENERAL":
-      return "destructive";
-    case "MANAGER":
-      return "default";
-    case "accountant":
-    case "ADMIN_MANAGER":
-    case "employee":
-      return "secondary";
-    case "viewer":
-      return "outline";
-    default:
-      return "secondary";
-  }
-};
-
-export default function Userslist({ users, fetchUsers }: UserslistProps) {
+export default function Userslist({
+  users,
+  fetchUsers,
+  canDeleteUsers,
+  canEditUsers,
+  hasFullAccess,
+}: UserslistProps) {
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -213,14 +177,17 @@ export default function Userslist({ users, fetchUsers }: UserslistProps) {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEdit(user)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
+                      {(canEditUsers || hasFullAccess) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(user)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                      )}
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="sm">
@@ -248,14 +215,19 @@ export default function Userslist({ users, fetchUsers }: UserslistProps) {
                             </DropdownMenuItem>
                           </>
 
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-red-600 cursor-pointer"
-                            onClick={() => handleDelete(user)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete User
-                          </DropdownMenuItem>
+                          {(canDeleteUsers || hasFullAccess) && (
+                            <>
+                              {" "}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-red-600 cursor-pointer"
+                                onClick={() => handleDelete(user)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete User
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
@@ -269,7 +241,7 @@ export default function Userslist({ users, fetchUsers }: UserslistProps) {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[800px] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
             <DialogDescription>

@@ -20,9 +20,15 @@ import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   fetchClients?: () => void;
+  hasFullAccess: boolean;
+  canCreateClient: boolean;
 }
 
-export default function Header({ fetchClients }: HeaderProps) {
+export default function Header({
+  fetchClients,
+  canCreateClient,
+  hasFullAccess,
+}: HeaderProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const router = useRouter();
 
@@ -41,31 +47,33 @@ export default function Header({ fetchClients }: HeaderProps) {
         </div>
       </header>
       <div className="flex items-center space-x-2">
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Client
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
-              <DialogDescription>
-                Create a new client profile. Fill in the required information
-                below.
-              </DialogDescription>
-            </DialogHeader>
-            <ClientForm
-              type="create"
-              onCancel={() => setIsAddDialogOpen(false)}
-              onSubmitSuccess={() => {
-                setIsAddDialogOpen(false);
-                if (fetchClients) fetchClients();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        {(canCreateClient || hasFullAccess) && (
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Client
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New Client</DialogTitle>
+                <DialogDescription>
+                  Create a new client profile. Fill in the required information
+                  below.
+                </DialogDescription>
+              </DialogHeader>
+              <ClientForm
+                type="create"
+                onCancel={() => setIsAddDialogOpen(false)}
+                onSubmitSuccess={() => {
+                  setIsAddDialogOpen(false);
+                  if (fetchClients) fetchClients();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </div>
   );

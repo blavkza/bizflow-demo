@@ -9,30 +9,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Bell,
   Search,
-  MoreHorizontal,
   AlertTriangle,
-  Info,
   CheckCircle,
   Clock,
-  Trash2,
   Eye,
-  Bookmark as MarkAsUnread,
   Loader2,
   FileText,
-  User,
+  User2,
   PieChart,
   Target,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import Link from "next/link";
 import { useNotifications } from "@/contexts/notification-context";
-import { NotificationPriority, NotificationType } from "@prisma/client";
+import {
+  NotificationPriority,
+  NotificationType,
+  User,
+  UserPermission,
+  UserRole,
+} from "@prisma/client";
 import { NotificationsSkeleton } from "./_components/FullPageSkeleton";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 const getNotificationIcon = (type: NotificationType) => {
   switch (type) {
@@ -46,7 +46,7 @@ const getNotificationIcon = (type: NotificationType) => {
     case "INVOICE":
       return <FileText className="h-4 w-4 text-orange-500" />;
     case "CLIENT":
-      return <User className="h-4 w-4 text-cyan-500" />;
+      return <User2 className="h-4 w-4 text-cyan-500" />;
     case "BUDGET":
       return <PieChart className="h-4 w-4 text-indigo-500" />;
     case "TARGET":
@@ -69,7 +69,21 @@ const getPriorityColor = (priority: NotificationPriority) => {
   }
 };
 
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
+
 export default function NotificationsPage() {
+  const { userId } = useAuth();
+
   const {
     notifications,
     unreadCount,
@@ -80,6 +94,8 @@ export default function NotificationsPage() {
     refreshNotifications,
     setNotifications,
   } = useNotifications();
+
+  const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTab, setSelectedTab] = useState("all");
@@ -100,13 +116,39 @@ export default function NotificationsPage() {
     return matchesSearch;
   });
 
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewNotifications = data?.permissions?.includes(
+    UserPermission.SYSTEMS_NOTIFICATIONS
+  );
+
+  useEffect(() => {
+    if (
+      hasFullAccess === false &&
+      canViewNotifications === false &&
+      !isLoading
+    ) {
+      router.push("/dashboard");
+    }
+  }, [hasFullAccess, canViewNotifications, isLoading]);
+
   const handleMarkAsRead = async (id: string, isRead: boolean) => {
     try {
       setIsMutating(true);
       await markAsRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: !isRead } : n))
-      );
+
+      refreshNotifications();
     } catch (error) {
       console.error("Failed to mark as read:", error);
     } finally {
@@ -118,7 +160,9 @@ export default function NotificationsPage() {
     try {
       setIsMutating(true);
       await markAllAsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      // The context should handle updating the state automatically
+      // If it doesn't, you might need to call refreshNotifications() instead
+      refreshNotifications();
     } catch (error) {
       console.error("Failed to mark all as read:", error);
     } finally {
@@ -148,7 +192,7 @@ export default function NotificationsPage() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Notifications</h2>
           <p className="text-muted-foreground">
-            Stay updated with your financial activities and important alerts
+            Stay updated with your activities and important alerts
           </p>
         </div>
         <div className="flex items-center space-x-2">

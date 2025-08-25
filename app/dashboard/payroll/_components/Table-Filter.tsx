@@ -9,11 +9,17 @@ import WorkersList from "./Workers-List";
 interface TableFilterProps {
   initialEmployees: EmployeeWithDetails[];
   fetchEmployees: () => void;
+  hasFullAccess: boolean;
+  canManagePayroll: boolean;
+  canViewEmployee: boolean;
 }
 
 export default function TableFilter({
   initialEmployees,
   fetchEmployees,
+  hasFullAccess,
+  canManagePayroll,
+  canViewEmployee,
 }: TableFilterProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -42,8 +48,14 @@ export default function TableFilter({
         onSearch={setSearchTerm}
         onDepartmentFilter={setDepartmentFilter}
         fetchEmployees={fetchEmployees}
+        canManagePayroll={canManagePayroll}
+        hasFullAccess={hasFullAccess}
       />
-      <WorkersList employees={filteredEmployees} />
+      <WorkersList
+        employees={filteredEmployees}
+        canViewEmployee={canViewEmployee}
+        hasFullAccess={hasFullAccess}
+      />
     </>
   );
 }

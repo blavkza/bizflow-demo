@@ -22,6 +22,7 @@ export async function GET(request: Request) {
       select: {
         role: true,
         id: true,
+        permissions: true,
       },
     });
 
@@ -29,7 +30,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ role: user.role });
+    return NextResponse.json({
+      user,
+    });
   } catch (error) {
     console.error("Error fetching user role:", error);
     return NextResponse.json(

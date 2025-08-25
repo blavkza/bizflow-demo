@@ -95,12 +95,6 @@ export function SidebarItermsSkeleton() {
               </div>
             </div>
           </SidebarMenuItem>
-          <SidebarMenuItem>
-            <div className="flex items-center gap-2 px-3 py-2">
-              <Skeleton className="h-5 w-5 rounded-full" />
-              <Skeleton className="h-4 w-3/4" />
-            </div>
-          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
     </Sidebar>

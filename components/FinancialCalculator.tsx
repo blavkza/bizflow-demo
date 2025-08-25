@@ -389,10 +389,10 @@ const FinancialCalculator = () => {
     return (
       <Button
         onClick={() => setIsVisible(true)}
-        className="fixed bottom-4 right-4 z-50 h-10 rounded-full bg-zinc-900 text-zinc-100 shadow-lg transition-all hover:bg-zinc-800 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        className="fixed bottom-4 right-4 z-50 h-12 w-12  rounded-full bg-zinc-900 text-zinc-100 shadow-lg transition-all hover:bg-zinc-800 dark:bg-zinc-200 dark:text-zinc-900 dark:hover:bg-zinc-300"
         size="sm"
       >
-        <span className="flex items-center gap-2 px-4 py-2">
+        <span className="flex items-center gap-2 p-3">
           <Calculator className="h-4 w-4" />
         </span>
       </Button>

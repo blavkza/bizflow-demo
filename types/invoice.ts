@@ -71,6 +71,7 @@ export interface InvoiceProps {
     taxNumber?: string;
   };
   id: string;
+  totalAmount: number;
   status: string;
   invoiceNumber: string;
   issueDate: Date | string;
@@ -78,11 +79,19 @@ export interface InvoiceProps {
   paymentTerms?: string;
   note?: string;
   items: Array<{
+    id: string;
     description: string;
-    quantity: number;
-    unitPrice: number;
+    quantity: string;
+    unitPrice: string;
+    amount: string;
+    taxRate?: string | null;
+    taxAmount?: string | null;
   }>;
-  taxAmount?: number;
+
+  amount: number;
+  subtotal: number;
+  taxAmount: number;
+  taxRate: number;
   discountAmount?: number;
   pdfUrl?: string;
 }

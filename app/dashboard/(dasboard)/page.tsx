@@ -9,13 +9,34 @@ import WelcomeHeader from "./_components/welcome-header";
 import StatsGrid from "./_components/stats-grid";
 import FinancialTabs from "./_components/financial-tabs";
 import CashFlowCard from "./_components/cash-flow-card";
-import { QuickActionsCard } from "../human-resources/employees/[id]/_components/QuickActionsCard";
 import RecentTransactionsCard from "./_components/recent-transactions-card";
 import MetricCards from "./_components/metric-cards";
 import { QuickActions } from "@/components/quick-actions";
+import { UserPermission, UserRole } from "@prisma/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import Loader from "./_components/loader";
+import { useEffect } from "react";
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function DashboardPage() {
   const { data, isLoading, error } = useDashboardData();
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.currentUser?.role
+    ? hasRole(data?.currentUser?.role, fullAccessRoles)
+    : false;
+
+  const canViewDashboard = data?.currentUser?.permissions?.includes(
+    UserPermission.SYSTEMS_DASHBOARD
+  );
+
+  if (isLoading) {
+    return <Loader />;
+  }
 
   if (error) {
     return (
@@ -24,6 +45,29 @@ export default function DashboardPage() {
           <AlertTriangle className="h-8 w-8 mx-auto text-red-500" />
           <h3 className="text-lg font-medium">Error loading dashboard</h3>
           <p className="text-sm text-muted-foreground">{error.message}</p>
+          <Button
+            variant="outline"
+            onClick={() => window.location.reload()}
+            className="mt-4"
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoading && canViewDashboard === false && hasFullAccess === false) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center space-y-2">
+          <AlertTriangle className="h-8 w-8 mx-auto text-red-500" />
+          <h3 className="text-lg font-medium">
+            You Don't Have Permission to Access Dashboard
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Please contact your administrator for access.
+          </p>
           <Button
             variant="outline"
             onClick={() => window.location.reload()}
@@ -56,7 +100,7 @@ export default function DashboardPage() {
 
           <div className="md:col-span-2 space-y-4">
             <CashFlowCard isLoading={isLoading} data={data} />
-            <QuickActions />
+            <QuickActions isLoading={isLoading} data={data} />
           </div>
         </div>
 

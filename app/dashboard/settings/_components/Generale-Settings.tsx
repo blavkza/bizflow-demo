@@ -32,7 +32,15 @@ import {
   GeneralSettingsSchemaType,
 } from "@/lib/formValidationSchemas";
 
-export default function GeneralSettingsForm() {
+interface GeneralSettingsFormProps {
+  canManageSettings: boolean;
+  hasFullAccess: boolean;
+}
+
+export default function GeneralSettingsForm({
+  canManageSettings,
+  hasFullAccess,
+}: GeneralSettingsFormProps) {
   const router = useRouter();
   const [generalSettings, setGeneralSettings] = useState<GeneralSetting | null>(
     null
@@ -166,6 +174,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter company name"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -184,6 +193,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter VAT"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -204,6 +214,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter company phone"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -222,6 +233,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter company email"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -241,6 +253,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter 2nd Number"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -259,6 +272,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter 3rd Number"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -279,6 +293,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter company Website"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -299,6 +314,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter Bank Name"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -317,6 +333,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter Bank Account"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -336,6 +353,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter 2nd Bank Name"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -354,6 +372,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter 2nd Bank Account"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -376,6 +395,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter Invoice Payment Terms"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -394,6 +414,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter Invoice / Quotation Note"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -413,6 +434,7 @@ export default function GeneralSettingsForm() {
                       placeholder="Enter address"
                       {...field}
                       className="w-full"
+                      disabled={!hasFullAccess && !canManageSettings}
                     />
                   </FormControl>
                   <FormMessage />
@@ -432,6 +454,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter province"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -450,6 +473,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter city"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -468,6 +492,7 @@ export default function GeneralSettingsForm() {
                         placeholder="Enter post code"
                         {...field}
                         className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
                       />
                     </FormControl>
                     <FormMessage />
@@ -477,19 +502,21 @@ export default function GeneralSettingsForm() {
             </div>
 
             <div className="flex justify-end gap-4 pt-6">
-              <Button
-                type="submit"
-                disabled={isSubmitting || loading}
-                className="min-w-24"
-              >
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : generalSettings ? (
-                  "Update Settings"
-                ) : (
-                  "Save Settings"
-                )}
-              </Button>
+              {(hasFullAccess || canManageSettings) && (
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || loading}
+                  className="min-w-24"
+                >
+                  {isSubmitting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : generalSettings ? (
+                    "Update Settings"
+                  ) : (
+                    "Save Settings"
+                  )}
+                </Button>
+              )}
             </div>
           </form>
         </Form>

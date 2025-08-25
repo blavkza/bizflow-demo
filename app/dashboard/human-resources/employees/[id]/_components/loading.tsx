@@ -1,7 +1,8 @@
+import React from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
-export default function EmployeeDetailLoading() {
+export default function Loading() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}

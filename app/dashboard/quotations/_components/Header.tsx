@@ -8,7 +8,15 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 
-export default function Header() {
+interface HeaderProps {
+  canCreateQuotations: boolean;
+  hasFullAccess: boolean;
+}
+
+export default function Header({
+  canCreateQuotations,
+  hasFullAccess,
+}: HeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   return (
@@ -26,16 +34,18 @@ export default function Header() {
             </p>
           </div>
         </div>
-        <Button>
-          <Link
-            className="flex items-center gap-2"
-            href={"/dashboard/quotations/new"}
-          >
-            {" "}
-            <Plus className="h-4 w-4 mr-2" />
-            Create Quotation
-          </Link>
-        </Button>
+        {(canCreateQuotations || hasFullAccess) && (
+          <Button>
+            <Link
+              className="flex items-center gap-2"
+              href={"/dashboard/quotations/new"}
+            >
+              {" "}
+              <Plus className="h-4 w-4 mr-2" />
+              Create Quotation
+            </Link>
+          </Button>
+        )}
       </div>
     </header>
   );

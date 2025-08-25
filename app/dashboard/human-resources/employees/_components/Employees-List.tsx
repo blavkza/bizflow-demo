@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Employee {
   id: string;
@@ -53,9 +54,16 @@ interface Employee {
 
 interface EmployeesListProps {
   employees: Employee[];
+  hasFullAccess: boolean;
+  canViewEmployees: boolean;
 }
 
-export default function EmployeesList({ employees }: EmployeesListProps) {
+export default function EmployeesList({
+  employees,
+  hasFullAccess,
+  canViewEmployees,
+}: EmployeesListProps) {
+  const router = useRouter();
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Active":
@@ -108,12 +116,17 @@ export default function EmployeesList({ employees }: EmployeesListProps) {
                   <CardDescription>{employee.position}</CardDescription>
                 </div>
               </div>
-              <Button size="icon" variant="outline">
-                <Link
-                  href={`/dashboard/human-resources/employees/${employee.id}`}
-                >
-                  <Eye className="h-4 w-4" />
-                </Link>
+
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() =>
+                  router.push(
+                    `/dashboard/human-resources/employees/${employee.id}`
+                  )
+                }
+              >
+                <Eye className="h-4 w-4" />
               </Button>
             </div>
           </CardHeader>

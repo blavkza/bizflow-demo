@@ -30,7 +30,10 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { UserRole, UserStatus } from "@prisma/client";
+import { UserRole, UserStatus, UserPermission } from "@prisma/client";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { PERMISSION_GROUPS } from "@/types/user";
 
 interface UserFormProps {
   type: "create" | "update";
@@ -42,10 +45,18 @@ interface UserFormProps {
     userName?: string;
     phone?: string | null;
     status: UserStatus;
+    permissions?: UserPermission[];
   };
   onCancel?: () => void;
   onSubmitSuccess?: () => void;
 }
+
+const formatPermissionName = (permission: UserPermission) => {
+  return permission
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (l) => l.toUpperCase());
+};
 
 export default function UserForm({
   type,
@@ -70,6 +81,7 @@ export default function UserForm({
             email: data?.email ?? "",
             role: data?.role ?? UserRole.VIEWER,
             status: data?.status ?? UserStatus.ACTIVE,
+            permissions: data?.permissions ?? [],
           }
         : {
             name: "",
@@ -80,6 +92,7 @@ export default function UserForm({
             status: UserStatus.ACTIVE,
             password: "",
             confirmPassword: "",
+            permissions: [],
           },
   });
 
@@ -91,7 +104,9 @@ export default function UserForm({
         await axios.post("/api/users", values);
         toast.success("User created successfully");
       } else if (type === "update" && data?.id) {
-        await axios.put(`/api/users/${data.id}`, values);
+        const updateData = { ...values };
+
+        await axios.put(`/api/users/${data.id}`, updateData);
         toast.success("User updated successfully");
       }
 
@@ -99,150 +114,213 @@ export default function UserForm({
       router.refresh();
       onSubmitSuccess?.();
       onCancel?.();
-    } catch (error) {
-      toast.error("Something went wrong!");
+    } catch (error: any) {
+      const errorMessage =
+        error.response?.data?.error || "Something went wrong!";
+      toast.error(errorMessage);
       console.error(error);
     }
   };
 
+  const toggleAllPermissions = (
+    categoryPermissions: UserPermission[],
+    value: boolean
+  ) => {
+    const currentPermissions = [...form.getValues("permissions")];
+    let updatedPermissions: UserPermission[];
+
+    if (value) {
+      updatedPermissions = [
+        ...new Set([...currentPermissions, ...categoryPermissions]),
+      ];
+    } else {
+      updatedPermissions = currentPermissions.filter(
+        (permission) => !categoryPermissions.includes(permission)
+      );
+    }
+
+    form.setValue("permissions", updatedPermissions);
+  };
+
+  const areAllPermissionsEnabled = (categoryPermissions: UserPermission[]) => {
+    const currentPermissions = form.watch("permissions");
+    return categoryPermissions.every((permission) =>
+      currentPermissions.includes(permission)
+    );
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Full Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter full name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {type === "create" && (
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
-            name="userName"
+            name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Username</FormLabel>
+                <FormLabel>Full Name</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter username" {...field} />
+                  <Input placeholder="Enter full name" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        )}
 
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="Enter email" type="email" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+          {type === "create" && (
+            <FormField
+              control={form.control}
+              name="userName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Username</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter username" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           )}
-        />
 
-        {type === "update" && (
           <FormField
             control={form.control}
-            name="phone"
+            name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Phone</FormLabel>
+                <FormLabel>Email</FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter Phone" {...field} />
+                  <Input placeholder="Enter email" type="email" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        )}
 
-        {type === "create" && (
-          <>
+          {type === "update" && (
             <FormField
               control={form.control}
-              name="password"
+              name="phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Password</FormLabel>
-                  <div className="relative">
-                    <FormControl>
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Enter password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
+                  <FormLabel>Phone</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter Phone" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+          )}
 
+          {type === "create" && (
+            <>
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Enter password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                        onClick={() => setShowPassword(!showPassword)}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <div className="relative">
+                      <FormControl>
+                        <Input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Confirm password"
+                          {...field}
+                        />
+                      </FormControl>
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          )}
+
+          {type === "update" && (
             <FormField
               control={form.control}
-              name="confirmPassword"
+              name="status"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirm Password</FormLabel>
-                  <div className="relative">
+                  <FormLabel>Status</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    defaultValue={field.value}
+                  >
                     <FormControl>
-                      <Input
-                        type={showConfirmPassword ? "text" : "password"}
-                        placeholder="Confirm password"
-                        {...field}
-                      />
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a status" />
+                      </SelectTrigger>
                     </FormControl>
-                    <button
-                      type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2"
-                      onClick={() =>
-                        setShowConfirmPassword(!showConfirmPassword)
-                      }
-                    >
-                      {showConfirmPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
+                    <SelectContent>
+                      {Object.values(UserStatus).map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status
+                            .replace(/_/g, " ")
+                            .toLowerCase()
+                            .replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </>
-        )}
+          )}
 
-        {type === "update" && (
           <FormField
             control={form.control}
-            name="status"
+            name="role"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Status</FormLabel>
+                <FormLabel>Role</FormLabel>
                 <Select
                   onValueChange={field.onChange}
                   value={field.value}
@@ -250,13 +328,13 @@ export default function UserForm({
                 >
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a status" />
+                      <SelectValue placeholder="Select a role" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {Object.values(UserStatus).map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status
+                    {Object.values(UserRole).map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role
                           .replace(/_/g, " ")
                           .toLowerCase()
                           .replace(/\b\w/g, (l) => l.toUpperCase())}
@@ -268,39 +346,91 @@ export default function UserForm({
               </FormItem>
             )}
           />
-        )}
+        </div>
 
-        <FormField
-          control={form.control}
-          name="role"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Role</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                value={field.value}
-                defaultValue={field.value}
+        {/* Permissions Section */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Permissions</h3>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Enable all permissions
+                  const allPermissions = Object.values(UserPermission);
+                  form.setValue("permissions", allPermissions);
+                }}
               >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {Object.values(UserRole).map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role
-                        .replace(/_/g, " ")
-                        .toLowerCase()
-                        .replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </SelectItem>
+                Enable All
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  // Disable all permissions
+                  form.setValue("permissions", []);
+                }}
+              >
+                Disable All
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {PERMISSION_GROUPS.map((group) => (
+              <div key={group.name} className="rounded-lg border p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">{group.name}</h4>
+                  <Switch
+                    checked={areAllPermissionsEnabled(group.permissions)}
+                    onCheckedChange={(checked) =>
+                      toggleAllPermissions(group.permissions, checked)
+                    }
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  {group.permissions.map((permission) => (
+                    <FormField
+                      key={permission}
+                      control={form.control}
+                      name="permissions"
+                      render={({ field }) => {
+                        return (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(permission)}
+                                onCheckedChange={(checked) => {
+                                  return checked
+                                    ? field.onChange([
+                                        ...field.value,
+                                        permission,
+                                      ])
+                                    : field.onChange(
+                                        field.value?.filter(
+                                          (value) => value !== permission
+                                        )
+                                      );
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal">
+                              {formatPermissionName(permission)}
+                            </FormLabel>
+                          </FormItem>
+                        );
+                      }}
+                    />
                   ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         <div className="flex justify-end gap-2 pt-4">
           <Button
@@ -311,14 +441,12 @@ export default function UserForm({
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            variant="ghost"
-            disabled={isSubmitting}
-            className="text-black dark:text-white"
-          >
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              <>
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                Processing...
+              </>
             ) : type === "create" ? (
               "Create User"
             ) : (

@@ -12,8 +12,14 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    console.log("Request body:", body);
-    const { name, password, email, role, userName } = body;
+    const { name, password, email, role, userName, permissions } = body;
+
+    if (permissions && !Array.isArray(permissions)) {
+      return NextResponse.json(
+        { error: "Permissions must be an array" },
+        { status: 400 }
+      );
+    }
 
     const client = await clerkClient();
 
@@ -26,16 +32,18 @@ export async function POST(req: Request) {
 
     const user = await db.user.create({
       data: {
-        userId: (await clerkUser).id,
+        userId: clerkUser.id,
         name,
         email,
         role,
         userName,
+        permissions: permissions || [],
       },
     });
+
     return NextResponse.json({ user });
   } catch (error) {
-    console.error("[MESSAGE ERROR]", error);
+    console.error("[USER CREATION ERROR]", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
@@ -49,9 +57,13 @@ export async function GET() {
         email: true,
         role: true,
         userName: true,
+        permissions: true,
       },
       where: {
         status: "ACTIVE",
+      },
+      orderBy: {
+        updatedAt: "asc",
       },
     });
 

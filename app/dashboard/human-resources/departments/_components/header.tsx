@@ -20,14 +20,20 @@ import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   fetchDepartments?: () => void;
+  canCreateDepartments: boolean;
+  hasFullAccess: boolean;
 }
 
-export default function Header({ fetchDepartments }: HeaderProps) {
+export default function Header({
+  fetchDepartments,
+  canCreateDepartments,
+  hasFullAccess,
+}: HeaderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const router = useRouter();
 
   return (
-    <div className="flex items-center justify-between p-6">
+    <div className="flex items-center justify-between p-4">
       <div className="flex items-center gap-2 px-4">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4" />
@@ -38,27 +44,29 @@ export default function Header({ fetchDepartments }: HeaderProps) {
           </p>
         </div>
       </div>
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Department
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[525px]">
-          <DialogHeader>
-            <DialogTitle>Create New Department</DialogTitle>
-          </DialogHeader>
-          <DepartmentForm
-            type="create"
-            onCancel={() => setIsDialogOpen(false)}
-            onSubmitSuccess={() => {
-              setIsDialogOpen(false);
-              if (fetchDepartments) fetchDepartments();
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      {(canCreateDepartments || hasFullAccess) && (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Department
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[525px]">
+            <DialogHeader>
+              <DialogTitle>Create New Department</DialogTitle>
+            </DialogHeader>
+            <DepartmentForm
+              type="create"
+              onCancel={() => setIsDialogOpen(false)}
+              onSubmitSuccess={() => {
+                setIsDialogOpen(false);
+                if (fetchDepartments) fetchDepartments();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

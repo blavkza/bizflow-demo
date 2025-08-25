@@ -18,20 +18,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Decimal } from "@prisma/client/runtime/library";
 import { cn } from "@/lib/utils";
-
-export type CategoryWithTransactions = {
-  id: string;
-  name: string;
-  description: string | null;
-  type: CategoryType;
-  status: CategoryStatus;
-  transactions: {
-    id: string;
-    amount: number | Decimal;
-  }[];
-  transactionCount: number;
-  totalAmount: number;
-};
+import { Category } from "@/types/category";
 
 const colorClasses = [
   "bg-blue-100 text-blue-600",
@@ -46,13 +33,19 @@ const colorClasses = [
   "bg-cyan-100 text-cyan-600",
 ];
 
+interface CategoryCardProps {
+  categories: Category[];
+  fetchCategories: () => void;
+  canManageCategory: boolean;
+  hasFullAccess: boolean;
+}
+
 export default function CategoryCard({
   categories,
   fetchCategories,
-}: {
-  categories: CategoryWithTransactions[];
-  fetchCategories: () => void;
-}) {
+  canManageCategory,
+  hasFullAccess,
+}: CategoryCardProps) {
   const router = useRouter();
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
     null
@@ -90,36 +83,39 @@ export default function CategoryCard({
                     </Badge>
                   </div>
                 </div>
+
                 <div className="flex gap-1">
-                  <Dialog
-                    open={editingCategoryId === category.id}
-                    onOpenChange={(open) => {
-                      setEditingCategoryId(open ? category.id : null);
-                    }}
-                  >
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                      <DialogHeader>
-                        <DialogTitle>Edit Category</DialogTitle>
-                        <DialogDescription>
-                          Update this category
-                        </DialogDescription>
-                      </DialogHeader>
-                      <CategoryForm
-                        type="update"
-                        data={category}
-                        onCancel={() => setEditingCategoryId(null)}
-                        onSubmitSuccess={() => {
-                          setEditingCategoryId(null);
-                          if (fetchCategories) fetchCategories();
-                        }}
-                      />
-                    </DialogContent>
-                  </Dialog>
+                  {(canManageCategory || hasFullAccess) && (
+                    <Dialog
+                      open={editingCategoryId === category.id}
+                      onOpenChange={(open) => {
+                        setEditingCategoryId(open ? category.id : null);
+                      }}
+                    >
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-[425px]">
+                        <DialogHeader>
+                          <DialogTitle>Edit Category</DialogTitle>
+                          <DialogDescription>
+                            Update this category
+                          </DialogDescription>
+                        </DialogHeader>
+                        <CategoryForm
+                          type="update"
+                          data={category}
+                          onCancel={() => setEditingCategoryId(null)}
+                          onSubmitSuccess={() => {
+                            setEditingCategoryId(null);
+                            if (fetchCategories) fetchCategories();
+                          }}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>

@@ -4,28 +4,21 @@ import { useState } from "react";
 import CategoryCard from "./Category-Card";
 import Header from "./Header";
 import { CategoryStatus, CategoryType } from "@prisma/client";
+import { Category } from "@/types/category";
 
-export type CategoryWithTransactions = {
-  id: string;
-  name: string;
-  description: string | null;
-  type: CategoryType;
-  status: CategoryStatus;
-  transactions: {
-    id: string;
-    amount: number;
-  }[];
-  transactionCount: number;
-  totalAmount: number;
-};
+interface CategoriesWrapperProps {
+  fetchCategories: () => void;
+  categories: Category[];
+  canManageCategory: boolean;
+  hasFullAccess: boolean;
+}
 
 export default function CategoriesWrapper({
   categories,
   fetchCategories,
-}: {
-  categories: CategoryWithTransactions[];
-  fetchCategories: () => void;
-}) {
+  canManageCategory,
+  hasFullAccess,
+}: CategoriesWrapperProps) {
   const [filteredCategories, setFilteredCategories] = useState(categories);
 
   const handleSearch = (term: string) => {
@@ -55,10 +48,14 @@ export default function CategoriesWrapper({
         onSearch={handleSearch}
         onFilter={handleFilter}
         fetchCategories={fetchCategories}
+        canManageCategory={canManageCategory}
+        hasFullAccess={hasFullAccess}
       />
       <CategoryCard
         categories={filteredCategories}
         fetchCategories={fetchCategories}
+        canManageCategory={canManageCategory}
+        hasFullAccess={hasFullAccess}
       />
     </div>
   );

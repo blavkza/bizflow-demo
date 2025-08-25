@@ -8,9 +8,18 @@ import { ClientWithRelations } from "./types";
 export interface TabsSectionProps {
   client: ClientWithRelations;
   fetchClient: () => void;
+  hasFullAccess: boolean;
+  canEditClient: boolean;
+  canCreateTransation: boolean;
 }
 
-export default function TabsSection({ client, fetchClient }: TabsSectionProps) {
+export default function TabsSection({
+  client,
+  fetchClient,
+  hasFullAccess,
+  canEditClient,
+  canCreateTransation,
+}: TabsSectionProps) {
   return (
     <div>
       <Tabs defaultValue="overview" className="space-y-4">
@@ -26,7 +35,13 @@ export default function TabsSection({ client, fetchClient }: TabsSectionProps) {
         </TabsContent>
 
         <TabsContent value="payments">
-          <PaymentsTab client={client} fetchClient={fetchClient} />
+          <PaymentsTab
+            client={client}
+            fetchClient={fetchClient}
+            canEditClient={canEditClient}
+            canCreateTransation={canCreateTransation}
+            hasFullAccess={hasFullAccess}
+          />
         </TabsContent>
 
         <TabsContent value="invoices">
@@ -34,7 +49,12 @@ export default function TabsSection({ client, fetchClient }: TabsSectionProps) {
         </TabsContent>
 
         <TabsContent value="documents">
-          <DocumentsTab client={client} fetchClient={fetchClient} />
+          <DocumentsTab
+            client={client}
+            fetchClient={fetchClient}
+            canEditClient={canEditClient}
+            hasFullAccess={hasFullAccess}
+          />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,121 +1,115 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import db from "@/lib/db";
+"use client";
+
 import TabsSection from "./_components/TabsSection";
 import Header from "./_components/Header";
+import axios from "axios";
+import { use, useEffect, useState } from "react";
+import { Department } from "@/types/department";
+import { UserPermission, UserRole } from "@prisma/client";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import Loading from "./_components/Loading";
 
-interface DepartmentWithRelations {
-  id: string;
-  name: string;
-  description: string | null;
-  status: string;
-  createdAt: Date;
-  updatedAt: Date;
-  location: string | null;
-  floor: string | null;
-  building: string | null;
-  manager: {
-    id: string;
-    name: string | null;
-    email: string | null;
-  } | null;
-  employees: { id: string }[];
-  budgets: {
-    totalAmount: number;
-    items: {
-      id: string;
-      amount: number;
-      spent: number;
-      notes: string | null;
-    }[];
-    alerts: {
-      id: string;
-      type: string;
-      threshold: number;
-      triggered: boolean;
-    }[];
-  }[];
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
 }
 
-export default async function DepartmentDetailsPage({
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
+
+export default function DepartmentDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const department = await db.department.findUnique({
-    where: { id: params.id },
-    include: {
-      manager: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-      employees: {
-        select: {
-          id: true,
-          avatar: true,
-          firstName: true,
-          salary: true,
-          lastName: true,
-          email: true,
-          position: true,
-        },
-      },
-      budgets: {
-        select: {
-          totalAmount: true,
-          items: {
-            select: {
-              id: true,
-              amount: true,
-              spent: true,
-              notes: true,
-            },
-          },
-          alerts: {
-            select: {
-              id: true,
-              type: true,
-              threshold: true,
-              triggered: true,
-            },
-          },
-        },
-      },
-    },
+  const { id } = use(params);
+
+  const [department, setDepartment] = useState<Department | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const router = useRouter();
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
   });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewDepartments = data?.permissions?.includes(
+    UserPermission.DEPARTMENT_VIEW
+  );
+
+  const canEditDepartments = data?.permissions?.includes(
+    UserPermission.DEPARTMENT_EDIT
+  );
+
+  const canViewEmployees = data?.permissions?.includes(
+    UserPermission.EMPLOYEES_VIEW
+  );
+
+  const canCreateEmployees = data?.permissions?.includes(
+    UserPermission.EMPLOYEES_CREATE
+  );
+
+  useEffect(() => {
+    if (!isLoading && canViewDepartments === false && hasFullAccess === false) {
+      router.push("/dashboard");
+    }
+  }, [isLoading, canViewDepartments, hasFullAccess]);
+
+  const fetchDepartment = async () => {
+    try {
+      const response = await axios.get(`/api/departments/${id}`);
+      setDepartment(response.data.department);
+    } catch (err) {
+      console.error("Failed to fetch department");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDepartment();
+  }, [id]);
+
+  if (loading) {
+    return <Loading />;
+  }
 
   if (!department) {
     return <div>Department not found</div>;
   }
 
-  // Convert Decimal to number for client-side compatibility
-  const serializedDepartment: DepartmentWithRelations = {
-    ...department,
-    budgets: department.budgets.map((budget) => ({
-      ...budget,
-      totalAmount: budget.totalAmount.toNumber(),
-      items: budget.items.map((item) => ({
-        ...item,
-        amount: item.amount.toNumber(),
-        spent: item.spent.toNumber(),
-      })),
-      alerts: budget.alerts.map((alert) => ({
-        ...alert,
-        threshold: alert.threshold.toNumber(),
-      })),
-    })),
-  };
-
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <Header department={serializedDepartment} />
-
-      <TabsSection department={serializedDepartment} />
+      <Header
+        department={department}
+        fetchDepartment={fetchDepartment}
+        canEditDepartments={canEditDepartments}
+        hasFullAccess={hasFullAccess}
+      />
+      <TabsSection
+        department={department}
+        canCreateEmployees={canCreateEmployees}
+        canViewEmployees={canViewEmployees}
+        hasFullAccess={hasFullAccess}
+        fetchDepartment={fetchDepartment}
+        departmentId={id}
+      />
     </div>
   );
 }

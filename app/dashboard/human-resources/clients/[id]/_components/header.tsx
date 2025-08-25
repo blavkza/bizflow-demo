@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Camera, Edit, Mail } from "lucide-react";
+import { ArrowLeft, Camera, Edit, Mail } from "lucide-react";
 
 import { Client, ClientStatus } from "@prisma/client";
 import ClientForm from "../../_components/client-Form";
@@ -24,9 +24,16 @@ import { ClientWithRelations } from "./types";
 interface HeaderProps {
   client: ClientWithRelations;
   fetchClient: () => void;
+  hasFullAccess: boolean;
+  canEditClient: boolean;
 }
 
-export default function Header({ client, fetchClient }: HeaderProps) {
+export default function Header({
+  client,
+  fetchClient,
+  hasFullAccess,
+  canEditClient,
+}: HeaderProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(client.avatar);
@@ -58,8 +65,11 @@ export default function Header({ client, fetchClient }: HeaderProps) {
   };
 
   return (
-    <div className="flex items-start justify-between">
+    <div className="flex items-start justify-between mb-4">
       <div className="flex items-center space-x-4">
+        <Button variant="outline" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className=" h-4 w-4" />
+        </Button>
         <div className="relative group">
           <Avatar className="h-28 w-28 border-4 border-background shadow-xl">
             {avatarUrl ? (
@@ -94,42 +104,45 @@ export default function Header({ client, fetchClient }: HeaderProps) {
         </div>
       </div>
       <div className="flex items-center space-x-2">
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Client
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="w-full max-w-2xl">
-            <DialogHeader className="space-y-2">
-              <DialogTitle className="text-2xl">Edit Client</DialogTitle>
-              <DialogDescription className="text-base">
-                Update client information below. All changes will be saved
-                immediately.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <ClientForm
-                type="update"
-                data={{
-                  ...client,
-                  phone: client.phone ?? undefined,
-                  status: client.status as ClientStatus,
-                }}
-                onCancel={() => setIsEditDialogOpen(false)}
-                onSubmitSuccess={() => {
-                  setIsEditDialogOpen(false);
-                  if (fetchClient) fetchClient();
-                }}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-        <Button>
+        {(canEditClient || hasFullAccess) && (
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Client
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="w-full max-w-2xl">
+              <DialogHeader className="space-y-2">
+                <DialogTitle className="text-2xl">Edit Client</DialogTitle>
+                <DialogDescription className="text-base">
+                  Update client information below. All changes will be saved
+                  immediately.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <ClientForm
+                  type="update"
+                  data={{
+                    ...client,
+                    phone: client.phone ?? undefined,
+                    status: client.status as ClientStatus,
+                  }}
+                  onCancel={() => setIsEditDialogOpen(false)}
+                  onSubmitSuccess={() => {
+                    setIsEditDialogOpen(false);
+                    if (fetchClient) fetchClient();
+                  }}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* <Button>
           <Mail className="mr-2 h-4 w-4" />
           Send Invoice
-        </Button>
+        </Button> */}
       </div>
 
       <AvatarUploadDialog

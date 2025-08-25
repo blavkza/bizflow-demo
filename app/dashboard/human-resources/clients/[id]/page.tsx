@@ -1,6 +1,6 @@
 "use client";
+
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import Header from "./_components/header";
 import StatsCard from "./_components/stats-card";
 import TabsSection from "./_components/tabs";
@@ -10,6 +10,21 @@ import { ClientWithRelations } from "./_components/types";
 import { toast } from "sonner";
 import Loading from "./_components/Loading";
 import { useRouter } from "next/navigation";
+import { UserPermission, UserRole } from "@prisma/client";
+import { useAuth } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
+
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function ClientDetailPage({
   params,
@@ -21,6 +36,39 @@ export default function ClientDetailPage({
   const [loading, setLoading] = useState(true);
 
   const router = useRouter();
+
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewClients = data?.permissions?.includes(
+    UserPermission.Clients_VIEW
+  );
+
+  const canEditClient = data?.permissions?.includes(
+    UserPermission.Clients_EDIT
+  );
+
+  const canCreateTransation = data?.permissions?.includes(
+    UserPermission.TRANSACTIONS_MANAGE
+  );
+
+  useEffect(() => {
+    if (!isLoading && canViewClients === false && hasFullAccess === false) {
+      router.push("/dashboard");
+    }
+  }, [isLoading, canViewClients, hasFullAccess]);
 
   const fetchClient = async () => {
     try {
@@ -62,22 +110,24 @@ export default function ClientDetailPage({
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
-      </div>
+      <div className="flex items-center space-x-4"></div>
 
-      {/* Client Header */}
-      <Header client={client} fetchClient={fetchClient} />
+      <Header
+        client={client}
+        fetchClient={fetchClient}
+        canEditClient={canEditClient}
+        hasFullAccess={hasFullAccess}
+      />
 
-      {/* Key Metrics */}
       <StatsCard client={client} />
 
-      {/* Tabs */}
-      <TabsSection client={client} fetchClient={fetchClient} />
+      <TabsSection
+        client={client}
+        fetchClient={fetchClient}
+        canEditClient={canEditClient}
+        canCreateTransation={canCreateTransation}
+        hasFullAccess={hasFullAccess}
+      />
     </div>
   );
 }

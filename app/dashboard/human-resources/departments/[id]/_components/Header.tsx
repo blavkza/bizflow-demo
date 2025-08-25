@@ -19,15 +19,21 @@ import DepartmentForm from "../../_components/department-Form";
 
 interface DepartmentHeaderProps {
   department: Department;
+  fetchDepartment: () => void;
+  canEditDepartments: boolean;
+  hasFullAccess: boolean;
 }
 
 export default function DepartmentHeader({
   department,
+  fetchDepartment,
+  canEditDepartments,
+  hasFullAccess,
 }: DepartmentHeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
+
   const router = useRouter();
 
-  // Prepare form data with null checks
   const formData = {
     id: department.id,
     name: department.name ?? undefined,
@@ -42,10 +48,12 @@ export default function DepartmentHeader({
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
         {" "}
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/dashboard/human-resources/departments">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => router.push("/dashboard/human-resources/departments")}
+        >
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">{department.name}</h1>
         <Badge
@@ -59,32 +67,33 @@ export default function DepartmentHeader({
           {department.status.toLowerCase()}
         </Badge>
       </div>
-
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline">
-            <Edit className="mr-2 h-4 w-4" />
-            Edit Department
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="w-full max-w-2xl">
-          <DialogHeader className="space-y-2">
-            <DialogTitle className="text-2xl">Edit Department</DialogTitle>
-            <DialogDescription className="text-base">
-              Update department information below.
-            </DialogDescription>
-          </DialogHeader>
-          <DepartmentForm
-            type="update"
-            data={formData}
-            onCancel={() => setIsOpen(false)}
-            onSubmitSuccess={() => {
-              setIsOpen(false);
-              router.refresh();
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      {(canEditDepartments || hasFullAccess) && (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              <Edit className="mr-2 h-4 w-4" />
+              Edit Department
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="w-full max-w-2xl">
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="text-2xl">Edit Department</DialogTitle>
+              <DialogDescription className="text-base">
+                Update department information below.
+              </DialogDescription>
+            </DialogHeader>
+            <DepartmentForm
+              type="update"
+              data={formData}
+              onCancel={() => setIsOpen(false)}
+              onSubmitSuccess={() => {
+                setIsOpen(false);
+                fetchDepartment();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

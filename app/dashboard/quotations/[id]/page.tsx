@@ -12,8 +12,22 @@ import { QuotationInfoCard } from "./_components/QuotationInfoCard";
 import { TermsCard } from "./_components/TermsCard";
 import { ItemsTable } from "./_components/ItemsTable";
 import { ClientInfoCard } from "./_components/ClientInfoCard";
-import { ConvertToInvoiceDialog } from "./_components/ConvertToInvoiceDialog";
 import QuotationDetailLoading from "./_components/loading";
+import { UserPermission, UserRole } from "@prisma/client";
+import { useAuth } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
+
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function QuotationDetailPage({
   params,
@@ -27,6 +41,44 @@ export default function QuotationDetailPage({
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const router = useRouter();
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewQuotations = data?.permissions?.includes(
+    UserPermission.QUOTATIONS_VIEW
+  );
+
+  const canEditQuotations = data?.permissions?.includes(
+    UserPermission.QUOTATIONS_EDIT
+  );
+
+  const canCreateInvoice = data?.permissions?.includes(
+    UserPermission.INVOICES_CREATE
+  );
+
+  const canDeleteQuotations = data?.permissions?.includes(
+    UserPermission.QUOTATIONS_DELETE
+  );
+
+  useEffect(() => {
+    if (!isLoading && canViewQuotations === false && hasFullAccess === false) {
+      router.push("/dashboard");
+    }
+  }, [isLoading, canViewQuotations, hasFullAccess]);
 
   const fetchQuotation = async () => {
     try {
@@ -68,7 +120,14 @@ export default function QuotationDetailPage({
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <QuotationHeader quotation={quotation} refresh={fetchQuotation} />
+      <QuotationHeader
+        canEditQuotations={canEditQuotations}
+        hasFullAccess={hasFullAccess}
+        canCreateInvoice={canCreateInvoice}
+        canDeleteQuotations={canDeleteQuotations}
+        quotation={quotation}
+        refresh={fetchQuotation}
+      />
 
       <KeyMetrics quotation={quotation} />
 

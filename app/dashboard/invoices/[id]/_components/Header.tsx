@@ -14,9 +14,17 @@ import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   invoice: InvoiceProps;
+  canDeleteInvoice: boolean;
+  canEditInvoice: boolean;
+  hasFullAccess: boolean;
 }
 
-export default function Header({ invoice }: HeaderProps) {
+export default function Header({
+  invoice,
+  canDeleteInvoice,
+  canEditInvoice,
+  hasFullAccess,
+}: HeaderProps) {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [logoLoaded, setLogoLoaded] = useState(false);
   const invoiceRef = useRef<HTMLDivElement>(null);
@@ -111,6 +119,9 @@ export default function Header({ invoice }: HeaderProps) {
           invoice={invoice}
           isGeneratingPdf={isGeneratingPdf}
           onDownloadPdf={handleDownloadPdf}
+          canEditInvoice={canEditInvoice}
+          canDeleteInvoice={canDeleteInvoice}
+          hasFullAccess={hasFullAccess}
         />
       </div>
       <InvoicePDF invoice={invoice} forwardedRef={invoiceRef} />

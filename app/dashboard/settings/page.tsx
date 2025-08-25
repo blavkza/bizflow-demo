@@ -35,8 +35,23 @@ import { motion } from "framer-motion";
 import GeneraleSettingsForm from "./_components/Generale-Settings";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useEffect, useState } from "react";
-import { GeneralSetting } from "@prisma/client";
+import { GeneralSetting, UserPermission, UserRole } from "@prisma/client";
 import { AvatarUploadDialog } from "@/components/AvatarUploadDialog";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
+
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function SettingsPage() {
   const [generalSettings, setGeneralSettings] = useState<GeneralSetting | null>(
@@ -44,7 +59,35 @@ export default function SettingsPage() {
   );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  console.log(generalSettings);
+  const router = useRouter();
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewSettings = data?.permissions?.includes(
+    UserPermission.SETTINGS_VIEW
+  );
+
+  const canManageSettings = data?.permissions?.includes(
+    UserPermission.SETTINGS_MANAGE
+  );
+
+  useEffect(() => {
+    if (!isLoading && canViewSettings === false && hasFullAccess === false) {
+      router.push("/dashboard");
+    }
+  }, [isLoading, canViewSettings, hasFullAccess]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -104,15 +147,17 @@ export default function SettingsPage() {
                 )}
               </Avatar>
 
-              <Button
-                variant="secondary"
-                size="icon"
-                className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full shadow-sm opacity-90 hover:opacity-100 md:h-7 md:w-7"
-                onClick={() => setIsDialogOpen(true)}
-              >
-                <Camera className="h-3 w-3 md:h-4 md:w-4" />
-                <span className="sr-only">Change company logo</span>
-              </Button>
+              {(canManageSettings || hasFullAccess) && (
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full shadow-sm opacity-90 hover:opacity-100 md:h-7 md:w-7"
+                  onClick={() => setIsDialogOpen(true)}
+                >
+                  <Camera className="h-3 w-3 md:h-4 md:w-4" />
+                  <span className="sr-only">Change company logo</span>
+                </Button>
+              )}
             </motion.div>
 
             <div>
@@ -138,7 +183,10 @@ export default function SettingsPage() {
           </TabsList>
 
           <TabsContent value="company" className="space-y-4">
-            <GeneraleSettingsForm />
+            <GeneraleSettingsForm
+              canManageSettings={canManageSettings}
+              hasFullAccess={hasFullAccess}
+            />
           </TabsContent>
 
           <TabsContent value="financial" className="space-y-4">

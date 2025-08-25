@@ -68,9 +68,16 @@ interface DocumentsTabProps {
     documents?: Document[];
   };
   fetchClient: () => void;
+  hasFullAccess: boolean;
+  canEditClient: boolean;
 }
 
-export function DocumentsTab({ client, fetchClient }: DocumentsTabProps) {
+export function DocumentsTab({
+  client,
+  fetchClient,
+  hasFullAccess,
+  canEditClient,
+}: DocumentsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -154,89 +161,94 @@ export function DocumentsTab({ client, fetchClient }: DocumentsTabProps) {
             />
           </div>
         </div>
-        <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Upload Document
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Upload Document</DialogTitle>
-              <DialogDescription>
-                Upload a document for {client.name}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="documentType" className="text-right">
-                  Document Type
-                </Label>
-                <Select
-                  value={documentType}
-                  onValueChange={(value) => setDocumentType(value)}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select document type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CONTRACT">Contract</SelectItem>
-                    <SelectItem value="INVOICE">Invoice</SelectItem>
-                    <SelectItem value="RECEIPT">Receipt</SelectItem>
-                    <SelectItem value="ID_COPY">ID Copy</SelectItem>
-                    <SelectItem value="CERTIFICATE">Certificate</SelectItem>
-                    <SelectItem value="BANK_STATEMENT">
-                      Bank Statement
-                    </SelectItem>
-                    <SelectItem value="TAX_DOCUMENT">Tax Document</SelectItem>
-                    <SelectItem value="PAYSLIP">Payslip</SelectItem>
-                    <SelectItem value="LEAVE_FORM">Leave Form</SelectItem>
-                    <SelectItem value="PERFORMANCE_REVIEW">
-                      Performance Review
-                    </SelectItem>
-                    <SelectItem value="OTHER">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="file" className="text-right">
-                  File
-                </Label>
-                <div className="col-span-3">
-                  <Input
-                    id="file"
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="cursor-pointer"
-                  />
-                  {selectedFile && (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Selected: {selectedFile.name} (
-                      {Math.round(selectedFile.size / 1024)} KB)
-                    </div>
-                  )}
+        {(canEditClient || hasFullAccess) && (
+          <Dialog
+            open={isUploadDialogOpen}
+            onOpenChange={setIsUploadDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Upload Document
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Upload Document</DialogTitle>
+                <DialogDescription>
+                  Upload a document for {client.name}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="documentType" className="text-right">
+                    Document Type
+                  </Label>
+                  <Select
+                    value={documentType}
+                    onValueChange={(value) => setDocumentType(value)}
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Select document type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="CONTRACT">Contract</SelectItem>
+                      <SelectItem value="INVOICE">Invoice</SelectItem>
+                      <SelectItem value="RECEIPT">Receipt</SelectItem>
+                      <SelectItem value="ID_COPY">ID Copy</SelectItem>
+                      <SelectItem value="CERTIFICATE">Certificate</SelectItem>
+                      <SelectItem value="BANK_STATEMENT">
+                        Bank Statement
+                      </SelectItem>
+                      <SelectItem value="TAX_DOCUMENT">Tax Document</SelectItem>
+                      <SelectItem value="PAYSLIP">Payslip</SelectItem>
+                      <SelectItem value="LEAVE_FORM">Leave Form</SelectItem>
+                      <SelectItem value="PERFORMANCE_REVIEW">
+                        Performance Review
+                      </SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="file" className="text-right">
+                    File
+                  </Label>
+                  <div className="col-span-3">
+                    <Input
+                      id="file"
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      className="cursor-pointer"
+                    />
+                    {selectedFile && (
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        Selected: {selectedFile.name} (
+                        {Math.round(selectedFile.size / 1024)} KB)
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={handleUpload}
-                disabled={!selectedFile || isUploading}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  "Upload Document"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button
+                  onClick={handleUpload}
+                  disabled={!selectedFile || isUploading}
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    "Upload Document"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card>

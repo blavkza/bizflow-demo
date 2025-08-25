@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
-export default function Loading() {
+export default function Loader() {
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
       {/* Header Loading */}

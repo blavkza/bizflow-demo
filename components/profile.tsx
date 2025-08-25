@@ -15,70 +15,128 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-import { useClerk } from "@clerk/nextjs";
+import { useAuth, useClerk } from "@clerk/nextjs";
 import { useState } from "react";
-import { User } from "lucide-react";
+import { User, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { getInitials } from "@/lib/formatters";
+
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
 
 export default function Profile() {
   const { signOut } = useClerk();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const { userId } = useAuth();
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       await signOut();
       console.log("Successfully logged out");
+      setIsDialogOpen(false);
     } catch (error) {
       console.error("Logout failed:", error);
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
   return (
-    <div className=" w-full ">
-      <div className="">
+    <div className="w-full">
+      <div className="py-2">
         <DropdownMenu>
-          {" "}
           <DropdownMenuTrigger asChild>
-            <div className="flex items-center gap-2 ml-0.5 w-full hover:bg-zinc-100 p-1.5 rounded-sm cursor-pointer ">
-              <User className="h-4 w-4 text-muted-foreground mr-1.5" />
-              <span className="text-sm">Account</span>
+            <div className="flex items-center gap-2 cursor-pointer bg-blue-700/50 p-2 rounded-xl">
+              <Avatar className="h-8 w-8">
+                <AvatarImage
+                  src={data?.avatar || "/placeholder-user.jpg"}
+                  alt={data?.name || "User"}
+                />
+                <AvatarFallback>
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    getInitials(data?.name || "User")
+                  )}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col items-start">
+                <div className="text-sm">
+                  {isLoading ? "Loading..." : data?.name || "User"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {isLoading ? "Loading..." : data?.email || ""}
+                </div>
+              </div>
             </div>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Link href="/dashboard/profile">Profile</Link>
-            </DropdownMenuItem>
-            {/*<DropdownMenuItem>Settings</DropdownMenuItem>*/}
-            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <div onClick={() => setIsDialogOpen(true)}>Logout</div>
+              <Link href="/dashboard/profile" className="w-full">
+                Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => setIsDialogOpen(true)}
+              className="cursor-pointer"
+            >
+              Logout
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-      </div>{" "}
-      <div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="text-center mb-4">Logout</DialogTitle>
-            </DialogHeader>
-            <p className="text-center mb-4">
-              Are you sure you want to log out?
-            </p>
-            <DialogFooter>
-              <Button onClick={() => setIsDialogOpen(false)} variant="outline">
-                Cancel
-              </Button>
-              <Button className="bg-red-500" onClick={handleLogout}>
-                Logout
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-center mb-4">Logout</DialogTitle>
+          </DialogHeader>
+          <p className="text-center mb-4">Are you sure you want to log out?</p>
+          <DialogFooter className="flex justify-center gap-2">
+            <Button
+              onClick={() => setIsDialogOpen(false)}
+              variant="outline"
+              disabled={isLoggingOut}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-red-500 hover:bg-red-600"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Logging out...
+                </>
+              ) : (
+                "Logout"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -19,9 +19,15 @@ import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   fetchEmployees?: () => void;
+  hasFullAccess: boolean;
+  canCreateEmployees: boolean;
 }
 
-export default function Header({ fetchEmployees }: HeaderProps) {
+export default function Header({
+  fetchEmployees,
+  hasFullAccess,
+  canCreateEmployees,
+}: HeaderProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const router = useRouter();
 
@@ -39,31 +45,33 @@ export default function Header({ fetchEmployees }: HeaderProps) {
           </div>
         </div>
 
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Employee
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Add New Employee</DialogTitle>
-              <DialogDescription>
-                Enter the employee's information to add them to your team.
-              </DialogDescription>
-            </DialogHeader>
-            <EmployeeForm
-              type="create"
-              onCancel={() => setIsAddDialogOpen(false)}
-              onSubmitSuccess={() => {
-                setIsAddDialogOpen(false);
-                router.refresh();
-                if (fetchEmployees) fetchEmployees();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        {(canCreateEmployees || hasFullAccess) && (
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Employee
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Add New Employee</DialogTitle>
+                <DialogDescription>
+                  Enter the employee's information to add them to your team.
+                </DialogDescription>
+              </DialogHeader>
+              <EmployeeForm
+                type="create"
+                onCancel={() => setIsAddDialogOpen(false)}
+                onSubmitSuccess={() => {
+                  setIsAddDialogOpen(false);
+                  router.refresh();
+                  if (fetchEmployees) fetchEmployees();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </div>
   );

@@ -22,12 +22,18 @@ interface InvoiceActionsProps {
   invoice: InvoiceProps;
   isGeneratingPdf: boolean;
   onDownloadPdf: () => void;
+  hasFullAccess: boolean;
+  canDeleteInvoice: boolean;
+  canEditInvoice: boolean;
 }
 
 export function InvoiceActions({
   invoice,
   isGeneratingPdf,
   onDownloadPdf,
+  canEditInvoice,
+  canDeleteInvoice,
+  hasFullAccess,
 }: InvoiceActionsProps) {
   const router = useRouter();
   const [email, setEmail] = useState(invoice.client.email || "");
@@ -118,18 +124,22 @@ export function InvoiceActions({
           </div>
         </DialogContent>
       </Dialog>
-      <Button variant="outline" size="sm" asChild aria-label="Edit invoice">
-        <Link
-          href={`/dashboard/invoices/${invoice.id}/edit`}
-          className="flex items-center gap-2"
-        >
-          <Edit className="mr-2 h-4 w-4" /> Edit
-        </Link>
-      </Button>
-      <DeleteDialog
-        invoiceNumber={invoice.invoiceNumber}
-        invoiceId={invoice.id}
-      />{" "}
+      {(canEditInvoice || hasFullAccess) && (
+        <Button variant="outline" size="sm" asChild aria-label="Edit invoice">
+          <Link
+            href={`/dashboard/invoices/${invoice.id}/edit`}
+            className="flex items-center gap-2"
+          >
+            <Edit className="mr-2 h-4 w-4" /> Edit
+          </Link>
+        </Button>
+      )}
+      {(canDeleteInvoice || hasFullAccess) && (
+        <DeleteDialog
+          invoiceNumber={invoice.invoiceNumber}
+          invoiceId={invoice.id}
+        />
+      )}{" "}
     </div>
   );
 }

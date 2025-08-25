@@ -2,33 +2,63 @@
 
 import axios from "axios";
 import { useEffect, useState } from "react";
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import CategoriesWrapper from "./_components/CategoriesWrapper";
 import CategoryList from "./_components/Category-List";
 import CategoryLoading from "./_components/loading";
-import { CategoryStatus, CategoryType } from "@prisma/client";
+import { UserPermission, UserRole } from "@prisma/client";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
+import { Category } from "@/types/category";
 
-interface Category {
-  id: string;
-  name: string;
-  type: CategoryType;
-  status: CategoryStatus;
-  description: string | null;
-  color: string | null;
-  icon: string | null;
-  transactions: {
-    id: string;
-    amount: number | { toNumber(): number };
-  }[];
-  transactionCount: number;
-  totalAmount: number;
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
 }
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const router = useRouter();
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewCategory = data?.permissions?.includes(
+    UserPermission.CATEGORY_VIEW
+  );
+
+  const canManageCategory = data?.permissions?.includes(
+    UserPermission.CATEGORY_MANAGE
+  );
+
+  useEffect(() => {
+    if (!isLoading && canViewCategory === false && hasFullAccess === false) {
+      router.push("/dashboard");
+    }
+  }, [isLoading, canViewCategory, hasFullAccess]);
 
   const fetchCategories = async () => {
     try {
@@ -70,8 +100,15 @@ export default function CategoriesPage() {
       <CategoriesWrapper
         categories={categories}
         fetchCategories={fetchCategories}
+        canManageCategory={canManageCategory}
+        hasFullAccess={hasFullAccess}
       />
-      <CategoryList categories={categories} fetchCategories={fetchCategories} />
+      <CategoryList
+        categories={categories}
+        fetchCategories={fetchCategories}
+        canManageCategory={canManageCategory}
+        hasFullAccess={hasFullAccess}
+      />
     </div>
   );
 }

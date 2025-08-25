@@ -3,6 +3,8 @@
 import { Calendar, DollarSign, User, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Employee } from "@prisma/client";
+import { formatCurrency } from "@/lib/formatters";
+import { Decimal } from "@prisma/client/runtime/library";
 
 interface StatsCardProps {
   employee: Employee & {
@@ -15,7 +17,7 @@ interface StatsCardProps {
     } | null;
     payments?: {
       id: string;
-      amount: number;
+      amount: Decimal;
       payDate: Date;
       type: string;
       status: string;
@@ -25,11 +27,11 @@ interface StatsCardProps {
 }
 
 export default function StatsCard({ employee }: StatsCardProps) {
-  // Calculate total paid (if payments array exists)
   const totalPaid =
-    employee.payments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
-
-  // Handle Decimal salary conversion
+    employee.payments?.reduce(
+      (sum, payment) => sum + Number(payment.amount),
+      0
+    ) || 0;
 
   return (
     <div>
@@ -53,7 +55,7 @@ export default function StatsCard({ employee }: StatsCardProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              R{employee.salary.toLocaleString()}
+              {formatCurrency(Number(employee.salary))}
             </div>
             <p className="text-xs text-muted-foreground">Per Day</p>
           </CardContent>
@@ -65,11 +67,7 @@ export default function StatsCard({ employee }: StatsCardProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              R
-              {totalPaid.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
+              {formatCurrency(totalPaid)}
             </div>
             <p className="text-xs text-muted-foreground">Current total</p>
           </CardContent>

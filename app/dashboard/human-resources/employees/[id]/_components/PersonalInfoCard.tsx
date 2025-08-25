@@ -41,11 +41,20 @@ const personalInfoSchema = z.object({
 
 type PersonalInfoSchemaType = z.infer<typeof personalInfoSchema>;
 
+interface PersonalInfoCardProps {
+  employee: EmployeeWithDetails;
+
+  hasFullAccess: boolean;
+  canEditEmployees: boolean;
+  fetchEmployee: () => void;
+}
+
 export function PersonalInfoCard({
   employee,
-}: {
-  employee: EmployeeWithDetails;
-}) {
+  hasFullAccess,
+  canEditEmployees,
+  fetchEmployee,
+}: PersonalInfoCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -69,7 +78,7 @@ export function PersonalInfoCard({
     try {
       await axios.put(`/api/employees/${employee.id}/personal-info`, values);
       toast.success("Personal information updated successfully");
-      router.refresh();
+      fetchEmployee();
       setIsEditing(false);
     } catch (error) {
       console.error(error);
@@ -83,16 +92,19 @@ export function PersonalInfoCard({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Personal Information</CardTitle>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsEditing(!isEditing)}
-          type="button"
-          disabled={isLoading}
-        >
-          <Pencil className="mr-2 h-4 w-4" />
-          {isEditing ? "Cancel" : "Edit"}
-        </Button>
+        {hasFullAccess ||
+          (canEditEmployees && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditing(!isEditing)}
+              type="button"
+              disabled={isLoading}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              {isEditing ? "Cancel" : "Edit"}
+            </Button>
+          ))}
       </CardHeader>
 
       <Form {...form}>

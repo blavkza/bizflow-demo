@@ -28,21 +28,6 @@ export const SidebarFooterComponent: React.FC<SidebarFooterProps> = ({
             <Profile />
           </SidebarMenuButton>
         </SidebarMenuItem>
-        <SidebarMenuItem>
-          <SidebarMenuButton asChild>
-            <Link
-              href="/dashboard/settings"
-              className={clsx(
-                "hover:bg-accent/50",
-                isActive(pathname, "/dashboard/settings") &&
-                  "bg-accent/90 hover:bg-accent "
-              )}
-            >
-              <Settings className="text-muted-foreground mr-2" />
-              <span>Settings</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
       </SidebarMenu>
     </SidebarFooter>
   );

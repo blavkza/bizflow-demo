@@ -1,64 +1,110 @@
-import db from "@/lib/db";
+"use client";
+
+import axios from "axios";
 import Header from "./_components/Header";
 import StatsCard from "./_components/Stats-Card";
 import TabsSection from "./_components/TabsSection";
 import { EmployeeWithDetails } from "@/types/employee";
+import { use, useEffect, useState } from "react";
+import { UserPermission, UserRole } from "@prisma/client";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
+import Loading from "./_components/loading";
 
-export default async function EmployeeDetailPage({
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
+
+export default function EmployeeDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const id = await params.id;
+  const { id } = use(params);
 
-  const employee = await db.employee.findUnique({
-    where: { id },
-    include: {
-      department: {
-        select: {
-          id: true,
-          name: true,
-          manager: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
+  const [employee, setEmployee] = useState<EmployeeWithDetails | null>(null);
+  const [loading, setLoading] = useState(true);
 
-      payments: {
-        select: {
-          id: true,
-          amount: true,
-          payDate: true,
-          type: true,
-          status: true,
-          description: true,
-        },
-        orderBy: {
-          payDate: "desc",
-        },
-      },
-    },
+  const router = useRouter();
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
   });
 
-  if (!employee) {
-    return <div>Employee not found</div>;
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewEmployees = data?.permissions?.includes(
+    UserPermission.EMPLOYEES_VIEW
+  );
+
+  const canEditEmployees = data?.permissions?.includes(
+    UserPermission.EMPLOYEES_EDIT
+  );
+
+  useEffect(() => {
+    if (!isLoading && canViewEmployees === false && hasFullAccess === false) {
+      router.push("/dashboard");
+    }
+  }, [isLoading, canViewEmployees, hasFullAccess]);
+
+  const fetchEmployee = async () => {
+    try {
+      const response = await axios.get(`/api/employees/${id}`);
+
+      const data = response.data;
+
+      setEmployee(data);
+    } catch (err) {
+      console.error("Failed to fetch employee", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEmployee();
+  }, []);
+
+  if (loading) {
+    return <Loading />;
   }
 
-  const employeeWithDetails: EmployeeWithDetails = {
-    ...employee,
-    payments: employee.payments?.map((payment) => ({
-      ...payment,
-      amount: payment.amount.toNumber(),
-    })),
-  };
+  if (!employee) {
+    return <div>Department not found</div>;
+  }
 
   return (
     <div className="space-y-4">
-      <Header employee={employeeWithDetails} />
-      <StatsCard employee={employeeWithDetails} />
-      <TabsSection employee={employeeWithDetails} />
+      <Header
+        employee={employee}
+        canEditEmployees={canEditEmployees}
+        hasFullAccess={hasFullAccess}
+        fetchEmployee={fetchEmployee}
+      />
+      <StatsCard employee={employee} />
+      <TabsSection
+        employee={employee}
+        canEditEmployees={canEditEmployees}
+        hasFullAccess={hasFullAccess}
+        fetchEmployee={fetchEmployee}
+      />
     </div>
   );
 }

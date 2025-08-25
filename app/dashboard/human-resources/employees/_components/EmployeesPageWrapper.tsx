@@ -12,6 +12,9 @@ interface EmployeesPageWrapperProps {
   initialStatuses: string[];
   initialWorkTypes: string[];
   fetchEmployees: () => void;
+  hasFullAccess: boolean;
+  canCreateEmployees: boolean;
+  canViewEmployees: boolean;
 }
 
 export default function EmployeesPageWrapper({
@@ -20,6 +23,9 @@ export default function EmployeesPageWrapper({
   initialStatuses,
   initialWorkTypes,
   fetchEmployees,
+  hasFullAccess,
+  canCreateEmployees,
+  canViewEmployees,
 }: EmployeesPageWrapperProps) {
   const [employees, setEmployees] = useState(initialEmployees);
   const [searchTerm, setSearchTerm] = useState("");
@@ -52,7 +58,11 @@ export default function EmployeesPageWrapper({
 
   return (
     <div className="space-y-6 p-6">
-      <Header fetchEmployees={fetchEmployees} />
+      <Header
+        fetchEmployees={fetchEmployees}
+        canCreateEmployees={canCreateEmployees}
+        hasFullAccess={hasFullAccess}
+      />
       <StatsCard employees={filteredEmployees} departments={departments} />
       <Filters
         departments={departments.map((dept) => dept.name)}
@@ -63,7 +73,11 @@ export default function EmployeesPageWrapper({
         onStatusChange={setSelectedStatus}
         onWorkTypeChange={setSelectedWorkType}
       />
-      <EmployeesList employees={filteredEmployees} />
+      <EmployeesList
+        employees={filteredEmployees}
+        canViewEmployees={canCreateEmployees}
+        hasFullAccess={hasFullAccess}
+      />
     </div>
   );
 }

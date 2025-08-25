@@ -28,27 +28,30 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { Project } from "@/types/sidebar";
 import { getSidebarData } from "./utils/sidebar-data";
-import { SidebarHeaderComponent } from "./sidebar-header";
 import { isActive } from "./utils/sidebar-helpers";
 import { ProjectItem } from "./project-item";
 import { SidebarFooterComponent } from "./sidebar-footer";
+import { UserPermission } from "@prisma/client";
+import SidebarHeaderComponent from "./sidebar-header";
 
 interface AppSidebarProps {
   role: string;
   unreadCount?: number;
   projects?: Project[];
   userId?: string | null;
+  permissions?: UserPermission[];
 }
 
 export function SidebarItems({
   role,
+  permissions = [],
   unreadCount = 0,
   projects = [],
   userId,
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
-  const data = getSidebarData(role, unreadCount);
+  const data = getSidebarData(role, unreadCount, permissions);
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     new Set()
   );
@@ -60,18 +63,9 @@ export function SidebarItems({
   const currentUserId = userId;
 
   useEffect(() => {
-    const filteredProjects = projects.filter((project) => {
-      if (project.archived) return false;
-
-      const isManager = project.managerId === currentUserId;
-      const isTeamMember = project.teamMembers?.some(
-        (member: any) => member.id === currentUserId
-      );
-
-      return isManager || isTeamMember;
-    });
-
-    setLocalProjects(filteredProjects);
+    if (projects) {
+      setLocalProjects(projects);
+    }
   }, [projects, currentUserId]);
 
   const toggleProject = (id: string) => {
@@ -135,7 +129,7 @@ export function SidebarItems({
 
   return (
     <Sidebar variant="inset" {...props}>
-      <SidebarHeaderComponent />
+      <SidebarHeaderComponent permissions={permissions} role={role} />
 
       <SidebarContent className="sidebar-content pb-8 overflow-y-auto h-[calc(100vh-180px)]">
         <div className="space-y-6">

@@ -26,6 +26,7 @@ type AvatarUploadDialogProps = {
   onOpenChange: (open: boolean) => void;
   onAvatarUpdate: (url: string) => void;
   type: string;
+  onSubmitSuccess?: () => void;
 };
 
 export function AvatarUploadDialog({
@@ -34,6 +35,7 @@ export function AvatarUploadDialog({
   onOpenChange,
   onAvatarUpdate,
   type,
+  onSubmitSuccess,
 }: AvatarUploadDialogProps) {
   const { toast } = useToast();
   const [isUploading, setIsUploading] = useState(false);
@@ -107,7 +109,7 @@ export function AvatarUploadDialog({
       }
 
       onAvatarUpdate(data.url);
-      router.refresh();
+      if (onSubmitSuccess) onSubmitSuccess();
       toast({
         title: "Avatar updated",
         description: "Your profile picture has been successfully updated",

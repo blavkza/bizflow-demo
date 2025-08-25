@@ -22,6 +22,22 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { QuotationWithRelations } from "@/types/quotation";
 import QuotationsLoading from "./_components/loading";
+import { UserPermission, UserRole } from "@prisma/client";
+import { useAuth } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function QuotationsPage() {
   const [quotations, setQuotations] = useState<QuotationWithRelations[]>([]);
@@ -33,6 +49,35 @@ export default function QuotationsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortOption, setSortOption] = useState("newest");
   const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewQuotations = data?.permissions?.includes(
+    UserPermission.QUOTATIONS_VIEW
+  );
+
+  const canCreateQuotations = data?.permissions?.includes(
+    UserPermission.QUOTATIONS_CREATE
+  );
+
+  useEffect(() => {
+    if (!isLoading && canViewQuotations === false && hasFullAccess === false) {
+      router.push("/dashboard");
+    }
+  }, [isLoading, canViewQuotations, hasFullAccess]);
 
   useEffect(() => {
     const fetchQuotations = async () => {
@@ -112,22 +157,16 @@ export default function QuotationsPage() {
     setSortOption(value);
   };
 
-  if (error) {
-    return (
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <Header />
-        <div className="text-red-500">{error}</div>
-      </div>
-    );
-  }
-
   if (loading) {
     return <QuotationsLoading />;
   }
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-      <Header />
+      <Header
+        canCreateQuotations={canCreateQuotations}
+        hasFullAccess={hasFullAccess}
+      />
       <QuotationStats quotations={quotations} />
 
       <div className="flex flex-col md:flex-row gap-2 mt-4">

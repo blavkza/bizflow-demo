@@ -26,29 +26,8 @@ export interface Department {
     avatar: string | null;
     firstName: string;
     lastName: string;
-    salary: Number;
+    salary: number;
     email: string;
     position: string;
   }[];
-  budgets: {
-    id: string;
-    name: string;
-    totalAmount: number;
-    items: {
-      id: string;
-      amount: number;
-      spent: number;
-      notes: string | null;
-    }[];
-    alerts: {
-      id: string;
-      type: string;
-      threshold: number;
-      triggered: boolean;
-    }[];
-  }[];
-}
-
-export interface TabsSectionProps {
-  department: Department;
 }

@@ -43,7 +43,7 @@ import { Calendar } from "@/components/ui/calendar";
 
 interface EmployeeFormProps {
   type: "create" | "update";
-  data?: Employee;
+  data?: Partial<Employee>;
   onCancel?: () => void;
   onSubmitSuccess?: () => void;
 }

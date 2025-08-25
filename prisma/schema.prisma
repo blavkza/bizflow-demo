@@ -27,7 +27,6 @@ model User {
   avatar      String?
   role        UserRole   @default(VIEWER)
   status      UserStatus @default(ACTIVE)
-  permissions Json?
   lastLogin   DateTime?
   timezone    String     @default("Africa/Johannesburg")
   language    String     @default("en")
@@ -39,6 +38,8 @@ model User {
   // Only this relation matters for being a manager
   managedDepartments Department[]  @relation("DepartmentManager")
   projectTeams       ProjectTeam[]
+
+  permissions UserPermission[]
 
   // Everything else is unrelated
   createdTransactions Transaction[]
@@ -1503,6 +1504,49 @@ enum UserStatus {
   ACTIVE
   INACTIVE
   SUSPENDED
+}
+
+enum UserPermission {
+  INVOICES_CREATE
+  INVOICES_EDIT
+  INVOICES_DELETE
+  INVOICES_VIEW
+  QUOTATIONS_CREATE
+  QUOTATIONS_EDIT
+  QUOTATIONS_DELETE
+  QUOTATIONS_VIEW
+  USERS_CREATE
+  USERS_EDIT
+  USERS_DELETE
+  USERS_VIEW
+  EMPLOYEES_CREATE
+  EMPLOYEES_EDIT
+  EMPLOYEES_DELETE
+  EMPLOYEES_VIEW
+  DEPARTMENT_CREATE
+  DEPARTMENT_EDIT
+  DEPARTMENT_DELETE
+  DEPARTMENT_VIEW
+  SETTINGS_MANAGE
+  SETTINGS_VIEW
+  TRANSACTIONS_MANAGE
+  TRANSACTIONS_VIEW
+  PAYROLL_MANAGE
+  PAYROLL_VIEW
+  CATEGORY_MANAGE
+  CATEGORY_VIEW
+  INVENTORY_MANAGE
+  INVENTORY_VIEW
+  SYSTEMS_AI
+  SYSTEMS_DASHBOARD
+  SYSTEMS_NOTIFICATIONS
+  PROJECTS_CREATE
+  PROJECTS_DELETE
+  PROJECTS_VIEW
+  Clients_CREATE
+  Clients_EDIT
+  Clients_DELETE
+  Clients_VIEW
 }
 
 enum DepartmentStatus {

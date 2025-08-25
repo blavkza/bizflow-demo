@@ -31,6 +31,8 @@ interface ActionBarProps {
   onDepartmentFilter: (department: string) => void;
   employees: EmployeeWithDetails[];
   fetchEmployees: () => void;
+  hasFullAccess: boolean;
+  canManagePayroll: boolean;
 }
 
 export default function ActionBar({
@@ -38,6 +40,8 @@ export default function ActionBar({
   onDepartmentFilter,
   employees,
   fetchEmployees,
+  hasFullAccess,
+  canManagePayroll,
 }: ActionBarProps) {
   const [isPayrollDialogOpen, setIsPayrollDialogOpen] = useState(false);
   const router = useRouter();
@@ -82,45 +86,47 @@ export default function ActionBar({
             </SelectContent>
           </Select>
         </div>
-        <div className="flex gap-2">
-          <Dialog
-            open={isPayrollDialogOpen}
-            onOpenChange={setIsPayrollDialogOpen}
-          >
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <DollarSign className="h-4 w-4 mr-2" />
-                Process Payroll
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[625px] max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Process Payroll</DialogTitle>
-                <DialogDescription>
-                  Process monthly payroll for all{" "}
-                  <span className="text-destructive font-bold">ACTIVE</span>{" "}
-                  employees only.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label className="text-right">Employees</Label>
-                  <div className="col-span-3">
-                    {activeEmployees.length} active employees
+        {(canManagePayroll || hasFullAccess) && (
+          <div className="flex gap-2">
+            <Dialog
+              open={isPayrollDialogOpen}
+              onOpenChange={setIsPayrollDialogOpen}
+            >
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Process Payroll
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[625px] max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Process Payroll</DialogTitle>
+                  <DialogDescription>
+                    Process monthly payroll for all{" "}
+                    <span className="text-destructive font-bold">ACTIVE</span>{" "}
+                    employees only.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Employees</Label>
+                    <div className="col-span-3">
+                      {activeEmployees.length} active employees
+                    </div>
                   </div>
                 </div>
-              </div>
-              <PayrollForm
-                employees={activeEmployees}
-                onCancel={() => setIsPayrollDialogOpen(false)}
-                onSubmitSuccess={() => {
-                  setIsPayrollDialogOpen(false);
-                  if (fetchEmployees) fetchEmployees();
-                }}
-              />
-            </DialogContent>
-          </Dialog>
-        </div>
+                <PayrollForm
+                  employees={activeEmployees}
+                  onCancel={() => setIsPayrollDialogOpen(false)}
+                  onSubmitSuccess={() => {
+                    setIsPayrollDialogOpen(false);
+                    if (fetchEmployees) fetchEmployees();
+                  }}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
       </div>
     </div>
   );

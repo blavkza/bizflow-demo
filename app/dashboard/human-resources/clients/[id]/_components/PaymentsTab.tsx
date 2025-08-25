@@ -39,9 +39,18 @@ import InvoicePaymentForm from "./PaymentForm";
 interface PaymentsTabProps {
   client: ClientWithRelations;
   fetchClient: () => void;
+  hasFullAccess: boolean;
+  canEditClient: boolean;
+  canCreateTransation: boolean;
 }
 
-export function PaymentsTab({ client, fetchClient }: PaymentsTabProps) {
+export function PaymentsTab({
+  client,
+  fetchClient,
+  hasFullAccess,
+  canCreateTransation,
+  canEditClient,
+}: PaymentsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -126,34 +135,36 @@ export function PaymentsTab({ client, fetchClient }: PaymentsTabProps) {
             />
           </div>
         </div>
-        <Dialog
-          open={isPaymentDialogOpen}
-          onOpenChange={setIsPaymentDialogOpen}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Record Payment
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Record New Payment</DialogTitle>
-              <DialogDescription>
-                Record a payment received from {client.name}.
-              </DialogDescription>
-            </DialogHeader>
-            <InvoicePaymentForm
-              type="create"
-              clientId={client.id}
-              onCancel={() => setIsPaymentDialogOpen(false)}
-              onSubmitSuccess={() => {
-                setIsPaymentDialogOpen(false);
-                if (fetchClient) fetchClient();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        {((canCreateTransation && canEditClient) || hasFullAccess) && (
+          <Dialog
+            open={isPaymentDialogOpen}
+            onOpenChange={setIsPaymentDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Record Payment
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Record New Payment</DialogTitle>
+                <DialogDescription>
+                  Record a payment received from {client.name}.
+                </DialogDescription>
+              </DialogHeader>
+              <InvoicePaymentForm
+                type="create"
+                clientId={client.id}
+                onCancel={() => setIsPaymentDialogOpen(false)}
+                onSubmitSuccess={() => {
+                  setIsPaymentDialogOpen(false);
+                  if (fetchClient) fetchClient();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <Card>

@@ -4,13 +4,18 @@ import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Camera } from "lucide-react";
+import { Camera, Edit, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ProfileCard } from "./ProfileCard";
 import { InfoField } from "./InfoField";
 import { AvatarUploadDialog } from "@/components/AvatarUploadDialog";
 import Link from "next/link";
+import { ProfileEdit } from "./ProfileEdit";
+import { EmailPhoneEdit } from "./EmailPhoneEdit";
+import { useAuth } from "@clerk/nextjs";
+import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { DialogTitle, DialogTrigger } from "@radix-ui/react-dialog";
 
 type User = {
   id: string;
@@ -39,7 +44,11 @@ const circles = [
 export function ProfilePage({ user }: ProfilePageProps) {
   const [mounted, setMounted] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatar);
+
+  const [currentUser, setCurrentUser] = useState<User>(user);
 
   useEffect(() => {
     setMounted(true);
@@ -67,8 +76,6 @@ export function ProfilePage({ user }: ProfilePageProps) {
     }
   };
 
-  if (!mounted) return null;
-
   return (
     <div className="container mx-auto px-6 py-4">
       <header className="flex mb-4 h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
@@ -81,6 +88,33 @@ export function ProfilePage({ user }: ProfilePageProps) {
               View your account information
             </p>
           </div>
+        </div>
+        <div className="ml-auto flex gap-2">
+          <Dialog
+            open={isPasswordDialogOpen}
+            onOpenChange={setIsPasswordDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button>Change Password</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Change Your Password</DialogTitle>
+              </DialogHeader>
+              <ProfileEdit user={user} />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>Edit Profile</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Change Contact details</DialogTitle>
+              </DialogHeader>
+              <EmailPhoneEdit user={user} />
+            </DialogContent>
+          </Dialog>
         </div>
       </header>
 
@@ -117,7 +151,7 @@ export function ProfilePage({ user }: ProfilePageProps) {
                     <AvatarImage src={avatarUrl} />
                   ) : (
                     <AvatarFallback className="text-2xl">
-                      {getInitials(user.name)}
+                      {getInitials(currentUser.name)}
                     </AvatarFallback>
                   )}
                 </Avatar>
@@ -140,7 +174,7 @@ export function ProfilePage({ user }: ProfilePageProps) {
                   transition={{ duration: 0.5, delay: 0.1 }}
                   className="text-3xl font-bold"
                 >
-                  {user.name}
+                  {currentUser.name}
                 </motion.h2>
                 <motion.div
                   initial={{ y: 20, opacity: 0 }}
@@ -150,10 +184,12 @@ export function ProfilePage({ user }: ProfilePageProps) {
                 >
                   <div
                     className={`h-2.5 w-2.5 rounded-full ${getRoleColor(
-                      user.role
+                      currentUser.role
                     )}`}
                   />
-                  <span className="text-sm font-medium">{user.role}</span>
+                  <span className="text-sm font-medium">
+                    {currentUser.role}
+                  </span>
                   <Link className="ml-8" href={"/dashboard/ceo-dashboard"}>
                     <p className="text-zinc-300 dark:text-zinc-700">.</p>
                   </Link>
@@ -168,11 +204,15 @@ export function ProfilePage({ user }: ProfilePageProps) {
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             <ProfileCard
               title="Username"
-              value={`@${user.userName}`}
+              value={`@${currentUser.userName}`}
               delay={0.3}
             />
-            <ProfileCard title="Full Name" value={user.name} delay={0.4} />
-            <ProfileCard title="Email" value={user.email} delay={0.5} />
+            <ProfileCard
+              title="Full Name"
+              value={currentUser.name}
+              delay={0.4}
+            />
+            <ProfileCard title="Email" value={currentUser.email} delay={0.5} />
           </div>
 
           <div className="mt-12">
@@ -187,11 +227,14 @@ export function ProfilePage({ user }: ProfilePageProps) {
             <div className="grid gap-4 md:grid-cols-4">
               <InfoField
                 label="Account Created"
-                value={user.createdAt.toLocaleDateString()}
+                value={currentUser.createdAt.toLocaleDateString()}
               />
-              <InfoField label="Role" value={user.role} />
-              <InfoField label="Status" value={user.status} />
-              <InfoField label="Phone" value={user.phone || "Not provided"} />
+              <InfoField label="Role" value={currentUser.role} />
+              <InfoField label="Status" value={currentUser.status} />
+              <InfoField
+                label="Phone"
+                value={currentUser.phone || "Not provided"}
+              />
             </div>
           </div>
         </div>
@@ -199,7 +242,7 @@ export function ProfilePage({ user }: ProfilePageProps) {
 
       <AvatarUploadDialog
         type="user"
-        user={user}
+        user={currentUser}
         isOpen={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         onAvatarUpdate={setAvatarUrl}

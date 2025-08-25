@@ -18,13 +18,32 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { UserPermission, UserRole } from "@prisma/client";
+import { Settings, Settings2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface SidebarHeaderProps {
-  // Add any props if needed
+  role: string;
+  permissions: UserPermission[];
 }
 
-export const SidebarHeaderComponent: React.FC<SidebarHeaderProps> = () => {
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
+
+export default function SidebarHeaderComponent({
+  role,
+  permissions,
+}: SidebarHeaderProps) {
+  const router = useRouter();
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showSettingsTooltip, setSettingsShowTooltip] = useState(false);
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = role ? hasRole(role, fullAccessRoles) : false;
+
+  const canViewSettings = permissions?.includes(UserPermission.SETTINGS_VIEW);
 
   const handleReload = () => {
     window.location.reload();
@@ -39,10 +58,8 @@ export const SidebarHeaderComponent: React.FC<SidebarHeaderProps> = () => {
       }
     };
 
-    // Add event listener
     window.addEventListener("keydown", handleKeyDown);
 
-    // Clean up
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
@@ -68,28 +85,51 @@ export const SidebarHeaderComponent: React.FC<SidebarHeaderProps> = () => {
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight select-none">
                   <span className="truncate font-semibold">BizFlow</span>
-                  <span className="truncate text-xs">Management System</span>
                 </div>
               </div>
-              <TooltipProvider>
-                <Tooltip open={showTooltip}>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleReload}
-                      onMouseEnter={() => setShowTooltip(true)}
-                      onMouseLeave={() => setShowTooltip(false)}
-                      className="relative"
-                    >
-                      <IoReloadOutline className="h-6 w-6" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <span className="text-xs font-thin">Ctrl + R</span>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <div className="flex items-center gap-1">
+                {(hasFullAccess || canViewSettings) && (
+                  <TooltipProvider>
+                    <Tooltip open={showSettingsTooltip}>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => router.push("/dashboard/settings")}
+                          onMouseEnter={() => setSettingsShowTooltip(true)}
+                          onMouseLeave={() => setSettingsShowTooltip(false)}
+                          className="relative"
+                        >
+                          <Settings className="h-6 w-6" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <span className="text-xs font-thin">Settings</span>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+
+                <TooltipProvider>
+                  <Tooltip open={showTooltip}>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleReload}
+                        onMouseEnter={() => setShowTooltip(true)}
+                        onMouseLeave={() => setShowTooltip(false)}
+                        className="relative"
+                      >
+                        <IoReloadOutline className="h-6 w-6" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <span className="text-xs font-thin">Ctrl + R</span>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -101,4 +141,4 @@ export const SidebarHeaderComponent: React.FC<SidebarHeaderProps> = () => {
       </SidebarMenu>
     </SidebarHeader>
   );
-};
+}

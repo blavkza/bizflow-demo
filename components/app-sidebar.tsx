@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useAuth } from "@clerk/nextjs";
 import { SidebarItermsSkeleton } from "./SidebarItermsSkeleton";
 import { useNotifications } from "@/contexts/notification-context";
@@ -8,20 +8,36 @@ import { Project } from "@/types/sidebar";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { SidebarItems } from "./sidebar/sidebar-items";
+import { UserPermission, User } from "@prisma/client";
 
-async function fetchProjectData() {
+async function fetchProjectData(): Promise<Project[]> {
   const response = await fetch("/api/projects");
   if (!response.ok) throw new Error("Failed to fetch Projects data");
   return response.json();
 }
 
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
 export default function AppSidebar() {
   const { userId } = useAuth();
-  const [role, setRole] = useState<string>("VIEWER");
-  const [id, setid] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
   const { unreadCount } = useNotifications();
+
+  const {
+    data: userData,
+    isLoading: isLoadingUser,
+    error: userError,
+  } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
 
   const {
     data: projects = [],
@@ -34,52 +50,34 @@ export default function AppSidebar() {
     enabled: !!userId,
   });
 
-  const fetchUserRole = async () => {
-    if (!userId) return;
-
-    try {
-      const response = await fetch(`/api/users/role?userId=${userId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch user role");
-      }
-      const data = await response.json();
-
-      setRole(data.role);
-      setid(data.id);
-    } catch (error) {
-      console.error("Error fetching user role:", error);
-      setRole("VIEWER");
-    } finally {
-      setLoading(false);
+  React.useEffect(() => {
+    if (userError) {
+      console.error("Failed to fetch user data:", userError);
+      toast.error("Failed to load user information");
     }
-  };
 
-  useEffect(() => {
-    if (!userId) return;
-    fetchUserRole();
-  }, [userId]);
-
-  useEffect(() => {
     if (projectsError) {
+      console.error("Failed to fetch projects:", projectsError);
       toast.error("Failed to fetch projects");
     }
-  }, [projectsError]);
+  }, [userError, projectsError]);
 
-  if (!userId || loading) {
+  if (!userId || isLoadingUser || isLoadingProjects) {
     return <SidebarItermsSkeleton />;
   }
 
-  if (!role) {
+  if (!userData) {
     return <div>NOT AUTHENTICATED</div>;
   }
 
   return (
     <div>
       <SidebarItems
-        role={role}
+        role={userData?.role}
         projects={projects}
+        permissions={userData?.permissions || []}
         unreadCount={unreadCount}
-        userId={id}
+        userId={userData?.id}
       />
     </div>
   );

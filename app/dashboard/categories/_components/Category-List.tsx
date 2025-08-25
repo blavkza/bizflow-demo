@@ -31,28 +31,21 @@ import { Edit, Trash2 } from "lucide-react";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import CategoryForm from "./category-Form";
+import { Category } from "@/types/category";
 
-export type CategoryWithTransactions = {
-  id: string;
-  name: string;
-  description: string | null;
-  type: CategoryType;
-  status: CategoryStatus;
-  transactions: {
-    id: string;
-    amount: number;
-  }[];
-  transactionCount: number;
-  totalAmount: number;
-};
+interface CategoryListProps {
+  hasFullAccess: boolean;
+  fetchCategories: () => void;
+  categories: Category[];
+  canManageCategory: boolean;
+}
 
 export default function CategoryList({
   categories,
   fetchCategories,
-}: {
-  categories: CategoryWithTransactions[];
-  fetchCategories: () => void;
-}) {
+  canManageCategory,
+  hasFullAccess,
+}: CategoryListProps) {
   const router = useRouter();
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(
     null
@@ -81,7 +74,9 @@ export default function CategoryList({
                 <TableHead>Description</TableHead>
                 <TableHead>Transactions</TableHead>
                 <TableHead>Total Amount</TableHead>
-                <TableHead>Actions</TableHead>
+                {(canManageCategory || hasFullAccess) && (
+                  <TableHead>Actions</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -128,35 +123,37 @@ export default function CategoryList({
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Dialog
-                          open={editingCategoryId === category.id}
-                          onOpenChange={(open) => {
-                            setEditingCategoryId(open ? category.id : null);
-                          }}
-                        >
-                          <DialogTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="sm:max-w-[425px]">
-                            <DialogHeader>
-                              <DialogTitle>Edit Category</DialogTitle>
-                              <DialogDescription>
-                                Update this category
-                              </DialogDescription>
-                            </DialogHeader>
-                            <CategoryForm
-                              type="update"
-                              data={category}
-                              onCancel={() => setEditingCategoryId(null)}
-                              onSubmitSuccess={() => {
-                                setEditingCategoryId(null);
-                                if (fetchCategories) fetchCategories();
-                              }}
-                            />
-                          </DialogContent>
-                        </Dialog>
+                        {(canManageCategory || hasFullAccess) && (
+                          <Dialog
+                            open={editingCategoryId === category.id}
+                            onOpenChange={(open) => {
+                              setEditingCategoryId(open ? category.id : null);
+                            }}
+                          >
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[425px]">
+                              <DialogHeader>
+                                <DialogTitle>Edit Category</DialogTitle>
+                                <DialogDescription>
+                                  Update this category
+                                </DialogDescription>
+                              </DialogHeader>
+                              <CategoryForm
+                                type="update"
+                                data={category}
+                                onCancel={() => setEditingCategoryId(null)}
+                                onSubmitSuccess={() => {
+                                  setEditingCategoryId(null);
+                                  if (fetchCategories) fetchCategories();
+                                }}
+                              />
+                            </DialogContent>
+                          </Dialog>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

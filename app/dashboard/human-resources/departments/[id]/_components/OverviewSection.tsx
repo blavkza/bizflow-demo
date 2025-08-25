@@ -11,24 +11,12 @@ import { Progress } from "@/components/ui/progress";
 import { Briefcase, Users, DollarSign, PenLine } from "lucide-react";
 
 import { TabsContent } from "@/components/ui/tabs";
-import { TabsSectionProps } from "@/types/department";
+import { Department } from "@/types/department";
 
-export default function OverviewSection({ department }: TabsSectionProps) {
-  // Calculate total budget spent
-  const totalBudget = department.budgets.reduce(
-    (sum, budget) => sum + budget.totalAmount,
-    0
-  );
-
-  const totalSpent = department.budgets.reduce(
-    (sum, budget) =>
-      sum + budget.items.reduce((itemSum, item) => itemSum + item.spent, 0),
-    0
-  );
-
-  const budgetProgress = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
-
-  // Format date
+export interface OverviewSectionProps {
+  department: Department;
+}
+export default function OverviewSection({ department }: OverviewSectionProps) {
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString("en-ZA", {
       year: "numeric",

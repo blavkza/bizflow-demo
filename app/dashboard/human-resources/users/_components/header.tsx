@@ -19,9 +19,15 @@ import { useRouter } from "next/navigation";
 
 interface HeaderProps {
   fetchUsers?: () => void;
+  canCreateUsers: boolean;
+  hasFullAccess: boolean;
 }
 
-export default function Header({ fetchUsers }: HeaderProps) {
+export default function Header({
+  fetchUsers,
+  hasFullAccess,
+  canCreateUsers,
+}: HeaderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const router = useRouter();
 
@@ -43,30 +49,32 @@ export default function Header({ fetchUsers }: HeaderProps) {
         </div>
       </header>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add User
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>
-              Create a new user account with appropriate permissions.
-            </DialogDescription>
-          </DialogHeader>
-          <UserForm
-            type="create"
-            onCancel={() => setIsDialogOpen(false)}
-            onSubmitSuccess={() => {
-              setIsDialogOpen(false);
-              if (fetchUsers) fetchUsers();
-            }}
-          />
-        </DialogContent>
-      </Dialog>
+      {(canCreateUsers || hasFullAccess) && (
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add User
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[800px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add New User</DialogTitle>
+              <DialogDescription>
+                Create a new user account with appropriate permissions.
+              </DialogDescription>
+            </DialogHeader>
+            <UserForm
+              type="create"
+              onCancel={() => setIsDialogOpen(false)}
+              onSubmitSuccess={() => {
+                setIsDialogOpen(false);
+                if (fetchUsers) fetchUsers();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

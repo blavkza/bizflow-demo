@@ -1,25 +1,22 @@
 "use client";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import InvoiceForm from "./Invoice-Form";
 import Link from "next/link";
 
-export default function Header() {
+interface HeaderProps {
+  canCreateInvoice: boolean;
+  hasFullAccess: boolean;
+}
+
+export default function Header({
+  canCreateInvoice,
+  hasFullAccess,
+}: HeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   return (
@@ -35,16 +32,18 @@ export default function Header() {
             </p>
           </div>
         </div>
-        <Button>
-          <Link
-            className="flex items-center gap-2"
-            href={"/dashboard/invoices/new"}
-          >
-            {" "}
-            <Plus className="h-4 w-4 mr-2" />
-            Create Invoice
-          </Link>
-        </Button>
+        {(canCreateInvoice || hasFullAccess) && (
+          <Button>
+            <Link
+              className="flex items-center gap-2"
+              href={"/dashboard/invoices/new"}
+            >
+              {" "}
+              <Plus className="h-4 w-4 mr-2" />
+              Create Invoice
+            </Link>
+          </Button>
+        )}
       </div>
     </header>
   );

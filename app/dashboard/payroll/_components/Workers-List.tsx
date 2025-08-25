@@ -22,12 +22,20 @@ import { Edit, Eye, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmployeeWithDetails } from "@/types/payroll";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface WorkersListProps {
   employees: EmployeeWithDetails[];
+  canViewEmployee: boolean;
+  hasFullAccess: boolean;
 }
 
-export default function WorkersList({ employees }: WorkersListProps) {
+export default function WorkersList({
+  employees,
+  canViewEmployee,
+  hasFullAccess,
+}: WorkersListProps) {
+  const router = useRouter();
   return (
     <Card>
       <CardHeader>
@@ -46,17 +54,21 @@ export default function WorkersList({ employees }: WorkersListProps) {
               <TableHead>Daily Rate</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Hire Date</TableHead>
-              <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {employees.map((employee) => (
-              <TableRow key={employee.id}>
+              <TableRow
+                key={employee.id}
+                onClick={() => {
+                  if (canViewEmployee || hasFullAccess) {
+                    router.push(`/dashboard/payroll/${employee.id}`);
+                  }
+                }}
+                className=" cursor-pointer"
+              >
                 <TableCell>
-                  <Link
-                    href={`/dashboard/payroll/${employee.id}`}
-                    className="flex items-center space-x-3"
-                  >
+                  <div className="flex items-center space-x-3">
                     <Avatar>
                       <AvatarImage
                         src={employee.avatar || "/placeholder.svg"}
@@ -74,7 +86,7 @@ export default function WorkersList({ employees }: WorkersListProps) {
                         {employee.email}
                       </div>
                     </div>
-                  </Link>
+                  </div>
                 </TableCell>
                 <TableCell>{employee.position}</TableCell>
                 <TableCell>{employee.department?.name || "N/A"}</TableCell>
@@ -94,17 +106,6 @@ export default function WorkersList({ employees }: WorkersListProps) {
                   {employee.hireDate
                     ? new Date(employee.hireDate).toLocaleDateString()
                     : "N/A"}
-                </TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="sm">
-                    <Link
-                      href={`/dashboard/payroll/${employee.id}`}
-                      className="flex items-center gap-1"
-                    >
-                      <Eye className="h-4 w-4" />
-                      View
-                    </Link>
-                  </Button>
                 </TableCell>
               </TableRow>
             ))}

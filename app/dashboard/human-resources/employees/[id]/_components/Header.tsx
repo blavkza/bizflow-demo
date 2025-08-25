@@ -17,28 +17,21 @@ import { AvatarUploadDialog } from "@/components/AvatarUploadDialog";
 import EmployeeForm from "../../_components/employee-Form";
 import { useRouter } from "next/navigation";
 import { Employee, EmployeeStatus } from "@prisma/client";
+import { EmployeeWithDetails } from "@/types/employee";
 
 interface HeaderProps {
-  employee: Employee & {
-    department?: {
-      id: string;
-      name: string;
-      manager?: {
-        name: string;
-      } | null;
-    } | null;
-    payments?: {
-      id: string;
-      amount: number;
-      payDate: Date;
-      type: string;
-      status: string;
-      description?: string | null;
-    }[];
-  };
+  employee: EmployeeWithDetails;
+  hasFullAccess: boolean;
+  canEditEmployees: boolean;
+  fetchEmployee: () => void;
 }
 
-export default function Header({ employee }: HeaderProps) {
+export default function Header({
+  employee,
+  canEditEmployees,
+  hasFullAccess,
+  fetchEmployee,
+}: HeaderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     employee.avatar ?? null
@@ -74,13 +67,10 @@ export default function Header({ employee }: HeaderProps) {
   return (
     <div className="flex items-center justify-between p-6">
       <div className="flex flex-col  space-y-4">
-        <Link href="/dashboard/human-resources/employees">
-          <Button variant="outline" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-        </Link>
         <div className="flex items-center space-x-4">
+          <Button variant="outline" size={"icon"} onClick={() => router.back()}>
+            <ArrowLeft className="h-4 w-4 " />
+          </Button>
           <div className="relative group">
             <Avatar className="h-28 w-28 border-4 border-background shadow-xl">
               {employee.avatar ? (
@@ -91,16 +81,17 @@ export default function Header({ employee }: HeaderProps) {
                 </AvatarFallback>
               )}
             </Avatar>
-
-            <Button
-              variant="secondary"
-              size="icon"
-              className="absolute bottom-0 right-0 h-8 w-8 rounded-full shadow-md opacity-90 hover:opacity-100"
-              onClick={() => setIsDialogOpen(true)}
-            >
-              <Camera className="h-4 w-4" />
-              <span className="sr-only">Change profile picture</span>
-            </Button>
+            {(canEditEmployees || hasFullAccess) && (
+              <Button
+                variant="secondary"
+                size="icon"
+                className="absolute bottom-0 right-0 h-8 w-8 rounded-full shadow-md opacity-90 hover:opacity-100"
+                onClick={() => setIsDialogOpen(true)}
+              >
+                <Camera className="h-4 w-4" />
+                <span className="sr-only">Change profile picture</span>
+              </Button>
+            )}
           </div>
           <div>
             <h1 className="text-3xl font-bold">{name}</h1>
@@ -122,34 +113,37 @@ export default function Header({ employee }: HeaderProps) {
         </div>
       </div>
       <div className="flex items-center space-x-2">
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="w-full max-w-2xl">
-            <DialogHeader className="space-y-2">
-              <DialogTitle className="text-2xl">Edit Employee</DialogTitle>
-              <DialogDescription className="text-base">
-                Update employee information below. All changes will be saved
-                immediately.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-              <EmployeeForm
-                type="update"
-                data={employee}
-                onCancel={() => setIsEditDialogOpen(false)}
-                onSubmitSuccess={() => {
-                  setIsEditDialogOpen(false);
-                  router.refresh();
-                }}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
+        {(canEditEmployees || hasFullAccess) && (
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <Edit className="mr-2 h-4 w-4" />
+                Edit
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="w-full max-w-2xl">
+              <DialogHeader className="space-y-2">
+                <DialogTitle className="text-2xl">Edit Employee</DialogTitle>
+                <DialogDescription className="text-base">
+                  Update employee information below. All changes will be saved
+                  immediately.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <EmployeeForm
+                  type="update"
+                  data={employee}
+                  onCancel={() => setIsEditDialogOpen(false)}
+                  onSubmitSuccess={() => {
+                    setIsEditDialogOpen(false);
+                    fetchEmployee();
+                  }}
+                />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
         <Button>
           <Mail className="mr-2 h-4 w-4" />
           Send Invoice
@@ -165,6 +159,10 @@ export default function Header({ employee }: HeaderProps) {
         isOpen={isDialogOpen}
         onOpenChange={setIsDialogOpen}
         onAvatarUpdate={setAvatarUrl}
+        onSubmitSuccess={() => {
+          setIsDialogOpen(false);
+          fetchEmployee();
+        }}
       />
     </div>
   );

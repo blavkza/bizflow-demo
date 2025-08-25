@@ -16,7 +16,7 @@ import { ContactCard } from "./ContactCard";
 import { PersonalInfoCard } from "./PersonalInfoCard";
 import { EmploymentDetailsCard } from "./EmploymentDetailsCard";
 import { QuickActionsCard } from "./QuickActionsCard";
-import { TabsSectionProps } from "@/types/employee";
+import { CompanySettings, EmployeeWithDetails } from "@/types/employee";
 import { PayslipPDF } from "./PayslipPDF";
 import { useRef, useState, useEffect } from "react";
 import html2canvas from "html2canvas";
@@ -24,30 +24,21 @@ import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { PaymentStatus, PaymentType } from "@prisma/client";
 import axios from "axios";
+import { formatCurrency } from "@/lib/formatters";
 
-interface CompanySettings {
-  id: string;
-  companyName: string;
-  taxId?: string;
-  address?: string;
-  city?: string;
-  website?: string;
-  paymentTerms?: string;
-  note?: string;
-  bankAccount?: string;
-  bankAccount2?: string;
-  bankName?: string;
-  bankName2?: string;
-  logo?: string;
-  province?: string;
-  postCode?: string;
-  phone?: string;
-  phone2?: string;
-  phone3?: string;
-  email?: string;
-}
+export type TabsSectionProps = {
+  employee: EmployeeWithDetails;
+  hasFullAccess: boolean;
+  canEditEmployees: boolean;
+  fetchEmployee: () => void;
+};
 
-export default function TabsSection({ employee }: TabsSectionProps) {
+export default function TabsSection({
+  employee,
+  canEditEmployees,
+  hasFullAccess,
+  fetchEmployee,
+}: TabsSectionProps) {
   const [generatingPayslipId, setGeneratingPayslipId] = useState<string | null>(
     null
   );
@@ -152,8 +143,18 @@ export default function TabsSection({ employee }: TabsSectionProps) {
         <TabsContent value="overview" className="space-y-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
-              <ContactCard employee={employee} />
-              <PersonalInfoCard employee={employee} />
+              <ContactCard
+                employee={employee}
+                canEditEmployees={canEditEmployees}
+                hasFullAccess={hasFullAccess}
+                fetchEmployee={fetchEmployee}
+              />
+              <PersonalInfoCard
+                employee={employee}
+                canEditEmployees={canEditEmployees}
+                hasFullAccess={hasFullAccess}
+                fetchEmployee={fetchEmployee}
+              />
             </div>
             <div className="space-y-6">
               <EmploymentDetailsCard employee={employee} />
@@ -197,7 +198,12 @@ export default function TabsSection({ employee }: TabsSectionProps) {
                           <TableCell className="capitalize">
                             {formatPaymentType(payment.type)}
                           </TableCell>
-                          <TableCell>R {payment.amount.toFixed(2)}</TableCell>
+                          <TableCell>
+                            {payment?.amount
+                              ? formatCurrency(Number(payment.amount))
+                              : "0.00"}
+                          </TableCell>
+
                           <TableCell>
                             <Badge
                               className={getPaymentStatusColor(payment.status)}

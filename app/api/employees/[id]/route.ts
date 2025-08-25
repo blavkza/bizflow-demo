@@ -2,6 +2,66 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const { id } = params;
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const employee = await db.employee.findUnique({
+      where: { id },
+      include: {
+        department: {
+          select: {
+            id: true,
+            name: true,
+            manager: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+
+        payments: {
+          select: {
+            id: true,
+            amount: true,
+            payDate: true,
+            type: true,
+            status: true,
+            description: true,
+          },
+          orderBy: {
+            payDate: "desc",
+          },
+        },
+      },
+    });
+
+    if (!employee) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(employee);
+  } catch (error) {
+    console.error("Error fetching invoice:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch invoice" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PUT(
   req: NextRequest,
   {

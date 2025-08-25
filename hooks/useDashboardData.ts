@@ -32,6 +32,7 @@ export function useDashboardData() {
     queryKey: ["user", userId],
     queryFn: () => fetchUserData(userId!),
     enabled: !!userId,
+    refetchInterval: 30000,
   });
 
   const {

@@ -13,6 +13,7 @@ import {
   TaskStatus,
   TransactionStatus,
   TransactionType,
+  UserPermission,
   UserRole,
   UserStatus,
 } from "@prisma/client";
@@ -39,6 +40,7 @@ export const createUserSchema = z
       .regex(/[^A-Za-z0-9]/, {
         message: "Must include at least one special character!",
       }),
+    permissions: z.array(z.nativeEnum(UserPermission)).default([]),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -54,6 +56,7 @@ export const updateUserSchema = z.object({
   email: z.string().email({ message: "Invalid email address!" }),
   role: z.nativeEnum(UserRole),
   status: z.nativeEnum(UserStatus),
+  permissions: z.array(z.nativeEnum(UserPermission)).default([]),
 });
 
 export type updateUserSchemaType = z.infer<typeof updateUserSchema>;
@@ -70,6 +73,22 @@ export const clientSchema = z.object({
 });
 
 export type clientSchemaType = z.infer<typeof clientSchema>;
+
+export const contactInfoSchema = z.object({
+  email: z.string().email("Invalid email address").optional(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  province: z.string().optional(),
+  postalCode: z.string().optional(),
+  country: z.string().optional(),
+  emergencyName: z.string().optional(),
+  emergencyPhone: z.string().optional(),
+  emergencyRelation: z.string().optional(),
+  emergencyAddress: z.string().optional(),
+});
+
+export type ContactInfoSchemaType = z.infer<typeof contactInfoSchema>;
 
 export const departmentSchema = z.object({
   name: z.string().min(1, { message: "Name is required!" }),
@@ -127,7 +146,7 @@ export const employeeSchema = z.object({
   firstName: z.string().min(1, { message: "First name is required" }),
   lastName: z.string().min(1, { message: "Last name is required" }),
   phone: z.string().min(1, { message: "Phone number is required" }),
-  email: z.string().optional(),
+  email: z.string().email({ message: "Invalid email address!" }).optional(),
   position: z.string().min(1, { message: "Position is required" }),
   departmentId: z.string().min(1, { message: "Department is required" }),
   salary: z

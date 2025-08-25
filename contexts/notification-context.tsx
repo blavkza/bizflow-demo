@@ -40,24 +40,39 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  const refreshNotifications = async (): Promise<void> => {
+  const refreshNotifications = async (
+    isBackgroundRefresh = false
+  ): Promise<void> => {
     try {
-      setLoading(true);
+      if (!isBackgroundRefresh) {
+        setLoading(true);
+      }
       setError(null);
       const data = await getNotifications();
       setNotifications(data);
+
+      if (isInitialLoad) {
+        setIsInitialLoad(false);
+      }
     } catch (error) {
       console.error("Failed to fetch notifications:", error);
       setError("Failed to fetch notifications. Please try again later.");
     } finally {
-      setLoading(false);
+      if (!isBackgroundRefresh) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
     refreshNotifications();
-    const interval = setInterval(refreshNotifications, 30000);
+
+    const interval = setInterval(() => {
+      refreshNotifications(true);
+    }, 30000);
+
     return () => clearInterval(interval);
   }, []);
 
@@ -67,7 +82,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
       setNotifications((prev) =>
         prev.map((notification) =>
           notification.id === id
-            ? { ...notification, read: true }
+            ? { ...notification, isRead: true }
             : notification
         )
       );
@@ -81,7 +96,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       await markAllNotificationsAsRead();
       setNotifications((prev) =>
-        prev.map((notification) => ({ ...notification, read: true }))
+        prev.map((notification) => ({ ...notification, isRead: true }))
       );
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
@@ -102,7 +117,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({
         error,
         markAsRead,
         markAllAsRead,
-        refreshNotifications,
+        refreshNotifications: () => refreshNotifications(false),
         setNotifications,
       }}
     >

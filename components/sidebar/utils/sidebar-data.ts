@@ -17,67 +17,100 @@ import {
   Palette,
 } from "lucide-react";
 import { SidebarData } from "../types/sidebar";
+import { UserPermission, UserRole } from "@prisma/client";
+
+// Helper function to check if user has specific permission
+const hasPermission = (
+  permissions: UserPermission[],
+  requiredPermission: UserPermission
+): boolean => {
+  return permissions.includes(requiredPermission);
+};
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export const getSidebarData = (
   role: string,
-  unreadCount: number = 0
+  unreadCount: number = 0,
+  permissions: UserPermission[]
 ): SidebarData => {
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+  const hasFullAccess = hasRole(role, fullAccessRoles);
+
   return {
     navMain: [
       {
         title: "Overview",
         items: [
-          {
-            title: "Dashboard",
-            url: "/dashboard",
-            icon: Home,
-            color: "text-blue-500",
-            alwaysActive: true,
-          },
-          {
-            title: "Notifications",
-            url: "/dashboard/notifications",
-            icon: Bell,
-            badge: unreadCount > 0 ? unreadCount.toString() : undefined,
-            color: "text-red-500",
-          },
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_DASHBOARD)
+            ? [
+                {
+                  title: "Dashboard",
+                  url: "/dashboard",
+                  icon: Home,
+                  color: "text-blue-500",
+                  alwaysActive: true,
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_NOTIFICATIONS)
+            ? [
+                {
+                  title: "Notifications",
+                  url: "/dashboard/notifications",
+                  icon: Bell,
+                  badge: unreadCount > 0 ? unreadCount.toString() : undefined,
+                  color: "text-red-500",
+                },
+              ]
+            : []),
         ],
       },
-      {
-        title: "Projects",
-        items: [
-          {
-            title: "Projects",
-            icon: FolderOpen,
-            color: "text-yellow-500",
-            subitems: [
-              {
-                title: "All Projects",
-                url: "/dashboard/projects",
-                icon: FolderOpen,
-                color: "text-yellow-500",
-              },
-              {
-                title: "Favourite",
-                url: `/dashboard/projects?starred=true`,
-                icon: Star,
-                color: "text-amber-400",
-                badge: "2",
-              },
-              {
-                title: "Archived",
-                url: `/dashboard/projects?archived=true`,
-                icon: Archive,
-                color: "text-gray-400",
-              },
-            ],
-          },
-        ],
-      },
+      ...(hasFullAccess ||
+      hasPermission(permissions, UserPermission.PROJECTS_VIEW)
+        ? [
+            {
+              title: "Projects",
+              items: [
+                {
+                  title: "Projects",
+                  icon: FolderOpen,
+                  color: "text-yellow-500",
+                  subitems: [
+                    {
+                      title: "All Projects",
+                      url: "/dashboard/projects",
+                      icon: FolderOpen,
+                      color: "text-yellow-500",
+                    },
+                    {
+                      title: "Favourite",
+                      url: `/dashboard/projects?starred=true`,
+                      icon: Star,
+                      color: "text-amber-400",
+                      badge: "2",
+                    },
+                    {
+                      title: "Archived",
+                      url: `/dashboard/projects?archived=true`,
+                      icon: Archive,
+                      color: "text-gray-400",
+                    },
+                  ].filter((item) => item !== null),
+                },
+              ],
+            },
+          ]
+        : []),
       {
         title: "Financial Management",
         items: [
-          ...(role === "GENERAL_MANAGER" || role === "CHIEF_EXECUTIVE_OFFICER"
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.TRANSACTIONS_VIEW)
             ? [
                 {
                   title: "Transactions",
@@ -87,13 +120,19 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          {
-            title: "Quotations",
-            url: "/dashboard/quotations",
-            icon: FileText,
-            color: "text-purple-500",
-          },
-          ...(role === "GENERAL_MANAGER" || role === "CHIEF_EXECUTIVE_OFFICER"
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.QUOTATIONS_VIEW)
+            ? [
+                {
+                  title: "Quotations",
+                  url: "/dashboard/quotations",
+                  icon: FileText,
+                  color: "text-purple-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.INVOICES_VIEW)
             ? [
                 {
                   title: "Invoices",
@@ -103,7 +142,8 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          ...(role === "GENERAL_MANAGER" || role === "CHIEF_EXECUTIVE_OFFICER"
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.PAYROLL_VIEW)
             ? [
                 {
                   title: "Payroll",
@@ -113,7 +153,8 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          ...(role === "GENERAL_MANAGER" || role === "CHIEF_EXECUTIVE_OFFICER"
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.CATEGORY_VIEW)
             ? [
                 {
                   title: "Categories",
@@ -123,7 +164,8 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          ...(role === "GENERAL_MANAGER" || role === "CHIEF_EXECUTIVE_OFFICER"
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.INVENTORY_VIEW)
             ? [
                 {
                   title: "Inventory",
@@ -133,12 +175,13 @@ export const getSidebarData = (
                 },
               ]
             : []),
-        ],
+        ].filter((item) => item !== null),
       },
       {
         title: "Human Resources",
         items: [
-          ...(role === "GENERAL_MANAGER" || role === "CHIEF_EXECUTIVE_OFFICER"
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.EMPLOYEES_VIEW)
             ? [
                 {
                   title: "Employees",
@@ -148,7 +191,8 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          ...(role === "GENERAL_MANAGER" || role === "CHIEF_EXECUTIVE_OFFICER"
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.DEPARTMENT_VIEW)
             ? [
                 {
                   title: "Departments",
@@ -158,13 +202,19 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          {
-            title: "Clients",
-            url: "/dashboard/human-resources/clients",
-            icon: Building,
-            color: "text-fuchsia-500",
-          },
-          ...(role === "GENERAL_MANAGER" || role === "CHIEF_EXECUTIVE_OFFICER"
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Clients_VIEW)
+            ? [
+                {
+                  title: "Clients",
+                  url: "/dashboard/human-resources/clients",
+                  icon: Building,
+                  color: "text-fuchsia-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.USERS_VIEW)
             ? [
                 {
                   title: "User Management",
@@ -174,24 +224,30 @@ export const getSidebarData = (
                 },
               ]
             : []),
-        ],
+        ].filter((item) => item !== null),
       },
       {
         title: "Tools",
         items: [
-          {
-            title: "AI Assistant",
-            url: "/dashboard/ai-assistant",
-            icon: Bot,
-            color: "text-blue-500",
-          },
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+            ? [
+                {
+                  title: "AI Assistant",
+                  url: "/dashboard/ai-assistant",
+                  icon: Bot,
+                  color: "text-blue-500",
+                },
+              ]
+            : []),
+
           {
             title: "Appearance",
             url: "/dashboard/appearance",
             icon: Palette,
             color: "text-yellow-500",
           },
-        ],
+        ].filter((item) => item !== null),
       },
     ],
   };

@@ -35,24 +35,24 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import axios from "axios";
 import { useRouter } from "next/navigation";
+import {
+  contactInfoSchema,
+  ContactInfoSchemaType,
+} from "@/lib/formValidationSchemas";
 
-const contactInfoSchema = z.object({
-  email: z.string().email("Invalid email address").optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  province: z.string().optional(),
-  postalCode: z.string().optional(),
-  country: z.string().optional(),
-  emergencyName: z.string().optional(),
-  emergencyPhone: z.string().optional(),
-  emergencyRelation: z.string().optional(),
-  emergencyAddress: z.string().optional(),
-});
+interface ContactCardProps {
+  employee: EmployeeWithDetails;
+  hasFullAccess: boolean;
+  canEditEmployees: boolean;
+  fetchEmployee: () => void;
+}
 
-type ContactInfoSchemaType = z.infer<typeof contactInfoSchema>;
-
-export function ContactCard({ employee }: { employee: EmployeeWithDetails }) {
+export function ContactCard({
+  employee,
+  hasFullAccess,
+  canEditEmployees,
+  fetchEmployee,
+}: ContactCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
@@ -79,7 +79,7 @@ export function ContactCard({ employee }: { employee: EmployeeWithDetails }) {
     try {
       await axios.put(`/api/employees/${employee.id}/contact-info`, values);
       toast.success("Contact information updated successfully");
-      router.refresh();
+      fetchEmployee();
       setIsEditing(false);
     } catch (error) {
       console.error(error);
@@ -104,16 +104,18 @@ export function ContactCard({ employee }: { employee: EmployeeWithDetails }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Contact Information</CardTitle>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsEditing(!isEditing)}
-          type="button"
-          disabled={isLoading}
-        >
-          <Pencil className="mr-2 h-4 w-4" />
-          {isEditing ? "Cancel" : "Edit"}
-        </Button>
+        {(hasFullAccess || canEditEmployees) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsEditing(!isEditing)}
+            type="button"
+            disabled={isLoading}
+          >
+            <Pencil className="mr-2 h-4 w-4" />
+            {isEditing ? "Cancel" : "Edit"}
+          </Button>
+        )}
       </CardHeader>
 
       <Form {...form}>

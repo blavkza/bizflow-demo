@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,7 @@ import {
 import { Plus, Search, Download } from "lucide-react";
 import TransactionForm from "./_components/Transaction-Form";
 import { TransactionsSkeleton } from "./_components/TransactionsSkeleton";
-import { PaymentMethod, TransactionType, TransferStatus } from "@prisma/client";
+import { User, UserPermission, UserRole } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -49,6 +49,21 @@ import { Transaction, CompanySettings, TimeRange } from "./_components/types";
 import { StatsCards } from "./_components/StatsCards";
 import { PaginationControls } from "../../../components/PaginationControls";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
+import { Logger } from "html2canvas/dist/types/core/logger";
+
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -69,6 +84,46 @@ export default function TransactionsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const receiptRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewTransactions = data?.permissions?.includes(
+    UserPermission.TRANSACTIONS_VIEW
+  );
+
+  const canManageTransactions = data?.permissions?.includes(
+    UserPermission.TRANSACTIONS_MANAGE
+  );
+
+  useEffect(() => {
+    if (
+      !isLoading &&
+      canViewTransactions === false &&
+      hasFullAccess === false
+    ) {
+      router.push("/dashboard");
+    }
+  }, [
+    isLoading,
+    canViewTransactions,
+    hasFullAccess,
+    router,
+    loading,
+    loadingSettings,
+  ]);
 
   const fetchTransactions = async () => {
     try {
@@ -147,7 +202,6 @@ export default function TransactionsPage() {
 
   const filteredTransactions = useMemo(() => {
     return transactions.filter((transaction) => {
-      // Check if matches search term (description or category)
       const matchesSearch =
         searchTerm === "" ||
         transaction.description
@@ -158,7 +212,6 @@ export default function TransactionsPage() {
             .toLowerCase()
             .includes(searchTerm.toLowerCase()));
 
-      // Check if matches type filter
       const matchesType =
         typeFilter === "all" || transaction.type === typeFilter;
 
@@ -166,7 +219,6 @@ export default function TransactionsPage() {
     });
   }, [transactions, searchTerm, typeFilter]);
 
-  // Pagination logic
   const paginatedTransactions = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
@@ -182,10 +234,10 @@ export default function TransactionsPage() {
 
   const handleItemsPerPageChange = (value: string) => {
     setItemsPerPage(Number(value));
-    setCurrentPage(1); // Reset to first page when changing items per page
+    setCurrentPage(1);
   };
 
-  if (loading || loadingSettings) {
+  if (loading || loadingSettings || isLoading) {
     return <TransactionsSkeleton />;
   }
 
@@ -200,7 +252,6 @@ export default function TransactionsPage() {
       </header>
 
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        {/* Stats Cards Section */}
         <StatsCards
           transactions={transactions}
           timeRange={timeRange}
@@ -234,32 +285,35 @@ export default function TransactionsPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-2">
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Transaction
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="w-full  ">
-                <DialogHeader>
-                  <DialogTitle>Add New Transaction</DialogTitle>
-                  <DialogDescription>
-                    Enter the details for the new financial transaction.
-                  </DialogDescription>
-                </DialogHeader>
-                <TransactionForm
-                  type="create"
-                  onCancel={() => setIsAddDialogOpen(false)}
-                  onSubmitSuccess={() => {
-                    setIsAddDialogOpen(false);
-                    fetchTransactions();
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
-          </div>
+
+          {(canManageTransactions || hasFullAccess) && (
+            <div className="flex gap-2">
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Transaction
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="w-full  ">
+                  <DialogHeader>
+                    <DialogTitle>Add New Transaction</DialogTitle>
+                    <DialogDescription>
+                      Enter the details for the new financial transaction.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <TransactionForm
+                    type="create"
+                    onCancel={() => setIsAddDialogOpen(false)}
+                    onSubmitSuccess={() => {
+                      setIsAddDialogOpen(false);
+                      fetchTransactions();
+                    }}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
         </div>
 
         <Card>
@@ -357,7 +411,6 @@ export default function TransactionsPage() {
               </TableBody>
             </Table>
 
-            {/* Pagination Controls */}
             {filteredTransactions.length > 0 && (
               <PaginationControls
                 itemsPerPage={itemsPerPage}

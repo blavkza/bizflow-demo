@@ -10,25 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { InvoiceProps } from "@/types/invoice";
 
 interface InvoiceItemsProps {
-  invoice: {
-    items: {
-      id: string;
-      description: string;
-      quantity: string;
-      unitPrice: string;
-      amount: string;
-      taxRate?: string | null;
-      taxAmount?: string | null;
-    }[];
-    subtotal: number;
-    totalAmount: number;
-    taxRate: number;
-    amount: number;
-    discountAmount: number;
-    taxAmount: number;
-  };
+  invoice: InvoiceProps;
 }
 
 export default function InvoiceItems({ invoice }: InvoiceItemsProps) {
@@ -91,10 +76,12 @@ export default function InvoiceItems({ invoice }: InvoiceItemsProps) {
                 </span>
                 <span>R{invoice.taxAmount.toLocaleString()}</span>
               </div>
+
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Discount:</span>
-                <span>R{invoice.discountAmount.toLocaleString()}</span>
+                <span>R{invoice.discountAmount?.toLocaleString() || 0}</span>
               </div>
+
               <Separator />
               <div className="flex justify-between text-lg font-semibold">
                 <span>Total:</span>

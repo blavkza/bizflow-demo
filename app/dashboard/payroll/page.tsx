@@ -7,11 +7,61 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 import StatsCard from "./_components/Stats-Card";
 import TableFilter from "./_components/Table-Filter";
 import Loading from "./_components/loading";
+import { UserPermission, UserRole } from "@prisma/client";
+import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
+
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function WorkersPage() {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const router = useRouter();
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewPayroll = data?.permissions?.includes(
+    UserPermission.PAYROLL_VIEW
+  );
+
+  const canManagePayroll = data?.permissions?.includes(
+    UserPermission.PAYROLL_MANAGE
+  );
+
+  const canViewEmployee = data?.permissions?.includes(
+    UserPermission.EMPLOYEES_VIEW
+  );
+
+  useEffect(() => {
+    if (!isLoading && canViewPayroll === false && hasFullAccess === false) {
+      router.push("/dashboard");
+    }
+  }, [isLoading, canViewPayroll, hasFullAccess]);
 
   const fetchEmployees = async () => {
     try {
@@ -50,6 +100,9 @@ export default function WorkersPage() {
         <TableFilter
           initialEmployees={employees}
           fetchEmployees={fetchEmployees}
+          canManagePayroll={canManagePayroll}
+          hasFullAccess={hasFullAccess}
+          canViewEmployee={canViewEmployee}
         />
       </div>
     </div>

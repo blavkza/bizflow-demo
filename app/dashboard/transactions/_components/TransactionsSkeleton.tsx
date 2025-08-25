@@ -11,7 +11,7 @@ import { Separator } from "@radix-ui/react-separator";
 
 export function TransactionsSkeleton() {
   return (
-    <SidebarInset>
+    <div>
       <header className="flex h-16 shrink-0 items-center gap-2">
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
@@ -19,6 +19,21 @@ export function TransactionsSkeleton() {
           <Skeleton className="h-6 w-32" />
         </div>
       </header>
+
+      <div className="grid gap-4 md:grid-cols-4 p-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-20 mb-2" />
+              <Skeleton className="h-3 w-32" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         {/* Action Bar Skeleton */}
@@ -74,6 +89,6 @@ export function TransactionsSkeleton() {
           </CardContent>
         </Card>
       </div>
-    </SidebarInset>
+    </div>
   );
 }

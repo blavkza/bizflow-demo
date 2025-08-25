@@ -50,12 +50,20 @@ interface QuotationHeaderProps {
       }>;
     };
   };
+  canEditQuotations: boolean;
+  hasFullAccess: boolean;
+  canCreateInvoice: boolean;
+  canDeleteQuotations: boolean;
   refresh: () => void;
 }
 
 export const QuotationHeader = ({
   quotation,
   refresh,
+  canEditQuotations,
+  hasFullAccess,
+  canCreateInvoice,
+  canDeleteQuotations,
 }: QuotationHeaderProps) => {
   const router = useRouter();
   const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
@@ -169,41 +177,50 @@ export const QuotationHeader = ({
         <div className="flex flex-wrap gap-2">
           {quotation.status !== "CANCELLED" ? (
             <>
-              {quotation.status !== "CONVERTED" && (
-                <Button onClick={() => setIsConvertDialogOpen(true)}>
-                  Convert to Invoice
+              {quotation.status !== "CONVERTED" &&
+                (canCreateInvoice || hasFullAccess) && (
+                  <Button onClick={() => setIsConvertDialogOpen(true)}>
+                    Convert to Invoice
+                  </Button>
+                )}
+
+              {(canEditQuotations || hasFullAccess) && (
+                <Button variant="outline">
+                  <Link
+                    className="flex items-center gap-2"
+                    href={`/dashboard/quotations/${quotation.id}/edit`}
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </Link>
                 </Button>
               )}
-
-              <Button variant="outline">
-                <Link
-                  className="flex items-center gap-2"
-                  href={`/dashboard/quotations/${quotation.id}/edit`}
-                >
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </Link>
-              </Button>
 
               <Button variant="outline" onClick={() => setSendDialogOpen(true)}>
                 <Send className="mr-2 h-4 w-4" />
                 Send
               </Button>
-              {quotation.status !== "CONVERTED" && (
-                <Button
-                  variant="outline"
-                  onClick={() => setCancelDialogOpen(true)}
-                >
-                  <X className="mr-2 h-4 w-4" />
-                  Cancel
-                </Button>
-              )}
+              {quotation.status !== "CONVERTED" &&
+                (canEditQuotations || hasFullAccess) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setCancelDialogOpen(true)}
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Cancel
+                  </Button>
+                )}
             </>
           ) : (
-            <Button variant="outline" onClick={() => setCancelDialogOpen(true)}>
-              <Undo2 className="mr-2 h-4 w-4" />
-              Uncancel
-            </Button>
+            (canEditQuotations || hasFullAccess) && (
+              <Button
+                variant="outline"
+                onClick={() => setCancelDialogOpen(true)}
+              >
+                <Undo2 className="mr-2 h-4 w-4" />
+                Uncancel
+              </Button>
+            )
           )}
 
           <Button
@@ -214,15 +231,16 @@ export const QuotationHeader = ({
             <Download className="mr-2 h-4 w-4" />
             {isGeneratingPdf ? "Generating..." : "Download"}
           </Button>
-          {quotation.status !== "CONVERTED" && (
-            <Button
-              variant="destructive"
-              onClick={() => setDeleteDialogOpen(true)}
-            >
-              <Trash className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
-          )}
+          {quotation.status !== "CONVERTED" &&
+            (canDeleteQuotations || hasFullAccess) && (
+              <Button
+                variant="destructive"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            )}
         </div>
       </div>
 

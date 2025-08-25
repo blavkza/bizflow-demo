@@ -10,11 +10,15 @@ export async function GET() {
         userName: true,
         email: true,
         role: true,
+        permissions: true,
         avatar: true,
         status: true,
         createdAt: true,
         phone: true,
         lastLogin: true,
+      },
+      orderBy: {
+        updatedAt: "desc",
       },
     });
 

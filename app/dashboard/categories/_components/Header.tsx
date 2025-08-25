@@ -22,26 +22,15 @@ import {
 import { useRouter } from "next/navigation";
 import { CategoryType } from "@prisma/client";
 import { useState } from "react";
-
-export type CategoryWithTransactions = {
-  id: string;
-  name: string;
-  description: string | null;
-  type: CategoryType;
-
-  transactions: {
-    id: string;
-    amount: number;
-  }[];
-  transactionCount: number;
-  totalAmount: number;
-};
+import { Category } from "@/types/category";
 
 interface HeaderProps {
-  categories: CategoryWithTransactions[];
+  categories: Category[];
   onSearch: (term: string) => void;
   onFilter: (type: "all" | "INCOME" | "EXPENSE") => void;
   fetchCategories: () => void;
+  canManageCategory: boolean;
+  hasFullAccess: boolean;
 }
 
 export default function Header({
@@ -49,6 +38,8 @@ export default function Header({
   onSearch,
   onFilter,
   fetchCategories,
+  canManageCategory,
+  hasFullAccess,
 }: HeaderProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const router = useRouter();
@@ -85,30 +76,32 @@ export default function Header({
             </SelectContent>
           </Select>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Category
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New Category</DialogTitle>
-              <DialogDescription>
-                Create a new category for organizing transactions.
-              </DialogDescription>
-            </DialogHeader>
-            <CategoryForm
-              type="create"
-              onCancel={() => setIsAddDialogOpen(false)}
-              onSubmitSuccess={() => {
-                setIsAddDialogOpen(false);
-                if (fetchCategories) fetchCategories();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        {(canManageCategory || hasFullAccess) && (
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Category
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New Category</DialogTitle>
+                <DialogDescription>
+                  Create a new category for organizing transactions.
+                </DialogDescription>
+              </DialogHeader>
+              <CategoryForm
+                type="create"
+                onCancel={() => setIsAddDialogOpen(false)}
+                onSubmitSuccess={() => {
+                  setIsAddDialogOpen(false);
+                  if (fetchCategories) fetchCategories();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </div>
   );
