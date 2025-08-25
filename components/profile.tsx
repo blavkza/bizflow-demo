@@ -78,7 +78,7 @@ export default function Profile() {
                   )}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col items-start">
+              <div className="flex flex-col items-start text-black dark:text-white">
                 <div className="text-sm">
                   {isLoading ? "Loading..." : data?.name || "User"}
                 </div>
