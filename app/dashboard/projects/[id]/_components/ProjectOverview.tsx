@@ -54,9 +54,7 @@ export function ProjectOverview({
             <Building2 className="text-primary" size={20} />
             <div>
               <p className="text-sm text-muted-foreground">Client</p>
-              <p className="font-medium">
-                {project.client?.name || "No client"}
-              </p>
+              <p className="text-sm">{project.client?.name || "No client"}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -74,16 +72,14 @@ export function ProjectOverview({
             </Avatar>
             <div>
               <p className="text-sm text-muted-foreground">Project Manager</p>
-              <p className="font-medium">
-                {project.manager?.name || "Unassigned"}
-              </p>
+              <p className="text-sm">{project.manager?.name || "Unassigned"}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <Users className="text-primary" size={20} />
             <div>
               <p className="text-sm text-muted-foreground">Team Size</p>
-              <p className="font-medium">
+              <p className="text-sm ">
                 {(project?.teamMembers?.length || 0) + 1}{" "}
                 {project?.teamMembers?.length === 0 ? "Member" : "Members"}
               </p>
@@ -93,7 +89,7 @@ export function ProjectOverview({
             <Calendar className="text-primary" size={20} />
             <div>
               <p className="text-sm text-muted-foreground">Timeline</p>
-              <p className="font-medium">
+              <p className="text-sm ">
                 {startDate} - {endDate}
               </p>
             </div>
@@ -103,7 +99,7 @@ export function ProjectOverview({
               <DollarSign className="text-success" size={20} />
               <div>
                 <p className="text-sm text-muted-foreground">Total Budget</p>
-                <p className="font-medium">
+                <p className="text-sm">
                   R {project.budget?.toLocaleString() || "0"}
                 </p>
               </div>
@@ -114,7 +110,7 @@ export function ProjectOverview({
               <Receipt className="text-info" size={20} />
               <div>
                 <p className="text-sm text-muted-foreground">Total Invoiced</p>
-                <p className="font-medium">
+                <p className="text-sm">
                   R {invoiceTotal?.toLocaleString() || "0"}
                 </p>
               </div>
