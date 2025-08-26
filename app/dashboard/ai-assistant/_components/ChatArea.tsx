@@ -34,7 +34,7 @@ export const ChatArea = ({
       )}
       {isLoading && (
         <div className="flex justify-start">
-          <div className=" text-gray-800 rounded-lg p-3 ">
+          <div className=" text-gray-800 rounded-lg p-3 ml-2 ">
             <LoadingIndicator />
           </div>
         </div>

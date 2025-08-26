@@ -74,12 +74,12 @@ export const Sidebar = ({
         ) : sessions.length === 0 ? (
           <div className="text-center p-6">
             <p className="text-gray-500 mb-4">No chat history yet</p>
-            <button
+            {/* <button
               onClick={onNewConversation}
               className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
             >
               Start a conversation
-            </button>
+            </button> */}
           </div>
         ) : (
           Object.entries(groupedSessions).map(([groupName, groupSessions]) => (

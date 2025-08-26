@@ -1,5 +1,6 @@
 "use client";
 
+import { BrainCircuit } from "lucide-react";
 import { useState } from "react";
 import { FaClipboard } from "react-icons/fa";
 
@@ -43,7 +44,7 @@ export const WelcomeMessage = ({ onQuestionClick }: WelcomeMessageProps) => {
     <div className="flex flex-col items-center justify-center h-full">
       <div className="mb-6 flex flex-col items-center">
         <div className="w-16 h-16 bg-blue-50 dark:bg-zinc-700 rounded-full flex items-center justify-center mb-4">
-          <FaClipboard className="text-blue-500 w-8 h-8" />
+          <BrainCircuit className="text-blue-500 w-8 h-8" />
         </div>
         <h1 className="text-xl font-semibold text-gray-800 dark:text-zinc-300 mb-1">
           BizFlow Assistant
