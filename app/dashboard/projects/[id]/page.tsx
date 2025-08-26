@@ -215,7 +215,6 @@ export default function ProjectsDetailsPage({
       }
     : null;
 
-  // Filter tasks based on status filter
   const Filtedtasks = tasks.filter((task) => {
     if (statusFilter === "all") return true;
     if (statusFilter === "todo") return task.status === "TODO";

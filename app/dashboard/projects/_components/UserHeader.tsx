@@ -17,6 +17,8 @@ import { User } from "@prisma/client";
 interface UserHeaderProps {
   fetchProjects: () => void;
   user: User;
+  hasFullAccess: boolean;
+  canCreateProjects: boolean;
 }
 
 const getInitials = (name: string) => {
@@ -28,7 +30,12 @@ const getInitials = (name: string) => {
     .substring(0, 2);
 };
 
-export default function UserHeader({ fetchProjects, user }: UserHeaderProps) {
+export default function UserHeader({
+  fetchProjects,
+  user,
+  hasFullAccess,
+  canCreateProjects,
+}: UserHeaderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   return (
@@ -52,27 +59,29 @@ export default function UserHeader({ fetchProjects, user }: UserHeaderProps) {
           </div>
         </div>
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[900px]">
-            <DialogHeader>
-              <DialogTitle>Create New Project</DialogTitle>
-            </DialogHeader>
-            <ProjectForm
-              type="create"
-              onCancel={() => setIsDialogOpen(false)}
-              onSubmitSuccess={() => {
-                setIsDialogOpen(false);
-                if (fetchProjects) fetchProjects();
-              }}
-            />
-          </DialogContent>
-        </Dialog>
+        {(hasFullAccess || canCreateProjects) && (
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[900px]">
+              <DialogHeader>
+                <DialogTitle>Create New Project</DialogTitle>
+              </DialogHeader>
+              <ProjectForm
+                type="create"
+                onCancel={() => setIsDialogOpen(false)}
+                onSubmitSuccess={() => {
+                  setIsDialogOpen(false);
+                  if (fetchProjects) fetchProjects();
+                }}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </header>
   );

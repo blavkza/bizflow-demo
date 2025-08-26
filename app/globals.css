@@ -189,3 +189,12 @@ body {
 .rotate-x-270deg {
   transform: rotateX(270deg);
 }
+
+:root {
+  --sidebar-width: 0px;
+}
+
+.chat-input-container {
+  width: calc(100% - var(--sidebar-width));
+  left: calc(var(--sidebar-width) + 50% - min(400px, 40vw));
+}

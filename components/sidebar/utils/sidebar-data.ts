@@ -19,7 +19,6 @@ import {
 import { SidebarData } from "../types/sidebar";
 import { UserPermission, UserRole } from "@prisma/client";
 
-// Helper function to check if user has specific permission
 const hasPermission = (
   permissions: UserPermission[],
   requiredPermission: UserPermission
@@ -242,7 +241,7 @@ export const getSidebarData = (
             : []),
 
           {
-            title: "Appearance",
+            title: "Theme",
             url: "/dashboard/appearance",
             icon: Palette,
             color: "text-yellow-500",

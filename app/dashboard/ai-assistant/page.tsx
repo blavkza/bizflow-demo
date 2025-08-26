@@ -5,6 +5,8 @@ import { WelcomeMessage } from "./_components/WelcomeMessage";
 import { MessageBubble } from "./_components/MessageBubble";
 import { LoadingIndicator } from "./_components/LoadingIndicator";
 import { ChatInput } from "./_components/ChatInput";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 export type Message = {
   content: string;

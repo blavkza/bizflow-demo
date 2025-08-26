@@ -64,7 +64,7 @@ export default function Profile() {
       <div className="py-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <div className="flex items-center gap-2 cursor-pointer bg-blue-700/50 p-2 rounded-xl">
+            <div className="flex items-center gap-2 cursor-pointer bg-sky-400/50 dark:bg-blue-700/50 p-2 rounded-xl hover:opacity-80">
               <Avatar className="h-8 w-8">
                 <AvatarImage
                   src={data?.avatar || "/placeholder-user.jpg"}

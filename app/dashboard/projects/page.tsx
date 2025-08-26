@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ProjectCard } from "./_components/ProjectCard";
 import { ProjectCalendarView } from "./_components/ProjectCalendarView";
 import { ProjectListView } from "./_components/ProjectListView";
@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { ProjectsSkeleton } from "./_components/ProjectsSkeleton";
 import { useAuth } from "@clerk/nextjs";
 import UserHeader from "./_components/UserHeader";
+import { UserPermission, UserRole } from "@prisma/client";
 
 async function fetchProjectData() {
   const response = await fetch("/api/projects");
@@ -41,9 +42,15 @@ async function fetchUserData(userId: string) {
   return response.json();
 }
 
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
+
 function ProjectsContent() {
   const { userId } = useAuth();
   const searchParams = useSearchParams();
+
+  const router = useRouter();
 
   const starredParam = searchParams.get("starred") === "true";
   const archivedParam = searchParams.get("archived") === "true";
@@ -71,6 +78,26 @@ function ProjectsContent() {
 
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [projects, setProjects] = useState<Projects[]>([]);
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = user?.role
+    ? hasRole(user?.role, fullAccessRoles)
+    : false;
+
+  const canViewProjects = user?.permissions?.includes(
+    UserPermission.PROJECTS_VIEW
+  );
+
+  const canCreateProjects = user?.permissions?.includes(
+    UserPermission.PROJECTS_CREATE
+  );
+
+  useEffect(() => {
+    if (!loadingUser && canViewProjects === false && hasFullAccess === false) {
+      router.push("/dashboard");
+    }
+  }, [loadingUser, canViewProjects, hasFullAccess]);
 
   useEffect(() => {
     if (data) setProjects(data);
@@ -108,11 +135,12 @@ function ProjectsContent() {
 
   return (
     <div className="p-6">
-      {user ? (
-        <UserHeader fetchProjects={refetch} user={user} />
-      ) : (
-        <Header fetchProjects={refetch} />
-      )}
+      <UserHeader
+        fetchProjects={refetch}
+        user={user}
+        canCreateProjects={canCreateProjects}
+        hasFullAccess={hasFullAccess}
+      />
 
       <div className="space-y-8">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
