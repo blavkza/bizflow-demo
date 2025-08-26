@@ -53,6 +53,7 @@ model User {
   createdQuotations   Quotation[]
   GeneralSetting      GeneralSetting[]
   Project             Project[]
+  ChatSession         ChatSession[]
 
   @@map("users")
 }
@@ -1075,6 +1076,19 @@ model Payment {
   @@index([employeeId])
   @@index([payDate])
   @@map("payments")
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  title     String
+  userId    String
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_sessions")
 }
 
 model LeaveRequest {

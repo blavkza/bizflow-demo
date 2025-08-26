@@ -16,10 +16,8 @@ interface MessageBubbleProps {
 export const MessageBubble = ({ message }: MessageBubbleProps) => {
   return (
     <div
-      className={`max-w-[80%] rounded-2xl p-3.5 ${
-        message.role === "user"
-          ? "bg-blue-500 text-white shadow-sm"
-          : "bg-white dark:bg-zinc-900 text-gray-800 dark:text-zinc-200 border border-gray-100 dark:border-zinc-700 shadow-sm"
+      className={`max-w-[100%] rounded-2xl py-3.5 px-12 ${
+        message.role === "user" ? "bg-sky-500/70 text-white shadow-sm" : ""
       }`}
     >
       {message.role === "user" ? (
@@ -96,7 +94,10 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
             ),
             table: ({ children, ...props }) => (
               <div className="overflow-x-auto my-2">
-                <table className="min-w-full border border-gray-300 dark:border-gray-600" {...props}>
+                <table
+                  className="min-w-full border border-gray-300 dark:border-gray-600"
+                  {...props}
+                >
                   {children}
                 </table>
               </div>
