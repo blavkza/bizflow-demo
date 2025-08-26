@@ -40,8 +40,7 @@ export function SidebarItermsSkeleton() {
                     </Link>
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight select-none">
-                    <span className="truncate font-semibold">FinanceFlow</span>
-                    <span className="truncate text-xs">Management System</span>
+                    <span className=" font-semibold">BizFlow</span>
                   </div>
                 </div>
                 <Button

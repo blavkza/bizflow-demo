@@ -7,7 +7,7 @@ export default function Loader() {
   return (
     <div>
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
+        <div className="flex items-center gap-2 px-4 mt-3">
           <Skeleton className="h-8 w-8 rounded-md" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <Skeleton className="h-6 w-40" />
@@ -92,42 +92,6 @@ export default function Loader() {
                   <Skeleton key={index} className="h-16 w-full rounded-md" />
                 ))}
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Section - Recent Transactions & Metrics */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Recent Transactions Skeleton */}
-          <div className="rounded-lg border p-6">
-            <Skeleton className="h-6 w-48 mb-6" />
-            <div className="space-y-4">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div>
-                      <Skeleton className="h-4 w-24 mb-1" />
-                      <Skeleton className="h-3 w-16" />
-                    </div>
-                  </div>
-                  <Skeleton className="h-4 w-20" />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Metrics Cards Skeleton */}
-          <div className="rounded-lg border p-6">
-            <Skeleton className="h-6 w-40 mb-6" />
-            <div className="grid grid-cols-2 gap-4">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div key={index} className="text-center">
-                  <Skeleton className="h-12 w-12 mx-auto mb-2 rounded-full" />
-                  <Skeleton className="h-4 w-16 mx-auto mb-1" />
-                  <Skeleton className="h-3 w-12 mx-auto" />
-                </div>
-              ))}
             </div>
           </div>
         </div>
