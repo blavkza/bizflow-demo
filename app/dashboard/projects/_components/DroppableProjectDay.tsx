@@ -6,7 +6,7 @@ interface DroppableProjectDayProps {
   projects: Projects[];
   isCurrentMonth: boolean;
   isToday: boolean;
-  onProjectSelect: (project: Projects) => void; // Changed from Project to Projects
+  onProjectSelect: (project: Projects) => void;
 }
 
 export const DroppableProjectDay = ({

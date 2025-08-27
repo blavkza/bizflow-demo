@@ -8,6 +8,8 @@ import {
   isSameMonth,
   isSameDay,
   parseISO,
+  startOfWeek,
+  endOfWeek,
 } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +50,13 @@ export const CalendarView = ({
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Get the start of the week (Sunday) for the month start
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  // Get the end of the week (Saturday) for the month end
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   const getTasksForDay = (date: Date) => {
     return tasks.filter((task) => {

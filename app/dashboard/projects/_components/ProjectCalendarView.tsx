@@ -9,8 +9,10 @@ import {
   isSameDay,
   isWithinInterval,
   parseISO,
+  startOfWeek,
+  endOfWeek,
 } from "date-fns";
-import { Projects } from "@/types/project"; // Only import Projects
+import { Projects } from "@/types/project";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,8 +21,8 @@ import {
   Calendar as CalendarIcon,
 } from "lucide-react";
 import { ProjectCalendarCard } from "../[id]/_components/ProjectCalendarCard";
-import { DroppableProjectDay } from "./DroppableProjectDay";
 import { useRouter } from "next/navigation";
+import { DroppableProjectDay } from "./DroppableProjectDay";
 
 interface ProjectCalendarViewProps {
   projects: Projects[];
@@ -32,7 +34,13 @@ export const ProjectCalendarView = ({ projects }: ProjectCalendarViewProps) => {
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Get the start of the week (Sunday) for the month start
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  // Get the end of the week (Saturday) for the month end
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+
+  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
   const getProjectsForDay = (date: Date) => {
     return projects.filter((project) => {
@@ -63,7 +71,6 @@ export const ProjectCalendarView = ({ projects }: ProjectCalendarViewProps) => {
     setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)));
   };
 
-  // Changed parameter type to Projects to match DroppableProjectDayProps
   const navigateToProjectdetails = (project: Projects) => {
     router.push(`/dashboard/projects/${project.id}`);
   };

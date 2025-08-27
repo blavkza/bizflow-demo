@@ -21,7 +21,6 @@ import {
   Archive,
 } from "lucide-react";
 
-import Header from "./_components/Header";
 import { Projects } from "@/types/project";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
