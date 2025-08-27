@@ -18,7 +18,7 @@ export const ChatInput = ({
 }: ChatInputProps) => {
   return (
     <form onSubmit={onSubmit} className=" pb-4 ">
-      <div className="max-w-3xl mx-auto flex space-x-2 ">
+      <div className="max-w-2xl mx-auto flex space-x-2 ">
         <div className="relative flex-1">
           <Textarea
             value={input}
@@ -28,6 +28,7 @@ export const ChatInput = ({
             style={{
               height: "56px",
               maxHeight: "200px",
+
               scrollbarWidth: "none",
             }}
             onKeyDown={(e) => {
