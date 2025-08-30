@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Task } from "@/types/tasks";
-import LoadingSpinner from "./_components/LoadingSpinner";
+import LoadingSpinner from "./_components/Loading";
 import ErrorDisplay from "./_components/ErrorDisplay";
 import TaskDetailHeader from "./_components/TaskDetailHeader";
 import TaskDescription from "./_components/TaskDescription";
 import TaskSubtasks from "./_components/TaskSubtasks";
 import TaskTabs from "./_components/TaskTabs";
 import TaskSidebar from "./_components/TaskSidebar";
+import Loading from "./_components/Loading";
 
 interface TaskDetailPageProps {
   params: Promise<{ id: string }>;
@@ -47,7 +48,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
   }, [params]);
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <Loading />;
   }
 
   if (error || !task) {
