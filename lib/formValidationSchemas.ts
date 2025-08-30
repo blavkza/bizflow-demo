@@ -114,18 +114,37 @@ export const projectSchema = z.object({
 
 export type projectSchemaType = z.infer<typeof projectSchema>;
 
+export const subtaskSchema = z.object({
+  title: z.string().min(1, "Subtask title is required"),
+  description: z.string().optional(),
+  estimatedHours: z.number().optional(),
+  status: z.nativeEnum(TaskStatus).optional().default(TaskStatus.TODO),
+});
+
 export const taskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   projectId: z.string().min(1, "Project is required"),
   status: z.nativeEnum(TaskStatus),
   priority: z.nativeEnum(Priority),
-  dueDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+  dueDate: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable()
+    .transform((val) => (val instanceof Date ? val : null)),
   estimatedHours: z.number().optional(),
-  assigneeIds: z.array(z.string()).min(1, "At least one assignee is required"),
+  assigneeIds: z.array(z.string()).optional(),
+  isAIGenerated: z.boolean().optional().default(false),
+  subtasks: z.array(subtaskSchema).optional().default([]),
 });
 
-export type taskSchemaType = z.infer<typeof taskSchema>;
+export const multiTaskSchema = z.object({
+  tasks: z.array(taskSchema).min(1, "At least one task is required"),
+});
+
+export type TaskSchemaType = z.infer<typeof taskSchema>;
+export type SubtaskSchemaType = z.infer<typeof subtaskSchema>;
+export type MultiTaskSchemaType = z.infer<typeof multiTaskSchema>;
 
 export const folderSchema = z.object({
   title: z.string().min(1, "Title is required"),

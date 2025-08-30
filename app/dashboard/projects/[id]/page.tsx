@@ -345,7 +345,7 @@ export default function ProjectsDetailsPage({
                       Add Task
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[900px]">
+                  <DialogContent className="sm:max-w-[900px] max-w-[1000px] max-h-[95vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>Create New Task</DialogTitle>
                     </DialogHeader>

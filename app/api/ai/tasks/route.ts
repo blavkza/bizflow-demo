@@ -1,10 +1,8 @@
-// app/api/ai/tasks/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
 
-// Initialize Google Generative AI
 const apiKey = process.env.GEMINI_API_KEY!;
 const genAI = new GoogleGenerativeAI(apiKey);
 
@@ -20,16 +18,15 @@ const generationConfig = {
   responseMimeType: "application/json",
 };
 
-// System instruction for task generation
 const systemInstruction = `
 You are a project management assistant that helps create detailed tasks with subtasks.
 Generate tasks based on the user's input. Always respond with a valid JSON array of tasks.
 
 Each task should have:
 - title: A clear, concise title
-- description: Detailed description of the task
-- status: Either "TODO", "IN_PROGRESS", or "REVIEW"
-- priority: Either "LOW", "MEDIUM", or "HIGH"
+- description: Detailed description of the task with all neccesary information
+- status: Either "TODO" 
+- priority: Either "LOW", "MEDIUM", "HIGH", 'URGENT'
 - estimatedHours: Estimated time to complete in hours (number)
 - subtasks: An array of 3-5 subtasks, each with:
   - title: Subtask title
@@ -65,7 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { prompt, projectId, count = 3 } = await req.json();
+    const { prompt, projectId } = await req.json();
 
     if (!prompt) {
       return NextResponse.json(
@@ -81,7 +78,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify project exists and user has access
     const project = await db.project.findUnique({
       where: { id: projectId },
       include: {
@@ -96,6 +92,16 @@ export async function POST(req: NextRequest) {
             },
           },
         },
+        tasks: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            status: true,
+            priority: true,
+            estimatedHours: true,
+          },
+        },
       },
     });
 
@@ -103,7 +109,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    // Start chat session
     const chatSession = model.startChat({
       generationConfig,
       history: [
@@ -114,13 +119,33 @@ export async function POST(req: NextRequest) {
       ],
     });
 
-    // Generate tasks using AI
+    const count = Math.floor(Math.random() * (7 - 3 + 1)) + 3;
+
+    // Prepare existing tasks information for the AI
+    const existingTasksInfo =
+      project.tasks.length > 0
+        ? `Existing tasks in this project: ${JSON.stringify(
+            project.tasks.map((task) => ({
+              title: task.title,
+              description: task.description,
+              status: task.status,
+              priority: task.priority,
+            }))
+          )}`
+        : "There are no existing tasks in this project yet.";
+
     const aiPrompt = `
     Create ${count} detailed tasks for a project based on: "${prompt}".
     The project is about: ${project.title}.
     ${project.description ? `Project description: ${project.description}` : ""}
     
-    Available team roles: ${project.team.employees.map((e) => e.role).join(", ")}.
+    Available team roles: ${project.teamMembers.map((e) => e.role).join(", ")}.
+    
+    ${existingTasksInfo}
+    
+    IMPORTANT: Before generating new tasks, review the existing tasks above and avoid creating duplicate tasks.
+    Generate unique, complementary tasks that don't overlap with existing ones.
+    Focus on areas that haven't been covered yet.
     
     Generate realistic tasks with appropriate subtasks.
     `;
@@ -129,10 +154,8 @@ export async function POST(req: NextRequest) {
     const response = await result.response;
     const text = response.text();
 
-    // Parse AI response
     let generatedTasks;
     try {
-      // Extract JSON from response (AI might add markdown formatting)
       const jsonMatch =
         text.match(/```json\n([\s\S]*?)\n```/) || text.match(/\[[\s\S]*\]/);
       const jsonString = jsonMatch
@@ -147,7 +170,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate the generated tasks structure
     if (!Array.isArray(generatedTasks)) {
       return NextResponse.json(
         { error: "AI response is not an array", response: generatedTasks },
@@ -155,9 +177,36 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Filter out tasks that might be duplicates of existing ones
+    const uniqueGeneratedTasks = generatedTasks.filter((generatedTask) => {
+      return !project.tasks.some(
+        (existingTask) =>
+          existingTask.title
+            .toLowerCase()
+            .includes(generatedTask.title.toLowerCase()) ||
+          generatedTask.title
+            .toLowerCase()
+            .includes(existingTask.title.toLowerCase())
+      );
+    });
+
+    if (uniqueGeneratedTasks.length === 0) {
+      return NextResponse.json(
+        {
+          error:
+            "All generated tasks appear to be duplicates of existing tasks. Please provide a more specific prompt.",
+          existingTasks: project.tasks,
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({
-      tasks: generatedTasks,
+      tasks: uniqueGeneratedTasks,
       message: "Tasks generated successfully",
+      totalGenerated: generatedTasks.length,
+      uniqueTasks: uniqueGeneratedTasks.length,
+      existingTasksCount: project.tasks.length,
     });
   } catch (error) {
     console.error("[AI_TASK_GENERATION_ERROR]", error);

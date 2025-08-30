@@ -149,7 +149,7 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
                         )}
                       >
                         <List className="mr-2 h-4 w-4 flex-shrink-0" />
-                        <span className="flex-1">{task.title}</span>
+                        <span className="flex-1 truncate">{task.title}</span>
                         <span className="ml-auto">
                           <Badge className={getTaskStatusColor(task.status)} />
                         </span>

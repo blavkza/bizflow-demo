@@ -42,9 +42,12 @@ export default function DeleteDialog({
       } else if (type == "Project") {
         await axios.delete(`/api/projects/${id}`);
         toast.success("Project deleted successfully");
-      } else {
+      } else if (type === "Task") {
         await axios.delete(`/api/tasks/${id}`);
         toast.success("Task deleted successfully");
+      } else {
+        await axios.delete(`/api/subtasks/${id}`);
+        toast.success("Subtask deleted successfully");
       }
 
       fetchProject();
@@ -67,7 +70,7 @@ export default function DeleteDialog({
             }}
             variant="outline"
             size="sm"
-            className="bg-destructive text-white hover:bg-destructive/90 cursor-pointer"
+            className=" text-red-500 cursor-pointer"
           >
             <Trash className="w-4 h-4 mr-1" />
           </Button>
@@ -77,11 +80,12 @@ export default function DeleteDialog({
               e.preventDefault();
               setIsOpen(true);
             }}
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="cursor-pointer"
+            className="cursor-pointer text-red-500"
           >
             <Trash className="w-4 h-4" />
+            Delete
           </Button>
         ) : (
           <DropdownMenuItem

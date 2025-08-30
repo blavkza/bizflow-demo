@@ -1,7 +1,7 @@
+import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
 import { taskSchema } from "@/lib/formValidationSchemas";
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
@@ -21,99 +21,12 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const validation = taskSchema.safeParse(body);
 
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: validation.error.errors },
-        { status: 400 }
-      );
+    if (body.tasks && Array.isArray(body.tasks)) {
+      return await createAITasks(body.tasks, creator);
+    } else {
+      return await createSingleTask(body, creator);
     }
-
-    const { data } = validation;
-
-    const project = await db.project.findUnique({
-      where: { id: data.projectId },
-      select: { id: true, title: true, status: true },
-    });
-
-    if (!project) {
-      return NextResponse.json(
-        { error: "Specified project does not exist" },
-        { status: 404 }
-      );
-    }
-
-    const taskCount = await db.task.count({
-      where: { projectId: project.id },
-    });
-
-    if (
-      taskCount === 0 &&
-      project.status !== "ACTIVE" &&
-      project.status !== "ON_HOLD"
-    ) {
-      await db.project.update({
-        where: { id: project.id },
-        data: { status: "ACTIVE" },
-      });
-    }
-
-    if (data.assigneeIds?.length > 0) {
-      const existingAssignees = await db.employee.findMany({
-        where: { id: { in: data.assigneeIds } },
-      });
-
-      if (existingAssignees.length !== data.assigneeIds.length) {
-        const missingIds = data.assigneeIds.filter(
-          (id) => !existingAssignees.some((a) => a.id === id)
-        );
-        return NextResponse.json(
-          { error: `Employees not found: ${missingIds.join(", ")}` },
-          { status: 404 }
-        );
-      }
-    }
-
-    const taskNumber = `TSK-${Math.floor(100000 + Math.random() * 900000)}`;
-
-    const result = await db.$transaction(async (prisma) => {
-      const task = await prisma.task.create({
-        data: {
-          title: data.title,
-          description: data.description,
-          projectId: data.projectId,
-          status: data.status,
-          priority: data.priority,
-          dueDate: data.dueDate || null,
-          estimatedHours: data.estimatedHours,
-          taskNumber,
-          assignees: {
-            connect: data.assigneeIds?.map((id) => ({ id })) || [],
-          },
-        },
-        include: {
-          assignees: true,
-          project: { select: { title: true } },
-        },
-      });
-
-      // Notification for creator
-      await prisma.notification.create({
-        data: {
-          title: "New Task Created",
-          message: `You created task "${task.title}" in project ${task.project.title}`,
-          type: "PROJECT",
-          isRead: false,
-          actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
-          userId: creator.id,
-        },
-      });
-
-      return task;
-    });
-
-    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error("[TASK_CREATE_ERROR]", error);
     return NextResponse.json(
@@ -121,6 +34,222 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
+}
+
+async function createSingleTask(data: any, creator: any) {
+  const validation = taskSchema.safeParse(data);
+
+  if (!validation.success) {
+    return NextResponse.json(
+      { error: validation.error.errors },
+      { status: 400 }
+    );
+  }
+
+  const { data: validatedData } = validation;
+
+  const project = await db.project.findUnique({
+    where: { id: validatedData.projectId },
+    select: { id: true, title: true, status: true },
+  });
+
+  if (!project) {
+    return NextResponse.json(
+      { error: "Specified project does not exist" },
+      { status: 404 }
+    );
+  }
+
+  const taskCount = await db.task.count({
+    where: { projectId: project.id },
+  });
+
+  if (
+    taskCount === 0 &&
+    project.status !== "ACTIVE" &&
+    project.status !== "ON_HOLD"
+  ) {
+    await db.project.update({
+      where: { id: project.id },
+      data: { status: "ACTIVE" },
+    });
+  }
+
+  if (validatedData.assigneeIds?.length > 0) {
+    const existingAssignees = await db.employee.findMany({
+      where: { id: { in: validatedData.assigneeIds } },
+    });
+
+    if (existingAssignees.length !== validatedData.assigneeIds.length) {
+      const missingIds = validatedData.assigneeIds.filter(
+        (id: string) => !existingAssignees.some((a) => a.id === id)
+      );
+      return NextResponse.json(
+        { error: `Employees not found: ${missingIds.join(", ")}` },
+        { status: 404 }
+      );
+    }
+  }
+
+  const taskNumber = `TSK-${Math.floor(100000 + Math.random() * 900000)}`;
+
+  const result = await db.$transaction(async (prisma) => {
+    const task = await prisma.task.create({
+      data: {
+        title: validatedData.title,
+        description: validatedData.description,
+        projectId: validatedData.projectId,
+        status: validatedData.status,
+        priority: validatedData.priority,
+        dueDate: validatedData.dueDate || null,
+        estimatedHours: validatedData.estimatedHours,
+        taskNumber,
+        isAIGenerated: validatedData.isAIGenerated || false,
+        assignees: {
+          connect:
+            validatedData.assigneeIds?.map((id: string) => ({ id })) || [],
+        },
+      },
+      include: {
+        assignees: true,
+        project: { select: { title: true } },
+      },
+    });
+
+    if (validatedData.subtasks && validatedData.subtasks.length > 0) {
+      await prisma.subtask.createMany({
+        data: validatedData.subtasks.map((subtask: any, index: number) => ({
+          title: subtask.title,
+          description: subtask.description || "",
+          estimatedHours: subtask.estimatedHours || null,
+          order: index,
+          taskId: task.id,
+          status: subtask.status || "TODO",
+        })),
+      });
+    }
+
+    // Notification for creator
+    await prisma.notification.create({
+      data: {
+        title: "New Task Created",
+        message: `You created task "${task.title}" in project ${task.project.title}`,
+        type: "PROJECT",
+        isRead: false,
+        actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
+        userId: creator.id,
+      },
+    });
+
+    return task;
+  });
+
+  return NextResponse.json(result, { status: 201 });
+}
+
+async function createAITasks(tasks: any[], creator: any) {
+  for (const taskData of tasks) {
+    const validation = taskSchema.safeParse(taskData);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error.errors },
+        { status: 400 }
+      );
+    }
+  }
+
+  const projectId = tasks[0]?.projectId;
+  if (!projectId) {
+    return NextResponse.json(
+      { error: "Project ID is required" },
+      { status: 400 }
+    );
+  }
+
+  const project = await db.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, title: true, status: true },
+  });
+
+  if (!project) {
+    return NextResponse.json(
+      { error: "Specified project does not exist" },
+      { status: 404 }
+    );
+  }
+
+  const taskCount = await db.task.count({
+    where: { projectId: project.id },
+  });
+
+  if (
+    taskCount === 0 &&
+    project.status !== "ACTIVE" &&
+    project.status !== "ON_HOLD"
+  ) {
+    await db.project.update({
+      where: { id: project.id },
+      data: { status: "ACTIVE" },
+    });
+  }
+
+  const results = await db.$transaction(async (prisma) => {
+    const createdTasks = [];
+
+    for (const taskData of tasks) {
+      const taskNumber = `TSK-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      const task = await prisma.task.create({
+        data: {
+          title: taskData.title,
+          description: taskData.description || "",
+          projectId: taskData.projectId,
+          status: taskData.status || "TODO",
+          priority: taskData.priority || "MEDIUM",
+          dueDate: taskData.dueDate || null,
+          estimatedHours: taskData.estimatedHours || null,
+          taskNumber,
+          isAIGenerated: true,
+          assignees: {
+            connect: taskData.assigneeIds?.map((id: string) => ({ id })) || [],
+          },
+        },
+        include: {
+          project: { select: { title: true } },
+        },
+      });
+
+      if (taskData.subtasks && taskData.subtasks.length > 0) {
+        await prisma.subtask.createMany({
+          data: taskData.subtasks.map((subtask: any, index: number) => ({
+            title: subtask.title,
+            description: subtask.description || "",
+            estimatedHours: subtask.estimatedHours || null,
+            order: index,
+            taskId: task.id,
+            status: subtask.status || "TODO",
+          })),
+        });
+      }
+
+      await prisma.notification.create({
+        data: {
+          title: "AI Task Created",
+          message: `AI generated task "${task.title}" in project ${task.project.title}`,
+          type: "PROJECT",
+          isRead: false,
+          actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
+          userId: creator.id,
+        },
+      });
+
+      createdTasks.push(task);
+    }
+
+    return createdTasks;
+  });
+
+  return NextResponse.json(results, { status: 201 });
 }
 
 export async function GET() {

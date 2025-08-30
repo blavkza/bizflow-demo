@@ -570,14 +570,15 @@ model ProjectTeam {
 }
 
 model Task {
-  id          String     @id @default(cuid())
-  taskNumber  String
-  title       String
-  description String?
-  projectId   String
-  status      TaskStatus @default(TODO)
-  priority    Priority   @default(MEDIUM)
-  noteId      String?
+  id            String     @id @default(cuid())
+  taskNumber    String
+  title         String
+  description   String?
+  projectId     String
+  status        TaskStatus @default(TODO)
+  priority      Priority   @default(MEDIUM)
+  noteId        String?
+  isAIGenerated Boolean    @default(false)
 
   // Timeline
   dueDate     DateTime?
@@ -593,12 +594,28 @@ model Task {
   // Relations
   project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assignees Employee[] @relation("TaskAssignments")
+  comment   comment[]
+  documents Document[]
 
   timeEntries TimeEntry[]
+  Subtask     Subtask[]
 
   @@index([projectId])
   @@index([status])
   @@map("tasks")
+}
+
+model Subtask {
+  id             String     @id @default(cuid())
+  title          String
+  description    String?
+  status         TaskStatus @default(TODO)
+  estimatedHours Float?
+  order          Int
+  taskId         String
+  task           Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 }
 
 model Document {
@@ -628,6 +645,8 @@ model Document {
 
   Project Project? @relation(fields: [projectId], references: [id])
   folder  Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  Task    Task?    @relation(fields: [taskId], references: [id])
+  taskId  String?
 
   @@index([type])
   @@index([employeeId])
@@ -680,6 +699,8 @@ model comment {
   Project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   commentReply commentReply[]
+  Task         Task?          @relation(fields: [taskId], references: [id])
+  taskId       String?
 }
 
 model commentReply {
