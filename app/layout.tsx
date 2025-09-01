@@ -14,7 +14,7 @@ import FinancialCalculator from "@/components/FinancialCalculator";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "BizFlow Management System ",
+  title: "BizFlow Management System",
   description:
     "Comprehensive financial tracking, projects tracking and management platform",
 };
@@ -25,10 +25,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ClerkProvider>
-      {" "}
-      <html lang="en">
-        <body className={inter.className}>
+    <html lang="en" suppressHydrationWarning>
+      <body className={inter.className} suppressHydrationWarning>
+        <ClerkProvider>
           <NextThemesProvider
             attribute="class"
             defaultTheme="system"
@@ -47,8 +46,8 @@ export default function RootLayout({
               <Toaster />
             </SidebarProvider>
           </NextThemesProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }

@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { DndContext, DragEndEvent } from "@dnd-kit/core";
 import { toast } from "sonner";
-import axios from "axios";
-
 import { ProjectHeader } from "./_components/ProjectHeader";
 import { ProjectOverview } from "./_components/ProjectOverview";
 import { StatsCard } from "./_components/StatsCard";
@@ -48,9 +46,9 @@ import { useAuth } from "@clerk/nextjs";
 export default function ProjectsDetailsPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = params;
+  const { id } = use(params);
   const { userId } = useAuth();
   const router = useRouter();
 

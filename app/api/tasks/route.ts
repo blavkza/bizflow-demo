@@ -75,17 +75,17 @@ async function createSingleTask(data: any, creator: any) {
     });
   }
 
-  if (validatedData.assigneeIds?.length > 0) {
+  if (validatedData?.assigneeIds?.length || 0 > 0) {
     const existingAssignees = await db.employee.findMany({
       where: { id: { in: validatedData.assigneeIds } },
     });
 
-    if (existingAssignees.length !== validatedData.assigneeIds.length) {
-      const missingIds = validatedData.assigneeIds.filter(
+    if (existingAssignees.length !== validatedData?.assigneeIds?.length) {
+      const missingIds = validatedData?.assigneeIds?.filter(
         (id: string) => !existingAssignees.some((a) => a.id === id)
       );
       return NextResponse.json(
-        { error: `Employees not found: ${missingIds.join(", ")}` },
+        { error: `Employees not found: ${missingIds?.join(", ")}` },
         { status: 404 }
       );
     }

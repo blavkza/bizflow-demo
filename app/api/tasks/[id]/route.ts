@@ -1,5 +1,4 @@
 import db from "@/lib/db";
-import { projectSchema } from "@/lib/formValidationSchemas";
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -14,6 +13,18 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const updater = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!updater) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await req.json();
 
@@ -24,7 +35,7 @@ export async function PUT(
       priority,
       dueDate,
       estimatedHours,
-      assignees,
+      assigneeIds = [],
     } = body;
 
     if (!title) {
@@ -35,6 +46,10 @@ export async function PUT(
       where: {
         id,
       },
+      include: {
+        assignees: true,
+        Subtask: true,
+      },
     });
 
     if (!existingTask) {
@@ -44,23 +59,67 @@ export async function PUT(
       );
     }
 
-    const updatedTask = await db.task.update({
-      where: { id },
-      data: {
-        title,
-        description: description,
-        status: status,
-        priority: priority,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        estimatedHours: estimatedHours || null,
-        assignees: {
-          connect:
-            assignees?.map((employeeId: string) => ({ id: employeeId })) || [],
-        },
+    const updateData: any = {
+      title,
+      description: description,
+      status: status,
+      priority: priority,
+      dueDate: dueDate ? new Date(dueDate) : null,
+      estimatedHours: estimatedHours || null,
+      assignees: {
+        set: assigneeIds.map((id: string) => ({ id })),
       },
+    };
+
+    if (status === "COMPLETED" && existingTask.status !== "COMPLETED") {
+      updateData.completedAt = new Date();
+    } else if (status !== "COMPLETED" && existingTask.status === "COMPLETED") {
+      updateData.completedAt = null;
+    }
+
+    const result = await db.$transaction(async (tx) => {
+      const updatedTask = await tx.task.update({
+        where: { id },
+        data: updateData,
+        include: {
+          assignees: true,
+          Subtask: true,
+        },
+      });
+
+      if (
+        status === "COMPLETED" &&
+        existingTask.status !== "COMPLETED" &&
+        existingTask.Subtask.length > 0
+      ) {
+        await tx.subtask.updateMany({
+          where: {
+            taskId: id,
+            status: {
+              not: "COMPLETED",
+            },
+          },
+          data: {
+            status: "COMPLETED",
+          },
+        });
+      }
+
+      await db.notification.create({
+        data: {
+          title: "Task Updated",
+          message: `Task ${updatedTask.title} has been updated by ${updater.name}.`,
+          type: "PROJECT",
+          isRead: false,
+          actionUrl: `/dashboard/projects/${updatedTask.projectId}`,
+          userId: updater.id,
+        },
+      });
+
+      return updatedTask;
     });
 
-    return NextResponse.json(updatedTask);
+    return NextResponse.json(result);
   } catch (error) {
     console.error("[TASK_UPDATE_ERROR]", error);
     return NextResponse.json(

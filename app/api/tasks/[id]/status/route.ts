@@ -28,40 +28,76 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const updatedTask = await db.task.update({
+    const currentTask = await db.task.findUnique({
       where: { id },
-      data: { status },
-    });
-
-    const projectTasks = await db.task.findMany({
-      where: { projectId: updatedTask.projectId },
-    });
-
-    const allTasksCompleted = projectTasks.every(
-      (task) => task.status === "COMPLETED"
-    );
-
-    const updatedProject = await db.project.update({
-      where: { id: updatedTask.projectId },
-      data: {
-        status: allTasksCompleted ? "COMPLETED" : "ACTIVE",
+      include: {
+        Subtask: true,
       },
     });
 
-    await db.notification.create({
-      data: {
-        title: "Task Updated",
-        message: `Task ${updatedTask.title} has been updated by ${updater.name}.`,
-        type: "PROJECT",
-        isRead: false,
-        actionUrl: `/dashboard/projects/${updatedTask.projectId}`,
-        userId: updater.id,
-      },
+    if (!currentTask) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const result = await db.$transaction(async (tx) => {
+      const updatedTask = await tx.task.update({
+        where: { id },
+        data: {
+          completedAt: new Date(),
+          status,
+        },
+      });
+
+      if (
+        status === "COMPLETED" &&
+        currentTask.status !== "COMPLETED" &&
+        currentTask.Subtask.length > 0
+      ) {
+        await tx.subtask.updateMany({
+          where: {
+            taskId: id,
+            status: {
+              not: "COMPLETED",
+            },
+          },
+          data: {
+            status: "COMPLETED",
+          },
+        });
+      }
+
+      const projectTasks = await tx.task.findMany({
+        where: { projectId: updatedTask.projectId },
+      });
+
+      const allTasksCompleted = projectTasks.every(
+        (task) => task.status === "COMPLETED"
+      );
+
+      const updatedProject = await tx.project.update({
+        where: { id: updatedTask.projectId },
+        data: {
+          status: allTasksCompleted ? "COMPLETED" : "ACTIVE",
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          title: "Task Updated",
+          message: `Task ${updatedTask.title} has been updated by ${updater.name}.`,
+          type: "PROJECT",
+          isRead: false,
+          actionUrl: `/dashboard/projects/${updatedTask.projectId}`,
+          userId: updater.id,
+        },
+      });
+
+      return { updatedTask, updatedProject };
     });
 
     return NextResponse.json({
-      task: updatedTask,
-      project: updatedProject,
+      task: result.updatedTask,
+      project: result.updatedProject,
     });
   } catch (error) {
     console.error("Error updating task:", error);
