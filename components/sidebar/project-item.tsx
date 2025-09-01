@@ -144,7 +144,7 @@ export const ProjectItem: React.FC<ProjectItemProps> = ({
                             pathname,
                             `/dashboard/projects/tasks/${task.id}`
                           )
-                            ? "bg-accent-900  text-white"
+                            ? "bg-accent-900  dark:text-white text-black"
                             : "text-foreground hover:bg-accent/30"
                         )}
                       >
