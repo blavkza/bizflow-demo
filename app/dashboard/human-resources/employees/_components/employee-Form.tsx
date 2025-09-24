@@ -65,6 +65,13 @@ export default function EmployeeForm({
   >([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const parseDate = (dateValue: any): Date => {
+    if (!dateValue) return new Date();
+    if (dateValue instanceof Date) return dateValue;
+    if (typeof dateValue === "string") return new Date(dateValue);
+    return new Date();
+  };
+
   const form = useForm<employeeSchemaType>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
@@ -75,7 +82,7 @@ export default function EmployeeForm({
       email: data?.email || "",
       departmentId: data?.departmentId || "",
       salary: data?.salary ? Number(data.salary) : 0,
-      hireDate: data?.hireDate || new Date(),
+      hireDate: parseDate(data?.hireDate),
       status: data?.status || "ACTIVE",
       address: data?.address || "",
     },

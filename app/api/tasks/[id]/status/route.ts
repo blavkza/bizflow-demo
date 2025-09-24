@@ -31,7 +31,7 @@ export async function PUT(
     const currentTask = await db.task.findUnique({
       where: { id },
       include: {
-        Subtask: true,
+        Subtask: true, 
       },
     });
 
@@ -43,8 +43,13 @@ export async function PUT(
       const updatedTask = await tx.task.update({
         where: { id },
         data: {
-          completedAt: new Date(),
           status,
+          completedAt:
+            status === "COMPLETED"
+              ? new Date()
+              : currentTask.status === "COMPLETED"
+                ? null
+                : currentTask.completedAt,
         },
       });
 

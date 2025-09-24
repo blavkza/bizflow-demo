@@ -654,7 +654,27 @@ model Document {
   @@index([transactionId])
   @@map("documents")
 }
+model comment {
+  id      String @id @default(cuid())
+  content String
 
+  projectId       String?
+  liked           Boolean @default(false)
+  pinned          Boolean @default(false)
+  commenterName   String
+  commenterId     String
+  commenterAvatar String?
+  commenterRole   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  commentReply commentReply[]
+  Task         Task?          @relation(fields: [taskId], references: [id])
+  taskId       String?
+}
 model Note {
   id            String   @id @default(cuid())
   title         String
@@ -681,27 +701,7 @@ model Note {
   @@index([transactionId])
 }
 
-model comment {
-  id      String @id @default(cuid())
-  content String
 
-  projectId       String?
-  liked           Boolean @default(false)
-  pinned          Boolean @default(false)
-  commenterName   String
-  commenterId     String
-  commenterAvatar String?
-  commenterRole   String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  Project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  commentReply commentReply[]
-  Task         Task?          @relation(fields: [taskId], references: [id])
-  taskId       String?
-}
 
 model commentReply {
   id        String  @id @default(cuid())
