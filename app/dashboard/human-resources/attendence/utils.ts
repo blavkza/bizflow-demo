@@ -1,0 +1,299 @@
+import { Decimal } from "@prisma/client/runtime/library";
+import {
+  CheckInMethod,
+  AttendanceStatus,
+  AttendanceRecord,
+} from "@prisma/client";
+
+// Helper function to convert Decimal to number - more robust version
+export function decimalToNumber(value: any): number {
+  if (value === null || value === undefined) return 0;
+
+  // If it's already a number, return it
+  if (typeof value === "number") return value;
+
+  // If it's a string that can be converted to a number
+  if (typeof value === "string") {
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  }
+
+  // If it's a Prisma Decimal object
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    typeof value.toNumber === "function"
+  ) {
+    return value.toNumber();
+  }
+
+  // If it's a bigint or other numeric type
+  if (typeof value === "bigint") {
+    return Number(value);
+  }
+
+  // Fallback: try to convert to number
+  const num = Number(value);
+  return isNaN(num) ? 0 : num;
+}
+
+// Alternative simpler version if the above doesn't work
+export function safeDecimalToNumber(value: any): number {
+  try {
+    if (value == null) return 0;
+    if (typeof value === "number") return value;
+    if (typeof value === "string") return parseFloat(value) || 0;
+
+    // Handle Prisma Decimal
+    if (value && typeof value.toNumber === "function") {
+      return value.toNumber();
+    }
+
+    return Number(value) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Helper function to check if status is a leave status
+export function isLeaveStatus(status: AttendanceStatus): boolean {
+  return [
+    AttendanceStatus.SICK_LEAVE,
+    AttendanceStatus.ANNUAL_LEAVE,
+    AttendanceStatus.UNPAID_LEAVE,
+  ].includes(status);
+}
+
+// Helper function to format date for display
+export function formatDate(date: Date | string): string {
+  if (typeof date === "string") {
+    return new Date(date).toLocaleDateString();
+  }
+  return date.toLocaleDateString();
+}
+
+// Helper function to format time for display
+export function formatTime(time: Date | string | null): string {
+  if (!time) return "N/A";
+
+  try {
+    // If it's already a Date object
+    if (time instanceof Date) {
+      return time.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+    }
+
+    // If it's a string in "HH:mm" format
+    if (typeof time === "string") {
+      // Check if it's in HH:mm format (e.g., "09:00")
+      if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time)) {
+        const [hours, minutes] = time.split(":").map(Number);
+        // Create a date object with today's date and the specified time
+        const date = new Date();
+        date.setHours(hours, minutes, 0, 0);
+        return date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+      }
+
+      // If it's an ISO string or other date format, try to parse it
+      const date = new Date(time);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        });
+      }
+    }
+
+    return "N/A";
+  } catch (error) {
+    console.error("Error formatting time:", error);
+    return "N/A";
+  }
+}
+
+export function getStatusColor(
+  status: AttendanceStatus,
+  displayStatus?: string
+): string {
+  if (
+    displayStatus?.includes("Not Checked In") &&
+    status !== AttendanceStatus.ABSENT
+  ) {
+    return "bg-blue-100 text-blue-800";
+  }
+
+  switch (status) {
+    case AttendanceStatus.PRESENT:
+      return "bg-green-100 text-green-800";
+    case AttendanceStatus.LATE:
+      return "bg-yellow-100 text-yellow-800";
+    case AttendanceStatus.ABSENT:
+      return "bg-red-100 text-red-800";
+    case AttendanceStatus.ANNUAL_LEAVE:
+      return "bg-blue-100 text-blue-800";
+    case AttendanceStatus.SICK_LEAVE:
+    case AttendanceStatus.UNPAID_LEAVE:
+      return "bg-purple-100 text-purple-800";
+    case AttendanceStatus.HALF_DAY:
+      return "bg-orange-100 text-orange-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+}
+
+// Return icon names instead of JSX - components will handle the actual rendering
+export function getStatusIconName(status: AttendanceStatus): string {
+  switch (status) {
+    case AttendanceStatus.PRESENT:
+      return "CheckCircle";
+    case AttendanceStatus.LATE:
+      return "Clock";
+    case AttendanceStatus.ABSENT:
+      return "AlertTriangle";
+    case AttendanceStatus.ANNUAL_LEAVE:
+    case AttendanceStatus.SICK_LEAVE:
+    case AttendanceStatus.UNPAID_LEAVE:
+      return "Calendar";
+    case AttendanceStatus.HALF_DAY:
+      return "Clock";
+    default:
+      return "Clock";
+  }
+}
+
+export function getStatusDisplayName(status: AttendanceStatus): string {
+  switch (status) {
+    case AttendanceStatus.PRESENT:
+      return "Present";
+    case AttendanceStatus.LATE:
+      return "Late";
+    case AttendanceStatus.ABSENT:
+      return "Absent";
+    case AttendanceStatus.ANNUAL_LEAVE:
+      return "Annual Leave";
+    case AttendanceStatus.SICK_LEAVE:
+      return "Sick Leave";
+    case AttendanceStatus.UNPAID_LEAVE:
+      return "Unpaid Leave";
+    case AttendanceStatus.HALF_DAY:
+      return "Half Day";
+    default:
+      return status;
+  }
+}
+
+export function getCheckInMethodColor(method: CheckInMethod): string {
+  switch (method) {
+    case CheckInMethod.GPS:
+      return "bg-blue-100 text-blue-800";
+    case CheckInMethod.MANUAL:
+      return "bg-purple-100 text-purple-800";
+    case CheckInMethod.BARCODE:
+      return "bg-green-100 text-green-800";
+    default:
+      return "bg-gray-100 text-gray-800";
+  }
+}
+
+// Return icon names instead of JSX
+export function getCheckInMethodIconName(method: CheckInMethod): string {
+  switch (method) {
+    case CheckInMethod.GPS:
+      return "MapPin";
+    case CheckInMethod.MANUAL:
+      return "UserCheck";
+    case CheckInMethod.BARCODE:
+      return "QrCode";
+    default:
+      return "Clock";
+  }
+}
+
+export const statusOptions = [
+  "All Status",
+  "Present",
+  "Late",
+  "Absent",
+  "Annual Leave",
+  "Sick Leave",
+  "Unpaid Leave",
+  "Half Day",
+];
+
+export function getDisplayStatus(record: AttendanceRecord): string {
+  // If employee has checked in, use their actual status
+  if (record.checkIn) {
+    switch (record.status) {
+      case AttendanceStatus.PRESENT:
+        return "Present";
+      case AttendanceStatus.LATE:
+        return "Late";
+      case AttendanceStatus.ABSENT:
+        return "Absent";
+      case AttendanceStatus.ANNUAL_LEAVE:
+        return "Annual Leave";
+      case AttendanceStatus.SICK_LEAVE:
+        return "Sick Leave";
+      case AttendanceStatus.UNPAID_LEAVE:
+        return "Unpaid Leave";
+      case AttendanceStatus.HALF_DAY:
+        return "Half Day";
+      default:
+        return "Unknown";
+    }
+  }
+
+  // If employee hasn't checked in yet
+  if (isLeaveStatus(record.status)) {
+    switch (record.status) {
+      case AttendanceStatus.ANNUAL_LEAVE:
+        return "Annual Leave";
+      case AttendanceStatus.SICK_LEAVE:
+        return "Sick Leave";
+      case AttendanceStatus.UNPAID_LEAVE:
+        return "Unpaid Leave";
+      default:
+        return "On Leave";
+    }
+  }
+
+  // For employees who haven't checked in but are scheduled to work
+  // We'll determine this based on current time vs scheduled time
+  const now = new Date();
+  const scheduledKnockIn = (record as any).employee?.scheduledKnockIn;
+
+  if (!scheduledKnockIn) {
+    return "No Schedule";
+  }
+
+  // Create today's scheduled time
+  const scheduledTime = new Date(scheduledKnockIn);
+  const todayScheduled = new Date();
+  todayScheduled.setHours(
+    scheduledTime.getHours(),
+    scheduledTime.getMinutes(),
+    0,
+    0
+  );
+
+  const gracePeriod = new Date(todayScheduled.getTime() + 15 * 60000); // 15 minutes grace
+
+  if (now < todayScheduled) {
+    return "Not Checked In";
+  } else if (now <= gracePeriod) {
+    return "Not Checked In";
+  } else if (now <= new Date(todayScheduled.getTime() + 8 * 60 * 60000)) {
+    // Within 8 hours of scheduled time
+    return "Not Checked In - Late";
+  } else {
+    return "Absent";
+  }
+}

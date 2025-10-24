@@ -186,6 +186,21 @@ export const employeeSchema = z.object({
   hireDate: z.date({ required_error: "Hire date is required" }),
   status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
   address: z.string().min(1, { message: "Address is required" }),
+  scheduledKnockIn: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  scheduledKnockOut: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  workingDays: z.array(z.string()).default([]),
 });
 
 export const projectInvoiceSchema = z.object({

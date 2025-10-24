@@ -76,6 +76,15 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
+    name: "Attendence",
+    permissions: [
+      UserPermission.Attendence_CREATE,
+      UserPermission.Attendence_EDIT,
+      UserPermission.Attendence_DELETE,
+      UserPermission.Attendence_VIEW,
+    ],
+  },
+  {
     name: "Employees",
     permissions: [
       UserPermission.EMPLOYEES_CREATE,

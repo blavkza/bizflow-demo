@@ -87,7 +87,11 @@ export default function EmployeeDetailPage({
   }
 
   if (!employee) {
-    return <div>Department not found</div>;
+    return (
+      <div className="flex items-center justify-center h-[100vh]">
+        Employee not found
+      </div>
+    );
   }
 
   return (

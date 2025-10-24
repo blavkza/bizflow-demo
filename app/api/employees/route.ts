@@ -34,6 +34,9 @@ export async function POST(req: Request) {
       status,
       hireDate,
       address,
+      scheduledKnockIn,
+      scheduledKnockOut,
+      workingDays,
     } = body;
 
     function generateClientNumber() {
@@ -56,6 +59,9 @@ export async function POST(req: Request) {
         status,
         hireDate,
         address,
+        scheduledKnockIn,
+        scheduledKnockOut,
+        workingDays,
         createdBy: creater?.name,
       },
     });
@@ -77,6 +83,7 @@ export async function POST(req: Request) {
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
+
 export async function GET() {
   try {
     const [employees, departments] = await Promise.all([

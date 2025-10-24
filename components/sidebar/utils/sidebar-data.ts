@@ -15,6 +15,9 @@ import {
   UserCog,
   Bot,
   Palette,
+  Calendar,
+  TrendingUp,
+  ChartNoAxesCombined,
 } from "lucide-react";
 import { SidebarData } from "../types/sidebar";
 import { UserPermission, UserRole } from "@prisma/client";
@@ -153,6 +156,17 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.PAYROLL_VIEW)
+            ? [
+                {
+                  title: "Expenses",
+                  url: "/dashboard/expenses",
+                  icon: ChartNoAxesCombined,
+                  color: "text-red-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.CATEGORY_VIEW)
             ? [
                 {
@@ -202,6 +216,17 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Attendence_VIEW)
+            ? [
+                {
+                  title: "Attendence",
+                  url: "/dashboard/human-resources/attendence",
+                  icon: Calendar,
+                  color: "text-cyan-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.Clients_VIEW)
             ? [
                 {
@@ -220,6 +245,17 @@ export const getSidebarData = (
                   url: "/dashboard/human-resources/users",
                   icon: UserCog,
                   color: "text-teal-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.USERS_VIEW)
+            ? [
+                {
+                  title: "Performance",
+                  url: "/dashboard/human-resources/performance",
+                  icon: TrendingUp,
+                  color: "text-red-500",
                 },
               ]
             : []),

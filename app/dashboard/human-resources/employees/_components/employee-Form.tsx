@@ -27,7 +27,7 @@ import {
 } from "@/lib/formValidationSchemas";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, CalendarIcon } from "lucide-react";
 import { Department, Employee, EmployeeStatus } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import {
@@ -36,10 +36,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Combobox } from "@/components/ui/combobox";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface EmployeeFormProps {
   type: "create" | "update";
@@ -52,6 +51,17 @@ type ComboboxOption = {
   label: string;
   value: string;
 };
+
+// Working days options
+const WORKING_DAYS = [
+  { id: "MON", label: "Monday" },
+  { id: "TUE", label: "Tuesday" },
+  { id: "WED", label: "Wednesday" },
+  { id: "THU", label: "Thursday" },
+  { id: "FRI", label: "Friday" },
+  { id: "SAT", label: "Saturday" },
+  { id: "SUN", label: "Sunday" },
+];
 
 export default function EmployeeForm({
   type,
@@ -72,6 +82,17 @@ export default function EmployeeForm({
     return new Date();
   };
 
+  // Parse working days from database
+  const parseWorkingDays = (workingDays: any): string[] => {
+    if (!workingDays) return [];
+    if (Array.isArray(workingDays)) return workingDays;
+    try {
+      return JSON.parse(workingDays);
+    } catch {
+      return [];
+    }
+  };
+
   const form = useForm<employeeSchemaType>({
     resolver: zodResolver(employeeSchema),
     defaultValues: {
@@ -85,6 +106,15 @@ export default function EmployeeForm({
       hireDate: parseDate(data?.hireDate),
       status: data?.status || "ACTIVE",
       address: data?.address || "",
+      scheduledKnockIn: data?.scheduledKnockIn || "09:00",
+      scheduledKnockOut: data?.scheduledKnockOut || "17:00",
+      workingDays: parseWorkingDays(data?.workingDays) || [
+        "MON",
+        "TUE",
+        "WED",
+        "THU",
+        "FRI",
+      ],
     },
   });
 
@@ -110,12 +140,18 @@ export default function EmployeeForm({
   const onSubmit = async (values: employeeSchemaType) => {
     setIsLoading(true);
     try {
+      // No need for time conversion - just pass the string values directly
+      const formattedData = {
+        ...values,
+        workingDays: values.workingDays,
+      };
+
       if (type === "create") {
-        await axios.post("/api/employees", values);
+        await axios.post("/api/employees", formattedData);
         toast.success("Employee created successfully");
       } else if (type === "update" && data?.id) {
         await axios.put(`/api/employees/${data.id}`, {
-          ...values,
+          ...formattedData,
           avatar: data.avatar, // Include existing avatar if not updated
         });
         toast.success("Employee updated successfully");
@@ -169,7 +205,7 @@ export default function EmployeeForm({
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email (Optinal)</FormLabel>
+                <FormLabel>Email (Optional)</FormLabel>
                 <FormControl>
                   <Input placeholder="Email" type="email" {...field} />
                 </FormControl>
@@ -338,7 +374,89 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
+
+          {/* Scheduled Knock In */}
+          <FormField
+            control={form.control}
+            name="scheduledKnockIn"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Scheduled Knock In Time</FormLabel>
+                <FormControl>
+                  <Input type="time" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Scheduled Knock Out */}
+          <FormField
+            control={form.control}
+            name="scheduledKnockOut"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Scheduled Knock Out Time</FormLabel>
+                <FormControl>
+                  <Input type="time" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
+
+        {/* Working Days */}
+        <FormField
+          control={form.control}
+          name="workingDays"
+          render={() => (
+            <FormItem>
+              <div className="mb-4">
+                <FormLabel className="text-base">Working Days</FormLabel>
+                <div className="text-sm text-muted-foreground">
+                  Select the days this employee is scheduled to work
+                </div>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {WORKING_DAYS.map((day) => (
+                  <FormField
+                    key={day.id}
+                    control={form.control}
+                    name="workingDays"
+                    render={({ field }) => {
+                      return (
+                        <FormItem
+                          key={day.id}
+                          className="flex flex-row items-start space-x-3 space-y-0"
+                        >
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(day.id)}
+                              onCheckedChange={(checked) => {
+                                return checked
+                                  ? field.onChange([...field.value, day.id])
+                                  : field.onChange(
+                                      field.value?.filter(
+                                        (value) => value !== day.id
+                                      )
+                                    );
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal">
+                            {day.label}
+                          </FormLabel>
+                        </FormItem>
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="flex justify-end gap-4 pt-6">
           <Button

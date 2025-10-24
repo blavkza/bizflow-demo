@@ -217,25 +217,69 @@ model Employee {
   workSchedule String?
   probationEnd DateTime?
 
+  scheduledKnockIn  String?
+  scheduledKnockOut String?
+  workingDays       String[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   createdBy String?
 
   // Relations
-  department    Department?    @relation("DepartmentEmployees", fields: [departmentId], references: [id])
-  assignedTasks Task[]         @relation(name: "TaskAssignments")
-  payments      Payment[]
-  documents     Document[]
-  targets       Target[]
-  kpiResults    KpiResult[]
-  timeEntries   TimeEntry[]
-  leaveRequests LeaveRequest[]
-  Note          Note[]
+  department       Department?        @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  assignedTasks    Task[]             @relation(name: "TaskAssignments")
+  payments         Payment[]
+  documents        Document[]
+  targets          Target[]
+  kpiResults       KpiResult[]
+  timeEntries      TimeEntry[]
+  leaveRequests    LeaveRequest[]
+  Note             Note[]
+  AttendanceRecord AttendanceRecord[]
 
   @@index([departmentId])
   @@index([status])
   @@map("employees")
+}
+
+model AttendanceRecord {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  date       DateTime  @db.Date
+  checkIn    DateTime?
+  checkOut   DateTime?
+  breakStart DateTime?
+  breakEnd   DateTime?
+
+  // GPS Data
+  checkInLat      Decimal? @db.Decimal(10, 8)
+  checkInLng      Decimal? @db.Decimal(11, 8)
+  checkOutLat     Decimal? @db.Decimal(10, 8)
+  checkOutLng     Decimal? @db.Decimal(11, 8)
+  checkInAddress  String?
+  checkOutAddress String?
+
+  // Check-in Method
+  checkInMethod CheckInMethod? @default(MANUAL)
+
+  // Scheduled Times 
+  scheduledKnockIn  DateTime?
+  scheduledKnockOut DateTime?
+
+  // Calculated Fields
+  regularHours  Decimal?         @db.Decimal(4, 2)
+  overtimeHours Decimal?         @db.Decimal(4, 2)
+  breakDuration Int?
+  status        AttendanceStatus @default(PRESENT)
+  notes         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, date])
+  @@map("attendance_records")
 }
 
 model Account {
@@ -654,6 +698,7 @@ model Document {
   @@index([transactionId])
   @@map("documents")
 }
+
 model comment {
   id      String @id @default(cuid())
   content String
@@ -675,6 +720,7 @@ model comment {
   Task         Task?          @relation(fields: [taskId], references: [id])
   taskId       String?
 }
+
 model Note {
   id            String   @id @default(cuid())
   title         String
@@ -700,8 +746,6 @@ model Note {
   @@index([clientId])
   @@index([transactionId])
 }
-
-
 
 model commentReply {
   id        String  @id @default(cuid())
@@ -1574,6 +1618,26 @@ enum UserPermission {
   Clients_EDIT
   Clients_DELETE
   Clients_VIEW
+  Attendence_VIEW
+  Attendence_CREATE
+  Attendence_EDIT
+  Attendence_DELETE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  SICK_LEAVE
+  ANNUAL_LEAVE
+  UNPAID_LEAVE
+}
+
+enum CheckInMethod {
+  GPS
+  MANUAL
+  BARCODE
 }
 
 enum DepartmentStatus {

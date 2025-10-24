@@ -1,0 +1,234 @@
+"use client";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
+import { useToast } from "@/hooks/use-toast";
+import { UserPermission, UserRole } from "@prisma/client";
+
+// Components
+
+// Types & API functions
+import { AttendanceRecord, CheckInRecord, Department } from "./types";
+import {
+  fetchUserData,
+  fetchAttendanceRecords,
+  fetchCheckInHistory,
+  fetchDepartments,
+  hasRole,
+} from "./api";
+import {
+  AttendanceHeader,
+  AttendanceTabs,
+  BarcodeCheckInDialog,
+  ManualCheckInDialog,
+  SummaryCards,
+} from "./components";
+
+export default function AttendancePage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDepartment, setSelectedDepartment] =
+    useState("All Departments");
+  const [selectedStatus, setSelectedStatus] = useState("All Status");
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [isManualCheckInOpen, setIsManualCheckInOpen] = useState(false);
+  const [isBarcodeCheckInOpen, setIsBarcodeCheckInOpen] = useState(false);
+  const [checkInType, setCheckInType] = useState<"in" | "out">("in");
+
+  const { userId } = useAuth();
+
+  // Fetch user data for permissions
+  const { data: userData, isLoading: userLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+  });
+
+  // Fetch departments
+  const { data: departments = [] } = useQuery({
+    queryKey: ["departments"],
+    queryFn: fetchDepartments,
+  });
+
+  // Fetch attendance records
+  const {
+    data: attendanceData,
+    isLoading: recordsLoading,
+    refetch: refetchRecords,
+  } = useQuery({
+    queryKey: [
+      "attendance-records",
+      selectedDate,
+      selectedDepartment,
+      selectedStatus,
+    ],
+    queryFn: () =>
+      fetchAttendanceRecords(selectedDate, selectedDepartment, selectedStatus),
+    enabled: !userLoading,
+  });
+
+  // Fetch check-in history
+  const { data: checkInHistory, isLoading: checkinsLoading } = useQuery({
+    queryKey: ["checkin-history", selectedDate],
+    queryFn: () => fetchCheckInHistory(selectedDate, selectedDate),
+    enabled: !userLoading,
+  });
+
+  const attendanceRecords: AttendanceRecord[] = attendanceData?.records || [];
+  const gpsCheckIns: CheckInRecord[] = checkInHistory?.checkins || [];
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+  const hasFullAccess = userData?.role
+    ? hasRole(userData.role, fullAccessRoles)
+    : false;
+  const canViewAttendance = userData?.permissions?.includes(
+    UserPermission.Attendence_VIEW
+  );
+
+  if (userLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">Loading...</div>
+    );
+  }
+
+  if (!userLoading && canViewAttendance === false && hasFullAccess === false) {
+    router.push("/dashboard");
+    return null;
+  }
+
+  const departmentOptions = [
+    "All Departments",
+    ...departments.map((d: Department) => d.name),
+  ];
+
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <AttendanceHeader
+        onManualCheckIn={() => setIsManualCheckInOpen(true)}
+        onBarcodeCheckIn={() => setIsBarcodeCheckInOpen(true)}
+      />
+
+      <SummaryCards attendanceRecords={attendanceRecords} />
+
+      <AttendanceTabs
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        selectedDepartment={selectedDepartment}
+        setSelectedDepartment={setSelectedDepartment}
+        selectedStatus={selectedStatus}
+        setSelectedStatus={setSelectedStatus}
+        departmentOptions={departmentOptions}
+        attendanceRecords={attendanceRecords}
+        filteredAttendance={attendanceRecords.filter((record) => {
+          const employeeName = `${record.employee.firstName} ${record.employee.lastName}`;
+          const matchesSearch =
+            employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            record.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+          return matchesSearch;
+        })}
+        gpsCheckIns={gpsCheckIns}
+        recordsLoading={recordsLoading}
+        checkinsLoading={checkinsLoading}
+      />
+
+      <ManualCheckInDialog
+        open={isManualCheckInOpen}
+        onOpenChange={setIsManualCheckInOpen}
+        checkInType={checkInType}
+        setCheckInType={setCheckInType}
+        onCheckIn={async (data) => {
+          try {
+            const endpoint =
+              checkInType === "in"
+                ? "/api/attendance/check-in"
+                : "/api/attendance/check-out";
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                employeeId: data.employeeId,
+                location: data.location,
+                notes: data.notes,
+                method: "MANUAL",
+              }),
+            });
+
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.message || "Failed to record check-in");
+            }
+
+            toast({
+              title: "Success",
+              description: `Employee ${data.employeeId} has been checked ${checkInType === "in" ? "in" : "out"} manually`,
+            });
+
+            setIsManualCheckInOpen(false);
+            refetchRecords();
+          } catch (error) {
+            toast({
+              title: "Error",
+              description:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to record check-in",
+              variant: "destructive",
+            });
+          }
+        }}
+      />
+
+      <BarcodeCheckInDialog
+        open={isBarcodeCheckInOpen}
+        onOpenChange={setIsBarcodeCheckInOpen}
+        checkInType={checkInType}
+        setCheckInType={setCheckInType}
+        onScan={async (barcode) => {
+          try {
+            const endpoint =
+              checkInType === "in"
+                ? "/api/attendance/check-in"
+                : "/api/attendance/check-out";
+            const response = await fetch(endpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                employeeId: barcode,
+                method: "BARCODE",
+              }),
+            });
+
+            if (!response.ok) {
+              const error = await response.json();
+              throw new Error(error.message || "Failed to record check-in");
+            }
+
+            toast({
+              title: "Success",
+              description: `Employee ${barcode} has been checked ${checkInType === "in" ? "in" : "out"} via barcode`,
+            });
+
+            setIsBarcodeCheckInOpen(false);
+            refetchRecords();
+          } catch (error) {
+            toast({
+              title: "Error",
+              description:
+                error instanceof Error
+                  ? error.message
+                  : "Failed to record check-in",
+              variant: "destructive",
+            });
+          }
+        }}
+      />
+    </div>
+  );
+}

@@ -85,6 +85,9 @@ export async function PUT(
       status,
       hireDate,
       address,
+      scheduledKnockIn,
+      scheduledKnockOut,
+      workingDays,
     } = body;
 
     const { userId } = await auth();
@@ -110,7 +113,7 @@ export async function PUT(
       data: {
         firstName,
         lastName,
-        email,
+        email: email && email.trim() !== "" ? email.trim() : null,
         position,
         phone,
         departmentId,
@@ -118,6 +121,9 @@ export async function PUT(
         status,
         hireDate,
         address,
+        scheduledKnockIn,
+        scheduledKnockOut,
+        workingDays,
       },
     });
 
