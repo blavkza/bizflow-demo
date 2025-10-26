@@ -76,31 +76,30 @@ export async function POST(request: NextRequest) {
     let overtimeHours = 0;
 
     if (employee.scheduledKnockIn && employee.scheduledKnockOut) {
-      // Calculate based on scheduled working hours
-      const scheduledStart = new Date(employee.scheduledKnockIn);
-      const scheduledEnd = new Date(employee.scheduledKnockOut);
+      // Parse time strings (e.g., "20:00" and "06:00")
+      const [startHours, startMinutes] = employee.scheduledKnockIn
+        .split(":")
+        .map(Number);
+      const [endHours, endMinutes] = employee.scheduledKnockOut
+        .split(":")
+        .map(Number);
 
-      // Set the dates to match the check-in date
+      // Create scheduled times based on check-in date
       const scheduledStartTime = new Date(checkInTime);
-      scheduledStartTime.setHours(
-        scheduledStart.getHours(),
-        scheduledStart.getMinutes(),
-        0,
-        0
-      );
+      scheduledStartTime.setHours(startHours, startMinutes, 0, 0);
 
       const scheduledEndTime = new Date(checkInTime);
-      scheduledEndTime.setHours(
-        scheduledEnd.getHours(),
-        scheduledEnd.getMinutes(),
-        0,
-        0
-      );
+      scheduledEndTime.setHours(endHours, endMinutes, 0, 0);
 
+      // Handle overnight shifts (if end time is earlier than start time, add 1 day)
+      if (scheduledEndTime <= scheduledStartTime) {
+        scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
+      }
+
+      // Calculate scheduled hours
       const scheduledHours =
         (scheduledEndTime.getTime() - scheduledStartTime.getTime()) /
         (1000 * 60 * 60);
-      regularHours = Math.min(scheduledHours, 8); // Cap at 8 hours for regular time
 
       // Calculate actual hours worked
       const actualHoursWorked =
@@ -121,7 +120,11 @@ export async function POST(request: NextRequest) {
       } else {
         // No overtime if checked out before scheduled end time
         regularHours = Math.min(actualHoursWorked, scheduledHours);
+        overtimeHours = 0;
       }
+
+      // Ensure regular hours doesn't go negative
+      regularHours = Math.max(0, regularHours);
     } else {
       // Fallback: calculate based on 8-hour workday
       const hoursWorked =
@@ -129,6 +132,10 @@ export async function POST(request: NextRequest) {
       regularHours = Math.min(hoursWorked, 8);
       overtimeHours = Math.max(hoursWorked - 8, 0);
     }
+
+    // Round hours to 2 decimal places
+    regularHours = Math.round(regularHours * 100) / 100;
+    overtimeHours = Math.round(overtimeHours * 100) / 100;
 
     // Update attendance record with check-out and calculated hours
     attendanceRecord = await db.attendanceRecord.update({

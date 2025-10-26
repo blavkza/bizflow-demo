@@ -226,6 +226,14 @@ model Employee {
 
   createdBy String?
 
+  // Leave Allocations
+  annualLeaveDays    Int @default(21)
+  sickLeaveDays      Int @default(30)
+  studyLeaveDays     Int @default(5)
+  maternityLeaveDays Int @default(120)
+  paternityLeaveDays Int @default(10)
+  unpaidLeaveDays    Int @default(0)
+
   // Relations
   department       Department?        @relation("DepartmentEmployees", fields: [departmentId], references: [id])
   assignedTasks    Task[]             @relation(name: "TaskAssignments")
@@ -237,6 +245,7 @@ model Employee {
   leaveRequests    LeaveRequest[]
   Note             Note[]
   AttendanceRecord AttendanceRecord[]
+  Warning          Warning[]
 
   @@index([departmentId])
   @@index([status])
@@ -265,8 +274,8 @@ model AttendanceRecord {
   checkInMethod CheckInMethod? @default(MANUAL)
 
   // Scheduled Times 
-  scheduledKnockIn  DateTime?
-  scheduledKnockOut DateTime?
+  scheduledKnockIn  String?
+  scheduledKnockOut String?
 
   // Calculated Fields
   regularHours  Decimal?         @db.Decimal(4, 2)
@@ -280,6 +289,54 @@ model AttendanceRecord {
 
   @@unique([employeeId, date])
   @@map("attendance_records")
+}
+
+model Warning {
+  id              String    @id @default(cuid())
+  employeeId      String
+  employee        Employee  @relation(fields: [employeeId], references: [id])
+  type            String
+  severity        String
+  reason          String
+  actionPlan      String?
+  date            DateTime  @default(now())
+  status          String    @default("ACTIVE")
+  resolvedAt      DateTime?
+  resolutionNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("warnings")
+}
+
+model LeaveRequest {
+  id            String      @id @default(cuid())
+  employeeId    String
+  leaveType     LeaveType
+  startDate     DateTime
+  endDate       DateTime
+  days          Int
+  reason        String
+  contactInfo   String?
+  status        LeaveStatus @default(PENDING)
+  requestedDate DateTime    @default(now())
+  approvedBy    String?
+  approvedDate  DateTime?
+  rejectedBy    String?
+  rejectedDate  DateTime?
+  comments      String?
+
+  // Relations
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
 }
 
 model Account {
@@ -1156,29 +1213,6 @@ model ChatSession {
   @@map("chat_sessions")
 }
 
-model LeaveRequest {
-  id         String      @id @default(cuid())
-  employeeId String
-  type       LeaveType
-  startDate  DateTime
-  endDate    DateTime
-  days       Decimal     @db.Decimal(4, 1)
-  reason     String?
-  status     LeaveStatus @default(PENDING)
-  approvedBy String?
-  approvedAt DateTime?
-  comments   String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  @@index([employeeId])
-  @@index([status])
-  @@map("leave_requests")
-}
-
 // ============================================================================
 // TARGETS & KPI MANAGEMENT
 // ============================================================================
@@ -1830,23 +1864,6 @@ enum PaymentStatus {
   CANCELLED
 }
 
-enum LeaveType {
-  ANNUAL
-  SICK
-  MATERNITY
-  PATERNITY
-  STUDY
-  UNPAID
-  COMPASSIONATE
-}
-
-enum LeaveStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  CANCELLED
-}
-
 enum TargetType {
   REVENUE
   SALES
@@ -1988,4 +2005,21 @@ enum QuotationActivityType {
   CANCELLED
   REMINDER_SENT
   FOLLOW_UP
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  PATERNITY
+  STUDY
+  UNPAID
+  COMPASSIONATE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
 }

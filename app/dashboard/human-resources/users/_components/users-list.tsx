@@ -36,7 +36,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import UserForm from "./user-Form";
-import { UserPermission, UserRole, UserStatus } from "@prisma/client";
+import { UserStatus } from "@prisma/client";
 import DeleteUserDialog from "./delete-user-dialog";
 import { getRoleColor, getStatusColor, User } from "@/types/user";
 

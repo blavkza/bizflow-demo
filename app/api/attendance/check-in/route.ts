@@ -84,10 +84,11 @@ export async function POST(request: NextRequest) {
     let status: AttendanceStatus = AttendanceStatus.PRESENT;
 
     if (employee.scheduledKnockIn) {
-      // Convert scheduledKnockIn (Date) to time components
-      const scheduledTime = new Date(employee.scheduledKnockIn);
-      const scheduledHours = scheduledTime.getHours();
-      const scheduledMinutes = scheduledTime.getMinutes();
+      // Parse the time string (e.g., "20:00") to compare with current time
+      const scheduledTimeString = employee.scheduledKnockIn; // This should be "HH:mm" format
+      const [scheduledHours, scheduledMinutes] = scheduledTimeString
+        .split(":")
+        .map(Number);
 
       const scheduledDateTime = new Date();
       scheduledDateTime.setHours(scheduledHours, scheduledMinutes, 0, 0);
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Prepare data for create/update
+    // Prepare data for create/update - keep scheduled times as strings
     const attendanceData: any = {
       checkIn: currentTime,
       checkInMethod: method as CheckInMethod,
@@ -111,12 +112,12 @@ export async function POST(request: NextRequest) {
       notes: notes || null,
     };
 
-    // Only include scheduled times if they exist
+    // Only include scheduled times as strings (don't convert to Date)
     if (employee.scheduledKnockIn) {
-      attendanceData.scheduledKnockIn = employee.scheduledKnockIn;
+      attendanceData.scheduledKnockIn = employee.scheduledKnockIn; // Keep as string "HH:mm"
     }
     if (employee.scheduledKnockOut) {
-      attendanceData.scheduledKnockOut = employee.scheduledKnockOut;
+      attendanceData.scheduledKnockOut = employee.scheduledKnockOut; // Keep as string "HH:mm"
     }
 
     if (!attendanceRecord) {

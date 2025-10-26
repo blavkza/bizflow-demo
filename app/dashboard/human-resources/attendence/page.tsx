@@ -90,6 +90,10 @@ export default function AttendancePage() {
     UserPermission.Attendence_VIEW
   );
 
+  const canCreateAttendance = userData?.permissions?.includes(
+    UserPermission.Attendence_CREATE
+  );
+
   if (userLoading) {
     return (
       <div className="flex items-center justify-center p-8">Loading...</div>
@@ -111,6 +115,8 @@ export default function AttendancePage() {
       <AttendanceHeader
         onManualCheckIn={() => setIsManualCheckInOpen(true)}
         onBarcodeCheckIn={() => setIsBarcodeCheckInOpen(true)}
+        canCreateAttendance={canCreateAttendance}
+        hasFullAccess={hasFullAccess}
       />
 
       <SummaryCards attendanceRecords={attendanceRecords} />

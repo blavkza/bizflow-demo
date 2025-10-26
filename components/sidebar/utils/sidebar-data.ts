@@ -18,6 +18,7 @@ import {
   Calendar,
   TrendingUp,
   ChartNoAxesCombined,
+  CalendarClockIcon,
 } from "lucide-react";
 import { SidebarData } from "../types/sidebar";
 import { UserPermission, UserRole } from "@prisma/client";
@@ -223,6 +224,17 @@ export const getSidebarData = (
                   url: "/dashboard/human-resources/attendence",
                   icon: Calendar,
                   color: "text-cyan-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.DEPARTMENT_VIEW)
+            ? [
+                {
+                  title: "Leaves",
+                  url: "/dashboard/human-resources/leaves",
+                  icon: CalendarClockIcon,
+                  color: "text-yellow-500",
                 },
               ]
             : []),
