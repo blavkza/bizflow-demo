@@ -101,6 +101,41 @@ model GeneralSetting {
   @@map("GeneralSettings")
 }
 
+model HRSettings {
+  id String @id @default(cuid())
+
+  // Payroll Settings
+  paymentDay         Int     @default(25) // 1-31
+  paymentMonth       String  @default("CURRENT") // "CURRENT" or "FOLLOWING"
+  autoProcessPayroll Boolean @default(false)
+
+  // Attendance Settings
+  lateThreshold       Int   @default(15) // minutes
+  halfDayThreshold    Float @default(4.0) // hours
+  overtimeThreshold   Float @default(8.0) // hours
+  workingDaysPerMonth Int   @default(22)
+
+  // Leave Settings
+  annualLeaveDays    Int     @default(21)
+  sickLeaveDays      Int     @default(30)
+  studyLeaveDays     Int     @default(5)
+  maternityLeaveDays Int     @default(120)
+  paternityLeaveDays Int     @default(10)
+  carryOverEnabled   Boolean @default(true)
+  maxCarryOverDays   Int     @default(5)
+
+  // Company Settings
+  workingHoursPerDay Int @default(8)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  updatedBy String?
+
+  @@unique([id])
+  @@map("hr_settings")
+}
+
 model PasswordReset {
   id        String   @id @default(cuid())
   userId    String

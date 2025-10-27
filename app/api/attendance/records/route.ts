@@ -211,7 +211,7 @@ function calculateAttendanceStatus(
     0
   );
 
-  const lateThreshold = new Date(scheduledInToday.getTime() + 15 * 60000); // 15 minutes grace period
+  const lateThreshold = new Date(scheduledInToday.getTime() + 30 * 60000); // 15 minutes grace period
 
   if (currentTime < scheduledInToday) {
     // Before scheduled knock-in time - show as ABSENT but "Not Checked In"

@@ -19,6 +19,7 @@ import {
   TrendingUp,
   ChartNoAxesCombined,
   CalendarClockIcon,
+  UserPlus,
 } from "lucide-react";
 import { SidebarData } from "../types/sidebar";
 import { UserPermission, UserRole } from "@prisma/client";
@@ -202,6 +203,17 @@ export const getSidebarData = (
                   url: "/dashboard/human-resources/employees",
                   icon: Users,
                   color: "text-cyan-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.EMPLOYEES_VIEW)
+            ? [
+                {
+                  title: "Freelancers",
+                  url: "/dashboard/human-resources/freelancers",
+                  icon: UserPlus,
+                  color: "text-red-500",
                 },
               ]
             : []),

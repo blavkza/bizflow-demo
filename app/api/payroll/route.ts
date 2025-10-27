@@ -6,16 +6,19 @@ import {
   TransactionType,
   TransactionStatus,
   PaymentMethod,
+  AttendanceStatus,
 } from "@prisma/client";
 import { z } from "zod";
 
 const payrollSchema = z.object({
   description: z.string().optional(),
   type: z.nativeEnum(PaymentType),
+  month: z.string(), // Format: "2024-01"
   employees: z.array(
     z.object({
       id: z.string(),
       amount: z.union([z.number(), z.string()]).transform((val) => Number(val)),
+      daysWorked: z.number(),
       departmentId: z.string().optional(),
     })
   ),
@@ -58,8 +61,7 @@ export async function POST(req: Request) {
           currency: "ZAR",
           type: TransactionType.EXPENSE,
           status: TransactionStatus.COMPLETED,
-          description:
-            data.description || `Payroll for ${payDate.toLocaleDateString()}`,
+          description: data.description || `Payroll for ${data.month}`,
           date: payDate,
           createdBy: creater.id,
           reference: `PAYROLL-${Date.now()}`,
@@ -76,9 +78,8 @@ export async function POST(req: Request) {
               type: data.type,
               description:
                 data.description ||
-                `Salary payment for ${payDate.toLocaleDateString()}`,
+                `Salary payment for ${data.month} - ${employee.daysWorked} days worked`,
               payDate: payDate,
-
               createdBy: userId,
               transactionId: transaction.id,
             },
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
     await db.notification.create({
       data: {
         title: "New Payroll Created",
-        message: `Payroll has been created By ${creater.name}.`,
+        message: `Payroll for ${data.month} has been created By ${creater.name}.`,
         type: "PAYMENT",
         isRead: false,
         actionUrl: `/dashboard/payroll`,
@@ -102,6 +103,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
+    console.error("Payroll processing error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }
@@ -109,6 +111,7 @@ export async function POST(req: Request) {
   }
 }
 
+// Keep the original GET endpoint unchanged
 export async function GET() {
   try {
     const employees = await db.employee.findMany({

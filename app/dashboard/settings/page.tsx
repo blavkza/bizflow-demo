@@ -1,36 +1,11 @@
 "use client";
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Building2,
-  User,
-  Bell,
-  Shield,
-  Database,
-  Download,
-  Camera,
-} from "lucide-react";
+import { Camera } from "lucide-react";
 import { motion } from "framer-motion";
 import GeneraleSettingsForm from "./_components/Generale-Settings";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,6 +15,7 @@ import { AvatarUploadDialog } from "@/components/AvatarUploadDialog";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
+import HRSettingsForm from "./_components/hr-settings-form";
 
 async function fetchUserData(userId: string) {
   const response = await fetch(`/api/users/userId/${userId}`);
@@ -173,13 +149,9 @@ export default function SettingsPage() {
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-60 grid-cols-2">
             <TabsTrigger value="company">Company</TabsTrigger>
-            {/*  <TabsTrigger value="financial">Financial</TabsTrigger>
-            <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="data">Data</TabsTrigger> */}
+            <TabsTrigger value="hr">HR</TabsTrigger>
           </TabsList>
 
           <TabsContent value="company" className="space-y-4">
@@ -188,211 +160,11 @@ export default function SettingsPage() {
               hasFullAccess={hasFullAccess}
             />
           </TabsContent>
-
-          <TabsContent value="financial" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Financial Settings</CardTitle>
-                <CardDescription>
-                  Configure your financial preferences and accounting settings.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="currency">Default Currency</Label>
-                    <Select defaultValue="usd">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="usd">USD ($)</SelectItem>
-                        <SelectItem value="eur">EUR (€)</SelectItem>
-                        <SelectItem value="gbp">GBP (£)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="fiscal-year">Fiscal Year Start</Label>
-                    <Select defaultValue="january">
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="january">January</SelectItem>
-                        <SelectItem value="april">April</SelectItem>
-                        <SelectItem value="july">July</SelectItem>
-                        <SelectItem value="october">October</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tax-rate">Default Tax Rate (%)</Label>
-                  <Input id="tax-rate" type="number" defaultValue="8.5" />
-                </div>
-                <Button>Save Financial Settings</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="users" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  User Management
-                </CardTitle>
-                <CardDescription>
-                  Manage user accounts and permissions.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Admin Access</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Full system access
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Financial Reports</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Access to financial reports
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Worker Management</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Manage worker accounts
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-                <Button>Update Permissions</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="notifications" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bell className="h-5 w-5" />
-                  Notification Preferences
-                </CardTitle>
-                <CardDescription>
-                  Configure how you receive notifications.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Email Notifications</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Receive updates via email
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Payment Alerts</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Alerts for payment processing
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Monthly Reports</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Automated monthly summaries
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-                <Button>Save Preferences</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="security" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Security Settings
-                </CardTitle>
-                <CardDescription>
-                  Manage your account security and access controls.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Two-Factor Authentication</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Add extra security to your account
-                    </p>
-                  </div>
-                  <Switch />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="session-timeout">
-                    Session Timeout (minutes)
-                  </Label>
-                  <Input id="session-timeout" type="number" defaultValue="30" />
-                </div>
-                <Button>Update Security</Button>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="data" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="h-5 w-5" />
-                  Data Management
-                </CardTitle>
-                <CardDescription>
-                  Backup, export, and manage your financial data.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">Automatic Backups</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Daily automated backups
-                    </p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="space-y-2">
-                  <h4 className="font-medium">Export Data</h4>
-                  <div className="flex gap-2">
-                    <Button variant="outline">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export CSV
-                    </Button>
-                    <Button variant="outline">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export PDF
-                    </Button>
-                  </div>
-                </div>
-                <Button>Create Backup</Button>
-              </CardContent>
-            </Card>
+          <TabsContent value="hr" className="space-y-4">
+            <HRSettingsForm
+              canManageSettings={canManageSettings}
+              hasFullAccess={hasFullAccess}
+            />
           </TabsContent>
         </Tabs>
       </div>
