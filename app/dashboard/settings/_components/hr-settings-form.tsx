@@ -33,21 +33,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { GeneralSettingsFormLoading } from "./GeneralSettingsFormLoading";
 
-// Validation Schema
+// Validation Schema - Remove companyName and currency
 const HRSettingsSchema = z.object({
-  // Company Settings
-  companyName: z.string().min(1, "Company name is required"),
-  currency: z.string().min(1, "Currency is required"),
-  workingHoursPerDay: z.number().min(1).max(24),
-
   // Payroll Settings
   paymentDay: z.number().min(1).max(31),
-  paymentMonth: z.enum(["CURRENT", "FOLLOWING"]),
+  paymentMonth: z.string(),
   autoProcessPayroll: z.boolean(),
   workingDaysPerMonth: z.number().min(1).max(31),
+  overtimeHourRate: z.number().min(1),
 
   // Attendance Settings
+  workingHoursPerDay: z.number().min(1).max(24),
   lateThreshold: z.number().min(1),
   halfDayThreshold: z.number().min(0.5),
   overtimeThreshold: z.number().min(1),
@@ -66,11 +64,10 @@ type HRSettingsSchemaType = z.infer<typeof HRSettingsSchema>;
 
 interface HRSettings {
   id: string;
-  companyName?: string;
-  currency: string;
   workingHoursPerDay: number;
   paymentDay: number;
   paymentMonth: string;
+  overtimeHourRate: number;
   autoProcessPayroll: boolean;
   workingDaysPerMonth: number;
   lateThreshold: number;
@@ -101,8 +98,6 @@ export default function HRSettingsForm({
   const form = useForm<HRSettingsSchemaType>({
     resolver: zodResolver(HRSettingsSchema),
     defaultValues: {
-      companyName: "",
-      currency: "ZAR",
       workingHoursPerDay: 8,
       paymentDay: 25,
       paymentMonth: "CURRENT",
@@ -111,6 +106,7 @@ export default function HRSettingsForm({
       lateThreshold: 15,
       halfDayThreshold: 4,
       overtimeThreshold: 8,
+      overtimeHourRate: 50,
       annualLeaveDays: 21,
       sickLeaveDays: 30,
       studyLeaveDays: 5,
@@ -125,7 +121,7 @@ export default function HRSettingsForm({
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch("/api/hr/settings");
+      const response = await fetch("/api/settings/hr");
       if (response.ok) {
         const data = await response.json();
         return data;
@@ -146,16 +142,15 @@ export default function HRSettingsForm({
 
         if (settings) {
           form.reset({
-            companyName: settings.companyName || "",
-            currency: settings.currency,
             workingHoursPerDay: settings.workingHoursPerDay,
             paymentDay: settings.paymentDay,
-            paymentMonth: settings.paymentMonth as "CURRENT" | "FOLLOWING",
+            paymentMonth: settings.paymentMonth || "CURRENT",
             autoProcessPayroll: settings.autoProcessPayroll,
             workingDaysPerMonth: settings.workingDaysPerMonth,
             lateThreshold: settings.lateThreshold,
             halfDayThreshold: settings.halfDayThreshold,
             overtimeThreshold: settings.overtimeThreshold,
+            overtimeHourRate: settings.overtimeHourRate,
             annualLeaveDays: settings.annualLeaveDays,
             sickLeaveDays: settings.sickLeaveDays,
             studyLeaveDays: settings.studyLeaveDays,
@@ -177,7 +172,7 @@ export default function HRSettingsForm({
 
   const onSubmit = async (values: HRSettingsSchemaType) => {
     try {
-      await axios.post("/api/hr/settings", values);
+      await axios.post("/api/settings/hr", values);
       toast.success(
         hrSettings
           ? "HR settings updated successfully"
@@ -191,22 +186,7 @@ export default function HRSettingsForm({
   };
 
   if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings2 className="h-5 w-5" />
-            HR Settings
-          </CardTitle>
-          <CardDescription>Loading HR settings...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <GeneralSettingsFormLoading />;
   }
 
   return (
@@ -228,63 +208,11 @@ export default function HRSettingsForm({
             onSubmit={form.handleSubmit(onSubmit)}
             className="w-full space-y-6 p-6"
           >
-            {/* Company Settings */}
+            {/* Company Settings - Remove company name and currency */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold border-b pb-2">
-                Company Settings
+                Work Hours Settings
               </h3>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="companyName"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel>Company Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Enter company name"
-                          {...field}
-                          className="w-full"
-                          disabled={!hasFullAccess && !canManageSettings}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel>Currency</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        disabled={!hasFullAccess && !canManageSettings}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select currency" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="ZAR">
-                            ZAR (South African Rand)
-                          </SelectItem>
-                          <SelectItem value="USD">USD (US Dollar)</SelectItem>
-                          <SelectItem value="EUR">EUR (Euro)</SelectItem>
-                          <SelectItem value="GBP">
-                            GBP (British Pound)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField
@@ -342,7 +270,7 @@ export default function HRSettingsForm({
               <h3 className="text-lg font-semibold border-b pb-2">
                 Payroll Settings
               </h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="paymentDay"
@@ -399,6 +327,27 @@ export default function HRSettingsForm({
                           </SelectItem>
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="overtimeHourRate"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel>Overtime Hour Rate (ZAR)</FormLabel>
+                      <Input
+                        type="number"
+                        min="1"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value))
+                        }
+                        className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
+                      />
                       <FormMessage />
                     </FormItem>
                   )}

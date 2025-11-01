@@ -30,7 +30,6 @@ export default function TableFilter({
       `${employee.firstName} ${employee.lastName}`
         .toLowerCase()
         .includes(searchTerm.toLowerCase()) ||
-      employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.position.toLowerCase().includes(searchTerm.toLowerCase());
 
     // Department filter

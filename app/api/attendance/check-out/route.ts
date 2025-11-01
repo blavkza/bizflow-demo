@@ -107,13 +107,14 @@ export async function POST(request: NextRequest) {
       statusNotes += (statusNotes ? " | " : "") + `Overtime: ${overtimeHours}h`;
     }
 
-    //  Check for absent warnings
+    // Check for absent warnings (for manual absent status from check-out)
     let warningCreated = null;
     if (finalStatus === AttendanceStatus.ABSENT) {
       warningCreated = await checkAndCreateAbsentWarning(
         employee.id,
         currentTime,
-        finalStatus
+        finalStatus,
+        false // isAutoCreated = false (manual absence from check-out)
       );
     }
 
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    //  Check if we should create absent records based on worked percentage
+    // Check if we should create absent records based on worked percentage
     const shouldCreateAbsentRecords =
       await checkAndCreateAbsentRecords(workedPercentage);
 
@@ -288,7 +289,8 @@ async function calculateHoursAndStatus(
 async function checkAndCreateAbsentWarning(
   employeeId: string,
   currentTime: Date,
-  status: AttendanceStatus
+  status: AttendanceStatus,
+  isAutoCreated: boolean = false
 ): Promise<any> {
   try {
     // Only create warnings for ABSENT status
@@ -304,7 +306,7 @@ async function checkAndCreateAbsentWarning(
     );
     startOfMonth.setHours(0, 0, 0, 0);
 
-    // Count absent days for the month
+    // Count ALL absent days for the month (including auto-created)
     const monthlyAbsentCount = await db.attendanceRecord.count({
       where: {
         employeeId: employeeId,
@@ -317,7 +319,7 @@ async function checkAndCreateAbsentWarning(
     });
 
     console.log(
-      `Absent counts for employee ${employeeId}: Month=${monthlyAbsentCount}`
+      `Absent counts for employee ${employeeId}: Month=${monthlyAbsentCount} (including auto-created records)`
     );
 
     let warningType = "";
@@ -330,18 +332,27 @@ async function checkAndCreateAbsentWarning(
       warningType = "Attendance";
       severity = "LOW";
       reason = `First absent day this month. Date: ${currentTime.toDateString()}`;
+      if (isAutoCreated) {
+        reason += " (Auto-detected: No check-in recorded)";
+      }
       actionPlan =
         "Please ensure regular attendance. Absences should be properly requested as leave.";
     } else if (monthlyAbsentCount === 2) {
       warningType = "Attendance";
       severity = "MEDIUM";
       reason = `Second absent day this month. Total absent days: ${monthlyAbsentCount}`;
+      if (isAutoCreated) {
+        reason += " (Auto-detected: No check-in recorded)";
+      }
       actionPlan =
         "This is concerning attendance pattern. Please discuss with your manager.";
     } else if (monthlyAbsentCount >= 3) {
       warningType = "Attendance";
       severity = "HIGH";
       reason = `Third absent day this month. Total absent days: ${monthlyAbsentCount}`;
+      if (isAutoCreated) {
+        reason += " (Auto-detected: No check-in recorded)";
+      }
       actionPlan =
         "Formal warning for persistent absenteeism. Immediate improvement required.";
     }
@@ -370,7 +381,7 @@ async function checkAndCreateAbsentWarning(
       });
 
       console.log(
-        `Created absent warning for employee ${employeeId}: ${severity} severity`
+        `Created absent warning for employee ${employeeId}: ${severity} severity (auto-created: ${isAutoCreated})`
       );
       return warning;
     }
@@ -501,6 +512,7 @@ async function createAbsentRecords() {
     });
 
     const createdRecords = [];
+    const createdWarnings = [];
 
     for (const employee of activeEmployeesWithoutRecords) {
       try {
@@ -529,7 +541,7 @@ async function createAbsentRecords() {
           continue;
         }
 
-        // Create absent record
+        // Create absent record with clear auto-created note
         const attendanceRecord = await db.attendanceRecord.create({
           data: {
             employeeId: employee.id,
@@ -550,6 +562,21 @@ async function createAbsentRecords() {
         console.log(
           `Auto-attendance: Created absent record for ${employee.firstName} ${employee.lastName}`
         );
+
+        // CREATE WARNING FOR AUTO-CREATED ABSENT RECORD
+        const warning = await checkAndCreateAbsentWarning(
+          employee.id,
+          today,
+          AttendanceStatus.ABSENT,
+          true // isAutoCreated = true
+        );
+
+        if (warning) {
+          createdWarnings.push(warning);
+          console.log(
+            `Auto-attendance: Created warning for auto-created absent record for ${employee.firstName} ${employee.lastName}`
+          );
+        }
       } catch (error) {
         console.error(
           `Auto-attendance: Error processing employee ${employee.id}:`,
@@ -559,7 +586,7 @@ async function createAbsentRecords() {
     }
 
     console.log(
-      `Auto-attendance: Completed. Created ${createdRecords.length} absent records.`
+      `Auto-attendance: Completed. Created ${createdRecords.length} absent records and ${createdWarnings.length} warnings.`
     );
     return createdRecords.length > 0;
   } catch (error) {

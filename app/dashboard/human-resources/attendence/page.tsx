@@ -39,6 +39,7 @@ export default function AttendancePage() {
   const [isManualCheckInOpen, setIsManualCheckInOpen] = useState(false);
   const [isBarcodeCheckInOpen, setIsBarcodeCheckInOpen] = useState(false);
   const [checkInType, setCheckInType] = useState<"in" | "out">("in");
+  const [isLoading, setIsLoading] = useState(false);
 
   const { userId } = useAuth();
 
@@ -149,8 +150,10 @@ export default function AttendancePage() {
         onOpenChange={setIsManualCheckInOpen}
         checkInType={checkInType}
         setCheckInType={setCheckInType}
+        isLoading={isLoading}
         onCheckIn={async (data) => {
           try {
+            setIsLoading(true);
             const endpoint =
               checkInType === "in"
                 ? "/api/attendance/check-in"
@@ -175,6 +178,7 @@ export default function AttendancePage() {
               title: "Success",
               description: `Employee ${data.employeeId} has been checked ${checkInType === "in" ? "in" : "out"} manually`,
             });
+            setIsLoading(false);
 
             setIsManualCheckInOpen(false);
             refetchRecords();

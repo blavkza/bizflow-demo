@@ -98,23 +98,18 @@ export default function ActionBar({
                   Process Payroll
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[625px] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-[1200px] max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Process Payroll</DialogTitle>
                   <DialogDescription>
                     Process monthly payroll for all{" "}
-                    <span className="text-destructive font-bold">ACTIVE</span>{" "}
+                    <span className="text-green-600 font-bold">
+                      ACTIVE ({activeEmployees.length})
+                    </span>{" "}
                     employees only.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label className="text-right">Employees</Label>
-                    <div className="col-span-3">
-                      {activeEmployees.length} active employees
-                    </div>
-                  </div>
-                </div>
+
                 <PayrollForm
                   employees={activeEmployees}
                   onCancel={() => setIsPayrollDialogOpen(false)}

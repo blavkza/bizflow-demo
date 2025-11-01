@@ -20,9 +20,14 @@ import {
   ChartNoAxesCombined,
   CalendarClockIcon,
   UserPlus,
+  BoxesIcon,
+  ScanBarcode,
+  CircleDollarSign,
+  HandCoins,
 } from "lucide-react";
 import { SidebarData } from "../types/sidebar";
 import { UserPermission, UserRole } from "@prisma/client";
+import { IoCash } from "react-icons/io5";
 
 const hasPermission = (
   permissions: UserPermission[],
@@ -169,6 +174,17 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.PAYROLL_VIEW)
+            ? [
+                {
+                  title: "Refunds",
+                  url: "/dashboard/refunds",
+                  icon: HandCoins,
+                  color: "text-green-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.CATEGORY_VIEW)
             ? [
                 {
@@ -187,6 +203,55 @@ export const getSidebarData = (
                   url: "/dashboard/inventory",
                   icon: Store,
                   color: "text-green-500",
+                },
+              ]
+            : []),
+        ].filter((item) => item !== null),
+      },
+      {
+        title: "Shop",
+        items: [
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+            ? [
+                {
+                  title: "Point Of Sale",
+                  url: "/dashboard/shop/pos",
+                  icon: Store,
+                  color: "text-red-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+            ? [
+                {
+                  title: "Orders",
+                  url: "/dashboard/shop/orders",
+                  icon: BoxesIcon,
+                  color: "text-green-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+            ? [
+                {
+                  title: "Sales",
+                  url: "/dashboard/shop/sales",
+                  icon: CircleDollarSign,
+                  color: "text-blue-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+            ? [
+                {
+                  title: "Products",
+                  url: "/dashboard/shop/products",
+                  icon: ScanBarcode,
+                  color: "text-pink-500",
                 },
               ]
             : []),

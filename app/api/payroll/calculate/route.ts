@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { AttendanceStatus } from "@prisma/client";
+import { calculateOvertime } from "@/lib/overtime-calculations";
 
 export async function GET(request: Request) {
   try {
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const month = searchParams.get("month"); // Format: "2024-01"
+    const month = searchParams.get("month");
 
     if (!month) {
       return NextResponse.json(
@@ -21,10 +22,19 @@ export async function GET(request: Request) {
       );
     }
 
+    // Get HR settings for overtime calculation
+    const hrSettings = await db.hRSettings.findFirst();
+    if (!hrSettings) {
+      return NextResponse.json(
+        { error: "HR settings not found" },
+        { status: 400 }
+      );
+    }
+
     // Parse month and get date range
     const [year, monthNum] = month.split("-").map(Number);
     const startDate = new Date(year, monthNum - 1, 1);
-    const endDate = new Date(year, monthNum, 0); // Last day of month
+    const endDate = new Date(year, monthNum, 0);
 
     console.log(
       `Fetching payroll data for ${month}: ${startDate} to ${endDate}`
@@ -69,6 +79,9 @@ export async function GET(request: Request) {
             date: true,
             status: true,
             regularHours: true,
+            overtimeHours: true,
+            checkIn: true,
+            checkOut: true,
           },
         },
       },
@@ -78,22 +91,58 @@ export async function GET(request: Request) {
       `Found ${employees.length} employees with ${employees.reduce((acc, emp) => acc + emp.AttendanceRecord.length, 0)} attendance records`
     );
 
-    // Calculate worked days and amounts for each employee
+    // Calculate worked days and amounts for each employee with overtime
     const employeesWithCalculations = employees.map((employee) => {
-      const monthlySalary = Number(employee.salary) || 0;
+      const dailySalary = Number(employee.salary) || 0; // This is DAILY rate
+      const dailyRate = dailySalary;
 
-      // Use monthly salary as daily rate (as per your requirement)
-      const dailyRate = monthlySalary;
+      // Count paid days and calculate overtime
+      let totalRegularHours = 0;
+      let totalOvertimeHours = 0;
+      let totalOvertimeAmount = 0;
 
-      // Count paid days (exclude unpaid leave and absent)
-      const paidDays = employee.AttendanceRecord.filter(
-        (record) =>
+      const paidDays = employee.AttendanceRecord.filter((record) => {
+        const isPaidDay =
           record.status !== AttendanceStatus.ABSENT &&
-          record.status !== AttendanceStatus.UNPAID_LEAVE
-      ).length;
+          record.status !== AttendanceStatus.UNPAID_LEAVE;
 
-      const calculatedAmount =
-        parseFloat((dailyRate * paidDays).toFixed(2)) || 0;
+        if (isPaidDay && record.overtimeHours) {
+          totalOvertimeHours += Number(record.overtimeHours);
+
+          // Calculate overtime amount using FIXED RATE with DAILY salary
+          const overtimeCalc = calculateOvertime(
+            record.regularHours,
+            record.overtimeHours,
+            dailySalary, // Pass daily salary instead of monthly
+            hrSettings.overtimeHourRate // Fixed amount (e.g., 50)
+          );
+
+          totalOvertimeAmount += overtimeCalc.overtimeAmount;
+        }
+
+        if (isPaidDay && record.regularHours) {
+          totalRegularHours += Number(record.regularHours);
+        }
+
+        return isPaidDay;
+      }).length;
+
+      // Calculate base amount (daily rate * paid days)
+      const baseAmount = parseFloat((dailyRate * paidDays).toFixed(2)) || 0;
+
+      // Total amount including overtime - THIS IS THE KEY CALCULATION
+      const totalAmount = parseFloat(
+        (baseAmount + totalOvertimeAmount).toFixed(2)
+      );
+
+      console.log(`Employee ${employee.firstName} ${employee.lastName}:`, {
+        dailySalary,
+        paidDays,
+        baseAmount,
+        overtimeHours: totalOvertimeHours,
+        overtimeAmount: totalOvertimeAmount,
+        totalAmount,
+      });
 
       // Calculate attendance breakdown
       const presentDays = employee.AttendanceRecord.filter(
@@ -126,10 +175,16 @@ export async function GET(request: Request) {
         lastName: employee.lastName,
         salary: employee.salary,
         department: employee.department,
-        monthlySalary: monthlySalary,
+        dailySalary: dailySalary,
         dailyRate: dailyRate,
         paidDays: paidDays,
-        calculatedAmount: calculatedAmount,
+        baseAmount: baseAmount,
+        overtimeHours: parseFloat(totalOvertimeHours.toFixed(2)),
+        overtimeAmount: parseFloat(totalOvertimeAmount.toFixed(2)),
+        amount: totalAmount, // THIS MUST BE SET CORRECTLY
+        totalAmount: totalAmount, // Added for clarity
+        regularHours: parseFloat(totalRegularHours.toFixed(2)),
+        overtimeFixedRate: hrSettings.overtimeHourRate,
         attendanceRecords: employee.AttendanceRecord.length,
         attendanceBreakdown: {
           presentDays: presentDays,
@@ -141,6 +196,14 @@ export async function GET(request: Request) {
         },
       };
     });
+
+    // Debug: Check final amounts
+    const totalCalculated = employeesWithCalculations.reduce(
+      (sum, emp) => sum + emp.amount,
+      0
+    );
+    console.log("Total calculated payroll:", totalCalculated);
+    console.log("Employees with calculations:", employeesWithCalculations);
 
     return NextResponse.json(employeesWithCalculations);
   } catch (error) {

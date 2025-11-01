@@ -220,12 +220,37 @@ export const CategorySchema = z.object({
 
 export type categorySchemaType = z.infer<typeof CategorySchema>;
 
-export const PayrollSchema = z.object({
+const payrollSchema = z.object({
   description: z.string().optional(),
   type: z.nativeEnum(PaymentType),
+  month: z.string(),
+  employees: z.array(
+    z.object({
+      id: z.string(),
+      amount: z.union([z.number(), z.string()]).transform((val) => Number(val)), // Total amount
+      baseAmount: z
+        .union([z.number(), z.string()])
+        .transform((val) => Number(val)),
+      overtimeAmount: z
+        .union([z.number(), z.string()])
+        .transform((val) => Number(val)),
+      daysWorked: z.number(),
+      overtimeHours: z
+        .union([z.number(), z.string()])
+        .transform((val) => Number(val)),
+      regularHours: z
+        .union([z.number(), z.string()])
+        .transform((val) => Number(val)),
+      description: z.string().optional(),
+      departmentId: z.string().optional(),
+    })
+  ),
+  totalAmount: z
+    .union([z.number(), z.string()])
+    .transform((val) => Number(val)),
 });
 
-export type PayrollSchemaType = z.infer<typeof PayrollSchema>;
+export type PayrollSchemaType = z.infer<typeof payrollSchema>;
 
 export const InvoiceSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
@@ -445,3 +470,34 @@ export const ProjectTeamMemberSchema = z.object({
 
 export const ProjectTeamCreateSchema = z.array(ProjectTeamMemberSchema);
 export type ProjectTeamCreateSchema = z.infer<typeof ProjectTeamCreateSchema>;
+
+export const ShopProductSchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().default(""),
+  sku: z.string().min(1, "SKU is required"),
+  category: z.string().min(1, "Category is required"),
+  price: z.coerce.number().min(0, "Price must be a positive number"),
+  costPrice: z.coerce
+    .number()
+    .min(0, "Cost price must be a positive number")
+    .default(0),
+  stock: z.coerce.number().min(0, "Stock must be a positive number"),
+  minStock: z.coerce.number().min(0, "Minimum stock must be a positive number"),
+  maxStock: z.coerce
+    .number()
+    .min(0, "Maximum stock must be a positive number")
+    .default(0),
+  weight: z.coerce
+    .number()
+    .min(0, "Weight must be a positive number")
+    .default(0),
+  dimensions: z.string().default(""),
+  color: z.string().default(""),
+  size: z.string().default(""),
+  brand: z.string().default(""),
+  status: z.enum(["ACTIVE", "INACTIVE", "DISCONTINUED"]),
+  featured: z.boolean().default(false),
+  images: z.array(z.string()).default([]),
+});
+
+export type ShopProductSchemaType = z.infer<typeof ShopProductSchema>;

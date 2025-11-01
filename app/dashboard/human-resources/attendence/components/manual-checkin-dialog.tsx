@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ManualCheckInData } from "../types";
+import { Loader2 } from "lucide-react";
 
 interface ManualCheckInDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ interface ManualCheckInDialogProps {
   checkInType: "in" | "out";
   setCheckInType: (type: "in" | "out") => void;
   onCheckIn: (data: ManualCheckInData) => void;
+  isLoading: boolean;
 }
 
 export function ManualCheckInDialog({
@@ -35,6 +37,7 @@ export function ManualCheckInDialog({
   checkInType,
   setCheckInType,
   onCheckIn,
+  isLoading,
 }: ManualCheckInDialogProps) {
   const [formData, setFormData] = useState<ManualCheckInData>({
     employeeId: "",
@@ -121,9 +124,18 @@ export function ManualCheckInDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={!formData.employeeId || !formData.location}
+            disabled={isLoading || !formData.employeeId || !formData.location}
           >
-            {checkInType === "in" ? "Check In" : "Check Out"}
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : checkInType === "in" ? (
+              "Check In"
+            ) : (
+              "Check Out"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

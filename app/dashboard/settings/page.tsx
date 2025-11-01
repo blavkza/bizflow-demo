@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import HRSettingsForm from "./_components/hr-settings-form";
+import POSSettingsForm from "./_components/pos-settings-form";
 
 async function fetchUserData(userId: string) {
   const response = await fetch(`/api/users/userId/${userId}`);
@@ -149,9 +150,12 @@ export default function SettingsPage() {
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-60 grid-cols-2">
+          <TabsList className="grid w-90 grid-cols-3">
+            {" "}
+            {/* Updated width and columns */}
             <TabsTrigger value="company">Company</TabsTrigger>
             <TabsTrigger value="hr">HR</TabsTrigger>
+            <TabsTrigger value="pos">POS</TabsTrigger> {/* Added POS tab */}
           </TabsList>
 
           <TabsContent value="company" className="space-y-4">
@@ -162,6 +166,14 @@ export default function SettingsPage() {
           </TabsContent>
           <TabsContent value="hr" className="space-y-4">
             <HRSettingsForm
+              canManageSettings={canManageSettings}
+              hasFullAccess={hasFullAccess}
+            />
+          </TabsContent>
+          <TabsContent value="pos" className="space-y-4">
+            {" "}
+            {/* Added POS tab content */}
+            <POSSettingsForm
               canManageSettings={canManageSettings}
               hasFullAccess={hasFullAccess}
             />

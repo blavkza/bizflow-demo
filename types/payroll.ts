@@ -1,18 +1,80 @@
+import { PayrollStatus, PaymentType, AttendanceStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
-import { AttendanceStatus, PaymentType } from "@prisma/client";
+
+export interface Payment {
+  id: string;
+  employeeId: string;
+  amount: number | Decimal;
+  baseAmount: number | Decimal;
+  overtimeAmount: number | Decimal;
+  type: PaymentType;
+  description?: string;
+  payDate: Date;
+  daysWorked: number;
+  overtimeHours: number | Decimal;
+  regularHours: number | Decimal;
+  createdBy?: string;
+  transactionId: string;
+  payrollId?: string;
+  employee: {
+    id: string;
+    employeeNumber: string;
+    firstName: string;
+    lastName: string;
+    position: string;
+    salary: number | Decimal;
+    department: {
+      name: string;
+      id: string;
+    } | null;
+  };
+}
+
+export interface Transaction {
+  id: string;
+  reference: string;
+  date: Date;
+  description: string;
+  amount: number | Decimal;
+  currency: string;
+}
+
+export interface Payroll {
+  id: string;
+  month: string;
+  description: string;
+  type: PaymentType;
+  totalAmount: number;
+  baseAmount: number;
+  overtimeAmount: number;
+  currency: string;
+  status: PayrollStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: string;
+  createdByName?: string;
+  transaction: Transaction;
+  transactionId: string;
+  payments: Payment[];
+  _count: {
+    payments: number;
+  };
+}
 
 export type EmployeeWithDetails = {
   id: string;
+  employeeNumber: string;
   email: string;
   phone: string | null;
   firstName: string;
   lastName: string;
   position: string;
-  salary: Decimal | number;
+  salary: number | Decimal;
   status: string;
   hireDate: Date | null;
   probationEnd: Date | null;
   avatar: string | null;
+  baseAmount: number;
   department: {
     id: string;
     name: string;
@@ -26,7 +88,12 @@ export type EmployeeWithDetails = {
   } | null;
   payments: {
     amount: Decimal;
+    baseAmount: Decimal;
+    overtimeAmount: Decimal;
     payDate: Date;
+    daysWorked: number;
+    overtimeHours: Decimal;
+    regularHours: Decimal;
   }[];
   AttendanceRecord?: {
     id: string;
@@ -36,18 +103,25 @@ export type EmployeeWithDetails = {
   }[];
 };
 
-// Type for the payroll calculation data we get from the API
 export type PayrollCalculationData = {
   id: string;
   firstName: string;
   lastName: string;
   amount: number;
+  baseAmount: number;
+  overtimeAmount: number;
   paidDays: number;
   dailyRate: number;
-  monthlySalary: number;
+  dailySalary: number;
+  regularHours: number;
+  overtimeHours: number;
+  overtimeFixedRate: number;
   department?: {
     id: string;
     name: string;
+    manager?: {
+      name: string;
+    } | null;
   };
   attendanceBreakdown: {
     presentDays: number;
@@ -59,11 +133,15 @@ export type PayrollCalculationData = {
   };
 };
 
-// Type for the payroll submission data (what we send to POST /api/payroll)
 export type PayrollSubmissionData = {
   id: string;
   amount: number;
+  baseAmount: number;
+  overtimeAmount: number;
   daysWorked: number;
+  overtimeHours: number;
+  regularHours: number;
+  description?: string;
   departmentId?: string;
 };
 
