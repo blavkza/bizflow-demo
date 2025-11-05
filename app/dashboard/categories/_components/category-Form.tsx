@@ -43,7 +43,7 @@ interface CategoryFormProps {
   onSubmitSuccess?: () => void;
 }
 
-export default function ClientForm({
+export default function CategoryForm({
   type,
   data,
   onCancel,

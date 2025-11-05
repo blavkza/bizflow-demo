@@ -24,7 +24,10 @@ import {
   ScanBarcode,
   CircleDollarSign,
   HandCoins,
+  Wrench,
 } from "lucide-react";
+import { GiTakeMyMoney } from "react-icons/gi";
+
 import { SidebarData } from "../types/sidebar";
 import { UserPermission, UserRole } from "@prisma/client";
 import { IoCash } from "react-icons/io5";
@@ -252,6 +255,33 @@ export const getSidebarData = (
                   url: "/dashboard/shop/products",
                   icon: ScanBarcode,
                   color: "text-pink-500",
+                },
+              ]
+            : []),
+        ].filter((item) => item !== null),
+      },
+      {
+        title: "Business",
+        items: [
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+            ? [
+                {
+                  title: "Tools Management",
+                  url: "/dashboard/tools",
+                  icon: Wrench,
+                  color: "text-red-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+            ? [
+                {
+                  title: "Tools Rentals",
+                  url: "/dashboard/rentals",
+                  icon: GiTakeMyMoney,
+                  color: "text-green-500",
                 },
               ]
             : []),

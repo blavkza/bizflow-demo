@@ -25,12 +25,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { name, company, email, phone, type } = body;
 
-    function generateClientNumber() {
-      const randomSix = Math.floor(100000 + Math.random() * 900000);
-      return `CNT-${randomSix}`;
-    }
-
-    const clientNumber = generateClientNumber();
+    const lastClient = await db.client.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { clientNumber: true },
+    });
+    const clientNumber = lastClient
+      ? `CNT-${parseInt(lastClient.clientNumber.split("-")[1]) + 1}`
+      : "CNT-0001";
 
     const client = await db.client.create({
       data: {

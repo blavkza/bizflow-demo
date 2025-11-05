@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { Product } from "@/types/product";
+import Image from "next/image";
 
 interface ProductCardProps {
   product: Product;
@@ -119,12 +120,14 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Product Image */}
-        <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
+        <div className="aspect-video bg-transparent rounded-lg flex items-center justify-center">
           {product.images && product.images.length > 0 ? (
-            <img
+            <Image
               src={product.images[0]}
-              alt={product.name}
-              className="w-full h-full object-cover rounded-lg"
+              alt={product.name || "product image"}
+              width={800}
+              height={450}
+              className="w-full h-full object-contain"
             />
           ) : (
             <Package className="h-12 w-12 text-gray-400" />

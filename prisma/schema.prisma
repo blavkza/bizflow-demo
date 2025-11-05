@@ -230,6 +230,7 @@ model Department {
   budgets   Budget[]
   expenses  Transaction[]
   Quotation Quotation[]
+  Invoice   Invoice[]
 
   @@map("departments")
 }
@@ -687,6 +688,7 @@ model Client {
   projects     Project[]
   quotations   Quotation[]
   Note         Note[]
+  toolRentals  ToolRental[]
 
   @@index([status])
   @@index([type])
@@ -727,14 +729,15 @@ model Project {
   manager     User?         @relation(fields: [managerId], references: [id])
   teamMembers ProjectTeam[]
 
-  tasks       Task[]
-  timeEntries TimeEntry[]
-  invoices    Invoice[]
-  quotations  Quotation[]
-  documents   Document[]
-  Note        Note[]
-  Folder      Folder[]
-  comment     comment[]
+  tasks         Task[]
+  timeEntries   TimeEntry[]
+  invoices      Invoice[]
+  quotations    Quotation[]
+  documents     Document[]
+  Note          Note[]
+  Folder        Folder[]
+  comment       comment[]
+  toolInterUses ToolInterUse[]
 
   @@index([clientId])
   @@index([status])
@@ -1067,14 +1070,17 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  client      Client            @relation(fields: [clientId], references: [id])
-  creator     User              @relation(fields: [createdBy], references: [id])
-  items       InvoiceItem[]
-  payments    InvoicePayment[]
-  recurring   RecurringInvoice? @relation(fields: [recurringId], references: [id])
-  Project     Project?          @relation(fields: [projectId], references: [id])
-  projectId   String?
-  Transaction Transaction[]
+  client       Client            @relation(fields: [clientId], references: [id])
+  creator      User              @relation(fields: [createdBy], references: [id])
+  items        InvoiceItem[]
+  payments     InvoicePayment[]
+  recurring    RecurringInvoice? @relation(fields: [recurringId], references: [id])
+  Project      Project?          @relation(fields: [projectId], references: [id])
+  projectId    String?
+  Department   Department?       @relation(fields: [departmentId], references: [id])
+  departmentId String?
+  Transaction  Transaction[]
+  toolRentals  ToolRental[]
 
   @@index([clientId])
   @@index([status])
@@ -1191,6 +1197,7 @@ model Quotation {
   items        QuotationItem[]
   Department   Department?     @relation(fields: [departmentId], references: [id])
   departmentId String?
+  toolRentals  ToolRental[]
 
   @@index([clientId])
   @@index([status])
@@ -1606,6 +1613,169 @@ model ChatSession {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("chat_sessions")
+}
+
+model Tool {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  category    String?
+  canBeRented Boolean @default(true)
+
+  // Pricing & Rental Rates
+  purchasePrice     Decimal   @db.Decimal(12, 2)
+  purchaseDate      DateTime? @db.Date
+  rentalRateDaily   Decimal?  @db.Decimal(10, 2)
+  rentalRateWeekly  Decimal?  @db.Decimal(10, 2)
+  rentalRateMonthly Decimal?  @db.Decimal(10, 2)
+
+  // Status & Condition
+  status    ToolStatus    @default(AVAILABLE)
+  condition ToolCondition @default(GOOD)
+
+  // Images
+  primaryImage String?
+
+  // System
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String
+
+  images Json?
+
+  rentals         ToolRental[]
+  InterUse        ToolInterUse[]
+  maintenanceLogs ToolMaintenanceLog[]
+  rentalRequests  RentalRequest[]
+
+  @@map("tools")
+}
+
+model ToolRental {
+  id     String @id @default(cuid())
+  toolId String
+  tool   Tool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  // Renter Information
+  businessName  String
+  renterContact String?
+  renterEmail   String?
+  renterPhone   String?
+
+  // Rental Period
+  rentalStartDate DateTime @db.Date
+  rentalEndDate   DateTime @db.Date
+
+  // Payment
+  rentalRate Decimal  @db.Decimal(10, 2)
+  rentalDays Int?
+  totalCost  Decimal? @db.Decimal(10, 2)
+
+  // Payment Status
+  paymentStatus   PaymentStatus @default(PENDING)
+  amountPaid      Decimal       @default(0) @db.Decimal(10, 2)
+  remainingAmount Decimal?      @db.Decimal(10, 2)
+  paidDate        DateTime?     @db.Date
+
+  // Status
+  status RentalStatus @default(ACTIVE)
+
+  // Additional Info
+  notes             String?
+  returnCondition   String?
+  damageReported    Boolean @default(false)
+  damageDescription String?
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  quotation   Quotation? @relation(fields: [quotationId], references: [id])
+  quotationId String?
+  invoice     Invoice?   @relation(fields: [invoiceId], references: [id])
+  invoiceId   String?
+  client      Client?    @relation(fields: [clientId], references: [id])
+  clientId    String?
+
+  @@map("tool_rentals")
+}
+
+model ToolInterUse {
+  id     String @id @default(cuid())
+  toolId String
+  tool   Tool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  // Rental Period
+  useStartDate DateTime @db.Date
+  useEndDate   DateTime @db.Date
+
+  // Status
+  status ToolInterUseStatus @default(ACTIVE)
+
+  // Additional Info
+  notes             String?
+  damageReported    Boolean @default(false)
+  damageDescription String?
+  relisedBy         String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  Project   Project? @relation(fields: [projectId], references: [id])
+  projectId String?
+
+  @@map("tool_interUses")
+}
+
+model ToolMaintenanceLog {
+  id     String @id @default(cuid())
+  toolId String
+  tool   Tool   @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  maintenanceType String
+  cost            Decimal  @db.Decimal(10, 2)
+  maintenanceDate DateTime @db.Date
+  notes           String?
+  assignedTo      String?
+  processedBy     String?
+
+  createdAt DateTime @default(now())
+
+  @@map("tool_maintenance_logs")
+}
+
+model RentalRequest {
+  id     String  @id @default(cuid())
+  toolId String?
+  tool   Tool?   @relation(fields: [toolId], references: [id], onDelete: SetNull)
+
+  // Requester Information
+  requesterName     String
+  requesterEmail    String
+  requesterPhone    String?
+  requesterBusiness String
+
+  // Rental Details
+  requestedStartDate DateTime @db.Date
+  requestedEndDate   DateTime @db.Date
+  rentalDays         Int?
+  estimatedCost      Decimal? @db.Decimal(10, 2)
+
+  // Request Status
+  status   RequestStatus @default(PENDING)
+  priority Priority      @default(MEDIUM)
+
+  // Approval
+  approvedAt      DateTime?
+  approvedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  // Additional Info
+  purpose             String?
+  specialRequirements String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("rental_requests")
 }
 
 // ============================================================================
@@ -2493,4 +2663,44 @@ enum RefundMethod {
   CREDIT_CARD
   BANK_TRANSFER
   STORE_CREDIT
+}
+
+enum ToolStatus {
+  AVAILABLE
+  INTERUSE
+  RENTED
+  MAINTENANCE
+  RETIRED
+}
+
+enum ToolCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+}
+
+enum RentalStatus {
+  PENDING
+  ACTIVE
+  OVERDUE
+  COMPLETED
+  CANCELLED
+  RETURNED_DAMAGED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ToolInterUseStatus {
+  PENDING
+  ACTIVE
+  OVERDUE
+  COMPLETED
+  CANCELLED
+  RETURNED_DAMAGED
 }

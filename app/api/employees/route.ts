@@ -125,6 +125,7 @@ export async function GET() {
       startDate: employee.hireDate?.toLocaleDateString() || "Not specified",
       manager: employee.department?.manager?.name || "No manager",
       avatar: employee.avatar,
+      employeeNumber: employee.employeeNumber,
     }));
 
     const statuses = [...new Set(employees.map((emp) => emp.status))];

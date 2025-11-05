@@ -35,16 +35,20 @@ export function RecentTransactions({
     <div className="space-y-4">
       {transactions.map((tx) => (
         <div key={tx.id} className="flex items-center justify-between">
-          <div>
-            <div className="font-medium">{tx.description}</div>
-            <div className="text-sm text-muted-foreground">
-              {tx.client?.name ? tx.client?.name + "•" : ""}
-
+          <div className="min-w-0">
+            <div className="font-medium truncate max-w-[400px]">
+              {tx.description}
+            </div>
+            <div className="text-sm text-muted-foreground truncate max-w-[200px]">
+              {tx.client?.name ? tx.client.name + " • " : ""}
               {tx.category?.name || "Uncategorized"}
             </div>
           </div>
+
           <div
-            className={`font-medium ${tx.type === "INCOME" ? "text-green-600" : "text-red-600"}`}
+            className={`font-medium ml-8 ${
+              tx.type === "INCOME" ? "text-green-600" : "text-red-600"
+            }`}
           >
             {tx.type === "INCOME" ? "+" : "-"}
             {formatter ? formatter(tx.amount) : tx.amount.toFixed(2)}

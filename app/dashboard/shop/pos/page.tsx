@@ -68,7 +68,10 @@ export default function POSPage() {
     try {
       setLoading(true);
       const data = await productApi.getAll();
-      setProducts(data);
+
+      const availableProducts = data.filter((product) => product.stock > 0);
+
+      setProducts(availableProducts);
     } catch (error) {
       console.error("Error fetching products:", error);
       toast({

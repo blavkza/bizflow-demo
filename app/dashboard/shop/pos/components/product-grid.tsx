@@ -111,14 +111,14 @@ export function ProductGrid({
               onClick={() => addToCart(product)}
             >
               <CardContent className="p-4">
-                <div className="aspect-square bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
+                <div className="aspect-video bg-transparent rounded-lg mb-3 flex items-center justify-center">
                   {product.images?.[0] ? (
                     <Image
                       src={product.images[0]}
-                      alt={product.name}
-                      width={100}
-                      height={100}
-                      className="object-cover rounded-lg"
+                      alt={product.name || "product image"}
+                      width={800}
+                      height={450}
+                      className="w-full h-full object-contain"
                     />
                   ) : (
                     <Package className="h-12 w-12 text-gray-400" />
