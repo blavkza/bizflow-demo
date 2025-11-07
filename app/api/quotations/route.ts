@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     });
     const quotationNumber = lastQuotation
       ? `QT-${parseInt(lastQuotation.quotationNumber.split("-")[1]) + 1}`
-      : "QT-1001";
+      : "QT-0001";
 
     // Calculate amounts
     const itemsWithAmounts = data.items.map((item) => ({

@@ -13,6 +13,7 @@ import RentalsTable from "./components/rentals-table";
 import CreateRentalDialog from "./components/create-rental-dialog";
 import EmptyState from "./components/empty-state";
 import { Client, ComboboxOption, Tool, ToolRental } from "./types";
+import ToolRentalsLoading from "./components/loading";
 
 export default function ToolRentalsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -141,6 +142,10 @@ export default function ToolRentalsPage() {
     setSelectedPaymentStatus("All");
     setActiveTab("all");
   };
+
+  if (loading) {
+    return <ToolRentalsLoading />;
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">

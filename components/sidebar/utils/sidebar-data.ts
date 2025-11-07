@@ -27,6 +27,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
+import { CgArrowsExchange } from "react-icons/cg";
 
 import { SidebarData } from "../types/sidebar";
 import { UserPermission, UserRole } from "@prisma/client";
@@ -282,6 +283,17 @@ export const getSidebarData = (
                   url: "/dashboard/rentals",
                   icon: GiTakeMyMoney,
                   color: "text-green-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+            ? [
+                {
+                  title: "Suppliers",
+                  url: "/dashboard/suppliers",
+                  icon: CgArrowsExchange,
+                  color: "text-Orange-500",
                 },
               ]
             : []),

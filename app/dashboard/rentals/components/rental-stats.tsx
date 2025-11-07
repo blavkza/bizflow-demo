@@ -6,6 +6,8 @@ import {
   CheckCircle,
   AlertCircle,
   TrendingUp,
+  CreditCard,
+  Banknote,
 } from "lucide-react";
 import { ToolRental, formatDecimal } from "../types";
 
@@ -21,23 +23,38 @@ export default function RentalStats({ rentals }: RentalStatsProps) {
     (r) => r.status === "COMPLETED"
   ).length;
 
-  // Revenue calculations
+  // Revenue calculations based on amountPaid (actual revenue received)
   const totalRevenue = rentals.reduce(
-    (sum, r) => sum + formatDecimal(r.totalCost),
+    (sum, r) => sum + formatDecimal(r.amountPaid),
     0
   );
 
-  const paidRevenue = rentals
-    .filter((r) => r.paymentStatus === "PAID")
-    .reduce((sum, r) => sum + formatDecimal(r.totalCost), 0);
+  // Calculate revenue by status
+  const activePaidRevenue = rentals
+    .filter((r) => r.status === "ACTIVE")
+    .reduce((sum, r) => sum + formatDecimal(r.amountPaid), 0);
 
+  const completedPaidRevenue = rentals
+    .filter((r) => r.status === "COMPLETED")
+    .reduce((sum, r) => sum + formatDecimal(r.amountPaid), 0);
+
+  // Calculate pending amounts (total cost minus amount already paid)
   const pendingRevenue = rentals
     .filter((r) => r.paymentStatus === "PENDING" && r.status !== "CANCELLED")
-    .reduce((sum, r) => sum + formatDecimal(r.totalCost), 0);
+    .reduce((sum, r) => {
+      const totalCost = formatDecimal(r.totalCost || 0);
+      const amountPaid = formatDecimal(r.amountPaid);
+      return sum + (totalCost - amountPaid);
+    }, 0);
 
-  const activeRevenue = rentals
-    .filter((r) => r.status === "ACTIVE")
-    .reduce((sum, r) => sum + formatDecimal(r.totalCost), 0);
+  // Calculate overdue amounts
+  const overdueRevenue = rentals
+    .filter((r) => r.paymentStatus === "OVERDUE")
+    .reduce((sum, r) => {
+      const totalCost = formatDecimal(r.totalCost || 0);
+      const amountPaid = formatDecimal(r.amountPaid);
+      return sum + (totalCost - amountPaid);
+    }, 0);
 
   const paidRentals = rentals.filter((r) => r.paymentStatus === "PAID").length;
   const pendingPayments = rentals.filter(
@@ -53,7 +70,7 @@ export default function RentalStats({ rentals }: RentalStatsProps) {
       value: activeRentals,
       description: "Currently rented",
       icon: Calendar,
-      revenue: activeRevenue,
+      revenue: activePaidRevenue,
     },
     {
       title: "Pending Approval",
@@ -63,13 +80,14 @@ export default function RentalStats({ rentals }: RentalStatsProps) {
     },
     {
       title: "Total Revenue",
-      value: `R${(totalRevenue / 1000).toFixed(1)}k`,
-      description: "All time revenue",
+      value: `R${totalRevenue.toFixed(2)}`,
+      description: "Total received",
       icon: DollarSign,
+      subtitle: `R${completedPaidRevenue.toFixed(2)} from completed`,
     },
     {
       title: "Pending Revenue",
-      value: `R${(pendingRevenue / 1000).toFixed(1)}k`,
+      value: `R${pendingRevenue.toFixed(2)}`,
       description: "To be collected",
       icon: TrendingUp,
       className: "text-orange-600",
@@ -77,9 +95,9 @@ export default function RentalStats({ rentals }: RentalStatsProps) {
     {
       title: "Paid Rentals",
       value: paidRentals,
-      description: "Payments received",
+      description: "Fully paid",
       icon: CheckCircle,
-      revenue: paidRevenue,
+      iconClass: "text-green-600",
     },
     {
       title: "Overdue",
@@ -87,6 +105,7 @@ export default function RentalStats({ rentals }: RentalStatsProps) {
       description: "Past due date",
       icon: AlertCircle,
       className: "text-red-600",
+      subtitle: `R${overdueRevenue.toFixed(2)} overdue`,
     },
   ];
 
@@ -96,16 +115,23 @@ export default function RentalStats({ rentals }: RentalStatsProps) {
         <Card key={stat.title}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-            <stat.icon className="h-4 w-4 text-muted-foreground" />
+            <stat.icon
+              className={`h-4 w-4 ${stat.iconClass || "text-muted-foreground"}`}
+            />
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${stat.className || ""}`}>
               {stat.value}
             </div>
             <p className="text-xs text-muted-foreground">{stat.description}</p>
-            {stat.revenue !== undefined && (
+            {stat.revenue !== undefined && stat.revenue > 0 && (
               <p className="text-xs text-green-600 mt-1">
-                R{stat.revenue.toFixed(2)} revenue
+                R{stat.revenue.toFixed(2)} received
+              </p>
+            )}
+            {stat.subtitle && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {stat.subtitle}
               </p>
             )}
           </CardContent>

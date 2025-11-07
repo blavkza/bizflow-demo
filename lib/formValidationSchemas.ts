@@ -501,3 +501,27 @@ export const ShopProductSchema = z.object({
 });
 
 export type ShopProductSchemaType = z.infer<typeof ShopProductSchema>;
+
+export const expenseSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  categoryId: z.string().min(1, "Category is required"),
+  vendorId: z.string().min(1, "Vendor is required"),
+  vendorEmail: z.string().email().optional().or(z.literal("")),
+  vendorPhone: z.string().optional(),
+  totalAmount: z.number().min(0.01, "Amount must be greater than 0"),
+  paidAmount: z.number().min(0).default(0),
+  dueDate: z.date(),
+  paidDate: z.date().optional().nullable(),
+  paymentMethod: z.string().optional(),
+  priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
+  status: z.enum(["PENDING", "PARTIAL", "PAID", "OVERDUE"]).default("PENDING"),
+
+  notes: z.string().optional(),
+  expenseDate: z.date(),
+  invoiceId: z.string().optional().nullable(),
+  projectId: z.string().optional().nullable(),
+  accountCode: z.string().optional(),
+  projectCode: z.string().optional(),
+});
+
+export type ExpenseFormValues = z.infer<typeof expenseSchema>;

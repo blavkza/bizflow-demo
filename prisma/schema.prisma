@@ -55,6 +55,8 @@ model User {
   Project             Project[]
   ChatSession         ChatSession[]
   Order               Order[]
+  Vendor              Vendor[]
+  Expense             Expense[]
 
   @@map("users")
 }
@@ -471,19 +473,20 @@ model Transaction {
   updatedAt DateTime @updatedAt
 
   // Relations
-  invoice    Invoice?           @relation(fields: [invoiceId], references: [id])
-  category   Category?          @relation(fields: [categoryId], references: [id])
-  client     Client?            @relation(fields: [clientId], references: [id])
-  department Department?        @relation(fields: [departmentId], references: [id])
-  creator    User               @relation(fields: [createdBy], references: [id])
-  documents  Document[]
-  splits     TransactionSplit[]
-  Payment    Payment[]
-  Account    Account?           @relation(fields: [accountId], references: [id])
-  accountId  String?
-  Note       Note[]
-  Payroll    Payroll?
-  Refund     Refund[]
+  invoice        Invoice?           @relation(fields: [invoiceId], references: [id])
+  category       Category?          @relation(fields: [categoryId], references: [id])
+  client         Client?            @relation(fields: [clientId], references: [id])
+  department     Department?        @relation(fields: [departmentId], references: [id])
+  creator        User               @relation(fields: [createdBy], references: [id])
+  documents      Document[]
+  splits         TransactionSplit[]
+  Payment        Payment[]
+  Account        Account?           @relation(fields: [accountId], references: [id])
+  accountId      String?
+  Note           Note[]
+  Payroll        Payroll?
+  Refund         Refund[]
+  ExpensePayment ExpensePayment[]
 
   @@index([invoiceId])
   @@index([categoryId])
@@ -613,6 +616,7 @@ model Category {
   transactions Transaction[]
   budgets      BudgetItem[]
   splits       TransactionSplit[]
+  Expense      Expense[]
 
   @@map("categories")
 }
@@ -738,6 +742,7 @@ model Project {
   Folder        Folder[]
   comment       comment[]
   toolInterUses ToolInterUse[]
+  Expense       Expense[]
 
   @@index([clientId])
   @@index([status])
@@ -835,6 +840,7 @@ model Document {
   clientId      String?
   transactionId String?
   projectId     String?
+  venderId      String?
 
   folderId String?
 
@@ -844,6 +850,7 @@ model Document {
   employee    Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   client      Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  vender      Vendor?      @relation(fields: [venderId], references: [id], onDelete: Cascade)
 
   Project Project? @relation(fields: [projectId], references: [id])
   folder  Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
@@ -1081,6 +1088,7 @@ model Invoice {
   departmentId String?
   Transaction  Transaction[]
   toolRentals  ToolRental[]
+  Expense      Expense[]
 
   @@index([clientId])
   @@index([status])
@@ -1267,6 +1275,128 @@ model QuotationItem {
 // ============================================================================
 // PAYROLL MANAGEMENT
 // ============================================================================
+
+// =============================================================================
+// Expanses
+// =============================================================================
+
+model Vendor {
+  id           String  @id @default(cuid())
+  name         String
+  email        String?
+  phone        String?
+  website      String?
+  address      String?
+  taxNumber    String?
+  currency     String  @default("ZAR")
+  paymentTerms String? // e.g., "Net 30", "Due on receipt"
+  notes        String?
+
+  // Categories
+  category String?
+  tags     String[]
+
+  // Status
+  status VendorStatus @default(ACTIVE)
+
+  // System
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  // Relations
+  expenses Expense[]
+  Document Document[]
+
+  @@map("vendors")
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+model Expense {
+  expenseNumber String  @unique
+  id            String  @id @default(cuid())
+  description   String
+  categoryId    String
+  vendorEmail   String?
+  vendorPhone   String?
+
+  // Amounts
+  totalAmount     Decimal @db.Decimal(12, 2)
+  paidAmount      Decimal @default(0) @db.Decimal(12, 2)
+  remainingAmount Decimal @db.Decimal(12, 2)
+
+  // Status & Priority
+  status   ExpenseStatus   @default(PENDING)
+  priority ExpensePriority @default(MEDIUM)
+
+  // Dates
+  dueDate     DateTime  @db.Date
+  paidDate    DateTime? @db.Date
+  createdDate DateTime  @default(now())
+
+  // Payment Details
+  paymentMethod String?
+  accountCode   String?
+  projectCode   String?
+
+  // Approval
+  approvedBy   String?
+  approvedDate DateTime?
+
+  // Additional Info
+  notes       String?
+  attachments Json? // Array of attachment URLs
+
+  // System
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  expenseDate DateTime @default(now())
+
+  // Relations
+  payments  ExpensePayment[]
+  Project   Project?         @relation(fields: [projectId], references: [id])
+  projectId String?
+  Invoice   Invoice?         @relation(fields: [invoiceId], references: [id])
+  invoiceId String?
+  Vendor    Vendor?          @relation(fields: [vendorId], references: [id])
+  vendorId  String?
+  category  Category?        @relation(fields: [categoryId], references: [id])
+
+  @@map("expenses")
+}
+
+model ExpensePayment {
+  id        String  @id @default(cuid())
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id])
+
+  amount      Decimal       @db.Decimal(10, 2)
+  paymentDate DateTime      @db.Date
+  method      String
+  reference   String?
+  status      PaymentStatus @default(PENDING)
+
+  paidBy String
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  transactionId String?
+
+  @@map("expense_payments")
+}
+
 model Product {
   id        String   @id @default(uuid())
   category  String
@@ -2449,6 +2579,7 @@ enum PaymentStatus {
   PAID
   FAILED
   CANCELLED
+  PARTIALLY_PAID
 }
 
 enum TargetType {
@@ -2703,4 +2834,19 @@ enum ToolInterUseStatus {
   COMPLETED
   CANCELLED
   RETURNED_DAMAGED
+}
+
+enum ExpenseStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ExpensePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 }

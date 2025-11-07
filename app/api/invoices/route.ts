@@ -28,7 +28,6 @@ export async function POST(req: Request) {
     const json = await req.json();
     const data = InvoiceSchema.parse(json);
 
-    // Generate invoice number (you might want a better system for this)
     const lastInvoice = await db.invoice.findFirst({
       orderBy: { createdAt: "desc" },
       select: { invoiceNumber: true },
@@ -36,9 +35,8 @@ export async function POST(req: Request) {
 
     const invoiceNumber = lastInvoice
       ? `INV-${parseInt(lastInvoice.invoiceNumber.split("-")[1]) + 1}`
-      : "INV-1001";
+      : "INV-0001";
 
-    // Calculate amounts
     const itemsWithAmounts = data.items.map((item) => ({
       ...item,
       amount: item.quantity * item.unitPrice,
