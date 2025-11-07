@@ -9,6 +9,8 @@ import {
   List,
   MessageCircle,
   Users2,
+  Wrench,
+  CreditCard,
 } from "lucide-react";
 import { ViewMode } from "../type";
 
@@ -28,6 +30,11 @@ export function ViewModeToggle({
   isManager,
 }: ViewModeToggleProps) {
   const showInvoicesButton =
+    currentUserPermission || currentUserRole === "ADMIN" || isManager;
+
+  const showToolsButton = currentUserRole === "ADMIN" || isManager;
+
+  const showExpensesButton =
     currentUserPermission || currentUserRole === "ADMIN" || isManager;
 
   return (
@@ -80,6 +87,26 @@ export function ViewModeToggle({
       >
         <MessageCircle size={16} />
       </Button>
+      {showToolsButton && (
+        <Button
+          variant={viewMode === "tools" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setViewMode("tools")}
+          className="h-8 px-3"
+        >
+          <Wrench size={16} />
+        </Button>
+      )}
+      {showExpensesButton && (
+        <Button
+          variant={viewMode === "expenses" ? "default" : "ghost"}
+          size="sm"
+          onClick={() => setViewMode("expenses")}
+          className="h-8 px-3"
+        >
+          <CreditCard size={16} />
+        </Button>
+      )}
       {showInvoicesButton && (
         <Button
           variant={viewMode === "invoices" ? "default" : "ghost"}

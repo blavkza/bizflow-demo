@@ -22,6 +22,7 @@ export interface Invoice {
   dueDate: string;
   status: string;
   totalAmount: number;
+  Expense?: Expense[];
 }
 
 export interface Task {
@@ -149,6 +150,58 @@ export interface Project {
   Folder: Folder[];
   documents: Document[];
   comment: Comment[];
+  Expense: Expense[];
+  toolInterUses: ToolInterUse[];
+}
+
+// Add these to your existing types file
+export interface Tool {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  status: string;
+  condition: string;
+  rentalRateDaily: Decimal | null;
+  rentalRateWeekly: Decimal | null;
+  rentalRateMonthly: Decimal | null;
+  primaryImage: string | null;
+}
+
+export interface ToolInterUse {
+  id: string;
+  toolId: string;
+  tool: Tool;
+  useStartDate: string;
+  useEndDate: string;
+  status: string;
+  notes: string | null;
+  damageReported: boolean;
+  damageDescription: string | null;
+  relisedBy: string;
+}
+
+export interface Expense {
+  id: string;
+  expenseNumber: string;
+  description: string;
+  categoryId: string;
+  totalAmount: Decimal;
+  paidAmount: Decimal;
+  remainingAmount: Decimal;
+  status: string;
+  priority: string;
+  dueDate: string;
+  expenseDate: string;
+  vendor?: {
+    id: string;
+    name: string;
+    email: string | null;
+  };
+  category?: {
+    id: string;
+    name: string;
+  };
 }
 
 export type ViewMode =
@@ -158,7 +211,9 @@ export type ViewMode =
   | "invoices"
   | "files"
   | "team"
-  | "comments";
+  | "comments"
+  | "tools"
+  | "expenses";
 
 export const ROLE_OPTIONS = [
   { value: "MEMBER", label: "Member" },

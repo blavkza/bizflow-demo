@@ -1351,7 +1351,7 @@ model Expense {
 
   // Additional Info
   notes       String?
-  attachments Json? // Array of attachment URLs
+  attachments Json?
 
   // System
   createdAt DateTime @default(now())
@@ -1806,6 +1806,7 @@ model ToolRental {
   amountPaid      Decimal       @default(0) @db.Decimal(10, 2)
   remainingAmount Decimal?      @db.Decimal(10, 2)
   paidDate        DateTime?     @db.Date
+  returnDate      DateTime?
 
   // Status
   status RentalStatus @default(ACTIVE)

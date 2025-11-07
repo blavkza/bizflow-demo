@@ -11,6 +11,7 @@ import { Expense } from "./types";
 import axios from "axios";
 import { toast } from "sonner";
 import ExpensesFilters from "./Components/ExpensesFilters";
+import ExpenseDetailLoading from "./loading";
 
 export default function ExpensesPage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -84,11 +85,9 @@ export default function ExpensesPage() {
 
   if (isLoading) {
     return (
-      <SidebarInset>
-        <div className="flex items-center justify-center h-96">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </SidebarInset>
+      <div className="m-6">
+        <ExpenseDetailLoading />
+      </div>
     );
   }
 

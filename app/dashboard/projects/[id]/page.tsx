@@ -18,6 +18,8 @@ import { CalendarView } from "./_components/CalendarView";
 import { KanbanBoard } from "./_components/KanbanBoard";
 import { ProjectFiles } from "./_components/project-files";
 import { ProjectComments } from "./_components/project-comments";
+import { ProjectTools } from "./_components/project-tools";
+import { ProjectExpenses } from "./_components/project-expenses";
 import TaskForm from "./_components/task-Form";
 import ProjectForm from "../_components/project-Form";
 
@@ -300,8 +302,12 @@ export default function ProjectsDetailsPage({
                   : viewMode === "team"
                     ? "Team Members"
                     : viewMode === "comments"
-                      ? "Comments "
-                      : "Tasks"}
+                      ? "Comments"
+                      : viewMode === "tools"
+                        ? "Tools"
+                        : viewMode === "expenses"
+                          ? "Expenses"
+                          : "Tasks"}
             </CardTitle>
             <div className="flex items-center gap-2">
               <ViewModeToggle
@@ -335,6 +341,54 @@ export default function ProjectsDetailsPage({
                     refetch();
                   }}
                 />
+              ) : viewMode === "tools" &&
+                (isManager || currentUserRole === "ADMIN") ? (
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Task
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[900px] max-w-[1000px] max-h-[95vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Create New Task</DialogTitle>
+                    </DialogHeader>
+                    <TaskForm
+                      type="create"
+                      projectId={project.id}
+                      onCancel={() => setIsDialogOpen(false)}
+                      onSubmitSuccess={() => {
+                        setIsDialogOpen(false);
+                        refetch();
+                      }}
+                    />
+                  </DialogContent>
+                </Dialog>
+              ) : viewMode === "expenses" &&
+                (isManager || currentUserRole === "ADMIN") ? (
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Task
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[900px] max-w-[1000px] max-h-[95vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Create New Task</DialogTitle>
+                    </DialogHeader>
+                    <TaskForm
+                      type="create"
+                      projectId={project.id}
+                      onCancel={() => setIsDialogOpen(false)}
+                      onSubmitSuccess={() => {
+                        setIsDialogOpen(false);
+                        refetch();
+                      }}
+                    />
+                  </DialogContent>
+                </Dialog>
               ) : isManager || currentUserPermissions?.canCreateTask ? (
                 <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                   <DialogTrigger asChild>
@@ -413,6 +467,14 @@ export default function ProjectsDetailsPage({
               fetchProject={refetch}
               user={user}
               project={project}
+            />
+          ) : viewMode === "tools" ? (
+            <ProjectTools project={project} fetchProject={refetch} />
+          ) : viewMode === "expenses" ? (
+            <ProjectExpenses
+              project={project}
+              fetchProject={refetch}
+              canViewFinancial={currentUserPermissions?.canViewFinancial}
             />
           ) : (
             <DndContext onDragEnd={handleDragEnd}>

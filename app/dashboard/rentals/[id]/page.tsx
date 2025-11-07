@@ -190,9 +190,6 @@ export default function RentalDetailPage() {
         <div className="lg:col-span-2 space-y-4">
           {/* Tool Information */}
           <ToolInformation rental={rental} />
-
-          {/* Renter Information */}
-          <RenterInformation rental={rental} />
         </div>
 
         {/* Right: Pricing & Actions */}
@@ -210,6 +207,8 @@ export default function RentalDetailPage() {
           <QuickActions rental={rental} onRentalUpdated={fetchRentalDetail} />
           {/* Rental Period */}
           <RentalPeriod rental={rental} />
+          {/* Renter Information */}
+          <RenterInformation rental={rental} />
         </div>
       </div>
       {/* Tabs */}

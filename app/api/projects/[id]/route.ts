@@ -5,10 +5,17 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Project ID is required" },
+        { status: 400 }
+      );
+    }
 
     const { userId } = await auth();
 
@@ -16,7 +23,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const creater = await db.user.findUnique({
+    const currentUser = await db.user.findUnique({
       where: { userId },
       select: {
         id: true,
@@ -24,7 +31,7 @@ export async function PUT(
       },
     });
 
-    if (!creater) {
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -50,6 +57,28 @@ export async function PUT(
       deadline,
     } = validation.data;
 
+    // Check if project exists and user has access
+    const existingProject = await db.project.findFirst({
+      where: {
+        id,
+        OR: [
+          { managerId: currentUser.id },
+          {
+            teamMembers: {
+              some: { userId: currentUser.id },
+            },
+          },
+        ],
+      },
+    });
+
+    if (!existingProject) {
+      return NextResponse.json(
+        { error: "Project not found or no access" },
+        { status: 404 }
+      );
+    }
+
     if (managerId) {
       const managerExists = await db.user.findUnique({
         where: { id: managerId },
@@ -65,7 +94,6 @@ export async function PUT(
 
     const project = await db.project.update({
       where: { id },
-
       data: {
         title,
         clientId,
@@ -84,27 +112,37 @@ export async function PUT(
     const notification = await db.notification.create({
       data: {
         title: "Project Update",
-        message: `Project ${project.title} , has been Updated By ${creater.name}.`,
+        message: `Project ${project.title} has been updated by ${currentUser.name}.`,
         type: "PROJECT",
         isRead: false,
         actionUrl: `/dashboard/projects/${project.id}`,
-        userId: creater.id,
+        userId: currentUser.id,
       },
     });
 
     return NextResponse.json({ project, notification });
   } catch (error) {
-    console.error("[DEPARTMENT_UPDADE_ERROR]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+    console.error("[PROJECT_UPDATE_ERROR]", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Project ID is required" },
+        { status: 400 }
+      );
+    }
 
     const { userId } = await auth();
 
@@ -147,17 +185,33 @@ export async function GET(
             },
           },
         },
-        invoices: {
-          select: {
-            id: true,
-            invoiceNumber: true,
-            issueDate: true,
-            dueDate: true,
-            status: true,
-            totalAmount: true,
+        Expense: {
+          include: {
+            Vendor: {
+              select: { id: true, name: true, email: true },
+            },
+            category: {
+              select: { id: true, name: true },
+            },
           },
         },
-        Folder: { include: { Document: true, Note: true } },
+        toolInterUses: {
+          include: {
+            tool: true,
+          },
+        },
+        invoices: {
+          include: {
+            Expense: true,
+          },
+        },
+
+        Folder: {
+          include: {
+            Document: true,
+            Note: true,
+          },
+        },
         comment: {
           select: {
             id: true,
@@ -183,7 +237,11 @@ export async function GET(
           },
         },
         documents: true,
-        teamMembers: { include: { user: true } },
+        teamMembers: {
+          include: {
+            user: true,
+          },
+        },
       },
     });
 
@@ -206,60 +264,106 @@ export async function GET(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
-
-  const { userId } = await auth();
-
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await db.user.findUnique({
-    where: { userId },
-    select: {
-      id: true,
-      name: true,
-    },
-  });
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const project = await db.project.findUnique({
-    where: {
-      id,
-      managerId: user.id,
-    },
-  });
-
-  if (!project) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    await db.project.delete({
-      where: { id },
-    });
+    const { id } = await params;
 
-    await db.notification.create({
-      data: {
-        title: "Project Deleted",
-        message: `Project ${project.title} , has been Deleted By ${user.name}.`,
-        type: "PROJECT",
-        isRead: false,
-        actionUrl: `/dashboard/projects`,
-        userId: user.id,
+    if (!id) {
+      return NextResponse.json(
+        { error: "Project ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
       },
     });
 
-    return NextResponse.json({ message: "Project deleted" }, { status: 200 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check if project exists and user is the manager
+    const project = await db.project.findFirst({
+      where: {
+        id,
+        managerId: user.id,
+      },
+    });
+
+    if (!project) {
+      return NextResponse.json(
+        { error: "Project not found or you are not authorized to delete it" },
+        { status: 403 }
+      );
+    }
+
+    // Use transaction to ensure all related data is handled properly
+    await db.$transaction(async (tx) => {
+      // Delete related records first to avoid foreign key constraints
+      await tx.projectTeam.deleteMany({
+        where: { projectId: id },
+      });
+
+      await tx.task.deleteMany({
+        where: { projectId: id },
+      });
+
+      await tx.invoice.deleteMany({
+        where: { projectId: id },
+      });
+
+      await tx.expense.updateMany({
+        where: { projectId: id },
+        data: { projectId: null },
+      });
+
+      await tx.toolInterUse.updateMany({
+        where: { projectId: id },
+        data: { projectId: null },
+      });
+
+      await tx.comment.deleteMany({
+        where: { projectId: id },
+      });
+
+      // Delete the project
+      await tx.project.delete({
+        where: { id },
+      });
+
+      // Create notification
+      await tx.notification.create({
+        data: {
+          title: "Project Deleted",
+          message: `Project ${project.title} has been deleted by ${user.name}.`,
+          type: "PROJECT",
+          isRead: false,
+          actionUrl: `/dashboard/projects`,
+          userId: user.id,
+        },
+      });
+    });
+
+    return NextResponse.json(
+      { message: "Project deleted successfully" },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error deleting project:", error);
     return NextResponse.json(
-      { message: "Internal Server Error" },
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

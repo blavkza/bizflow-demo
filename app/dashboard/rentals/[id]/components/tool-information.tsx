@@ -4,6 +4,7 @@ import { ImageIcon } from "lucide-react";
 import Link from "next/link";
 import { ToolRentalDetail } from "../types";
 import { getToolImage, formatDecimal } from "../utils";
+import Image from "next/image";
 
 interface ToolInformationProps {
   rental: ToolRentalDetail;
@@ -40,10 +41,12 @@ export default function ToolInformation({ rental }: ToolInformationProps) {
         <div className="grid grid-cols-3 gap-4">
           <div className="col-span-2">
             {toolImage ? (
-              <img
-                src={toolImage}
+              <Image
+                src={toolImage || "/placeholder.png"}
                 alt={rental.tool.name}
-                className="w-full h-48 object-cover rounded-lg bg-gray-100"
+                width={800}
+                height={450}
+                className="w-full h-full object-contain"
               />
             ) : (
               <div className="w-full h-48 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -68,7 +71,9 @@ export default function ToolInformation({ rental }: ToolInformationProps) {
               className="w-full bg-transparent"
               asChild
             >
-              <Link href={`/tools/${rental.toolId}`}>View Tool Details</Link>
+              <Link href={`/dashboard/tools/${rental.toolId}`}>
+                View Tool Details
+              </Link>
             </Button>
           </div>
         </div>
