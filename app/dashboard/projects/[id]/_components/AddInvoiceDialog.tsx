@@ -133,7 +133,7 @@ export default function AddInvoiceDialog({
             <p className="text-muted-foreground text-center">
               No invoices found for this client.
             </p>
-            <Link href="/dashboard/invoice/new" passHref>
+            <Link href="/dashboard/invoices/new" passHref>
               <Button>Create Invoice</Button>
             </Link>
           </div>

@@ -255,20 +255,6 @@ export default function ProjectsDetailsPage({
             : "grid-cols-1 md:grid-cols-4"
         )}
       >
-        {project.budget && (
-          <>
-            <StatsCard
-              value={`${budgetUsedPercentage}%`}
-              label="Budget Used"
-              className="text-success"
-            />
-            <StatsCard
-              value={`R ${Number(remaingBalance).toLocaleString()}`}
-              label="Remaining"
-              className="text-info"
-            />
-          </>
-        )}
         <StatsCard
           value={taskStats.total}
           label="Total Tasks"

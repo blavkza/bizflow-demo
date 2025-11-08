@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Share, Edit, Settings } from "lucide-react";
+import { ArrowLeft, Share, Edit, Settings, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Project } from "../type";
 import { IoStar, IoStarOutline } from "react-icons/io5";
@@ -11,6 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { ProjectSettings } from "./ProjectSettingsForm";
 import DeleteDialog from "./DeleteDialog";
 import { User } from "@prisma/client";
+import { useState } from "react";
+import { toast } from "sonner";
+import { ProjectReportGenerator } from "@/lib/ProjectReportGenerator";
+import { useCompanyInfo } from "@/hooks/use-company-info";
 
 interface ProjectHeaderProps {
   project: Project;
@@ -32,9 +36,35 @@ export function ProjectHeader({
   user,
 }: ProjectHeaderProps) {
   const router = useRouter();
+  const [isPrinting, setIsPrinting] = useState(false);
   const isManager = user.id === project.managerId;
   const isCEO = user.role === "CHIEF_EXECUTIVE_OFFICER";
   const hasEditPermissions = isManager || isCEO;
+
+  const { companyInfo } = useCompanyInfo();
+
+  const handlePrintReport = async () => {
+    setIsPrinting(true);
+    try {
+      const projectReportHTML =
+        ProjectReportGenerator.generateProjectReportHTML(project, companyInfo);
+
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(projectReportHTML);
+        printWindow.document.close();
+        printWindow.onload = () => {
+          printWindow.focus();
+          printWindow.print();
+        };
+      }
+    } catch (error) {
+      console.error("Error printing project report:", error);
+      toast.error("Failed to generate project report");
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   return (
     <div className="flex items-center gap-4">
@@ -68,6 +98,16 @@ export function ProjectHeader({
           </div>
 
           <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrintReport}
+              disabled={isPrinting}
+            >
+              <FileText className="w-4 h-4 mr-1" />
+              {isPrinting ? "Generating..." : "Report"}
+            </Button>
+
             <Button variant="outline" size="sm">
               <Share className="w-4 h-4 mr-1" />
               Share

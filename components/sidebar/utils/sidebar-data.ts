@@ -199,7 +199,7 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          ...(hasFullAccess ||
+          /*    ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.INVENTORY_VIEW)
             ? [
                 {
@@ -209,7 +209,7 @@ export const getSidebarData = (
                   color: "text-green-500",
                 },
               ]
-            : []),
+            : []), */
         ].filter((item) => item !== null),
       },
       {
