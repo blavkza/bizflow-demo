@@ -27,6 +27,8 @@ import { CancelQuotationDialog } from "./CancelQuotationDialog";
 import { DeleteQuotationDialog } from "./DeleteQuotationDialog";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useCompanyInfo } from "@/hooks/use-company-info";
+import { QuotationReportGenerator } from "@/lib/quotationReportGenerator";
 
 interface QuotationHeaderProps {
   quotation: QuotationWithRelations & {
@@ -65,11 +67,11 @@ export const QuotationHeader = ({
   canCreateInvoice,
   canDeleteQuotations,
 }: QuotationHeaderProps) => {
-  const router = useRouter();
   const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [logoLoaded, setLogoLoaded] = useState(false);
-  const quotationRef = useRef<HTMLDivElement>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const router = useRouter();
+  const { companyInfo } = useCompanyInfo();
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -79,64 +81,34 @@ export const QuotationHeader = ({
       (1000 * 60 * 60 * 24)
   );
 
-  useEffect(() => {
-    if (quotation.creator?.GeneralSetting?.[0]?.logo) {
-      const img = new Image();
-      img.src = quotation.creator.GeneralSetting[0].logo;
-      img.onload = () => setLogoLoaded(true);
-    }
-  }, [quotation.creator?.GeneralSetting]);
-
-  const handleDownloadPdf = async () => {
-    if (!quotationRef.current) return;
-
-    setIsGeneratingPdf(true);
+  const handlePrintQuotation = async () => {
+    setIsGenerating(true);
     try {
-      quotationRef.current.style.position = "fixed";
-      quotationRef.current.style.top = "0";
-      quotationRef.current.style.left = "0";
-      quotationRef.current.style.zIndex = "9999";
-      quotationRef.current.style.visibility = "visible";
+      const quotationReportHTML =
+        QuotationReportGenerator.generateQuotationReportHTML(
+          quotation,
+          companyInfo
+        );
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(quotationReportHTML);
+        printWindow.document.close();
+        printWindow.onload = () => {
+          printWindow.focus();
+          printWindow.print();
+        };
 
-      const canvas = await html2canvas(quotationRef.current, {
-        scale: 2,
-        logging: true,
-        useCORS: true,
-        allowTaint: true,
-        scrollX: 0,
-        scrollY: -window.scrollY,
-        windowWidth: quotationRef.current.scrollWidth,
-        windowHeight: quotationRef.current.scrollHeight,
-        backgroundColor: "#ffffff",
-      });
-
-      if (!canvas) throw new Error("Canvas rendering failed");
-
-      const imgData = canvas.toDataURL("image/png", 1.0);
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const imgWidth = 190;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
-      pdf.save(`${quotation.quotationNumber}.pdf`);
-    } catch (error) {
-      console.error("PDF generation error:", error);
-      toast.error(
-        "Failed to generate PDF. Please try again or contact support."
-      );
-    } finally {
-      if (quotationRef.current) {
-        quotationRef.current.style.position = "absolute";
-        quotationRef.current.style.visibility = "hidden";
+        // Optional: Close the window after printing
+        printWindow.onafterprint = () => {
+          printWindow.close();
+        };
       }
-      setIsGeneratingPdf(false);
+    } catch (error) {
+      console.error("Error printing quotation:", error);
+      toast.error("Failed to generate quotation report");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -177,23 +149,26 @@ export const QuotationHeader = ({
         <div className="flex flex-wrap gap-2">
           {quotation.status !== "CANCELLED" ? (
             <>
-              {quotation.status !== "CONVERTED" &&
-                (canCreateInvoice || hasFullAccess) && (
-                  <Button onClick={() => setIsConvertDialogOpen(true)}>
-                    Convert to Invoice
-                  </Button>
-                )}
+              {quotation.status !== "CONVERTED" && (
+                <>
+                  {(canCreateInvoice || hasFullAccess) && (
+                    <Button onClick={() => setIsConvertDialogOpen(true)}>
+                      Convert to Invoice
+                    </Button>
+                  )}
 
-              {(canEditQuotations || hasFullAccess) && (
-                <Button variant="outline">
-                  <Link
-                    className="flex items-center gap-2"
-                    href={`/dashboard/quotations/${quotation.id}/edit`}
-                  >
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                  </Link>
-                </Button>
+                  {(canEditQuotations || hasFullAccess) && (
+                    <Button variant="outline" asChild>
+                      <Link
+                        className="flex items-center gap-2"
+                        href={`/dashboard/quotations/${quotation.id}/edit`}
+                      >
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </Link>
+                    </Button>
+                  )}
+                </>
               )}
 
               <Button variant="outline" onClick={() => setSendDialogOpen(true)}>
@@ -225,11 +200,13 @@ export const QuotationHeader = ({
 
           <Button
             variant="outline"
-            onClick={handleDownloadPdf}
-            disabled={isGeneratingPdf}
+            size="sm"
+            onClick={handlePrintQuotation}
+            disabled={isGenerating}
+            aria-label="Print quotation"
           >
             <Download className="mr-2 h-4 w-4" />
-            {isGeneratingPdf ? "Generating..." : "Download"}
+            {isGenerating ? "Generating..." : "Print"}
           </Button>
           {quotation.status !== "CONVERTED" &&
             (canDeleteQuotations || hasFullAccess) && (
@@ -274,8 +251,6 @@ export const QuotationHeader = ({
         onOpenChange={setDeleteDialogOpen}
         quotationId={quotation.id}
       />
-
-      <QuotationPDF quotation={quotation} forwardedRef={quotationRef} />
     </div>
   );
 };

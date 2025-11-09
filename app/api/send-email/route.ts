@@ -1,4 +1,3 @@
-// app/api/send-email/route.ts
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { render } from "@react-email/render";

@@ -1,21 +1,39 @@
-// app/api/quotations/send-email/route.ts
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { render } from "@react-email/render";
-import db from "@/lib/db";
 import { QuotationWithRelations } from "@/types/quotation";
 import { QuotationEmail } from "@/components/email/quotation-email";
+import db from "@/lib/db";
+import { QuotationReportGenerator } from "@/lib/quotationReportGenerator";
+import { QuotationPDFService } from "@/lib/services/quotation-pdf-service";
+import { auth } from "@clerk/nextjs/server";
 
 interface EmailRequest {
   quotation: QuotationWithRelations;
   toEmail: string;
-  pdfUrl?: string;
 }
 
 export async function POST(request: Request) {
   try {
-    const { quotation, toEmail, pdfUrl } =
-      (await request.json()) as EmailRequest;
+    const { userId } = await auth();
+
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const creator = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!creator) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const { quotation, toEmail } = (await request.json()) as EmailRequest;
 
     // Validate email input
     if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
@@ -25,59 +43,145 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create email HTML - await the render function
+    // Get company info for the PDF
+    const companyInfo = await db.generalSetting.findFirst();
+
+    // Generate PDF
+    let pdfBuffer: Buffer;
+    let pdfGenerationMethod = "primary";
+
+    try {
+      pdfBuffer = await QuotationPDFService.generateQuotationPDF(
+        quotation,
+        companyInfo
+      );
+    } catch (pdfError) {
+      console.error("Primary PDF generation failed:", pdfError);
+
+      // Fallback: Try basic PDF generation
+      try {
+        pdfBuffer = await QuotationPDFService.generateQuotationPDF(
+          quotation,
+          companyInfo
+        );
+        pdfGenerationMethod = "fallback";
+      } catch (fallbackError) {
+        console.error("All PDF generation methods failed:", fallbackError);
+
+        const mappedCompanyInfo = companyInfo
+          ? {
+              id: companyInfo.id,
+              companyName: companyInfo.companyName,
+              taxId: companyInfo.taxId,
+              address: companyInfo.Address,
+              city: companyInfo.city,
+              website: companyInfo.website || "",
+              paymentTerms: companyInfo.paymentTerms || "",
+              note: companyInfo.note || "",
+              bankAccount: companyInfo.bankAccount || "",
+              bankAccount2: companyInfo.bankAccount2 || "",
+              bankName: companyInfo.bankName || "",
+              bankName2: companyInfo.bankName2 || "",
+              logo: companyInfo.logo || "",
+              province: companyInfo.province,
+              postCode: companyInfo.postCode,
+              phone: companyInfo.phone,
+              phone2: companyInfo.phone2 || "",
+              phone3: companyInfo.phone3 || "",
+              email: companyInfo.email,
+            }
+          : null;
+
+        // Final fallback: Use HTML content
+        const htmlContent =
+          QuotationReportGenerator.generateQuotationReportHTML(
+            quotation,
+            mappedCompanyInfo
+          );
+        pdfBuffer = Buffer.from(htmlContent, "utf-8");
+        pdfGenerationMethod = "html";
+      }
+    }
+
+    // Create email HTML
     const emailHtml = await render(QuotationEmail({ quotation }));
 
     // Create secure transporter
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
-      secure: false, // true for 465, false for other ports
+      secure: false,
       auth: {
         user: process.env.SMTP_MAIL,
         pass: process.env.SMTP_PASSWORD,
       },
       tls: {
-        rejectUnauthorized: false, // Only for testing, remove in production
+        rejectUnauthorized: false,
       },
     });
 
     // Verify connection
     await transporter.verify();
 
-    // Prepare attachments if PDF URL is provided
-    const attachments = pdfUrl
-      ? [
-          {
-            filename: `quotation_${quotation.quotationNumber}.pdf`,
-            path: pdfUrl,
-            contentType: "application/pdf",
-          },
-        ]
-      : [];
+    // Calculate days until expiry
+    const daysUntilExpiry = Math.ceil(
+      (new Date(quotation.validUntil).getTime() - new Date().getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
 
-    // Send email
+    // Determine attachment type
+    const isPDF = pdfGenerationMethod !== "html";
+    const attachment = {
+      filename: `quotation_${quotation.quotationNumber}.${isPDF ? "pdf" : "html"}`,
+      content: pdfBuffer,
+      contentType: isPDF ? "application/pdf" : "text/html",
+    };
+
+    // Get company name from quotation or use default
+    const companyName =
+      quotation.creator?.GeneralSetting?.[0]?.companyName || "Your Company";
+
+    // Send email with attachment
     const info = await transporter.sendMail({
-      from: `"${quotation.creator?.GeneralSetting?.[0]?.companyName || "Your Company"}" <${process.env.SMTP_MAIL}>`,
+      from: `"${companyName}" <${process.env.SMTP_MAIL}>`,
       to: toEmail,
-      subject: `Quotation #${quotation.quotationNumber}`,
-      html: emailHtml, // Now this is a string, not a Promise
-      attachments,
+      subject: `Quotation #${quotation.quotationNumber} - ${companyName}`,
+      html: emailHtml,
+      attachments: [attachment],
     });
 
-    // Update quotation status if needed
-    /*  const updatedQuotation = await db.quotation.update({
-      where: { id: quotation.id },
-      data: { status: "SENT" },
-    }); */
+    // Update quotation status to SENT if not already CONVERTED or CANCELLED
+    if (quotation.status === "DRAFT") {
+      await db.quotation.update({
+        where: { id: quotation.id },
+        data: { status: "SENT" },
+      });
+    }
+
+    // Log the email sending
+    await db.notification.create({
+      data: {
+        title: "Quotation Sent",
+        message: `Quotation ${quotation.quotationNumber} was sent to ${toEmail} (${pdfGenerationMethod} method)`,
+        type: "QUOTATION",
+        isRead: false,
+        actionUrl: `/dashboard/quotations/${quotation.id}`,
+        userId: creator.id,
+      },
+    });
 
     return NextResponse.json({
       success: true,
+      messageId: info.messageId,
+      pdfMethod: pdfGenerationMethod,
+      daysUntilExpiry,
+      message: `Quotation sent successfully to ${toEmail}`,
     });
   } catch (error) {
-    console.error("Email sending error:", error);
+    console.error("Quotation email sending error:", error);
+
     return NextResponse.json(
-      { error: "Failed to send email. Please try again later." },
+      { error: "Failed to send quotation email. Please try again later." },
       { status: 500 }
     );
   }

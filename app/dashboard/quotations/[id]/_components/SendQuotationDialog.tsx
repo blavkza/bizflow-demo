@@ -1,4 +1,3 @@
-// components/quotations/SendQuotationDialog.tsx
 "use client";
 
 import { useState } from "react";
@@ -19,12 +18,14 @@ interface SendQuotationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   quotation: QuotationWithRelations;
+  refresh?: () => void;
 }
 
 export const SendQuotationDialog = ({
   open,
   onOpenChange,
   quotation,
+  refresh,
 }: SendQuotationDialogProps) => {
   const [email, setEmail] = useState(quotation.client.email || "");
   const [isSending, setIsSending] = useState(false);
@@ -37,9 +38,6 @@ export const SendQuotationDialog = ({
 
     setIsSending(true);
     try {
-      // First generate the PDF
-      const pdfUrl = await generatePdfUrl(quotation);
-
       const response = await fetch("/api/quotations/send-email", {
         method: "POST",
         headers: {
@@ -48,19 +46,30 @@ export const SendQuotationDialog = ({
         body: JSON.stringify({
           quotation,
           toEmail: email,
-          pdfUrl,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to send email");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to send email");
       }
+
+      const result = await response.json();
 
       toast.success("Quotation sent successfully!");
       onOpenChange(false);
+
+      // Refresh the parent component if needed
+      if (refresh) {
+        refresh();
+      }
     } catch (error) {
-      console.error("Error sending email:", error);
-      toast.error("Failed to send quotation. Please try again.");
+      console.error("Error sending quotation email:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to send quotation. Please try again."
+      );
     } finally {
       setIsSending(false);
     }
@@ -72,7 +81,8 @@ export const SendQuotationDialog = ({
         <DialogHeader>
           <DialogTitle>Send Quotation</DialogTitle>
           <DialogDescription>
-            Send this quotation to the client via email
+            Send this quotation to the client via email. The quotation will be
+            attached as a PDF.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -85,6 +95,18 @@ export const SendQuotationDialog = ({
               onChange={(e) => setEmail(e.target.value)}
               placeholder="client@example.com"
             />
+          </div>
+          <div className="text-sm text-muted-foreground">
+            <p>
+              <strong>Quotation:</strong> {quotation.quotationNumber}
+            </p>
+            <p>
+              <strong>Client:</strong> {quotation.client.name}
+            </p>
+            <p>
+              <strong>Valid Until:</strong>{" "}
+              {new Date(quotation.validUntil).toLocaleDateString()}
+            </p>
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -99,15 +121,3 @@ export const SendQuotationDialog = ({
     </Dialog>
   );
 };
-
-// Helper function to generate PDF URL
-async function generatePdfUrl(quotation: QuotationWithRelations) {
-  // You'll need to implement this based on your PDF generation logic
-  // This could involve:
-  // 1. Generating a PDF on the client side (like you're doing in handleDownloadPdf)
-  // 2. Uploading it to a storage service (S3, Firebase, etc.)
-  // 3. Returning the public URL
-
-  // For now, we'll return null and handle it in the API route
-  return null;
-}
