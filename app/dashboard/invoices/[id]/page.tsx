@@ -4,9 +4,10 @@ import Header from "./_components/Header";
 import InvoiceHeader from "./_components/Invoice-Hesder";
 import NoteTermsCard from "./_components/NoteTerms-Card";
 import InvoiceItems from "./_components/Invoice-Items";
-import InvoiceSummury from "./_components/Invoice-Summury";
+import InvoiceSummary from "./_components/Invoice-Summury";
+import InvoicePayments from "./_components/Invoice-Payments";
 import { UserPermission, UserRole } from "@prisma/client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react"; // Added 'use' import
 import { InvoiceProps } from "@/types/invoice";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
@@ -28,12 +29,16 @@ const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
 export default function InvoiceDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>; // params is now a Promise
 }) {
   const router = useRouter();
   const { userId } = useAuth();
   const [invoice, setInvoice] = useState<InvoiceProps | null>(null);
   const [loadingInvoice, setLoadingInvoice] = useState(true);
+
+  // Unwrap the params promise using React.use()
+  const unwrappedParams = use(params);
+  const invoiceId = unwrappedParams.id;
 
   const { data, isLoading } = useQuery({
     queryKey: ["user", userId],
@@ -70,7 +75,7 @@ export default function InvoiceDetailPage({
     const fetchInvoice = async () => {
       setLoadingInvoice(true);
       try {
-        const response = await fetch(`/api/invoices/${params.id}`);
+        const response = await fetch(`/api/invoices/${invoiceId}`);
 
         if (!response.ok) {
           throw new Error("Failed to fetch invoice");
@@ -85,10 +90,10 @@ export default function InvoiceDetailPage({
       }
     };
 
-    if (params.id) {
+    if (invoiceId) {
       fetchInvoice();
     }
-  }, [params.id]);
+  }, [invoiceId]); // Changed from params.id to invoiceId
 
   if (isLoading || loadingInvoice) {
     return <Loader />;
@@ -116,9 +121,16 @@ export default function InvoiceDetailPage({
 
         <InvoiceItems invoice={invoice} />
 
-        <NoteTermsCard notes={invoice.note} terms={invoice.paymentTerms} />
+        {/* Add Payments Section */}
+        <InvoicePayments invoice={invoice} />
 
-        <InvoiceSummury invoice={invoice} />
+        <NoteTermsCard
+          notes={invoice.note}
+          terms={invoice.terms}
+          paymentTerms={invoice.paymentTerms}
+        />
+
+        <InvoiceSummary invoice={invoice} />
       </div>
     </div>
   );

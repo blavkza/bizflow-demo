@@ -69,7 +69,7 @@ export default function CreateQuotationPage() {
   };
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto p-8">
       <div className="flex items-center gap-4 mb-6">
         <Button variant="outline" size="icon" asChild>
           <Link href="/dashboard/quotations">
@@ -79,7 +79,7 @@ export default function CreateQuotationPage() {
         <h1 className="text-2xl font-bold">Create New Quotation</h1>
       </div>
 
-      <div className="rounded-lg shadow-md overflow-hidden">
+      <div className="rounded-lg  overflow-hidden">
         <QuotationForm
           type="create"
           onCancel={handleCancel}

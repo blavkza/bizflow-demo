@@ -66,6 +66,7 @@ export async function POST(req: Request) {
       0
     );
 
+    // FIX: Calculate average tax rate as percentage
     const taxRate = subtotal > 0 ? (totalTax / subtotal) * 100 : 0;
 
     // Calculate discount properly
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
         },
       });
 
+      // Create quotation items with shop product links
       await prisma.quotationItem.createMany({
         data: itemsWithAmounts.map((item, index) => ({
           quotationId: quotation.id,
@@ -116,6 +118,7 @@ export async function POST(req: Request) {
           amount: item.amount,
           taxRate: item.taxRate,
           taxAmount: item.taxAmount,
+          shopProductId: item.shopProductId || null,
           sortOrder: index,
         })),
       });
@@ -123,7 +126,7 @@ export async function POST(req: Request) {
       await db.notification.create({
         data: {
           title: "New Quotation Created",
-          message: `Quotation ${quotationNumber} , has been created By ${creator.name}.`,
+          message: `Quotation ${quotationNumber} has been created by ${creator.name}.`,
           type: "QUOTATION",
           isRead: false,
           actionUrl: `/dashboard/quotations/${quotation.id}`,

@@ -145,7 +145,7 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
           <Separator className="my-6" />
 
           {/* Invoice Details */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">
                 Invoice Number
@@ -166,14 +166,6 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
               </Label>
               <div className="font-medium">
                 {new Date(invoice.dueDate).toLocaleDateString()}
-              </div>
-            </div>
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">
-                Payment Terms
-              </Label>
-              <div className="font-medium truncate">
-                {invoice?.paymentTerms || "N/A"}
               </div>
             </div>
           </div>

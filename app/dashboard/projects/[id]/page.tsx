@@ -247,14 +247,7 @@ export default function ProjectsDetailsPage({
         invoiceTotal={invoiceTotal}
       />
 
-      <div
-        className={cn(
-          "grid gap-4",
-          project.budget
-            ? "grid-cols-2 md:grid-cols-6"
-            : "grid-cols-1 md:grid-cols-4"
-        )}
-      >
+      <div className={cn("grid gap-4grid-cols-1 md:grid-cols-4")}>
         <StatsCard
           value={taskStats.total}
           label="Total Tasks"

@@ -83,7 +83,7 @@ export default function CreateInvoicePage() {
         <h1 className="text-2xl font-bold">Create New Invoice</h1>
       </div>
 
-      <div className=" rounded-lg shadow-md overflow-hidden">
+      <div className="  overflow-hidden">
         <InvoiceForm
           type="create"
           onCancel={handleCancel}

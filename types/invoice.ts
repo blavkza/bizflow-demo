@@ -4,6 +4,7 @@ import {
   InvoiceItem,
   InvoicePayment,
 } from "@prisma/client";
+import { RecurringInvoice as PrismaRecurringInvoice } from "@prisma/client";
 
 export interface Invoice {
   id: string;
@@ -14,6 +15,7 @@ export interface Invoice {
   dueDate: string;
   amount: number;
   status: InvoiceStatus;
+  discountType: string;
 }
 
 export interface InvoicesFilterTableProps {
@@ -31,6 +33,8 @@ export type FullInvoice = {
   client: Client;
   items: InvoiceItem[];
   payments: InvoicePayment[];
+  isRecurring?: boolean;
+  recurringId?: string;
   creator: {
     name: string;
     GeneralSetting: GeneralSetting | null;
@@ -73,11 +77,13 @@ export interface InvoiceProps {
   id: string;
   totalAmount: number;
   status: string;
+  description: string;
   invoiceNumber: string;
   issueDate: Date | string;
   dueDate: Date | string;
   paymentTerms?: string;
   note?: string;
+  terms?: string;
   items: Array<{
     id: string;
     description: string;
@@ -86,13 +92,46 @@ export interface InvoiceProps {
     amount: string;
     taxRate?: string | null;
     taxAmount?: string | null;
+    shopProductId?: string | null;
   }>;
-
+  payments?: Array<{
+    id: string;
+    amount: string;
+    method: string;
+    reference?: string;
+    notes?: string;
+    status: string;
+    paidAt?: string;
+  }>;
   amount: number;
   subtotal: number;
   taxAmount: number;
   taxRate: number;
   discountAmount?: number;
+  discountType?: string;
   pdfUrl?: string;
 }
-export type InvoiceStatus = "PAID" | "SENT" | "OVERDUE" | "DRAFT" | "CANCELLED";
+export type InvoiceStatus =
+  | "PAID"
+  | "SENT"
+  | "OVERDUE"
+  | "DRAFT"
+  | "CANCELLED"
+  | "PARTIALLY_PAID";
+
+export type RecurringInvoice = PrismaRecurringInvoice & {
+  client: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  user: {
+    name: string;
+  };
+  invoices: Array<{
+    id: string;
+    invoiceNumber: string;
+    issueDate: string;
+    totalAmount: number;
+  }>;
+};

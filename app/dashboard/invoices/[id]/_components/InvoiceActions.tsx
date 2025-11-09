@@ -1,10 +1,11 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
-import { Download, Send, Edit, Trash2 } from "lucide-react";
+import { Send, Edit, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { DeleteDialog } from "./DeleteDialog";
 import { InvoiceProps } from "@/types/invoice";
 import { useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -29,8 +30,6 @@ interface InvoiceActionsProps {
 
 export function InvoiceActions({
   invoice,
-  isGeneratingPdf,
-  onDownloadPdf,
   canEditInvoice,
   canDeleteInvoice,
   hasFullAccess,
@@ -76,16 +75,6 @@ export function InvoiceActions({
 
   return (
     <div className="flex items-center space-x-2">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onDownloadPdf}
-        disabled={isGeneratingPdf}
-        aria-label="Download invoice as PDF"
-      >
-        <Download className="mr-2 h-4 w-4" />
-        {isGeneratingPdf ? "Generating..." : "Download"}
-      </Button>
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" size="sm" aria-label="Send invoice">
@@ -124,22 +113,32 @@ export function InvoiceActions({
           </div>
         </DialogContent>
       </Dialog>
-      {(canEditInvoice || hasFullAccess) && (
-        <Button variant="outline" size="sm" asChild aria-label="Edit invoice">
-          <Link
-            href={`/dashboard/invoices/${invoice.id}/edit`}
-            className="flex items-center gap-2"
-          >
-            <Edit className="mr-2 h-4 w-4" /> Edit
-          </Link>
-        </Button>
+      {invoice.status === "DRAFT" && (
+        <>
+          {(canEditInvoice || hasFullAccess) && (
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              aria-label="Edit invoice"
+            >
+              <Link
+                href={`/dashboard/invoices/${invoice.id}/edit`}
+                className="flex items-center gap-2"
+              >
+                <Edit className="mr-2 h-4 w-4" /> Edit
+              </Link>
+            </Button>
+          )}
+
+          {(canDeleteInvoice || hasFullAccess) && (
+            <DeleteDialog
+              invoiceNumber={invoice.invoiceNumber}
+              invoiceId={invoice.id}
+            />
+          )}
+        </>
       )}
-      {(canDeleteInvoice || hasFullAccess) && (
-        <DeleteDialog
-          invoiceNumber={invoice.invoiceNumber}
-          invoiceId={invoice.id}
-        />
-      )}{" "}
     </div>
   );
 }

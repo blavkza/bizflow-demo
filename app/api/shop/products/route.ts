@@ -14,7 +14,6 @@ export async function GET() {
       include: {
         stockMovements: {
           orderBy: { createdAt: "desc" },
-          take: 5,
         },
         productDocuments: {
           orderBy: { createdAt: "desc" },

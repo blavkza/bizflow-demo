@@ -71,7 +71,14 @@ export async function POST(request: NextRequest) {
       deliveryInstructions,
     } = body;
 
-    const saleNumber = `SALE-${Date.now()}`;
+    const lastSale = await db.sale.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { saleNumber: true },
+    });
+
+    const saleNumber = lastSale
+      ? `SALE-${parseInt(lastSale.saleNumber.split("-")[1]) + 1}`
+      : "SALE-0001";
 
     // Increase transaction timeout to 30 seconds
     const result = await db.$transaction(
@@ -156,9 +163,17 @@ export async function POST(request: NextRequest) {
 
         await Promise.all(stockUpdates);
 
+        const lastOrder = await db.order.findFirst({
+          orderBy: { createdAt: "desc" },
+          select: { orderNumber: true },
+        });
+
+        const orderNumber = lastOrder
+          ? `ORDER-${parseInt(lastOrder.orderNumber.split("-")[1]) + 1}`
+          : "ORDER-0001";
+
         // Create order and order items if it's a delivery
         if (isDelivery) {
-          const orderNumber = `ORDER-${Date.now()}`;
           const order = await tx.order.create({
             data: {
               orderNumber,

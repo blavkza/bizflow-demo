@@ -73,6 +73,7 @@ export type QuotationFormValues = {
     quantity: number;
     unitPrice: number;
     taxRate?: number | null;
+    shopProductId?: string;
   }[];
   discountType?: "AMOUNT" | "PERCENTAGE" | null;
   discountAmount?: number | null;

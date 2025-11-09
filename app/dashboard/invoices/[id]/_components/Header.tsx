@@ -1,16 +1,15 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, Download } from "lucide-react";
 import { InvoiceProps, InvoiceStatus } from "@/types/invoice";
 import { StatusBadge } from "./StatusBadge";
 import { InvoiceActions } from "./InvoiceActions";
-import { InvoicePDF } from "./InvoicePDF";
 import { useRouter } from "next/navigation";
+import { InvoiceReportGenerator } from "@/lib/invoiceReportGenerator";
+import { useCompanyInfo } from "@/hooks/use-company-info";
+import { toast } from "sonner";
 
 interface HeaderProps {
   invoice: InvoiceProps;
@@ -25,71 +24,35 @@ export default function Header({
   canEditInvoice,
   hasFullAccess,
 }: HeaderProps) {
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [logoLoaded, setLogoLoaded] = useState(false);
-  const invoiceRef = useRef<HTMLDivElement>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const router = useRouter();
+  const { companyInfo } = useCompanyInfo();
 
-  useEffect(() => {
-    if (invoice.creator.GeneralSetting[0]?.logo) {
-      const img = new Image();
-      img.src = invoice.creator.GeneralSetting[0].logo;
-      img.onload = () => setLogoLoaded(true);
-    }
-  }, [invoice.creator.GeneralSetting]);
-
-  const handleDownloadPdf = async () => {
-    if (!invoiceRef.current || !logoLoaded) return;
-
-    setIsGeneratingPdf(true);
+  const handlePrintInvoice = async () => {
+    setIsGenerating(true);
     try {
-      // Make the hidden div temporarily visible for capture
-      invoiceRef.current.style.position = "fixed";
-      invoiceRef.current.style.top = "0";
-      invoiceRef.current.style.left = "0";
-      invoiceRef.current.style.zIndex = "9999";
-      invoiceRef.current.style.visibility = "visible";
+      const invoiceReportHTML =
+        InvoiceReportGenerator.generateInvoiceReportHTML(invoice, companyInfo);
 
-      // Wait for final rendering
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(invoiceReportHTML);
+        printWindow.document.close();
+        printWindow.onload = () => {
+          printWindow.focus();
+          printWindow.print();
+        };
 
-      const canvas = await html2canvas(invoiceRef.current, {
-        scale: 2,
-        logging: true,
-        useCORS: true,
-        allowTaint: true,
-        scrollX: 0,
-        scrollY: -window.scrollY,
-        windowWidth: invoiceRef.current.scrollWidth,
-        windowHeight: invoiceRef.current.scrollHeight,
-        backgroundColor: "#ffffff",
-      });
-
-      if (!canvas) throw new Error("Canvas rendering failed");
-
-      const imgData = canvas.toDataURL("image/png", 1.0);
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      // Calculate dimensions
-      const imgWidth = 190; // A4 width in mm (210 - margins)
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      // Add image to PDF
-      pdf.addImage(imgData, "PNG", 10, 10, imgWidth, imgHeight);
-      pdf.save(`${invoice.invoiceNumber}.pdf`);
-    } catch (error) {
-      console.error("PDF generation error:", error);
-      alert("Failed to generate PDF. Please try again or contact support.");
-    } finally {
-      if (invoiceRef.current) {
-        invoiceRef.current.style.position = "absolute";
-        invoiceRef.current.style.visibility = "hidden";
+        // Optional: Close the window after printing
+        printWindow.onafterprint = () => {
+          printWindow.close();
+        };
       }
-      setIsGeneratingPdf(false);
+    } catch (error) {
+      console.error("Error printing invoice:", error);
+      toast.error("Failed to generate invoice report");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -115,16 +78,27 @@ export default function Header({
             </div>
           </div>
         </div>
-        <InvoiceActions
-          invoice={invoice}
-          isGeneratingPdf={isGeneratingPdf}
-          onDownloadPdf={handleDownloadPdf}
-          canEditInvoice={canEditInvoice}
-          canDeleteInvoice={canDeleteInvoice}
-          hasFullAccess={hasFullAccess}
-        />
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrintInvoice}
+            disabled={isGenerating}
+            aria-label="Print invoice"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {isGenerating ? "Generating..." : "Print"}
+          </Button>
+          <InvoiceActions
+            invoice={invoice}
+            isGeneratingPdf={isGenerating}
+            onDownloadPdf={handlePrintInvoice}
+            canEditInvoice={canEditInvoice}
+            canDeleteInvoice={canDeleteInvoice}
+            hasFullAccess={hasFullAccess}
+          />
+        </div>
       </div>
-      <InvoicePDF invoice={invoice} forwardedRef={invoiceRef} />
     </div>
   );
 }

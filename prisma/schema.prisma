@@ -57,6 +57,7 @@ model User {
   Order               Order[]
   Vendor              Vendor[]
   Expense             Expense[]
+  recurringInvoices   RecurringInvoice[]
 
   @@map("users")
 }
@@ -686,13 +687,14 @@ model Client {
   updatedAt DateTime @updatedAt
 
   // Relations
-  invoices     Invoice[]
-  transactions Transaction[]
-  documents    Document[]
-  projects     Project[]
-  quotations   Quotation[]
-  Note         Note[]
-  toolRentals  ToolRental[]
+  invoices          Invoice[]
+  transactions      Transaction[]
+  documents         Document[]
+  projects          Project[]
+  quotations        Quotation[]
+  Note              Note[]
+  toolRentals       ToolRental[]
+  recurringInvoices RecurringInvoice[]
 
   @@index([status])
   @@index([type])
@@ -1058,7 +1060,7 @@ model Invoice {
   // Invoice Details
   description    String?
   taxAmount      Decimal?      @db.Decimal(15, 2)
-  taxRate        Decimal?      @db.Decimal(5, 4)
+  taxRate        Decimal?      @db.Decimal(5, 2)
   discountAmount Decimal?      @db.Decimal(15, 2)
   discountType   DiscountType? @default(AMOUNT)
   totalAmount    Decimal       @db.Decimal(15, 2)
@@ -1066,6 +1068,7 @@ model Invoice {
   // Terms
   paymentTerms String?
   notes        String?
+  terms        String?
 
   // Relations
   createdBy String
@@ -1104,12 +1107,51 @@ model InvoiceItem {
   unitPrice   Decimal  @db.Decimal(15, 2)
   amount      Decimal  @db.Decimal(15, 2)
   currency    String   @default("ZAR")
-  taxRate     Decimal? @db.Decimal(5, 4)
+  taxRate     Decimal? @db.Decimal(5, 2)
   taxAmount   Decimal? @db.Decimal(15, 2)
+
+  shopProductId String?
+  shopProduct   ShopProduct? @relation(fields: [shopProductId], references: [id])
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@map("invoice_items")
+}
+
+model RecurringInvoice {
+  id        String             @id @default(cuid())
+  clientId  String
+  frequency RecurringFrequency
+  interval  Int                @default(1)
+  startDate DateTime
+  endDate   DateTime?
+  nextDate  DateTime
+  status    RecurringStatus    @default(ACTIVE)
+
+  // Template data (stores the invoice template)
+  description    String?
+  items          Json
+  currency       String        @default("ZAR")
+  taxRate        Decimal?      @db.Decimal(5, 2)
+  discountAmount Decimal?      @db.Decimal(15, 2)
+  discountType   DiscountType? @default(AMOUNT)
+  paymentTerms   String?
+  notes          String?
+
+  // Metadata
+  totalInvoicesGenerated Int       @default(0)
+  lastGeneratedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  client   Client    @relation(fields: [clientId], references: [id])
+  creator  String
+  user     User      @relation(fields: [creator], references: [id])
+  invoices Invoice[]
+
+  @@map("recurring_invoices")
 }
 
 model InvoicePayment {
@@ -1129,27 +1171,6 @@ model InvoicePayment {
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@map("invoice_payments")
-}
-
-model RecurringInvoice {
-  id        String             @id @default(cuid())
-  clientId  String
-  frequency RecurringFrequency
-  interval  Int                @default(1)
-  startDate DateTime
-  endDate   DateTime?
-  nextDate  DateTime
-  isActive  Boolean            @default(true)
-
-  // Template
-  template Json
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  invoices Invoice[]
-
-  @@map("recurring_invoices")
 }
 
 // ============================================================================
@@ -1173,7 +1194,7 @@ model Quotation {
   title          String?
   description    String?
   taxAmount      Decimal?      @db.Decimal(15, 2)
-  taxRate        Decimal?      @db.Decimal(5, 4)
+  taxRate        Decimal?      @db.Decimal(5, 2)
   discountAmount Decimal?      @db.Decimal(15, 2)
   discountType   DiscountType? @default(AMOUNT)
   totalAmount    Decimal       @db.Decimal(15, 2)
@@ -1222,10 +1243,13 @@ model QuotationItem {
   unitPrice   Decimal  @db.Decimal(15, 2)
   amount      Decimal  @db.Decimal(15, 2)
   currency    String   @default("ZAR")
-  taxRate     Decimal? @db.Decimal(5, 4)
+  taxRate     Decimal? @db.Decimal(5, 2)
   taxAmount   Decimal? @db.Decimal(15, 2)
   notes       String?
   sortOrder   Int      @default(0)
+
+  shopProductId String?
+  shopProduct   ShopProduct? @relation(fields: [shopProductId], references: [id])
 
   quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
 
@@ -1462,6 +1486,8 @@ model ShopProduct {
   productDocuments  ProductDocument[]
   ProductCategory   ProductCategory?  @relation(fields: [productCategoryId], references: [id])
   productCategoryId String?
+  quotationItems    QuotationItem[]
+  invoiceItems      InvoiceItem[]
 
   @@map("shopProducts")
 }
@@ -1670,8 +1696,8 @@ model RefundItem {
 model Customer {
   id        String  @id @default(cuid())
   firstName String
-  lastName  String
-  email     String  @unique
+  lastName  String?
+  email     String? @unique
   phone     String?
 
   // Address
@@ -2531,6 +2557,13 @@ enum InvoiceStatus {
   REFUNDED
 }
 
+enum RecurringStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  COMPLETED
+}
+
 enum DiscountType {
   AMOUNT
   PERCENTAGE
@@ -2546,6 +2579,7 @@ enum PaymentMethod {
   DEBIT_CARD
   CRYPTOCURRENCY
   STORE_CREDIT
+  INVOICE
 }
 
 enum InvoicePaymentStatus {

@@ -1,3 +1,4 @@
+// components/email/invoice-email.tsx
 import {
   Html,
   Head,
@@ -29,6 +30,15 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
   const taxAmount = Number(invoice.taxAmount) || 0;
   const discount = Number(invoice.discountAmount) || 0;
   const total = subtotal + taxAmount - discount;
+
+  // Calculate payment statistics
+  const totalPaid =
+    invoice.payments?.reduce((sum, payment) => {
+      return sum + Number(payment.amount);
+    }, 0) || 0;
+
+  const remainingBalance = total - totalPaid;
+  const paymentProgress = total > 0 ? (totalPaid / total) * 100 : 0;
 
   return (
     <Html>
@@ -66,6 +76,44 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
           }
           .border-gray-200 {
             border-color: #E5E7EB;
+          }
+          .payment-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+          }
+          .stat-card {
+            background: white;
+            border: 1px solid #E5E7EB;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            text-align: center;
+          }
+          .stat-value {
+            font-size: 1rem;
+            font-weight: bold;
+            margin-bottom: 0.25rem;
+          }
+          .stat-label {
+            font-size: 0.625rem;
+            color: #6B7280;
+          }
+          .amount-paid { color: #065F46; }
+          .amount-remaining { color: #DC2626; }
+          .amount-total { color: #1E40AF; }
+          .progress-bar {
+            width: 100%;
+            height: 1rem;
+            background-color: #E5E7EB;
+            border-radius: 0.5rem;
+            margin: 0.5rem 0;
+            overflow: hidden;
+          }
+          .progress-fill {
+            height: 100%;
+            background-color: ${accentColor};
+            border-radius: 0.5rem;
           }
         `}</style>
       </Head>
@@ -257,52 +305,68 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
                     Paid on {new Date(invoice.issueDate).toLocaleDateString()}
                   </Text>
                 )}
-
-                <div style={{ marginTop: "1rem" }}>
-                  <Text
-                    style={{
-                      fontSize: "0.75rem",
-                      fontWeight: 700,
-                      marginBottom: "0.25rem",
-                      color: "#374151",
-                    }}
-                  >
-                    Payment Terms
-                  </Text>
-                  {invoice.paymentTerms && (
-                    <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                      {invoice.paymentTerms}
-                    </Text>
-                  )}
-                </div>
-
-                <div style={{ marginTop: "0.5rem" }}>
-                  {invoice.creator.GeneralSetting[0]?.bankName && (
-                    <Text style={{ fontSize: "0.75rem", fontWeight: 700 }}>
-                      {invoice.creator.GeneralSetting[0]?.bankName}
-                    </Text>
-                  )}
-                  {invoice.creator.GeneralSetting[0]?.bankAccount && (
-                    <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                      {invoice.creator.GeneralSetting[0]?.bankAccount}
-                    </Text>
-                  )}
-                </div>
-
-                {invoice.creator.GeneralSetting[0]?.bankName2 && (
-                  <div style={{ marginTop: "0.25rem" }}>
-                    <Text style={{ fontSize: "0.75rem", fontWeight: 700 }}>
-                      {invoice.creator.GeneralSetting[0]?.bankName2}
-                    </Text>
-                    {invoice.creator.GeneralSetting[0]?.bankAccount2 && (
-                      <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                        {invoice.creator.GeneralSetting[0]?.bankAccount2}
-                      </Text>
-                    )}
-                  </div>
-                )}
               </Column>
             </Row>
+          </Section>
+
+          {/* Payment Statistics */}
+          <Section style={{ marginBottom: "0.5rem" }}>
+            <div className="payment-stats">
+              <div className="stat-card">
+                <div className="stat-value amount-total">
+                  R{total.toLocaleString()}
+                </div>
+                <div className="stat-label">Total Amount</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value amount-paid">
+                  R{totalPaid.toLocaleString()}
+                </div>
+                <div className="stat-label">Amount Paid</div>
+              </div>
+              <div className="stat-card">
+                <div className="stat-value amount-remaining">
+                  R{remainingBalance.toLocaleString()}
+                </div>
+                <div className="stat-label">Amount Remaining</div>
+              </div>
+            </div>
+
+            {/* Payment Progress */}
+            <div style={{ marginBottom: "1rem" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginBottom: "0.25rem",
+                  fontSize: "0.75rem",
+                }}
+              >
+                <span>Payment Progress</span>
+                <span>
+                  <strong>
+                    ${total > 0 ? paymentProgress.toFixed(1) : "0.0"}% Complete
+                  </strong>
+                </span>
+              </div>
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${total > 0 ? paymentProgress : 0}%` }}
+                ></div>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: "0.625rem",
+                  color: "#6B7280",
+                }}
+              >
+                <span>R${totalPaid.toLocaleString()} Paid</span>
+                <span>R${remainingBalance.toLocaleString()} Remaining</span>
+              </div>
+            </div>
           </Section>
 
           {/* Items Table */}
@@ -484,6 +548,43 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
             </div>
           </Section>
 
+          {/* Payment Instructions */}
+          <Section
+            style={{
+              marginTop: "1rem",
+              padding: "0.75rem",
+              backgroundColor: secondaryColor,
+              borderRadius: "0.25rem",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: "0.75rem",
+                fontWeight: 700,
+                marginBottom: "0.5rem",
+              }}
+            >
+              PAYMENT INSTRUCTIONS
+            </Text>
+            {invoice.paymentTerms && (
+              <Text style={{ fontSize: "0.75rem", marginBottom: "0.5rem" }}>
+                <strong>Terms:</strong> {invoice.paymentTerms}
+              </Text>
+            )}
+            {invoice.creator.GeneralSetting[0]?.bankName && (
+              <Text style={{ fontSize: "0.75rem" }}>
+                <strong>{invoice.creator.GeneralSetting[0]?.bankName}:</strong>{" "}
+                {invoice.creator.GeneralSetting[0]?.bankAccount}
+              </Text>
+            )}
+            {invoice.creator.GeneralSetting[0]?.bankName2 && (
+              <Text style={{ fontSize: "0.75rem" }}>
+                <strong>{invoice.creator.GeneralSetting[0]?.bankName2}:</strong>{" "}
+                {invoice.creator.GeneralSetting[0]?.bankAccount2}
+              </Text>
+            )}
+          </Section>
+
           {/* Footer */}
           <Section style={{ marginTop: "1rem" }}>
             {invoice.note && (
@@ -515,6 +616,26 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
               }}
             >
               Thank you for your business!
+            </Text>
+          </Section>
+
+          {/* Attachment Notice */}
+          <Section
+            style={{
+              marginTop: "1rem",
+              padding: "0.75rem",
+              backgroundColor: "#EFF6FF",
+              borderRadius: "0.25rem",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: "0.75rem",
+                color: "#1E40AF",
+                textAlign: "center",
+              }}
+            >
+              📎 A detailed invoice PDF is attached to this email
             </Text>
           </Section>
         </Container>
