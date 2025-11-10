@@ -9,13 +9,13 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const type = formData.get("type") as string;
     const clientId = formData.get("clientId") as string | null;
     const employeeId = formData.get("employeeId") as string | null;
     const settingsId = formData.get("settingsId") as string | null;
+    const freelancerId = formData.get("freelancerId") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -59,12 +59,15 @@ export async function POST(request: Request) {
           ? employeeId
           : type === "settings"
             ? settingsId
-            : userId;
+            : type === "freelancer"
+              ? freelancerId
+              : userId;
 
     if (
       (type === "client" && !clientId) ||
       (type === "employee" && !employeeId) ||
-      (type === "settings" && !settingsId)
+      (type === "settings" && !settingsId) ||
+      (type === "freelancer" && !freelancerId)
     ) {
       return NextResponse.json(
         { error: `Missing ${type} ID` },
@@ -111,6 +114,11 @@ export async function POST(request: Request) {
       await db.generalSetting.update({
         where: { id: settingsId },
         data: { logo: cloudinaryData.secure_url },
+      });
+    } else if (type === "freelancer" && freelancerId) {
+      await db.freeLancer.update({
+        where: { id: freelancerId },
+        data: { avatar: cloudinaryData.secure_url },
       });
     } else {
       await db.user.update({

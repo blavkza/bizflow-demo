@@ -204,13 +204,58 @@ export const employeeSchema = z.object({
   workingDays: z.array(z.string()).default([]),
 });
 
+export type employeeSchemaType = z.infer<typeof employeeSchema>;
+
+export const freelancerSchema = z.object({
+  firstName: z.string().min(1, { message: "First name is required" }),
+  lastName: z.string().min(1, { message: "Last name is required" }),
+  phone: z.string().min(1, { message: "Phone number is required" }),
+  email: z
+    .string()
+    .email({ message: "Invalid email address!" })
+    .optional()
+    .or(z.literal("")),
+  position: z.string().min(1, { message: "Position is required" }),
+  departmentId: z.string().min(1, { message: "Department is required" }),
+  salary: z
+    .union([
+      z
+        .string()
+        .min(1, { message: "Salary is required" })
+        .refine((val) => !isNaN(Number(val)), {
+          message: "Must be a valid number",
+        }),
+      z.number().min(0, { message: "Salary must be positive" }),
+    ])
+    .transform((val) => Number(val)),
+  hireDate: z.date({ required_error: "Hire date is required" }),
+  status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
+  address: z.string().min(1, { message: "Address is required" }),
+  scheduledKnockIn: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  scheduledKnockOut: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  workingDays: z.array(z.string()).default([]),
+  reliable: z.boolean().optional(),
+});
+
+export type freeLancerSchemaType = z.infer<typeof folderSchema>;
+
 export const projectInvoiceSchema = z.object({
   invoiceId: z.string().min(1, { message: "invoiceId is required!" }),
 });
 
 export type ProjectInvoiceSchemaType = z.infer<typeof projectInvoiceSchema>;
-
-export type employeeSchemaType = z.infer<typeof employeeSchema>;
 
 export const CategorySchema = z.object({
   name: z.string().min(1, { message: "Name is required!" }),

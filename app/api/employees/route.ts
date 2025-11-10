@@ -39,12 +39,13 @@ export async function POST(req: Request) {
       workingDays,
     } = body;
 
-    function generateClientNumber() {
-      const randomSix = Math.floor(100000 + Math.random() * 900000);
-      return `EMP-${randomSix}`;
-    }
-
-    const employeeNumber = generateClientNumber();
+    const lastEmployeer = await db.employee.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { employeeNumber: true },
+    });
+    const employeeNumber = lastEmployeer
+      ? `EMP-${parseInt(lastEmployeer?.employeeNumber.split("-")[1]) + 1}`
+      : "EMP-2025001";
 
     const employee = await db.employee.create({
       data: {

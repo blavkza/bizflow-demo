@@ -221,19 +221,19 @@ model Department {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  updater String?
+  updater   String?
 
   // Relations
-  manager   User?         @relation("DepartmentManager", fields: [managerId], references: [id])
-  parent    Department?   @relation("DepartmentHierarchy", fields: [parentId], references: [id])
-  children  Department[]  @relation("DepartmentHierarchy")
-  employees Employee[]    @relation("DepartmentEmployees")
-  targets   Target[]
-  budgets   Budget[]
-  expenses  Transaction[]
-  Quotation Quotation[]
-  Invoice   Invoice[]
+  manager     User?         @relation("DepartmentManager", fields: [managerId], references: [id])
+  parent      Department?   @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children    Department[]  @relation("DepartmentHierarchy")
+  employees   Employee[]    @relation("DepartmentEmployees")
+  freelancers FreeLancer[]  @relation("DepartmentFreelancers")
+  targets     Target[]
+  budgets     Budget[]
+  expenses    Transaction[]
+  quotations  Quotation[]
+  invoices    Invoice[]
 
   @@map("departments")
 }
@@ -319,6 +319,87 @@ model Employee {
   @@map("employees")
 }
 
+model FreeLancer {
+  id               String           @id @default(cuid())
+  freeLancerNumber String           @unique
+  firstName        String
+  lastName         String
+  email            String?          @unique
+  phone            String?
+  avatar           String?
+  position         String
+  departmentId     String?
+  salary           Decimal          @db.Decimal(15, 2)
+  currency         String           @default("ZAR")
+  hireDate         DateTime
+  terminationDate  DateTime?
+  status           FreeLancerStatus @default(ACTIVE)
+  reliable         Boolean?
+
+  // Personal Information
+  idNumber      String?
+  taxNumber     String?
+  nationality   String?
+  maritalStatus MaritalStatus?
+
+  // Address Information
+  address    String?
+  city       String?
+  province   String?
+  postalCode String?
+  country    String  @default("South Africa")
+
+  // Emergency Contact
+  emergencyName     String?
+  emergencyPhone    String?
+  emergencyRelation String?
+  emergencyAddress  String?
+
+  // Banking Information
+  bankName      String?
+  accountNumber String?
+  branchCode    String?
+  accountType   String?
+
+  // Employment Details
+  contractType ContractType?
+  workSchedule String?
+  probationEnd DateTime?
+
+  scheduledKnockIn  String?
+  scheduledKnockOut String?
+  workingDays       String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String?
+
+  // Leave Allocations
+  annualLeaveDays    Int @default(21)
+  sickLeaveDays      Int @default(30)
+  studyLeaveDays     Int @default(5)
+  maternityLeaveDays Int @default(120)
+  paternityLeaveDays Int @default(10)
+  unpaidLeaveDays    Int @default(0)
+
+  // Relations
+  department        Department?        @relation("DepartmentFreelancers", fields: [departmentId], references: [id])
+  payments          Payment[]
+  documents         Document[]
+  targets           Target[]
+  kpiResults        KpiResult[]
+  timeEntries       TimeEntry[]
+  leaveRequests     LeaveRequest[]
+  notes             Note[]
+  attendanceRecords AttendanceRecord[]
+  warnings          Warning[]
+  tasks             Task[]
+
+  @@index([departmentId])
+  @@index([status])
+  @@map("freelancers")
+}
+
 model AttendanceRecord {
   id         String    @id @default(cuid())
   employeeId String
@@ -351,8 +432,10 @@ model AttendanceRecord {
   status        AttendanceStatus @default(PRESENT)
   notes         String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
+  freeLancerId String?
 
   @@unique([employeeId, date])
   @@map("attendance_records")
@@ -371,8 +454,10 @@ model Warning {
   resolvedAt      DateTime?
   resolutionNotes String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
+  freeLancerId String?
 
   @@map("warnings")
 }
@@ -397,8 +482,10 @@ model LeaveRequest {
   // Relations
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
+  freeLancerId String?
 
   @@index([employeeId])
   @@index([status])
@@ -801,16 +888,18 @@ model Task {
   updatedAt DateTime @updatedAt
 
   // Relations
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignees Employee[] @relation("TaskAssignments")
-  comment   comment[]
-  documents Document[]
-
-  timeEntries TimeEntry[]
-  Subtask     Subtask[]
+  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignees    Employee[]  @relation("TaskAssignments")
+  freelancer   FreeLancer? @relation(fields: [freelancerId], references: [id])
+  freelancerId String?
+  comments     comment[]
+  documents    Document[]
+  timeEntries  TimeEntry[]
+  subtasks     Subtask[]
 
   @@index([projectId])
   @@index([status])
+  @@index([freelancerId])
   @@map("tasks")
 }
 
@@ -854,10 +943,12 @@ model Document {
   transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   vender      Vendor?      @relation(fields: [venderId], references: [id], onDelete: Cascade)
 
-  Project Project? @relation(fields: [projectId], references: [id])
-  folder  Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  Task    Task?    @relation(fields: [taskId], references: [id])
-  taskId  String?
+  Project      Project?    @relation(fields: [projectId], references: [id])
+  folder       Folder?     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  Task         Task?       @relation(fields: [taskId], references: [id])
+  taskId       String?
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
+  freeLancerId String?
 
   @@index([type])
   @@index([employeeId])
@@ -903,11 +994,13 @@ model Note {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  employee    Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  client      Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-  Project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  folder      Folder?      @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  employee     Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  transaction  Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  Project      Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  folder       Folder?      @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  freeLancer   FreeLancer?  @relation(fields: [freeLancerId], references: [id])
+  freeLancerId String?
 
   @@index([employeeId])
   @@index([clientId])
@@ -963,9 +1056,11 @@ model TimeEntry {
   updatedAt DateTime @updatedAt
 
   // Relations
-  employee Employee @relation(fields: [employeeId], references: [id])
-  project  Project? @relation(fields: [projectId], references: [id])
-  task     Task?    @relation(fields: [taskId], references: [id])
+  employee     Employee    @relation(fields: [employeeId], references: [id])
+  project      Project?    @relation(fields: [projectId], references: [id])
+  task         Task?       @relation(fields: [taskId], references: [id])
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
+  freeLancerId String?
 
   @@index([employeeId])
   @@index([projectId])
@@ -1749,9 +1844,11 @@ model Payment {
 
   transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
-  employee  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  Payroll   Payroll? @relation(fields: [payrollId], references: [id])
-  payrollId String?
+  employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  Payroll      Payroll?    @relation(fields: [payrollId], references: [id])
+  payrollId    String?
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
+  freeLancerId String?
 
   @@index([employeeId])
   @@index([payDate])
@@ -1969,10 +2066,12 @@ model Target {
   updatedAt DateTime @updatedAt
 
   // Relations
-  employee   Employee?      @relation(fields: [employeeId], references: [id])
-  department Department?    @relation(fields: [departmentId], references: [id])
-  updates    TargetUpdate[]
-  kpis       Kpi[]
+  employee     Employee?      @relation(fields: [employeeId], references: [id])
+  department   Department?    @relation(fields: [departmentId], references: [id])
+  updates      TargetUpdate[]
+  kpis         Kpi[]
+  freeLancer   FreeLancer?    @relation(fields: [freeLancerId], references: [id])
+  freeLancerId String?
 
   @@index([employeeId])
   @@index([departmentId])
@@ -2026,8 +2125,10 @@ model KpiResult {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  kpi      Kpi       @relation(fields: [kpiId], references: [id], onDelete: Cascade)
-  employee Employee? @relation(fields: [employeeId], references: [id])
+  kpi          Kpi         @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  employee     Employee?   @relation(fields: [employeeId], references: [id])
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
+  freeLancerId String?
 
   @@unique([kpiId, employeeId, period])
   @@index([kpiId])
@@ -2426,7 +2527,15 @@ enum EmployeeStatus {
   ACTIVE
   INACTIVE
   TERMINATED
-  ON_LEAVE
+  OFF_DUTY
+  PROBATION
+}
+
+enum FreeLancerStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+  OFF_DUTY
   PROBATION
 }
 
@@ -2700,6 +2809,15 @@ enum NotificationType {
   TRANSACTION
   CATEGORY
   EMPLOYEE
+  FREELANCER
+  ATTENDANCE
+  LEAVE
+  WARNING
+  ORDER
+  SALE
+  REFUNDED
+  TOOLS
+  RANTAL
   DEPARTMENT
   BUDGET
   TARGET
