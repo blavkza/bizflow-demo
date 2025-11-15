@@ -17,9 +17,9 @@ interface FreelancersPageWrapperProps {
 }
 
 export default function FreelancersPageWrapper({
-  freelancers: initialFreelancers = [], // Provide default empty array
-  departments = [], // Provide default empty array
-  initialStatuses = [], // Provide default empty array
+  freelancers: initialFreelancers = [],
+  departments = [],
+  initialStatuses = [],
   fetchFreelancers,
   hasFullAccess,
   canCreateFreelancers,
@@ -30,10 +30,8 @@ export default function FreelancersPageWrapper({
     useState("All Departments");
   const [selectedStatus, setSelectedStatus] = useState("All Statuses");
 
-  // Safe filtering with null checks
   const filteredFreelancers = (initialFreelancers || []).filter(
     (freelancer) => {
-      // Check if freelancer exists and has required properties
       if (!freelancer) return false;
 
       const fullName =

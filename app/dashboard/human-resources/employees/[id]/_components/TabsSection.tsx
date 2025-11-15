@@ -25,6 +25,8 @@ import { format } from "date-fns";
 import { PaymentStatus, PaymentType } from "@prisma/client";
 import axios from "axios";
 import { formatCurrency } from "@/lib/formatters";
+import { HealthSafetyCard } from "./HealthSafetyCard";
+import { DocumentsTab } from "./DocumentsTab";
 
 export type TabsSectionProps = {
   employee: EmployeeWithDetails;
@@ -135,14 +137,17 @@ export default function TabsSection({
   return (
     <div className="p-4">
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid grid-cols-2 w-full max-w-xs">
+        <TabsList className="grid grid-cols-3 w-full max-w-xs">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className=" gap-6">
             <div className="lg:col-span-2 space-y-6">
+              <EmploymentDetailsCard employee={employee} />
+
               <ContactCard
                 employee={employee}
                 canEditEmployees={canEditEmployees}
@@ -155,14 +160,19 @@ export default function TabsSection({
                 hasFullAccess={hasFullAccess}
                 fetchEmployee={fetchEmployee}
               />
+              <HealthSafetyCard
+                employee={employee}
+                canEditEmployees={canEditEmployees}
+                hasFullAccess={hasFullAccess}
+                fetchEmployee={fetchEmployee}
+              />
             </div>
             <div className="space-y-6">
-              <EmploymentDetailsCard employee={employee} />
-              <QuickActionsCard employee={employee} />
+              {/*               <QuickActionsCard employee={employee} />
+               */}{" "}
             </div>
           </div>
         </TabsContent>
-
         <TabsContent value="payments" className="space-y-4">
           <Card className="border-none shadow-none">
             <CardHeader className="px-4">
@@ -254,6 +264,14 @@ export default function TabsSection({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="documents" className="space-y-4">
+          <DocumentsTab
+            employee={employee}
+            fetchEmployee={fetchEmployee}
+            hasFullAccess={hasFullAccess}
+            canEditEmployees={canEditEmployees}
+          />
         </TabsContent>
       </Tabs>
     </div>

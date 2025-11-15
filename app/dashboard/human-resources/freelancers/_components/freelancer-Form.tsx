@@ -337,7 +337,7 @@ export default function FreeLancerForm({
             name="hireDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Hire Date</FormLabel>
+                <FormLabel>Commencement date</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>

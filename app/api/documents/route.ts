@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     const entityType = formData.get("entityType") as
       | "employee"
       | "client"
+      | "freeLancer"
       | "transaction"
       | "Project"
       | "vender"
@@ -162,7 +163,6 @@ export async function POST(request: Request) {
   }
 }
 
-// GET endpoint remains unchanged from your original
 export async function GET(request: Request) {
   try {
     const { userId } = await auth();
@@ -173,6 +173,7 @@ export async function GET(request: Request) {
     const clientId = searchParams.get("clientId");
     const employeeId = searchParams.get("employeeId");
     const transactionId = searchParams.get("transactionId");
+    const freelancerId = searchParams.get("transactionId");
 
     if (!clientId && !employeeId && !transactionId) {
       return NextResponse.json(
@@ -185,6 +186,7 @@ export async function GET(request: Request) {
     if (clientId) where.clientId = clientId;
     if (employeeId) where.employeeId = employeeId;
     if (transactionId) where.transactionId = transactionId;
+    if (freelancerId) where.freelancerId = freelancerId;
 
     const documents = await db.document.findMany({
       where,
@@ -193,6 +195,7 @@ export async function GET(request: Request) {
         client: { select: { name: true } },
         employee: { select: { firstName: true, lastName: true } },
         transaction: { select: { id: true } },
+        freeLancer: { select: { id: true } },
       },
     });
 

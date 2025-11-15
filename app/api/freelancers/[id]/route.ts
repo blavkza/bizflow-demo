@@ -29,6 +29,19 @@ export async function GET(
           },
         },
 
+        documents: {
+          select: {
+            id: true,
+            name: true,
+            originalName: true,
+            type: true,
+            url: true,
+            size: true,
+            mimeType: true,
+            createdAt: true,
+          },
+        },
+
         payments: {
           select: {
             id: true,
@@ -38,6 +51,7 @@ export async function GET(
             status: true,
             description: true,
           },
+
           orderBy: {
             payDate: "desc",
           },

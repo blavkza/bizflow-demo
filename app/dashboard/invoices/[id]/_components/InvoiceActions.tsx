@@ -113,8 +113,9 @@ export function InvoiceActions({
           </div>
         </DialogContent>
       </Dialog>
-      {invoice.status === "DRAFT" && (
+      {invoice.status !== "PAID" && (
         <>
+          {" "}
           {(canEditInvoice || hasFullAccess) && (
             <Button
               variant="outline"
@@ -130,7 +131,11 @@ export function InvoiceActions({
               </Link>
             </Button>
           )}
+        </>
+      )}
 
+      {invoice.status === "DRAFT" && (
+        <>
           {(canDeleteInvoice || hasFullAccess) && (
             <DeleteDialog
               invoiceNumber={invoice.invoiceNumber}

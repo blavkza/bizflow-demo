@@ -1,8 +1,7 @@
-// StatsCard.tsx
 "use client";
 import { Calendar, DollarSign, User, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Employee } from "@prisma/client";
+import { Employee, SalaryType } from "@prisma/client";
 import { formatCurrency } from "@/lib/formatters";
 import { Decimal } from "@prisma/client/runtime/library";
 
@@ -33,6 +32,13 @@ export default function StatsCard({ employee }: StatsCardProps) {
       0
     ) || 0;
 
+  const displaySalary =
+    employee.salaryType === "DAILY"
+      ? Number(employee.dailySalary)
+      : Number(employee.monthlySalary);
+
+  const salaryLabel = employee.salaryType === "DAILY" ? "Per Day" : "Per Month";
+
   return (
     <div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 p-6">
@@ -50,14 +56,18 @@ export default function StatsCard({ employee }: StatsCardProps) {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Daily Rate</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              {employee.salaryType === "DAILY"
+                ? "Daily Rate"
+                : "Monthly Salary"}
+            </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(Number(employee.salary))}
+              {formatCurrency(displaySalary)}
             </div>
-            <p className="text-xs text-muted-foreground">Per Day</p>
+            <p className="text-xs text-muted-foreground">{salaryLabel}</p>
           </CardContent>
         </Card>
         <Card>

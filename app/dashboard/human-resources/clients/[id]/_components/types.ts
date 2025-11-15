@@ -1,4 +1,11 @@
-import { Client, InvoiceStatus, PaymentMethod } from "@prisma/client";
+import {
+  Client,
+  InvoiceStatus,
+  PaymentMethod,
+  Project,
+  Quotation,
+  Transaction,
+} from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
 export interface Document {
@@ -31,4 +38,7 @@ export interface InvoiceSummary {
 export interface ClientWithRelations extends Client {
   invoices?: InvoiceSummary[];
   documents?: Document[];
+  projects?: Project[];
+  quotations?: Quotation[];
+  transactions?: Transaction[];
 }

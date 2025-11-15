@@ -5,6 +5,7 @@ import {
   InvoicePayment,
 } from "@prisma/client";
 import { RecurringInvoice as PrismaRecurringInvoice } from "@prisma/client";
+import { Decimal } from "@prisma/client/runtime/library";
 
 export interface Invoice {
   id: string;
@@ -110,6 +111,9 @@ export interface InvoiceProps {
   discountAmount?: number;
   discountType?: string;
   pdfUrl?: string;
+  depositRequired?: boolean;
+  depositType?: "AMOUNT" | "PERCENTAGE";
+  depositAmount?: number | Decimal | null;
 }
 export type InvoiceStatus =
   | "PAID"

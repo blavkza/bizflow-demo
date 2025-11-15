@@ -52,6 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { QuotationWithRelations } from "@/types/quotation";
 import { Client, ShopProduct } from "@prisma/client";
 
@@ -72,7 +73,9 @@ interface CalculationSummary {
   subtotal: number;
   totalTax: number;
   discountAmount: number;
+  depositAmount: number;
   totalAmount: number;
+  amountDue: number;
 }
 
 export function QuotationForm({
@@ -94,8 +97,17 @@ export function QuotationForm({
     subtotal: 0,
     totalTax: 0,
     discountAmount: 0,
+    depositAmount: 0,
     totalAmount: 0,
+    amountDue: 0,
   });
+
+  let depositAmount = 0;
+  if (data?.depositType === "PERCENTAGE" && data?.depositAmount) {
+    depositAmount = Number(data?.depositRate);
+  } else {
+    depositAmount = Number(data?.depositAmount);
+  }
 
   const form = useForm<z.infer<typeof QuotationSchema>>({
     resolver: zodResolver(QuotationSchema),
@@ -130,52 +142,88 @@ export function QuotationForm({
       discountAmount: data?.discountAmount
         ? Number(data?.discountAmount)
         : undefined,
+      depositRequired: data?.depositRequired || false,
+      depositType: data?.depositType || "PERCENTAGE",
+      depositAmount: data?.depositAmount ? depositAmount : 30,
       description: data?.description || "",
       paymentTerms: data?.paymentTerms || "",
       notes: data?.notes || "",
     },
   });
 
-  // Calculate totals whenever items or discount change
-  useEffect(() => {
-    const items = form.watch("items");
-    const discountType = form.watch("discountType");
-    const discountAmount = form.watch("discountAmount") || 0;
+  const calculateTotals = () => {
+    const items = form.getValues("items");
+    const discountType = form.getValues("discountType");
+    const discountAmount = form.getValues("discountAmount") || 0;
+    const depositRequired = form.getValues("depositRequired");
+    const depositType = form.getValues("depositType");
+    const depositAmount = form.getValues("depositAmount") || 0;
 
-    const itemsWithAmounts = items.map((item) => ({
-      ...item,
-      amount: item.quantity * item.unitPrice,
-      taxAmount: (item.quantity * item.unitPrice * (item.taxRate || 0)) / 100,
-    }));
-
-    const subtotal = itemsWithAmounts.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
-    const totalTax = itemsWithAmounts.reduce(
-      (sum, item) => sum + (item.taxAmount || 0),
+    // 1. Calculate subtotal
+    const subtotal = items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
       0
     );
 
+    // 2. Calculate discount
     let calculatedDiscount = 0;
     if (discountType === "PERCENTAGE" && discountAmount) {
-      calculatedDiscount = (subtotal + totalTax) * (discountAmount / 100);
+      calculatedDiscount = subtotal * (discountAmount / 100);
     } else if (discountType === "AMOUNT" && discountAmount) {
       calculatedDiscount = discountAmount;
     }
 
-    const totalAmount = subtotal + totalTax - calculatedDiscount;
+    // Prevent discount from exceeding subtotal
+    calculatedDiscount = Math.min(calculatedDiscount, subtotal);
+
+    // 3. Calculate discounted subtotal
+    const discountedSubtotal = subtotal - calculatedDiscount;
+
+    // 4. Calculate tax on DISCOUNTED amount (proportionally per item)
+    const discountRatio = subtotal > 0 ? calculatedDiscount / subtotal : 0;
+
+    const totalTax = items.reduce((sum, item) => {
+      const itemAmount = item.quantity * item.unitPrice;
+      const discountedItemAmount = itemAmount - itemAmount * discountRatio;
+      const itemTax = (discountedItemAmount * (item.taxRate || 0)) / 100;
+      return sum + itemTax;
+    }, 0);
+
+    // 5. Total amount is discounted subtotal + tax
+    const totalAmount = discountedSubtotal + totalTax;
+
+    // 6. Calculate deposit
+    let calculatedDeposit = 0;
+    if (depositRequired) {
+      if (depositType === "PERCENTAGE" && depositAmount) {
+        calculatedDeposit = totalAmount * (depositAmount / 100);
+      } else if (depositType === "AMOUNT" && depositAmount) {
+        calculatedDeposit = depositAmount;
+      }
+    }
+
+    const amountDue = totalAmount - calculatedDeposit;
 
     setCalculations({
       subtotal,
       totalTax,
       discountAmount: calculatedDiscount,
+      depositAmount: calculatedDeposit,
       totalAmount,
+      amountDue,
     });
+  };
+
+  // Calculate totals whenever form values change
+  useEffect(() => {
+    calculateTotals();
   }, [
     form.watch("items"),
     form.watch("discountType"),
     form.watch("discountAmount"),
+    form.watch("depositRequired"),
+    form.watch("depositType"),
+    form.watch("depositAmount"),
   ]);
 
   const fetchClients = async () => {
@@ -245,9 +293,6 @@ export function QuotationForm({
   const onSubmit = async (values: z.infer<typeof QuotationSchema>) => {
     setIsLoading(true);
     try {
-      const issueDate = new Date(values.issueDate);
-      const validUntil = new Date(values.validUntil);
-
       // Prepare items with shop product IDs
       const itemsWithProductIds = values.items.map((item) => ({
         description: item.description,
@@ -259,9 +304,7 @@ export function QuotationForm({
 
       const quotationData = {
         ...values,
-        amount: calculations.subtotal,
-        taxAmount: calculations.totalTax,
-        totalAmount: calculations.totalAmount,
+        // REMOVED calculated fields - backend will handle these
         items: itemsWithProductIds,
       };
 
@@ -294,8 +337,9 @@ export function QuotationForm({
   };
 
   const addItem = () => {
+    const currentItems = form.getValues("items");
     form.setValue("items", [
-      ...form.getValues("items"),
+      ...currentItems,
       {
         description: "",
         quantity: 1,
@@ -304,6 +348,8 @@ export function QuotationForm({
         shopProductId: undefined,
       },
     ]);
+    // Recalculate totals after adding item
+    setTimeout(calculateTotals, 0);
   };
 
   const removeItem = (index: number) => {
@@ -313,6 +359,8 @@ export function QuotationForm({
         "items",
         items.filter((_, i) => i !== index)
       );
+      // Recalculate totals after removing item
+      setTimeout(calculateTotals, 0);
     }
   };
 
@@ -326,6 +374,8 @@ export function QuotationForm({
       form.setValue(`items.${index}.unitPrice`, Number(selectedProduct.price));
       form.setValue(`items.${index}.shopProductId`, selectedProduct.id);
       form.setValue(`items.${index}.taxRate`, 15);
+      // Recalculate totals after product selection
+      setTimeout(calculateTotals, 0);
     }
   };
 
@@ -345,6 +395,46 @@ export function QuotationForm({
 
     form.setValue(`items.${index}.description`, cleanedDescription.trim());
     form.setValue(`items.${index}.unitPrice`, unitPrice);
+  };
+
+  // Real-time handlers for quantity, unit price, and tax rate changes
+  const handleQuantityChange = (index: number, value: number) => {
+    form.setValue(`items.${index}.quantity`, value);
+    calculateTotals();
+  };
+
+  const handleUnitPriceChange = (index: number, value: number) => {
+    form.setValue(`items.${index}.unitPrice`, value);
+    calculateTotals();
+  };
+
+  const handleTaxRateChange = (index: number, value: number) => {
+    form.setValue(`items.${index}.taxRate`, value);
+    calculateTotals();
+  };
+
+  const handleDiscountChange = (
+    type: "AMOUNT" | "PERCENTAGE" | undefined,
+    amount: number
+  ) => {
+    form.setValue("discountType", type);
+    if (amount !== undefined) {
+      form.setValue("discountAmount", amount);
+    }
+    calculateTotals();
+  };
+
+  const handleDepositChange = (
+    required: boolean,
+    type: "AMOUNT" | "PERCENTAGE",
+    amount: number
+  ) => {
+    form.setValue("depositRequired", required);
+    form.setValue("depositType", type);
+    if (amount !== undefined) {
+      form.setValue("depositAmount", amount);
+    }
+    calculateTotals();
   };
 
   const handleDateSelect = (
@@ -619,11 +709,14 @@ export function QuotationForm({
                           min="1"
                           step="1"
                           className="text-center"
-                          {...field}
+                          value={field.value}
                           onChange={(e) => {
                             const value = parseFloat(e.target.value);
-                            field.onChange(isNaN(value) ? 1 : value);
+                            const finalValue = isNaN(value) ? 1 : value;
+                            field.onChange(finalValue);
+                            handleQuantityChange(index, finalValue);
                           }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
@@ -642,12 +735,16 @@ export function QuotationForm({
                           type="number"
                           step="0.01"
                           className="text-right"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.valueAsNumber || e.target.value
-                            )
-                          }
+                          value={field.value}
+                          onChange={(e) => {
+                            const value =
+                              e.target.valueAsNumber ||
+                              parseFloat(e.target.value) ||
+                              0;
+                            field.onChange(value);
+                            handleUnitPriceChange(index, value);
+                          }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
@@ -666,13 +763,16 @@ export function QuotationForm({
                           type="number"
                           step="0.1"
                           className="text-right"
-                          {...field}
+                          value={field.value || ""}
                           onChange={(e) => {
-                            const value = e.target.value;
-                            field.onChange(
-                              value === "" ? undefined : parseFloat(value)
-                            );
+                            const value =
+                              e.target.value === ""
+                                ? 0
+                                : parseFloat(e.target.value);
+                            field.onChange(value);
+                            handleTaxRateChange(index, value);
                           }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
@@ -695,7 +795,7 @@ export function QuotationForm({
             ))}
           </div>
 
-          {/* Add Item Button - Now at the bottom */}
+          {/* Add Item Button */}
           <div className="mt-4 flex justify-center">
             <Button
               type="button"
@@ -709,8 +809,8 @@ export function QuotationForm({
           </div>
         </div>
 
-        {/* Discount & Calculation Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Discount, Deposit & Calculation Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Discount Section */}
           <div className="bg-card border rounded-lg p-6">
             <h4 className="font-semibold mb-4">Discount</h4>
@@ -721,7 +821,16 @@ export function QuotationForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Discount Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                        field.onChange(value);
+                        handleDiscountChange(
+                          value,
+                          form.getValues("discountAmount") || 0
+                        );
+                      }}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select discount type" />
@@ -767,11 +876,19 @@ export function QuotationForm({
                             const input = e.target.value;
                             if (input === "") {
                               field.onChange(undefined);
+                              handleDiscountChange(
+                                form.getValues("discountType"),
+                                0
+                              );
                               return;
                             }
                             let value = parseFloat(input);
                             if (isNaN(value)) {
                               field.onChange(undefined);
+                              handleDiscountChange(
+                                form.getValues("discountType"),
+                                0
+                              );
                               return;
                             }
                             if (
@@ -781,13 +898,160 @@ export function QuotationForm({
                               value = 100;
                             }
                             field.onChange(value);
+                            handleDiscountChange(
+                              form.getValues("discountType"),
+                              value
+                            );
                           }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              )}
+            </div>
+          </div>
+
+          {/* Deposit Section */}
+          <div className="bg-card border rounded-lg p-6">
+            <h4 className="font-semibold mb-4">Deposit</h4>
+            <div className="space-y-4">
+              <FormField
+                control={form.control}
+                name="depositRequired"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">
+                        Require Deposit
+                      </FormLabel>
+                      <div className="text-sm text-muted-foreground">
+                        Request a deposit payment from the client
+                      </div>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={(checked) => {
+                          field.onChange(checked);
+                          handleDepositChange(
+                            checked,
+                            form.getValues("depositType") || "PERCENTAGE",
+                            form.getValues("depositAmount") || 50
+                          );
+                        }}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("depositRequired") && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="depositType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Deposit Type</FormLabel>
+                        <Select
+                          onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                            field.onChange(value);
+                            handleDepositChange(
+                              true,
+                              value,
+                              form.getValues("depositAmount") || 50
+                            );
+                          }}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select deposit type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="AMOUNT">Fixed Amount</SelectItem>
+                            <SelectItem value="PERCENTAGE">
+                              Percentage
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="depositAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>
+                          Deposit Amount{" "}
+                          {form.watch("depositType") === "PERCENTAGE"
+                            ? "(%)"
+                            : ""}
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            step={
+                              form.watch("depositType") === "PERCENTAGE"
+                                ? "1"
+                                : "0.01"
+                            }
+                            placeholder={
+                              form.watch("depositType") === "PERCENTAGE"
+                                ? "50"
+                                : "0.00"
+                            }
+                            value={field.value === undefined ? "" : field.value}
+                            onChange={(e) => {
+                              const input = e.target.value;
+                              if (input === "") {
+                                field.onChange(undefined);
+                                handleDepositChange(
+                                  true,
+                                  form.getValues("depositType") || "PERCENTAGE",
+                                  0
+                                );
+                                return;
+                              }
+                              let value = parseFloat(input);
+                              if (isNaN(value)) {
+                                field.onChange(undefined);
+                                handleDepositChange(
+                                  true,
+                                  form.getValues("depositType") || "PERCENTAGE",
+                                  0
+                                );
+                                return;
+                              }
+                              if (
+                                form.watch("depositType") === "PERCENTAGE" &&
+                                value > 100
+                              ) {
+                                value = 100;
+                              }
+                              field.onChange(value);
+                              handleDepositChange(
+                                true,
+                                form.getValues("depositType") || "PERCENTAGE",
+                                value
+                              );
+                            }}
+                            onBlur={field.onBlur}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
               )}
             </div>
           </div>
@@ -825,6 +1089,27 @@ export function QuotationForm({
                   {formatCurrency(calculations.totalAmount)}
                 </span>
               </div>
+
+              {/* Deposit Section */}
+              {form.watch("depositRequired") &&
+                calculations.depositAmount > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm text-green-600 border-t pt-3">
+                      <span>Deposit:</span>
+                      <span className="font-medium">
+                        {formatCurrency(calculations.depositAmount)}
+                        {form.watch("depositType") === "PERCENTAGE" &&
+                          ` (${form.getValues("depositAmount")}%)`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-base font-semibold border-t pt-3">
+                      <span>Amount Due:</span>
+                      <span className="text-blue-600">
+                        {formatCurrency(calculations.amountDue)}
+                      </span>
+                    </div>
+                  </>
+                )}
             </div>
           </div>
         </div>

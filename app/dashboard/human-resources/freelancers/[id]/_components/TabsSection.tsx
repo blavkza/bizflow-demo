@@ -23,6 +23,8 @@ import { format } from "date-fns";
 import { PaymentStatus, PaymentType } from "@prisma/client";
 import axios from "axios";
 import { formatCurrency } from "@/lib/formatters";
+import { DocumentsTab } from "./DocumentsTab";
+import { HealthSafetyCard } from "./HealthSafetyCard";
 
 interface FreelancerWithDetails {
   id: string;
@@ -167,14 +169,16 @@ export default function TabsSection({
   return (
     <div className="p-4">
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid grid-cols-2 w-full max-w-xs">
+        <TabsList className="grid grid-cols-3 w-full max-w-xs">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="">
             <div className="lg:col-span-2 space-y-6">
+              <EmploymentDetailsCard freelancer={freelancer} />
               <ContactCard
                 freelancer={freelancer}
                 canEditFreelancers={canEditFreelancers}
@@ -187,10 +191,12 @@ export default function TabsSection({
                 hasFullAccess={hasFullAccess}
                 fetchFreelancer={fetchFreelancer}
               />
-            </div>
-            <div className="space-y-6">
-              <EmploymentDetailsCard freelancer={freelancer} />
-              {/* <QuickActionsCard freelancer={freelancer} /> */}
+              <HealthSafetyCard
+                freelancer={freelancer}
+                canEditFreelancers={canEditFreelancers}
+                hasFullAccess={hasFullAccess}
+                fetchFreelancer={fetchFreelancer}
+              />
             </div>
           </div>
         </TabsContent>
@@ -289,6 +295,14 @@ export default function TabsSection({
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="documents" className="space-y-4">
+          <DocumentsTab
+            freelancer={freelancer}
+            fetchFreelancer={fetchFreelancer}
+            hasFullAccess={hasFullAccess}
+            canEditFreelancer={canEditFreelancers}
+          />
         </TabsContent>
       </Tabs>
     </div>

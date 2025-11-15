@@ -16,23 +16,14 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { Search, Plus, DollarSign } from "lucide-react";
 import { toast } from "sonner";
-import { Client } from "@prisma/client";
 import { ClientWithRelations } from "./types";
 import InvoicePaymentForm from "./PaymentForm";
 
@@ -146,7 +137,7 @@ export function PaymentsTab({
                 Record Payment
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[425px] md:min-w-[800px] max-h-[95vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Record New Payment</DialogTitle>
                 <DialogDescription>

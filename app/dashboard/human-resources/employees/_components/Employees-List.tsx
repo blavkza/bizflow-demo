@@ -46,6 +46,7 @@ interface Employee {
   status: string;
   workType: string;
   salary: number;
+  salaryType: string;
   location: string;
   startDate: string;
   manager: string;
@@ -64,16 +65,30 @@ export default function EmployeesList({
   canViewEmployees,
 }: EmployeesListProps) {
   const router = useRouter();
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Active":
+      case "ACTIVE":
         return "bg-green-100 text-green-800";
-      case "On Leave":
+      case "ON_LEAVE":
         return "bg-yellow-100 text-yellow-800";
-      case "Inactive":
+      case "INACTIVE":
         return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case "ACTIVE":
+        return "Active";
+      case "ON_LEAVE":
+        return "On Leave";
+      case "INACTIVE":
+        return "Inactive";
+      default:
+        return status;
     }
   };
 
@@ -90,6 +105,13 @@ export default function EmployeesList({
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const getSalaryDisplay = (salary: number, salaryType: string) => {
+    const formattedSalary = salary.toLocaleString();
+    return salaryType === "DAILY"
+      ? `R${formattedSalary} Per Day`
+      : `R${formattedSalary} Per Month`;
   };
 
   return (
@@ -133,7 +155,7 @@ export default function EmployeesList({
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <Badge className={getStatusColor(employee.status)}>
-                {employee.status}
+                {getStatusDisplay(employee.status)}
               </Badge>
               <Badge
                 variant="outline"
@@ -162,7 +184,9 @@ export default function EmployeesList({
               </div>
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <DollarSign className="h-4 w-4" />
-                <span>R{employee.salary.toLocaleString()} Per Day</span>
+                <span>
+                  {getSalaryDisplay(employee.salary, employee.salaryType)}
+                </span>
               </div>
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />

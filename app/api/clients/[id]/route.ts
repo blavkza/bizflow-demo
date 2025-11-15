@@ -53,6 +53,12 @@ export async function GET(
           },
         },
         documents: true,
+        projects: true,
+        quotations: true,
+        transactions: true,
+        toolRentals: true,
+        recurringInvoices: true,
+        Note: true,
       },
     });
 
@@ -62,6 +68,7 @@ export async function GET(
 
     const clientWithNumbers = {
       ...client,
+      creditLimit: client.creditLimit?.toNumber() || null,
       invoices: client.invoices.map((invoice) => ({
         ...invoice,
         totalAmount: invoice.totalAmount.toNumber(),
@@ -69,6 +76,10 @@ export async function GET(
           ...payment,
           amount: payment.amount.toNumber(),
         })),
+      })),
+      transactions: client.transactions.map((transaction) => ({
+        ...transaction,
+        amount: transaction.amount.toNumber(),
       })),
     };
 
@@ -84,18 +95,52 @@ export async function GET(
 
 export async function PUT(
   req: NextRequest,
-  {
-    params,
-  }: {
-    params: Promise<{ id: string }>;
-  }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const { id } = params;
 
     const body = await req.json();
-    const { name, company, email, phone, type, taxNumber, website, address } =
-      body;
+    const {
+      name,
+      email,
+      phone,
+      phone2,
+      type,
+      status,
+      // Personal Address
+      address,
+      country,
+      province,
+      town,
+      village,
+      street,
+      // Company Information
+      companyFullName,
+      tradingName,
+      registrationNumber,
+      vatNumber,
+      taxNumber,
+      telNo1,
+      telNo2,
+      website,
+      // Company Address
+      companyCountry,
+      companyProvince,
+      companytown,
+      companyvillage,
+      companystreet,
+      companyaddress,
+      additionalInfo,
+      // Financial Information
+      creditLimit,
+      paymentTerms,
+      currency,
+      // Additional Information
+      assignedTo,
+      source,
+      notes,
+    } = body;
 
     const { userId } = await auth();
 
@@ -121,11 +166,36 @@ export async function PUT(
         name,
         email,
         phone,
-        company,
+        phone2,
         type,
-        taxNumber,
-        website,
+        status,
         address,
+        country,
+        province,
+        town,
+        village,
+        street,
+        companyFullName,
+        tradingName,
+        registrationNumber,
+        vatNumber,
+        taxNumber,
+        telNo1,
+        telNo2,
+        website,
+        companyCountry,
+        companyProvince,
+        companytown,
+        companyvillage,
+        companystreet,
+        companyaddress,
+        additionalInfo,
+        creditLimit: creditLimit ? parseFloat(creditLimit) : null,
+        paymentTerms,
+        currency,
+        assignedTo,
+        source,
+        notes,
       },
     });
 
@@ -157,11 +227,48 @@ export async function DELETE(
   const { id } = params;
 
   try {
+    const { userId } = await auth();
+
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const deleter = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!deleter) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const client = await db.client.findUnique({
+      where: { id },
+      select: {
+        name: true,
+        clientNumber: true,
+      },
+    });
+
     await db.client.delete({
       where: { id },
     });
 
-    return NextResponse.json({ message: "client deleted" }, { status: 200 });
+    await db.notification.create({
+      data: {
+        title: "Client Deleted",
+        message: `Client ${client?.name} , client number : ${client?.clientNumber} has been deleted By ${deleter.name}.`,
+        type: "CLIENT",
+        isRead: false,
+        actionUrl: `/dashboard/human-resources/clients`,
+        userId: deleter.id,
+      },
+    });
+
+    return NextResponse.json({ message: "Client deleted" }, { status: 200 });
   } catch (error) {
     console.error("Error deleting Client:", error);
     return NextResponse.json(

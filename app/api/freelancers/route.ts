@@ -130,6 +130,7 @@ export async function GET() {
       manager: freeLancer.department?.manager?.name || "No manager",
       avatar: freeLancer.avatar,
       freeLancerNumber: freeLancer.freeLancerNumber,
+      reliable: freeLancer.reliable,
     }));
 
     const statuses = [...new Set(freelancers.map((emp) => emp.status))];

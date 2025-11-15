@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
-import { StockMovementType } from "@prisma/client";
+import { InvoiceStatus, StockMovementType } from "@prisma/client";
 
 export async function PUT(
   req: Request,
@@ -73,7 +73,7 @@ export async function PUT(
       0
     );
 
-    // FIX: Store the ORIGINAL discount values, not calculated amounts
+    // Store the ORIGINAL discount values, not calculated amounts
     const discountAmount = invoiceData.discountAmount || 0;
     const discountType = invoiceData.discountType;
 
@@ -86,6 +86,35 @@ export async function PUT(
     }
 
     const totalAmount = subtotal + totalTax - calculatedDiscountAmount;
+
+    // Handle deposit - ALWAYS treat depositAmount as monetary value
+    const depositAmount = invoiceData.depositAmount || 0;
+
+    let calculatedDepositAmount = 0;
+    if (invoiceData.depositRequired) {
+      if (
+        invoiceData.depositType === "PERCENTAGE" &&
+        invoiceData.depositAmount
+      ) {
+        calculatedDepositAmount =
+          totalAmount * (invoiceData.depositAmount / 100);
+      } else if (
+        invoiceData.depositType === "AMOUNT" &&
+        invoiceData.depositAmount
+      ) {
+        calculatedDepositAmount = invoiceData.depositAmount;
+      }
+
+      // Ensure deposit cannot exceed total amount
+      calculatedDepositAmount = Math.min(calculatedDepositAmount, totalAmount);
+    }
+
+    // Check if deposit requirements changed
+    const originalDepositRequired = originalInvoice.depositRequired || false;
+    const originalDepositAmount = Number(originalInvoice.depositAmount) || 0;
+    const depositChanged =
+      originalDepositRequired !== invoiceData.depositRequired ||
+      originalDepositAmount !== depositAmount;
 
     // Handle recurring invoice logic
     let recurringInvoiceData = {};
@@ -114,6 +143,10 @@ export async function PUT(
             discountType: discountType, // Store original type
             paymentTerms: invoiceData.paymentTerms,
             notes: invoiceData.notes,
+            // Add deposit fields to recurring invoice
+            depositRequired: invoiceData.depositRequired || false,
+            depositType: invoiceData.depositType,
+            depositAmount: calculatedDepositAmount,
           },
         });
         recurringInvoiceData = {
@@ -143,6 +176,10 @@ export async function PUT(
             discountType: discountType, // Store original type
             paymentTerms: invoiceData.paymentTerms,
             notes: invoiceData.notes,
+            // Add deposit fields to recurring invoice
+            depositRequired: invoiceData.depositRequired || false,
+            depositType: invoiceData.depositType,
+            depositAmount: depositAmount,
             creator: updater.id,
           },
         });
@@ -178,7 +215,14 @@ export async function PUT(
         taxAmount: totalTax,
         totalAmount,
 
-        // Relations - use proper Prisma relation syntax
+        // Deposit fields - same as POST handler
+        depositRequired: invoiceData.depositRequired || false,
+        depositType: invoiceData.depositType,
+        depositAmount: calculatedDepositAmount,
+        depositRate:
+          invoiceData.depositType === "PERCENTAGE"
+            ? invoiceData.depositAmount
+            : 0,
         client: {
           connect: { id: invoiceData.clientId },
         },
@@ -208,10 +252,35 @@ export async function PUT(
       })),
     });
 
+    // Handle deposit payment updates if deposit requirements changed
+    if (depositChanged) {
+      await handleDepositPaymentUpdate(
+        updatedInvoice,
+        calculatedDepositAmount,
+        totalAmount,
+        invoiceData,
+        updater,
+        originalDepositAmount
+      );
+    }
+
     // Check if invoice has shop products and handle stock adjustments
     const itemsWithProducts = itemsWithAmounts.filter(
       (item: any) => item.shopProductId
     );
+
+    // Calculate product-specific totals for sales
+    const productsSubtotal = itemsWithProducts.reduce(
+      (sum: number, item: any) => sum + item.unitPrice * item.quantity,
+      0
+    );
+
+    const productsTax = itemsWithProducts.reduce(
+      (sum: number, item: any) => sum + (item.taxAmount || 0),
+      0
+    );
+
+    const productsTotal = productsSubtotal + productsTax;
 
     if (itemsWithProducts.length > 0) {
       // Find existing sale for this invoice
@@ -227,15 +296,10 @@ export async function PUT(
         await db.sale.update({
           where: { id: existingSale.id },
           data: {
-            subtotal: Number(subtotal),
-            tax: Number(totalTax),
-            discount: Number(calculatedDiscountAmount), // Use calculated amount for sale
-            discountPercent:
-              discountType === "PERCENTAGE" && discountAmount
-                ? Number(discountAmount) // Store percentage for reporting
-                : 0,
-            total: Number(totalAmount),
-            amountReceived: Number(totalAmount),
+            subtotal: Number(productsSubtotal),
+            tax: Number(productsTax),
+            total: Number(productsTotal),
+            amountReceived: Number(productsTotal),
           },
         });
 
@@ -441,17 +505,12 @@ export async function PUT(
               customerPhone: client?.phone,
               customerAddress: client?.address,
               status: "COMPLETED",
-              subtotal: Number(subtotal),
-              tax: Number(totalTax),
-              discount: Number(calculatedDiscountAmount), // Use calculated amount for sale
-              discountPercent:
-                discountType === "PERCENTAGE" && discountAmount
-                  ? Number(discountAmount) // Store percentage for reporting
-                  : 0,
-              total: Number(totalAmount),
+              subtotal: Number(productsSubtotal),
+              tax: Number(productsTax),
+              total: Number(productsTotal),
               paymentStatus: "COMPLETED",
               paymentMethod: "INVOICE",
-              amountReceived: Number(totalAmount),
+              amountReceived: Number(productsTotal),
               saleDate: new Date(),
               createdBy: updater.id,
               orderId: params.id,
@@ -511,7 +570,7 @@ export async function PUT(
     await db.notification.create({
       data: {
         title: "Invoice Updated",
-        message: `Invoice ${updatedInvoice.invoiceNumber} has been updated by ${updater.name}.`,
+        message: `Invoice ${updatedInvoice.invoiceNumber} has been updated by ${updater.name}.${depositChanged ? " Deposit requirements have been updated." : ""}`,
         type: "INVOICE",
         isRead: false,
         actionUrl: `/dashboard/invoices/${updatedInvoice.id}`,
@@ -530,6 +589,187 @@ export async function PUT(
       { status: 500 }
     );
   }
+}
+
+// Helper function to handle deposit payment updates
+async function handleDepositPaymentUpdate(
+  invoice: any,
+  calculatedDepositAmount: number,
+  totalAmount: number,
+  invoiceData: any,
+  updater: any,
+  originalDepositAmount: number
+) {
+  // Find the FIRST deposit payment (there should only be one)
+  const existingDepositPayment = await db.invoicePayment.findFirst({
+    where: {
+      invoiceId: invoice.id,
+      reference: {
+        contains: "DEPOSIT",
+      },
+    },
+    orderBy: {
+      createdAt: "asc", // Get the first one created
+    },
+  });
+
+  if (existingDepositPayment) {
+    // Check if deposit amount actually changed
+    const depositAmountChanged =
+      existingDepositPayment.amount.toNumber() !== calculatedDepositAmount;
+
+    if (depositAmountChanged || !invoiceData.depositRequired) {
+      if (invoiceData.depositRequired && calculatedDepositAmount > 0) {
+        // Update existing deposit payment with new amount
+        await db.invoicePayment.update({
+          where: { id: existingDepositPayment.id },
+          data: {
+            amount: calculatedDepositAmount,
+            notes: `Deposit payment for invoice ${invoice.invoiceNumber} - UPDATED from ${existingDepositPayment.amount} to ${calculatedDepositAmount}`,
+            status: "COMPLETED", // Ensure it's still active
+          },
+        });
+
+        // Update corresponding transaction
+        await db.transaction.updateMany({
+          where: {
+            reference: existingDepositPayment.id,
+            type: "INCOME",
+          },
+          data: {
+            amount: calculatedDepositAmount,
+            netAmount: calculatedDepositAmount,
+            description: `Deposit payment for invoice ${invoice.invoiceNumber} - UPDATED from ${existingDepositPayment.amount} to ${calculatedDepositAmount}`,
+            status: "COMPLETED",
+          },
+        });
+      } else {
+        // Deposit is being removed - mark as cancelled
+        await db.invoicePayment.update({
+          where: { id: existingDepositPayment.id },
+          data: {
+            status: "CANCELLED",
+            notes: `Deposit cancelled for invoice ${invoice.invoiceNumber} - deposit requirement removed`,
+          },
+        });
+
+        // Also update the transaction
+        await db.transaction.updateMany({
+          where: {
+            reference: existingDepositPayment.id,
+            type: "INCOME",
+          },
+          data: {
+            status: "CANCELLED",
+            description: `Deposit cancelled for invoice ${invoice.invoiceNumber}`,
+          },
+        });
+      }
+
+      // Update invoice status based on new deposit situation
+      let newStatus = invoice.status;
+
+      if (invoiceData.depositRequired && calculatedDepositAmount > 0) {
+        if (calculatedDepositAmount >= totalAmount) {
+          newStatus = InvoiceStatus.PAID;
+        } else if (calculatedDepositAmount > 0) {
+          newStatus = InvoiceStatus.PARTIALLY_PAID;
+        }
+      } else {
+        // Deposit was removed, revert to appropriate status
+        if (
+          invoice.status === InvoiceStatus.PAID ||
+          invoice.status === InvoiceStatus.PARTIALLY_PAID
+        ) {
+          newStatus = InvoiceStatus.SENT;
+        }
+      }
+
+      if (newStatus !== invoice.status) {
+        await db.invoice.update({
+          where: { id: invoice.id },
+          data: { status: newStatus },
+        });
+      }
+    }
+    // If deposit amount didn't change and deposit is still required, do nothing
+  } else if (invoiceData.depositRequired && calculatedDepositAmount > 0) {
+    // Create new deposit payment since none exists
+    const paymentCategory = await getPaymentCategory(updater.id);
+
+    // Create invoice payment for deposit
+    const payment = await db.invoicePayment.create({
+      data: {
+        invoiceId: invoice.id,
+        amount: calculatedDepositAmount,
+        method: "INVOICE",
+        reference: `DEPOSIT-${invoice.invoiceNumber}`,
+        notes: `Initial deposit payment for invoice ${invoice.invoiceNumber}`,
+        paidAt: new Date(invoiceData.issueDate),
+        status: "COMPLETED",
+      },
+    });
+
+    // Create transaction record for deposit
+    await db.transaction.create({
+      data: {
+        amount: calculatedDepositAmount,
+        currency: "ZAR",
+        type: "INCOME",
+        status: "COMPLETED",
+        description: `Deposit payment for invoice ${invoice.invoiceNumber} from ${invoiceData.clientId}`,
+        reference: payment.id,
+        date: new Date(invoiceData.issueDate),
+        method: "INVOICE",
+        invoiceId: invoice.id,
+        clientId: invoiceData.clientId,
+        categoryId: paymentCategory.id,
+        createdBy: updater.id,
+        taxAmount: 0,
+        netAmount: calculatedDepositAmount,
+        invoiceNumber: invoice.invoiceNumber,
+      },
+    });
+
+    // Update invoice status based on deposit
+    let newStatus = invoice.status;
+    if (calculatedDepositAmount >= totalAmount) {
+      newStatus = InvoiceStatus.PAID;
+    } else if (calculatedDepositAmount > 0) {
+      newStatus = InvoiceStatus.PARTIALLY_PAID;
+    }
+
+    if (newStatus !== invoice.status) {
+      await db.invoice.update({
+        where: { id: invoice.id },
+        data: { status: newStatus },
+      });
+    }
+  }
+  // If no deposit payment exists and deposit is not required, do nothing
+}
+
+// Helper function to get payment category
+async function getPaymentCategory(updaterId: string) {
+  let paymentCategory = await db.category.findFirst({
+    where: {
+      name: "Invoice Payments",
+      type: "INCOME",
+    },
+  });
+
+  if (!paymentCategory) {
+    paymentCategory = await db.category.create({
+      data: {
+        name: "Invoice Payments",
+        type: "INCOME",
+        description: "Payments received from invoices",
+        createdBy: updaterId,
+      },
+    });
+  }
+
+  return paymentCategory;
 }
 
 // Helper function to calculate next invoice date

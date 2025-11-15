@@ -48,7 +48,7 @@ export async function PUT(
       },
       include: {
         assignees: true,
-        Subtask: true,
+        subtask: true,
       },
     });
 
@@ -83,14 +83,14 @@ export async function PUT(
         data: updateData,
         include: {
           assignees: true,
-          Subtask: true,
+          subtask: true,
         },
       });
 
       if (
         status === "COMPLETED" &&
         existingTask.status !== "COMPLETED" &&
-        existingTask.Subtask.length > 0
+        existingTask.subtask.length > 0
       ) {
         await tx.subtask.updateMany({
           where: {
@@ -245,7 +245,7 @@ export async function GET(
             avatar: true,
           },
         },
-        Subtask: {
+        subtask: {
           orderBy: {
             order: "asc",
           },

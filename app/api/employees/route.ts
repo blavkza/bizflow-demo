@@ -30,10 +30,17 @@ export async function POST(req: Request) {
       phone,
       departmentId,
       email,
-      salary,
+      salaryType,
+      dailySalary,
+      monthlySalary,
       status,
       hireDate,
+      // Address fields
       address,
+      city,
+      province,
+      postalCode,
+      country,
       scheduledKnockIn,
       scheduledKnockOut,
       workingDays,
@@ -56,10 +63,17 @@ export async function POST(req: Request) {
         phone,
         email,
         departmentId,
-        salary,
+        salaryType,
+        dailySalary: dailySalary || 0,
+        monthlySalary: monthlySalary || 0,
         status,
         hireDate,
+        // Address fields
         address,
+        city,
+        province,
+        postalCode,
+        country: country || "South Africa", // Default to South Africa
         scheduledKnockIn,
         scheduledKnockOut,
         workingDays,
@@ -111,23 +125,33 @@ export async function GET() {
       db.department.findMany(),
     ]);
 
-    const serializedEmployees = employees.map((employee) => ({
-      id: employee.id,
-      employeeId: employee.employeeNumber,
-      name: `${employee.firstName} ${employee.lastName}`,
-      email: employee.email,
-      phone: employee.phone,
-      position: employee.position,
-      department: employee.department?.name || "No Department",
-      status: employee.status,
-      workType: employee.position || "Not specified",
-      salary: employee.salary?.toNumber() || 0,
-      location: employee.address || "Not specified",
-      startDate: employee.hireDate?.toLocaleDateString() || "Not specified",
-      manager: employee.department?.manager?.name || "No manager",
-      avatar: employee.avatar,
-      employeeNumber: employee.employeeNumber,
-    }));
+    const serializedEmployees = employees.map((employee) => {
+      const displaySalary =
+        employee.salaryType === "DAILY"
+          ? employee.dailySalary?.toNumber() || 0
+          : employee.monthlySalary?.toNumber() || 0;
+
+      const salaryType = employee.salaryType || "MONTHLY";
+
+      return {
+        id: employee.id,
+        employeeId: employee.employeeNumber,
+        name: `${employee.firstName} ${employee.lastName}`,
+        email: employee.email,
+        phone: employee.phone,
+        position: employee.position,
+        department: employee.department?.name || "No Department",
+        status: employee.status,
+        workType: employee.position || "Not specified",
+        salary: displaySalary,
+        salaryType: salaryType,
+        location: employee.city || employee.address || "Not specified",
+        startDate: employee.hireDate?.toLocaleDateString() || "Not specified",
+        manager: employee.department?.manager?.name || "No manager",
+        avatar: employee.avatar,
+        employeeNumber: employee.employeeNumber,
+      };
+    });
 
     const statuses = [...new Set(employees.map((emp) => emp.status))];
     const workTypes = [

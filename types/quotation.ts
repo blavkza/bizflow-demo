@@ -2,17 +2,7 @@ import { Quotation, QuotationItem, Client, User } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
 export type QuotationWithRelations = Quotation & {
-  client: Pick<
-    Client,
-    | "id"
-    | "name"
-    | "email"
-    | "phone"
-    | "address"
-    | "taxNumber"
-    | "taxNumber"
-    | "company"
-  >;
+  client: Client;
   items: (QuotationItem & {
     quantity: number | Decimal;
     unitPrice: number | Decimal;
@@ -20,6 +10,9 @@ export type QuotationWithRelations = Quotation & {
     taxAmount?: number | Decimal | null;
     taxRate?: number | Decimal | null;
   })[];
+  invoice?: {
+    invoiceNumber: string;
+  };
   creator?: {
     id: string;
     name: string;
@@ -54,6 +47,9 @@ export type QuotationWithRelations = Quotation & {
   taxRate?: number | Decimal | null;
   discountAmount?: number | Decimal | null;
   totalAmount: number | Decimal;
+  depositRequired?: boolean;
+  depositType?: "AMOUNT" | "PERCENTAGE";
+  depositAmount?: number | Decimal | null;
 };
 
 export type QuotationFormValues = {

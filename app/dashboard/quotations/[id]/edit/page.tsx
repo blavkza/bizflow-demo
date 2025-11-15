@@ -72,7 +72,7 @@ export default function EditQuotationPage({
         </h1>
       </div>
 
-      <div className=" rounded-lg shadow-md overflow-hidden">
+      <div className=" overflow-hidden">
         <QuotationForm
           type="update"
           data={quotation}

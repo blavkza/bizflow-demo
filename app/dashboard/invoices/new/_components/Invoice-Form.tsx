@@ -44,14 +44,12 @@ import {
 import { cn } from "@/lib/utils";
 import {
   InvoiceStatus,
-  DiscountType,
   Client,
   Invoice,
   InvoiceItem,
   GeneralSetting,
   ShopProduct,
   RecurringFrequency,
-  RecurringStatus,
 } from "@prisma/client";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -90,15 +88,20 @@ interface CalculationSummary {
   subtotal: number;
   totalTax: number;
   discountAmount: number;
+  depositAmount: number;
   totalAmount: number;
+  amountDue: number;
 }
 
-// Extended form schema to include recurring options
+// Extended form schema to include recurring options and deposit
 const InvoiceFormSchema = InvoiceSchema.extend({
   isRecurring: z.boolean().default(false),
   frequency: z.nativeEnum(RecurringFrequency).optional(),
   interval: z.number().min(1).max(365).default(1).optional(),
   endDate: z.date().optional(),
+  depositRequired: z.boolean().default(false),
+  depositType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
+  depositAmount: z.number().min(0).optional(),
 });
 
 type InvoiceFormData = z.infer<typeof InvoiceFormSchema>;
@@ -124,11 +127,23 @@ export default function InvoiceForm({
     subtotal: 0,
     totalTax: 0,
     discountAmount: 0,
+    depositAmount: 0,
     totalAmount: 0,
+    amountDue: 0,
   });
   const [isRecurring, setIsRecurring] = useState(
     data?.invoice?.isRecurring || false
   );
+
+  let depositAmount = 0;
+  if (
+    data?.invoice?.depositType === "PERCENTAGE" &&
+    data?.invoice?.depositAmount
+  ) {
+    depositAmount = Number(data?.invoice?.depositRate);
+  } else {
+    depositAmount = Number(data?.invoice?.depositAmount);
+  }
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(InvoiceFormSchema),
@@ -165,6 +180,9 @@ export default function InvoiceForm({
       discountAmount: data?.invoice?.discountAmount
         ? Number(data?.invoice?.discountAmount)
         : undefined,
+      depositRequired: (data?.invoice as any)?.depositRequired || false,
+      depositType: (data?.invoice as any)?.depositType || "PERCENTAGE",
+      depositAmount: (data?.invoice as any)?.depositAmount ? depositAmount : 30,
       paymentTerms: data?.invoice?.paymentTerms || "",
       notes: data?.invoice?.notes || "",
       isRecurring: data?.invoice?.isRecurring || false,
@@ -177,73 +195,93 @@ export default function InvoiceForm({
   const { isSubmitting } = form.formState;
 
   // Calculate totals function
-  const calculateTotals = useCallback(
-    (items: any[], discountType?: string, discountAmount: number = 0) => {
-      const itemsWithAmounts = items.map((item) => ({
-        ...item,
-        amount: item.quantity * item.unitPrice,
-        taxAmount: (item.quantity * item.unitPrice * (item.taxRate || 0)) / 100,
-      }));
+  const calculateTotals = useCallback(() => {
+    const items = form.getValues("items");
+    const discountType = form.getValues("discountType");
+    const discountAmount = form.getValues("discountAmount") || 0;
+    const depositRequired = form.getValues("depositRequired");
+    const depositType = form.getValues("depositType");
+    const depositAmount = form.getValues("depositAmount") || 0;
 
-      const subtotal = itemsWithAmounts.reduce(
-        (sum, item) => sum + item.amount,
-        0
-      );
-      const totalTax = itemsWithAmounts.reduce(
-        (sum, item) => sum + (item.taxAmount || 0),
-        0
-      );
-
-      let calculatedDiscount = 0;
-      if (discountType === "PERCENTAGE" && discountAmount) {
-        calculatedDiscount = subtotal * (discountAmount / 100);
-      } else if (discountType === "AMOUNT" && discountAmount) {
-        calculatedDiscount = discountAmount;
-      }
-
-      const totalAmount = subtotal + totalTax - calculatedDiscount;
-
+    // 1. Calculate amounts
+    const itemsWithAmounts = items.map((item) => {
+      const amount = item.quantity * item.unitPrice;
       return {
-        subtotal,
-        totalTax,
-        discountAmount: calculatedDiscount,
-        totalAmount,
+        ...item,
+        amount,
       };
-    },
-    []
-  );
-
-  // Calculate totals whenever items or discount change
-  useEffect(() => {
-    const updateCalculations = () => {
-      const items = form.getValues("items");
-      const discountType = form.getValues("discountType");
-      const discountAmount = form.getValues("discountAmount") || 0;
-
-      const newCalculations = calculateTotals(
-        items,
-        discountType,
-        discountAmount
-      );
-      setCalculations(newCalculations);
-    };
-
-    // Initial calculation
-    updateCalculations();
-
-    // Watch for changes using form.watch with subscription
-    const subscription = form.watch((value, { name }) => {
-      if (
-        name?.startsWith("items") ||
-        name === "discountType" ||
-        name === "discountAmount"
-      ) {
-        updateCalculations();
-      }
     });
 
-    return () => subscription.unsubscribe();
-  }, [form, calculateTotals]);
+    // 2. Subtotal
+    const subtotal = itemsWithAmounts.reduce(
+      (sum, item) => sum + item.amount,
+      0
+    );
+
+    // 3. Discount
+    let calculatedDiscount = 0;
+
+    if (discountType === "PERCENTAGE" && discountAmount > 0) {
+      calculatedDiscount = subtotal * (discountAmount / 100);
+    } else if (discountType === "AMOUNT" && discountAmount > 0) {
+      calculatedDiscount = discountAmount;
+    }
+
+    // Prevent discount from exceeding subtotal
+    calculatedDiscount = Math.min(calculatedDiscount, subtotal);
+
+    // 4. Proportional discount ratio
+    const discountRatio = subtotal > 0 ? calculatedDiscount / subtotal : 0;
+
+    // 5. Tax (after discount)
+    const totalTax = itemsWithAmounts.reduce((sum, item) => {
+      const discountedItemAmount = item.amount - item.amount * discountRatio;
+      const itemTaxRate = item.taxRate || 0;
+      const itemTax = (discountedItemAmount * itemTaxRate) / 100;
+      return sum + itemTax;
+    }, 0);
+
+    // 6. Total
+    const totalAmount = subtotal - calculatedDiscount + totalTax;
+
+    // 7. Deposit
+    let calculatedDeposit = 0;
+
+    if (depositRequired) {
+      if (depositType === "PERCENTAGE" && depositAmount) {
+        calculatedDeposit = totalAmount * (depositAmount / 100);
+      } else if (depositType === "AMOUNT" && depositAmount) {
+        calculatedDeposit = depositAmount;
+      }
+
+      // Ensure deposit cannot exceed total
+      calculatedDeposit = Math.min(calculatedDeposit, totalAmount);
+    }
+
+    const amountDue = totalAmount - calculatedDeposit;
+
+    // 8. Save results
+    setCalculations({
+      subtotal,
+      totalTax,
+      discountAmount: calculatedDiscount,
+      depositAmount: calculatedDeposit,
+      totalAmount,
+      amountDue,
+    });
+  }, [form]);
+
+  // Calculate totals whenever items, discount, or deposit change
+  useEffect(() => {
+    calculateTotals();
+  }, [
+    form.watch("items"),
+    form.watch("discountType"),
+    form.watch("discountAmount"),
+    form.watch("depositRequired"),
+    form.watch("depositType"),
+    form.watch("depositAmount"),
+  ]);
 
   const fetchClients = async () => {
     setIsLoadingClients(true);
@@ -371,14 +409,6 @@ export default function InvoiceForm({
 
       const invoiceData = {
         ...values,
-        amount: calculations.subtotal,
-        taxAmount: calculations.totalTax,
-        taxRate:
-          calculations.totalTax > 0
-            ? (calculations.totalTax / calculations.subtotal) * 100
-            : 0,
-        discountAmount: values.discountAmount,
-        totalAmount: calculations.totalAmount,
         items: itemsWithProductIds,
         issueDate: values.issueDate.toISOString(),
         dueDate: values.dueDate.toISOString(),
@@ -396,6 +426,9 @@ export default function InvoiceForm({
           currency: values.currency,
           discountType: values.discountType,
           discountAmount: values.discountAmount,
+          depositRequired: values.depositRequired,
+          depositType: values.depositType,
+          depositAmount: values.depositAmount,
           paymentTerms: values.paymentTerms,
           notes: values.notes,
         };
@@ -438,8 +471,9 @@ export default function InvoiceForm({
   };
 
   const addItem = () => {
+    const currentItems = form.getValues("items");
     form.setValue("items", [
-      ...form.getValues("items"),
+      ...currentItems,
       {
         description: "",
         quantity: 1,
@@ -448,6 +482,8 @@ export default function InvoiceForm({
         shopProductId: null,
       },
     ]);
+    // Recalculate totals after adding item
+    setTimeout(calculateTotals, 0);
   };
 
   const removeItem = (index: number) => {
@@ -457,6 +493,8 @@ export default function InvoiceForm({
         "items",
         items.filter((_, i) => i !== index)
       );
+      // Recalculate totals after removing item
+      setTimeout(calculateTotals, 0);
     }
   };
 
@@ -476,6 +514,8 @@ export default function InvoiceForm({
       form.setValue(`items.${index}.unitPrice`, Number(selectedProduct.price));
       form.setValue(`items.${index}.shopProductId`, selectedProduct.id);
       form.setValue(`items.${index}.taxRate`, 15);
+      // Recalculate totals after product selection
+      setTimeout(calculateTotals, 0);
     } else {
       console.error("Product not found with ID:", productId);
       toast.error("Selected product not found");
@@ -498,6 +538,46 @@ export default function InvoiceForm({
 
     form.setValue(`items.${index}.description`, cleanedDescription.trim());
     form.setValue(`items.${index}.unitPrice`, unitPrice);
+  };
+
+  // Real-time handlers for quantity, unit price, and tax rate changes
+  const handleQuantityChange = (index: number, value: number) => {
+    form.setValue(`items.${index}.quantity`, value);
+    calculateTotals();
+  };
+
+  const handleUnitPriceChange = (index: number, value: number) => {
+    form.setValue(`items.${index}.unitPrice`, value);
+    calculateTotals();
+  };
+
+  const handleTaxRateChange = (index: number, value: number) => {
+    form.setValue(`items.${index}.taxRate`, value);
+    calculateTotals();
+  };
+
+  const handleDiscountChange = (
+    type: "AMOUNT" | "PERCENTAGE" | undefined,
+    amount: number
+  ) => {
+    form.setValue("discountType", type);
+    if (amount !== undefined) {
+      form.setValue("discountAmount", amount);
+    }
+    calculateTotals();
+  };
+
+  const handleDepositChange = (
+    required: boolean,
+    type: "AMOUNT" | "PERCENTAGE" | undefined,
+    amount: number
+  ) => {
+    form.setValue("depositRequired", required);
+    form.setValue("depositType", type);
+    if (amount !== undefined) {
+      form.setValue("depositAmount", amount);
+    }
+    calculateTotals();
   };
 
   const formatCurrency = (amount: number) => {
@@ -543,29 +623,32 @@ export default function InvoiceForm({
 
             {/* Recurring Toggle */}
             <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-2">
-                <Repeat className="h-4 w-4 text-muted-foreground" />
-                <FormField
-                  control={form.control}
-                  name="isRecurring"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={(checked) => {
-                            field.onChange(checked);
-                            setIsRecurring(checked);
-                          }}
-                        />
-                      </FormControl>
-                      <FormLabel className="cursor-pointer">
-                        Recurring Invoice
-                      </FormLabel>
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {data?.invoice?.isRecurring ? null : (
+                <div className="flex items-center space-x-2">
+                  <Repeat className="h-4 w-4 text-muted-foreground" />
+                  <FormField
+                    control={form.control}
+                    name="isRecurring"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={(checked) => {
+                              field.onChange(checked);
+                              setIsRecurring(checked);
+                            }}
+                          />
+                        </FormControl>
+                        <FormLabel className="cursor-pointer">
+                          Recurring Invoice
+                        </FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
               {isRecurring && (
                 <Badge variant="secondary" className="bg-blue-50 text-blue-700">
                   <Repeat className="h-3 w-3 mr-1" />
@@ -986,11 +1069,14 @@ export default function InvoiceForm({
                           min="1"
                           step="1"
                           className="text-center"
-                          {...field}
+                          value={field.value}
                           onChange={(e) => {
                             const value = parseFloat(e.target.value);
-                            field.onChange(isNaN(value) ? 1 : value);
+                            const finalValue = isNaN(value) ? 1 : value;
+                            field.onChange(finalValue);
+                            handleQuantityChange(index, finalValue);
                           }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1009,12 +1095,16 @@ export default function InvoiceForm({
                           type="number"
                           step="0.01"
                           className="text-right"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.valueAsNumber || e.target.value
-                            )
-                          }
+                          value={field.value}
+                          onChange={(e) => {
+                            const value =
+                              e.target.valueAsNumber ||
+                              parseFloat(e.target.value) ||
+                              0;
+                            field.onChange(value);
+                            handleUnitPriceChange(index, value);
+                          }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1033,12 +1123,16 @@ export default function InvoiceForm({
                           type="number"
                           step="0.1"
                           className="text-right"
-                          {...field}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.valueAsNumber || e.target.value
-                            )
-                          }
+                          value={field.value || ""}
+                          onChange={(e) => {
+                            const value =
+                              e.target.value === ""
+                                ? 0
+                                : parseFloat(e.target.value);
+                            field.onChange(value);
+                            handleTaxRateChange(index, value);
+                          }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1075,8 +1169,13 @@ export default function InvoiceForm({
           </div>
         </div>
 
-        {/* Discount & Calculation Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Discount, Deposit & Calculation Section */}
+        <div
+          className={cn(
+            `grid grid-cols-1 lg:grid-cols-3 gap-6 `,
+            isRecurring ? "lg:grid-cols-2" : "lg:grid-cols-3"
+          )}
+        >
           {/* Discount Section */}
           <div className="bg-card border rounded-lg p-6">
             <h4 className="font-semibold mb-4">Discount</h4>
@@ -1087,7 +1186,16 @@ export default function InvoiceForm({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Discount Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                        field.onChange(value);
+                        handleDiscountChange(
+                          value,
+                          form.getValues("discountAmount") || 0
+                        );
+                      }}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select discount type" />
@@ -1133,11 +1241,19 @@ export default function InvoiceForm({
                             const input = e.target.value;
                             if (input === "") {
                               field.onChange(undefined);
+                              handleDiscountChange(
+                                form.getValues("discountType"),
+                                0
+                              );
                               return;
                             }
                             let value = parseFloat(input);
                             if (isNaN(value)) {
                               field.onChange(undefined);
+                              handleDiscountChange(
+                                form.getValues("discountType"),
+                                0
+                              );
                               return;
                             }
                             if (
@@ -1147,7 +1263,12 @@ export default function InvoiceForm({
                               value = 100;
                             }
                             field.onChange(value);
+                            handleDiscountChange(
+                              form.getValues("discountType"),
+                              value
+                            );
                           }}
+                          onBlur={field.onBlur}
                         />
                       </FormControl>
                       <FormMessage />
@@ -1157,6 +1278,156 @@ export default function InvoiceForm({
               )}
             </div>
           </div>
+
+          {/* Deposit Section */}
+          {!isRecurring && (
+            <div className="bg-card border rounded-lg p-6">
+              <h4 className="font-semibold mb-4">Deposit</h4>
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="depositRequired"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">
+                          Require Deposit
+                        </FormLabel>
+                        <div className="text-sm text-muted-foreground">
+                          Request a deposit payment from the client
+                        </div>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={(checked) => {
+                            field.onChange(checked);
+                            handleDepositChange(
+                              checked,
+                              form.getValues("depositType") || "PERCENTAGE",
+                              form.getValues("depositAmount") || 50
+                            );
+                          }}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {form.watch("depositRequired") && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="depositType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Deposit Type</FormLabel>
+                          <Select
+                            onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                              field.onChange(value);
+                              handleDepositChange(
+                                true,
+                                value,
+                                form.getValues("depositAmount") || 50
+                              );
+                            }}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select deposit type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="AMOUNT">
+                                Fixed Amount
+                              </SelectItem>
+                              <SelectItem value="PERCENTAGE">
+                                Percentage
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="depositAmount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Deposit Amount{" "}
+                            {form.watch("depositType") === "PERCENTAGE"
+                              ? "(%)"
+                              : ""}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              step={
+                                form.watch("depositType") === "PERCENTAGE"
+                                  ? "1"
+                                  : "0.01"
+                              }
+                              placeholder={
+                                form.watch("depositType") === "PERCENTAGE"
+                                  ? "50"
+                                  : "0.00"
+                              }
+                              value={
+                                field.value === undefined ? "" : field.value
+                              }
+                              onChange={(e) => {
+                                const input = e.target.value;
+                                if (input === "") {
+                                  field.onChange(undefined);
+                                  handleDepositChange(
+                                    true,
+                                    form.getValues("depositType") ||
+                                      "PERCENTAGE",
+                                    0
+                                  );
+                                  return;
+                                }
+                                let value = parseFloat(input);
+                                if (isNaN(value)) {
+                                  field.onChange(undefined);
+                                  handleDepositChange(
+                                    true,
+                                    form.getValues("depositType") ||
+                                      "PERCENTAGE",
+                                    0
+                                  );
+                                  return;
+                                }
+                                if (
+                                  form.watch("depositType") === "PERCENTAGE" &&
+                                  value > 100
+                                ) {
+                                  value = 100;
+                                }
+                                field.onChange(value);
+                                handleDepositChange(
+                                  true,
+                                  form.getValues("depositType") || "PERCENTAGE",
+                                  value
+                                );
+                              }}
+                              onBlur={field.onBlur}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Calculation Summary */}
           <div className="bg-card border rounded-lg p-6">
@@ -1191,11 +1462,38 @@ export default function InvoiceForm({
                   {formatCurrency(calculations.totalAmount)}
                 </span>
               </div>
+
+              {/* Deposit Section */}
+              {form.watch("depositRequired") &&
+                calculations.depositAmount > 0 && (
+                  <>
+                    <div className="flex justify-between text-sm text-green-600 border-t pt-3">
+                      <span>Deposit:</span>
+                      <span className="font-medium">
+                        {formatCurrency(calculations.depositAmount)}
+                        {form.watch("depositType") === "PERCENTAGE" &&
+                          ` (${form.getValues("depositAmount")}%)`}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-base font-semibold border-t pt-3">
+                      <span>Amount Due:</span>
+                      <span className="text-blue-600">
+                        {formatCurrency(calculations.amountDue)}
+                      </span>
+                    </div>
+                  </>
+                )}
+
               {isRecurring && (
                 <div className="flex justify-between text-sm text-blue-600 border-t pt-2">
                   <span>Recurring total:</span>
                   <span className="font-medium">
-                    {formatCurrency(calculations.totalAmount)} /{" "}
+                    {formatCurrency(
+                      form.watch("depositRequired")
+                        ? calculations.amountDue
+                        : calculations.totalAmount
+                    )}{" "}
+                    /{" "}
                     {getFrequencyLabel(
                       watchedFrequency || "MONTHLY",
                       watchedInterval || 1

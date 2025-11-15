@@ -33,12 +33,45 @@ export async function PUT(
       where: { quotationId: params.id },
     });
 
+    // 1. Calculate subtotal first
+    const subtotal = body.items.reduce(
+      (sum: Decimal, item: any) =>
+        sum.add(toDecimal(item.quantity).mul(toDecimal(item.unitPrice))),
+      new Decimal(0)
+    );
+
+    // 2. Calculate discount amount
+    let discountAmount = new Decimal(0);
+    let discountAmountToStore = toDecimal(body.discountAmount || 0);
+
+    if (body.discountType === "PERCENTAGE" && body.discountAmount) {
+      discountAmount = subtotal.mul(toDecimal(body.discountAmount)).div(100);
+      discountAmountToStore = toDecimal(body.discountAmount);
+    } else if (body.discountType === "AMOUNT" && body.discountAmount) {
+      discountAmount = toDecimal(body.discountAmount);
+      discountAmountToStore = toDecimal(body.discountAmount);
+    }
+
+    if (discountAmount.greaterThan(subtotal)) {
+      discountAmount = subtotal;
+    }
+
+    const discountedSubtotal = subtotal.sub(discountAmount);
+
+    const discountRatio = subtotal.greaterThan(0)
+      ? discountAmount.div(subtotal)
+      : new Decimal(0);
+
     const itemsWithAmounts = body.items.map((item: any) => {
       const quantity = toDecimal(item.quantity);
       const unitPrice = toDecimal(item.unitPrice);
       const taxRate = toDecimal(item.taxRate || 0);
+
       const amount = quantity.mul(unitPrice);
-      const taxAmount = amount.mul(taxRate).div(100);
+
+      const discountedAmount = amount.sub(amount.mul(discountRatio));
+
+      const taxAmount = discountedAmount.mul(taxRate).div(100);
 
       return {
         description: item.description,
@@ -50,33 +83,32 @@ export async function PUT(
       };
     });
 
-    const subtotal = itemsWithAmounts.reduce(
-      (sum: Decimal, item: any) => sum.add(item.amount),
-      new Decimal(0)
-    );
-
     const totalTax = itemsWithAmounts.reduce(
       (sum: Decimal, item: any) => sum.add(item.taxAmount),
       new Decimal(0)
     );
 
-    let calculatedDiscountAmount = new Decimal(0);
-    let discountAmountToStore = toDecimal(body.discountAmount || 0);
+    const totalAmount = discountedSubtotal.add(totalTax);
 
-    if (body.discountType === "PERCENTAGE" && body.discountAmount) {
-      calculatedDiscountAmount = subtotal
-        .add(totalTax)
-        .mul(toDecimal(body.discountAmount))
-        .div(100);
-      discountAmountToStore = toDecimal(body.discountAmount);
-    } else if (body.discountType === "AMOUNT" && body.discountAmount) {
-      calculatedDiscountAmount = toDecimal(body.discountAmount);
-      discountAmountToStore = toDecimal(body.discountAmount);
+    const taxRate = discountedSubtotal.greaterThan(0)
+      ? totalTax.div(discountedSubtotal).mul(100)
+      : new Decimal(0);
+
+    let calculatedDepositAmount = new Decimal(0);
+    if (body.depositRequired) {
+      if (body.depositType === "PERCENTAGE" && body.depositAmount) {
+        calculatedDepositAmount = totalAmount
+          .mul(toDecimal(body.depositAmount))
+          .div(100);
+      } else if (body.depositType === "AMOUNT" && body.depositAmount) {
+        calculatedDepositAmount = toDecimal(body.depositAmount);
+      }
+
+      if (calculatedDepositAmount.greaterThan(totalAmount)) {
+        calculatedDepositAmount = totalAmount;
+      }
     }
 
-    const totalAmount = subtotal.add(totalTax).sub(calculatedDiscountAmount);
-
-    // Update the quotation
     const quotation = await db.quotation.update({
       where: { id: params.id },
       data: {
@@ -89,8 +121,15 @@ export async function PUT(
         notes: body.notes,
         discountType: body.discountType,
         discountAmount: discountAmountToStore,
+        depositRequired: body.depositRequired,
+        depositType: body.depositType,
+        depositAmount: calculatedDepositAmount.greaterThan(0)
+          ? calculatedDepositAmount
+          : null,
+        depositRate: body.depositType === "PERCENTAGE" ? body.depositAmount : 0,
         amount: subtotal,
         taxAmount: totalTax,
+        taxRate: taxRate,
         totalAmount,
         items: {
           create: itemsWithAmounts,
@@ -141,17 +180,7 @@ export async function GET(
         id,
       },
       include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            address: true,
-            taxNumber: true,
-            company: true,
-          },
-        },
+        client: true,
         creator: {
           include: {
             GeneralSetting: {
@@ -176,6 +205,7 @@ export async function GET(
             },
           },
         },
+
         items: true,
       },
     });

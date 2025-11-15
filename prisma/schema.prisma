@@ -58,6 +58,7 @@ model User {
   Vendor              Vendor[]
   Expense             Expense[]
   recurringInvoices   RecurringInvoice[]
+  dashboardSettings   DashboardSettings?
 
   @@map("users")
 }
@@ -139,6 +140,43 @@ model HRSettings {
 
   @@unique([id])
   @@map("hr_settings")
+}
+
+model DashboardSettings {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  // Display preferences
+  showFinancialAlerts  Boolean @default(true)
+  showProjectAlerts    Boolean @default(true)
+  showTaskAlerts       Boolean @default(true)
+  showEmployeeAlerts   Boolean @default(true)
+  showFreelancerAlerts Boolean @default(true)
+
+  // Chart preferences
+  defaultChartType   ChartType @default(BAR)
+  showInvoiceChart   Boolean   @default(true)
+  showQuotationChart Boolean   @default(true)
+  showExpenseChart   Boolean   @default(true)
+  showRevenueChart   Boolean   @default(true)
+
+  // Alert thresholds
+  payrollAlertDays Int @default(5)
+  dueDateAlertDays Int @default(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("dashboard_settings")
+}
+
+enum ChartType {
+  BAR
+  LINE
+  AREA
+  PIE
 }
 
 model POSSetting {
@@ -248,7 +286,9 @@ model Employee {
   avatar          String?
   position        String
   departmentId    String?
-  salary          Decimal        @db.Decimal(15, 2)
+  salaryType      SalaryType?    @default(MONTHLY)
+  dailySalary     Decimal        @db.Decimal(15, 2)
+  monthlySalary   Decimal        @db.Decimal(15, 2)
   currency        String         @default("ZAR")
   hireDate        DateTime
   terminationDate DateTime?
@@ -300,6 +340,16 @@ model Employee {
   maternityLeaveDays Int @default(120)
   paternityLeaveDays Int @default(10)
   unpaidLeaveDays    Int @default(0)
+
+  medicalCondition  String?
+  allergies         String?
+  emergencyContacts Json?
+  restrictions      String?
+  firstAidNeeds     String?
+  riskLevel         String?
+  additionalInfo    String?
+
+  //
 
   // Relations
   department       Department?        @relation("DepartmentEmployees", fields: [departmentId], references: [id])
@@ -381,6 +431,14 @@ model FreeLancer {
   maternityLeaveDays Int @default(120)
   paternityLeaveDays Int @default(10)
   unpaidLeaveDays    Int @default(0)
+
+  medicalCondition  String?
+  allergies         String?
+  emergencyContacts Json?
+  restrictions      String?
+  firstAidNeeds     String?
+  riskLevel         String?
+  additionalInfo    String?
 
   // Relations
   department        Department?        @relation("DepartmentFreelancers", fields: [departmentId], references: [id])
@@ -739,27 +797,48 @@ model CategoryCeo {
 // ============================================================================
 
 model Client {
-  id           String       @id @default(cuid())
-  clientNumber String       @unique
+  id           String  @id @default(cuid())
+  clientNumber String  @unique
   name         String
-  email        String       @unique
-  phone        String       @unique
+  email        String  @unique
+  phone        String  @unique
+  phone2       String? @unique
   company      String?
-  avatar       String?
-  status       ClientStatus @default(ACTIVE)
-  type         ClientType   @default(INDIVIDUAL)
-
-  // Business Information
-  taxNumber String?
-  vatNumber String?
-  website   String?
-  industry  String?
 
   // Address Information
-  billingAddress Json?
-  address        String?
+  country  String?
+  province String?
+  town     String?
+  village  String?
+  street   String?
+  address  String?
 
-  // Financial Information
+  // Company Information
+  companyFullName    String?
+  tradingName        String?
+  registrationNumber String?
+  vatNumber          String?
+  taxNumber          String?
+  telNo1             String?
+  telNo2             String?
+  website            String?
+
+  //Company Address Information
+  companyCountry  String?
+  companyProvince String?
+  companytown     String?
+  companyvillage  String?
+  companystreet   String?
+  companyaddress  String?
+
+  // Additional Information
+  additionalInfo String?
+
+  avatar String?
+  status ClientStatus @default(ACTIVE)
+  type   ClientType   @default(INDIVIDUAL)
+
+  // Existing financial information
   creditLimit  Decimal? @db.Decimal(15, 2)
   paymentTerms Int? // Days
   currency     String   @default("ZAR")
@@ -892,10 +971,10 @@ model Task {
   assignees    Employee[]  @relation("TaskAssignments")
   freelancer   FreeLancer? @relation(fields: [freelancerId], references: [id])
   freelancerId String?
-  comments     comment[]
+  comment      comment[]
   documents    Document[]
   timeEntries  TimeEntry[]
-  subtasks     Subtask[]
+  subtask      Subtask[]
 
   @@index([projectId])
   @@index([status])
@@ -1160,6 +1239,11 @@ model Invoice {
   discountType   DiscountType? @default(AMOUNT)
   totalAmount    Decimal       @db.Decimal(15, 2)
 
+  depositType     DepositType? @default(AMOUNT)
+  depositAmount   Decimal?     @db.Decimal(15, 2)
+  depositRate     Decimal?     @db.Decimal(15, 2)
+  depositRequired Boolean      @default(false)
+
   // Terms
   paymentTerms String?
   notes        String?
@@ -1233,6 +1317,11 @@ model RecurringInvoice {
   paymentTerms   String?
   notes          String?
 
+  depositType     DepositType? @default(AMOUNT)
+  depositAmount   Decimal?     @db.Decimal(15, 2)
+  depositRequired Boolean      @default(false)
+  depositRate     Decimal?     @db.Decimal(15, 2)
+
   // Metadata
   totalInvoicesGenerated Int       @default(0)
   lastGeneratedAt        DateTime?
@@ -1293,6 +1382,11 @@ model Quotation {
   discountAmount Decimal?      @db.Decimal(15, 2)
   discountType   DiscountType? @default(AMOUNT)
   totalAmount    Decimal       @db.Decimal(15, 2)
+
+  depositType     DepositType? @default(AMOUNT)
+  depositAmount   Decimal?     @db.Decimal(15, 2)
+  depositRequired Boolean      @default(false)
+  depositRate     Decimal?     @db.Decimal(15, 2)
 
   // Terms and Conditions
   terms         String?
@@ -2498,6 +2592,11 @@ enum UserPermission {
   Attendence_DELETE
 }
 
+enum DepositType {
+  AMOUNT
+  PERCENTAGE
+}
+
 enum AttendanceStatus {
   PRESENT
   ABSENT
@@ -2697,6 +2796,7 @@ enum InvoicePaymentStatus {
   COMPLETED
   FAILED
   REFUNDED
+  CANCELLED
 }
 
 enum RecurringFrequency {
@@ -3002,4 +3102,9 @@ enum ExpensePriority {
   MEDIUM
   HIGH
   URGENT
+}
+
+enum SalaryType {
+  DAILY
+  MONTHLY
 }

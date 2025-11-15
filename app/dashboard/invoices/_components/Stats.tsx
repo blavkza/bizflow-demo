@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FullInvoice } from "@/types/invoice";
+import { Button } from "@/components/ui/button";
 import {
   DollarSign,
   FileText,
@@ -9,119 +10,147 @@ import {
   TrendingUp,
   Calendar,
 } from "lucide-react";
-import { Client } from "@prisma/client";
+
+import { FullInvoice } from "@/types/invoice";
 import { formatCurrency } from "@/lib/formatters";
-import { Button } from "@/components/ui/button";
-import { useState } from "react";
+
+type TimeFilter = "overall" | "this_month" | "last_6_months";
 
 interface StatsProps {
   invoices: FullInvoice[];
 }
 
-type TimeFilter = "overall" | "this_month" | "last_6_months";
-
 export default function Stats({ invoices }: StatsProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("overall");
 
-  // Get date ranges based on filter
   const getDateRange = () => {
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
 
-    switch (timeFilter) {
-      case "this_month":
-        const startOfMonth = new Date(currentYear, currentMonth, 1);
-        const endOfMonth = new Date(currentYear, currentMonth + 1, 0);
-        return { start: startOfMonth, end: endOfMonth };
-
-      case "last_6_months":
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(now.getMonth() - 6);
-        return { start: sixMonthsAgo, end: now };
-
-      case "overall":
-      default:
-        return { start: new Date(0), end: now }; // All time
+    if (timeFilter === "this_month") {
+      return {
+        start: new Date(now.getFullYear(), now.getMonth(), 1),
+        end: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59),
+      };
     }
+
+    if (timeFilter === "last_6_months") {
+      const start = new Date(now);
+      start.setMonth(start.getMonth() - 6);
+      return { start, end: now };
+    }
+
+    return { start: new Date(0), end: now };
   };
 
   const { start, end } = getDateRange();
 
-  // Filter invoices based on time period
-  const filterInvoicesByTime = (invoice: FullInvoice) => {
-    const invoiceDate = new Date(invoice.issueDate);
-    return invoiceDate >= start && invoiceDate <= end;
+  // Helper function to get total paid amount for an invoice
+  const getInvoicePaidAmount = (invoice: FullInvoice): number => {
+    if (!invoice.payments || invoice.payments.length === 0) return 0;
+
+    return invoice.payments.reduce((sum, payment) => {
+      return sum + Number(payment.amount || 0);
+    }, 0);
   };
 
-  // Filter out cancelled invoices and apply time filter
-  const activeInvoices = invoices
-    .filter((invoice) => invoice.status !== "CANCELLED")
-    .filter(filterInvoicesByTime);
+  // Helper function to get outstanding amount for an invoice
+  const getInvoiceOutstanding = (invoice: FullInvoice): number => {
+    const totalAmount = Number(invoice.totalAmount || 0);
+    const paidAmount = getInvoicePaidAmount(invoice);
+    return Math.max(0, totalAmount - paidAmount);
+  };
 
-  // Calculate total outstanding (all unpaid invoices that are not cancelled)
-  const totalOutstanding = activeInvoices
-    .filter((invoice) => invoice.status !== "PAID")
-    .reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0);
+  // Helper function to check if invoice is paid
+  const isInvoicePaid = (invoice: FullInvoice): boolean => {
+    const totalAmount = Number(invoice.totalAmount || 0);
+    const paidAmount = getInvoicePaidAmount(invoice);
+    return paidAmount >= totalAmount;
+  };
 
-  // Pending invoices (all unpaid invoices that are not cancelled)
-  const pendingInvoices = activeInvoices.filter(
-    (invoice) => invoice.status !== "PAID"
-  ).length;
+  // Helper function to check if invoice is partially paid
+  const isInvoicePartiallyPaid = (invoice: FullInvoice): boolean => {
+    const totalAmount = Number(invoice.totalAmount || 0);
+    const paidAmount = getInvoicePaidAmount(invoice);
+    return paidAmount > 0 && paidAmount < totalAmount;
+  };
 
-  // Paid invoices count (only active invoices)
-  const paidInvoices = activeInvoices.filter(
-    (invoice) => invoice.status === "PAID"
-  ).length;
-
-  // Total paid amount (all paid invoices in the period)
-  const totalPaid = activeInvoices
-    .filter((invoice) => invoice.status === "PAID")
-    .reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0);
-
-  // Paid this period - check all payments in the selected period
-  const paidThisPeriod = activeInvoices
-    .filter((invoice) => invoice.status === "PAID")
-    .reduce((sum, invoice) => {
-      // Check if any payment was made in the selected period
-      const hasPaymentInPeriod = invoice.payments?.some((payment) => {
-        if (!payment.paidAt) return false;
-        const paymentDate = new Date(payment.paidAt);
-        return paymentDate >= start && paymentDate <= end;
-      });
-
-      return hasPaymentInPeriod ? sum + Number(invoice.totalAmount || 0) : sum;
-    }, 0);
-
-  // Overdue invoices (unpaid invoices with due date passed)
-  const overdueInvoices = activeInvoices.filter((invoice) => {
-    if (invoice.status === "PAID") return false;
+  // Helper function to check if invoice is overdue
+  const isInvoiceOverdue = (invoice: FullInvoice): boolean => {
+    if (isInvoicePaid(invoice)) return false;
     if (!invoice.dueDate) return false;
 
     const dueDate = new Date(invoice.dueDate);
-    return dueDate < new Date();
-  }).length;
+    const today = new Date();
+    return dueDate < today;
+  };
 
-  // Overdue amount
-  const overdueAmount = activeInvoices
+  // Filter invoices based on time period and status
+  const activeInvoices = invoices
+    .filter((invoice) => invoice.status !== "CANCELLED")
     .filter((invoice) => {
-      if (invoice.status === "PAID") return false;
-      if (!invoice.dueDate) return false;
+      const issueDate = new Date(invoice.issueDate);
+      return issueDate >= start && issueDate <= end;
+    });
 
-      const dueDate = new Date(invoice.dueDate);
-      return dueDate < new Date();
-    })
-    .reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0);
+  // Calculate total revenue (sum of all invoice total amounts that are paid within the period)
+  const totalRevenue = activeInvoices.reduce((sum, invoice) => {
+    if (!isInvoicePaid(invoice)) return sum;
 
-  // Total active invoices count
+    // Check if the invoice was paid within the current time period
+    const payments = invoice.payments || [];
+    const lastPayment = payments[payments.length - 1];
+
+    if (!lastPayment?.paidAt) return sum;
+
+    const paidAt = new Date(lastPayment.paidAt);
+    if (paidAt >= start && paidAt <= end) {
+      return sum + Number(invoice.totalAmount || 0);
+    }
+
+    return sum;
+  }, 0);
+
+  // Calculate total paid amount (sum of all payments within the period)
+  const totalPaid = activeInvoices.reduce((sum, invoice) => {
+    const payments = invoice.payments || [];
+    const paymentsInPeriod = payments.filter((payment) => {
+      if (!payment.paidAt) return false;
+      const paidAt = new Date(payment.paidAt);
+      return paidAt >= start && paidAt <= end;
+    });
+
+    return (
+      sum +
+      paymentsInPeriod.reduce((paymentSum, payment) => {
+        return paymentSum + Number(payment.amount || 0);
+      }, 0)
+    );
+  }, 0);
+
+  // Calculate total outstanding (sum of outstanding amounts for all unpaid invoices)
+  const totalOutstanding = activeInvoices.reduce((sum, invoice) => {
+    if (isInvoicePaid(invoice)) return sum;
+    return sum + getInvoiceOutstanding(invoice);
+  }, 0);
+
+  // Calculate total overdue (sum of outstanding amounts for overdue invoices)
+  const totalOverdue = activeInvoices.reduce((sum, invoice) => {
+    if (!isInvoiceOverdue(invoice)) return sum;
+    return sum + getInvoiceOutstanding(invoice);
+  }, 0);
+
+  // Count invoices by status
   const totalActiveInvoices = activeInvoices.length;
+  const paidInvoices = activeInvoices.filter(isInvoicePaid).length;
+  const pendingInvoices = activeInvoices.filter(
+    (invoice) => !isInvoicePaid(invoice)
+  ).length;
+  const overdueInvoices = activeInvoices.filter(isInvoiceOverdue).length;
+  const partiallyPaidInvoices = activeInvoices.filter(
+    isInvoicePartiallyPaid
+  ).length;
 
-  // Total revenue (sum of all paid invoices in period)
-  const totalRevenue = activeInvoices
-    .filter((invoice) => invoice.status === "PAID")
-    .reduce((sum, invoice) => sum + Number(invoice.totalAmount || 0), 0);
-
-  // Average invoice amount (only from active invoices)
+  // Calculate average invoice value
   const averageInvoice =
     totalActiveInvoices > 0
       ? activeInvoices.reduce(
@@ -130,18 +159,10 @@ export default function Stats({ invoices }: StatsProps) {
         ) / totalActiveInvoices
       : 0;
 
-  // Get filter display text
   const getFilterDisplayText = () => {
-    switch (timeFilter) {
-      case "this_month":
-        return "This Month";
-      case "last_6_months":
-        return "Last 6 Months";
-      case "overall":
-        return "Overall";
-      default:
-        return "Overall";
-    }
+    if (timeFilter === "this_month") return "This Month";
+    if (timeFilter === "last_6_months") return "Last 6 Months";
+    return "Overall";
   };
 
   return (
@@ -157,6 +178,7 @@ export default function Stats({ invoices }: StatsProps) {
           <Calendar className="h-4 w-4" />
           Overall
         </Button>
+
         <Button
           variant={timeFilter === "this_month" ? "default" : "outline"}
           size="sm"
@@ -166,6 +188,7 @@ export default function Stats({ invoices }: StatsProps) {
           <Calendar className="h-4 w-4" />
           This Month
         </Button>
+
         <Button
           variant={timeFilter === "last_6_months" ? "default" : "outline"}
           size="sm"
@@ -179,8 +202,9 @@ export default function Stats({ invoices }: StatsProps) {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
+        {/* Outstanding */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">
               Total Outstanding
             </CardTitle>
@@ -197,30 +221,32 @@ export default function Stats({ invoices }: StatsProps) {
           </CardContent>
         </Card>
 
+        {/* Revenue */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
             <TrendingUp className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(totalRevenue)}
+              {formatCurrency(totalPaid)}
             </div>
             <p className="text-xs text-muted-foreground">
-              {paidInvoices} paid invoice{paidInvoices !== 1 ? "s" : ""} •{" "}
+              {paidInvoices} full paid invoice{paidInvoices !== 1 ? "s" : ""} •{" "}
               {getFilterDisplayText()}
             </p>
           </CardContent>
         </Card>
 
+        {/* Overdue */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">Overdue</CardTitle>
             <TrendingDown className="h-4 w-4 text-red-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(overdueAmount)}
+              {formatCurrency(totalOverdue)}
             </div>
             <p className="text-xs text-muted-foreground">
               {overdueInvoices} overdue invoice
@@ -229,8 +255,9 @@ export default function Stats({ invoices }: StatsProps) {
           </CardContent>
         </Card>
 
+        {/* Average */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-sm font-medium">
               Average Invoice
             </CardTitle>
@@ -248,7 +275,7 @@ export default function Stats({ invoices }: StatsProps) {
         </Card>
       </div>
 
-      {/* Additional Summary Card */}
+      {/* Summary */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -258,25 +285,59 @@ export default function Stats({ invoices }: StatsProps) {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Total Invoices</p>
-              <p className="font-semibold">{totalActiveInvoices}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Paid Invoices</p>
-              <p className="font-semibold text-green-600">{paidInvoices}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Pending Invoices</p>
-              <p className="font-semibold text-amber-600">{pendingInvoices}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Overdue Invoices</p>
-              <p className="font-semibold text-red-600">{overdueInvoices}</p>
-            </div>
+            <SummaryItem label="Total Invoices" value={totalActiveInvoices} />
+            <SummaryItem
+              label="Paid Invoices"
+              value={paidInvoices}
+              valueClass="text-green-600"
+            />
+            <SummaryItem
+              label="Pending Invoices"
+              value={pendingInvoices}
+              valueClass="text-amber-600"
+            />
+            <SummaryItem
+              label="Overdue Invoices"
+              value={overdueInvoices}
+              valueClass="text-red-600"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mt-4 pt-4 border-t">
+            <SummaryItem
+              label="Partially Paid"
+              value={partiallyPaidInvoices}
+              valueClass="text-blue-600"
+            />
+            <SummaryItem
+              label="Total Payments"
+              value={`${formatCurrency(totalPaid)} ${getFilterDisplayText()}`}
+            />
+            <SummaryItem
+              label="Outstanding"
+              value={formatCurrency(totalOutstanding)}
+              valueClass="text-amber-600"
+            />
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function SummaryItem({
+  label,
+  value,
+  valueClass = "",
+}: {
+  label: string;
+  value: any;
+  valueClass?: string;
+}) {
+  return (
+    <div>
+      <p className="text-muted-foreground">{label}</p>
+      <p className={`font-semibold ${valueClass}`}>{value}</p>
     </div>
   );
 }

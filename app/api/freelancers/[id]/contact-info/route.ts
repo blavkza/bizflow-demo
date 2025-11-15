@@ -63,7 +63,7 @@ export async function PUT(
       data: {
         title: "Freelancer Contat-Info Updated",
         message: `Freelancer ${updatedFreelancer.lastName} ${updatedFreelancer.firstName} , Contact Information have been Updated By ${updater.name}.`,
-        type: "EMPLOYEE",
+        type: "FREELANCER",
         isRead: false,
         actionUrl: `/dashboard/human-resources/freelancers/${updatedFreelancer.id}`,
         userId: updater.id,

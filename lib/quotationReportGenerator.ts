@@ -68,6 +68,11 @@ export class QuotationReportGenerator {
 
     const total = subtotal + taxAmount - discountAmount;
 
+    // Calculate deposit information
+    const depositAmount = this.decimalToNumber(quotation.depositAmount) || 0;
+    const depositPercentage = total > 0 ? (depositAmount / total) * 100 : 0;
+    const amountDueAfterDeposit = Math.max(0, total - depositAmount);
+
     // Calculate days until expiry
     const validUntil = new Date(quotation.validUntil);
     const today = new Date();
@@ -274,14 +279,9 @@ export class QuotationReportGenerator {
             .terms-section {
               margin-bottom: 22px;
               padding: 12px;
-              background: ${secondaryColor};
               border-radius: 6px;
             }
-            .terms-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 16px;
-            }
+       
             .terms-content {
               font-size: 11px;
               line-height: 1.4;
@@ -421,7 +421,7 @@ export class QuotationReportGenerator {
                 ${
                   quotation.status === "CONVERTED" && quotation.invoiceId
                     ? `<div style="margin-top: 4px; font-size: 10px; color: #6B7280;">
-                         Converted to Invoice #${quotation.invoiceId}
+                         Converted to Invoice 
                        </div>`
                     : ""
                 }
@@ -514,8 +514,17 @@ export class QuotationReportGenerator {
             <!-- Terms & Notes Section -->
             <div class="terms-section">
               <div class="section-title" style="margin-bottom: 12px;">QUOTATION TERMS & NOTES</div>
-              <div class="terms-grid">
+              <div >
                 <div class="terms-content">
+                  ${
+                    quotation.depositRequired && depositAmount > 0
+                      ? `
+                    <div style="margin-bottom: 8px;">
+                      <strong>Deposit:</strong> A deposit of R${depositAmount.toLocaleString()} (${depositPercentage.toFixed(1)}% of total) has been applied. Remaining balance: R${amountDueAfterDeposit.toLocaleString()}.
+                    </div>
+                  `
+                      : ""
+                  }
                   ${
                     quotation.paymentTerms
                       ? `

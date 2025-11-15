@@ -83,7 +83,7 @@ export default function EditInvoicePage({
         </h1>
       </div>
 
-      <div className=" rounded-lg shadow-md overflow-hidden">
+      <div className="  overflow-hidden">
         <InvoiceForm
           type="update"
           data={{ invoice: invoiceData }}

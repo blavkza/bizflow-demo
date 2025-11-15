@@ -112,7 +112,7 @@ export default function Header({
                 Edit Client
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-full max-w-2xl">
+            <DialogContent className="sm:max-w-[425px] lg:min-w-[800px] max-h-[95vh] overflow-y-auto">
               <DialogHeader className="space-y-2">
                 <DialogTitle className="text-2xl">Edit Client</DialogTitle>
                 <DialogDescription className="text-base">

@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
-import { Globe, Mail, Phone } from "lucide-react";
+import { Globe, Mail, Phone, CreditCard } from "lucide-react";
 
 interface InvoiceHeaderProps {
   invoice: {
@@ -40,6 +40,10 @@ interface InvoiceHeaderProps {
     issueDate: Date | string;
     dueDate: Date | string;
     paymentTerms?: string;
+    depositRequired?: boolean;
+    depositType?: "AMOUNT" | "PERCENTAGE";
+    depositAmount?: number;
+    totalAmount: number;
   };
 }
 
@@ -56,6 +60,47 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
       generalSetting?.postCode,
     ].filter(Boolean);
     return parts.join(", ");
+  };
+
+  // Calculate deposit information
+  const calculateDepositInfo = () => {
+    if (
+      !invoice.depositRequired ||
+      !invoice.depositAmount ||
+      invoice.totalAmount <= 0
+    ) {
+      return null;
+    }
+
+    // Convert to numbers to ensure they're not strings or other types
+    const depositAmount = Number(invoice.depositAmount);
+    const totalAmount = Number(invoice.totalAmount);
+
+    // depositAmount is ALWAYS a monetary amount, regardless of depositType
+    const depositValue = depositAmount;
+
+    // Calculate what percentage the deposit represents of the total
+    const depositPercentage = (depositValue / totalAmount) * 100;
+
+    const amountDue = totalAmount - depositValue;
+
+    return {
+      depositValue,
+      depositPercentage: Number(depositPercentage.toFixed(1)), // Round to 1 decimal place
+      amountDue,
+      depositType: invoice.depositType,
+      originalDepositAmount: depositAmount,
+    };
+  };
+
+  const depositInfo = calculateDepositInfo();
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+    }).format(amount);
   };
 
   return (
@@ -145,7 +190,7 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
           <Separator className="my-6" />
 
           {/* Invoice Details */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
               <Label className="text-sm font-medium text-muted-foreground">
                 Invoice Number
@@ -169,6 +214,91 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
               </div>
             </div>
           </div>
+
+          {/* Deposit Information */}
+          {depositInfo && (
+            <>
+              <Separator className="my-4" />
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <CreditCard className="h-4 w-4 text-blue-600" />
+                  <h4 className="font-semibold text-blue-800">
+                    Deposit Information
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <Label className="text-xs font-medium text-blue-700">
+                      Deposit Type
+                    </Label>
+                    <div className="font-medium">
+                      {depositInfo.depositType === "PERCENTAGE"
+                        ? "Percentage Based"
+                        : "Fixed Amount"}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-medium text-blue-700">
+                      Deposit Amount
+                    </Label>
+                    <div className="font-medium">
+                      {formatCurrency(depositInfo.originalDepositAmount)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-medium text-blue-700">
+                      Deposit Value
+                    </Label>
+                    <div className="font-medium text-green-600">
+                      {depositInfo.depositPercentage}%
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3 pt-3 border-t border-blue-200">
+                  <div>
+                    <Label className="text-xs font-medium text-blue-700">
+                      Total Invoice Amount
+                    </Label>
+                    <div className="font-medium">
+                      {formatCurrency(invoice.totalAmount)}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-medium text-blue-700">
+                      Amount Due After Deposit
+                    </Label>
+                    <div className="font-medium text-blue-600">
+                      {formatCurrency(depositInfo.amountDue)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Show percentage representation */}
+                <div className="mt-2 text-xs text-blue-600">
+                  Deposit represents {depositInfo.depositPercentage}% of total
+                  amount
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Payment Terms */}
+          {invoice.paymentTerms && (
+            <>
+              <Separator className="my-4" />
+              <div>
+                <Label className="text-sm font-medium text-muted-foreground">
+                  Payment Terms
+                </Label>
+                <div className="text-sm mt-1">{invoice.paymentTerms}</div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

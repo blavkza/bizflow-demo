@@ -26,7 +26,7 @@ import { useRouter } from "next/navigation";
 
 interface Freelancer {
   id: string;
-  freelancerNumber: string;
+  freeLancerNumber: string;
   firstName: string;
   lastName: string;
   email?: string;
@@ -218,7 +218,7 @@ export default function FreelancersList({
               <div className="pt-2 border-t">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    ID: {freelancer.freelancerNumber || "N/A"}
+                    ID: {freelancer.freeLancerNumber || "N/A"}
                   </span>
                 </div>
               </div>

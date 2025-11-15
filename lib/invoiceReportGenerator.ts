@@ -1,5 +1,6 @@
 // lib/invoiceReportGenerator.ts
 import { InvoiceProps } from "@/types/invoice";
+import { DiscountType } from "@prisma/client";
 
 interface CompanyInfo {
   id: string;
@@ -32,7 +33,7 @@ export class InvoiceReportGenerator {
     const secondaryColor = "#F3F4F6"; // Gray-100
     const accentColor = "#10B981"; // Emerald-500
 
-    // Calculate amounts
+    // Calculate amounts (using original calculation)
     const subtotal = invoice.items.reduce(
       (sum, item) => sum + Number(item.quantity) * Number(item.unitPrice),
       0
@@ -40,6 +41,23 @@ export class InvoiceReportGenerator {
     const taxAmount = Number(invoice.taxAmount) || 0;
     const discount = Number(invoice.discountAmount) || 0;
     const total = subtotal + taxAmount - discount;
+
+    const calculateDiscountAmount = () => {
+      if (!invoice.discountAmount) return 0;
+
+      if (invoice.discountType === DiscountType.PERCENTAGE) {
+        return (invoice.amount * invoice.discountAmount) / 100;
+      } else {
+        return invoice.discountAmount;
+      }
+    };
+
+    const discountAmount = calculateDiscountAmount();
+
+    // Calculate deposit information
+    const depositAmount = Number(invoice.depositAmount) || 0;
+    const depositPercentage = total > 0 ? (depositAmount / total) * 100 : 0;
+    const amountDueAfterDeposit = Math.max(0, total - depositAmount);
 
     // Calculate payment statistics
     const totalPaid =
@@ -49,17 +67,6 @@ export class InvoiceReportGenerator {
       }, 0) || 0;
 
     const remainingBalance = Math.max(0, total - totalPaid);
-
-    // Safe payment progress calculation
-    let paymentProgress = 0;
-    if (total > 0 && totalPaid > 0) {
-      paymentProgress = (totalPaid / total) * 100;
-    } else if (totalPaid > 0 && total === 0) {
-      paymentProgress = 100; // If paid but total is 0, consider it fully paid
-    }
-
-    // Ensure progress is between 0-100
-    paymentProgress = Math.min(100, Math.max(0, paymentProgress));
 
     const companyName = companyInfo?.companyName || "YOUR COMPANY NAME";
     const companyAddress = companyInfo?.address || "";
@@ -197,20 +204,6 @@ export class InvoiceReportGenerator {
             .amount-paid { color: #065F46; }
             .amount-remaining { color: #DC2626; }
             .amount-total { color: #1E40AF; }
-            .progress-bar {
-              width: 100%;
-              height: 16px;
-              background-color: #E5E7EB;
-              border-radius: 8px;
-              margin: 8px 0;
-              overflow: hidden;
-            }
-            .progress-fill {
-              height: 100%;
-              background-color: ${accentColor};
-              border-radius: 8px;
-              transition: width 0.3s ease;
-            }
             table {
               width: 100%;
               border-collapse: collapse;
@@ -266,21 +259,13 @@ export class InvoiceReportGenerator {
             .terms-section {
               margin-bottom: 22px;
               padding: 12px;
-              background: ${secondaryColor};
               border-radius: 6px;
             }
-            .terms-grid {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 16px;
-            }
-            .terms-content {
-              font-size: 11px;
-              line-height: 1.4;
-            }
-            .bank-details {
-              font-size: 11px;
-            }
+         
+            .terms-content
+           font-size: 11px;
+            line-height: 1.4;
+            margin-bottom: 16px;
             .bank-name {
               font-weight: 600;
               margin-bottom: 2px;
@@ -309,6 +294,19 @@ export class InvoiceReportGenerator {
               } 
               .no-print { 
                 display: none; 
+              }
+              table {
+                page-break-inside: auto;
+              }
+              tr {
+                page-break-inside: avoid;
+                page-break-after: auto;
+              }
+              thead {
+                display: table-header-group;
+              }
+              tfoot {
+                display: table-footer-group;
               }
             }
             @page {
@@ -420,20 +418,6 @@ export class InvoiceReportGenerator {
               </div>
             </div>
 
-            <!-- Payment Progress -->
-      
-              <div style="display: flex; justify-content: space-between; font-size: 10px; color: #6B7280;">
-                <span>R${totalPaid.toLocaleString()} Paid</span>
-                <span>
-                  ${
-                    total > 0
-                      ? `R${remainingBalance.toLocaleString()} Remaining`
-                      : `R${total.toLocaleString()} Total`
-                  }
-                </span>
-              </div>
-            </div>
-
             <!-- Items Table -->
             <table>
               <thead>
@@ -467,26 +451,32 @@ export class InvoiceReportGenerator {
                   <span>Subtotal:</span>
                   <span>R${subtotal.toLocaleString()}</span>
                 </div>
-                ${
-                  taxAmount > 0
-                    ? `
+                
                   <div>
                     <span>Tax (${((taxAmount / subtotal) * 100).toFixed(2)}%):</span>
                     <span>R${taxAmount.toLocaleString()}</span>
                   </div>
-                `
-                    : ""
-                }
-                ${
-                  discount > 0
-                    ? `
-                  <div>
-                    <span>Discount:</span>
-                    <span>-R${discount.toLocaleString()}</span>
-                  </div>
-                `
-                    : ""
-                }
+                
+                   
+              ${
+                discountAmount > 0
+                  ? `
+      <div>
+        <span>
+          Discount${
+            invoice.discountType === DiscountType.PERCENTAGE &&
+            invoice.discountAmount
+              ? ` (${invoice.discountAmount}%)`
+              : ""
+          }:
+        </span>
+        <span>-R${discountAmount.toLocaleString()}</span>
+      </div>
+    `
+                  : ""
+              }
+
+
                 <div class="total-due">
                   <span>Total Due:</span>
                   <span>R${total.toLocaleString()}</span>
@@ -542,55 +532,64 @@ export class InvoiceReportGenerator {
             }
 
             <!-- Payment Terms & Notes Section -->
-            <div class="terms-section">
-              <div class="section-title" style="margin-bottom: 12px;">PAYMENT TERMS & NOTES</div>
-              <div class="terms-grid">
-                <div class="terms-content">
-                  ${
-                    invoice.paymentTerms
-                      ? `
-                    <div style="margin-bottom: 8px;">
-                      <strong>Payment Terms:</strong><br>
-                      ${invoice.paymentTerms}
-                    </div>
-                  `
-                      : ""
-                  }
-                  ${
-                    invoice.note
-                      ? `
-                    <div>
-                      <strong>Notes:</strong><br>
-                      ${invoice.note}
-                    </div>
-                  `
-                      : ""
-                  }
-                </div>
-          
-              </div>
-                    <div class="bank-details">
-                  <div class="section-title" style="margin-bottom: 8px;">BANKING DETAILS</div>
-                  ${
-                    companyInfo?.bankName
-                      ? `
-                    <div class="bank-name">${companyInfo.bankName}</div>
-                    <div>Account: ${companyInfo.bankAccount || "N/A"}</div>
-                  `
-                      : ""
-                  }
-                  ${
-                    companyInfo?.bankName2
-                      ? `
-                    <div style="margin-top: 6px;">
-                      <div class="bank-name">${companyInfo.bankName2}</div>
-                      <div>Account: ${companyInfo.bankAccount2 || "N/A"}</div>
-                    </div>
-                  `
-                      : ""
-                  }
-                </div>
-            </div>
+<div class="terms-section">
+  <div class="section-title" style="margin-bottom: 12px;">PAYMENT TERMS & NOTES</div>
+
+  <div class="terms-content">
+    ${
+      invoice.depositRequired && depositAmount > 0
+        ? `
+      <div style="margin-bottom: 8px;">
+        <strong>Deposit:</strong> A deposit of R${depositAmount.toLocaleString()} (${depositPercentage.toFixed(1)}% of total) has been applied. Remaining balance: R${amountDueAfterDeposit.toLocaleString()}.
+      </div>
+    `
+        : ""
+    }
+    ${
+      invoice.paymentTerms
+        ? `
+      <div style="margin-bottom: 8px;">
+        <strong>Payment Terms:</strong><br>
+        ${invoice.paymentTerms}
+      </div>
+    `
+        : ""
+    }
+    ${
+      invoice.note
+        ? `
+      <div>
+        <strong>Notes:</strong><br>
+        ${invoice.note}
+      </div>
+    `
+        : ""
+    }
+  </div>
+
+  <div class="bank-details">
+    <div class="section-title" style="margin-bottom: 8px;">BANKING DETAILS</div>
+    ${
+      companyInfo?.bankName
+        ? `
+      <div class="bank-name">${companyInfo.bankName}</div>
+      <div>Account: ${companyInfo.bankAccount || "N/A"}</div>
+    `
+        : ""
+    }
+    ${
+      companyInfo?.bankName2
+        ? `
+      <div style="margin-top: 6px;">
+        <div class="bank-name">${companyInfo.bankName2}</div>
+        <div>Account: ${companyInfo.bankAccount2 || "N/A"}</div>
+      </div>
+    `
+        : ""
+    }
+  </div>
+</div>
+
 
             <!-- Footer -->
             <div class="footer">

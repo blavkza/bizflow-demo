@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { QuotationStatus, DiscountType } from "@prisma/client";
+import { QuotationStatus, DiscountType, DepositType } from "@prisma/client";
 import { z } from "zod";
 import { QuotationSchema } from "@/lib/formValidationSchemas";
 import { QuotationWithRelations } from "@/types/quotation";
@@ -38,41 +38,16 @@ export async function POST(req: Request) {
       });
     }
 
-    // Generate quotation number atomically
-    const lastQuotation = await db.quotation.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { quotationNumber: true },
-    });
-    const quotationNumber = lastQuotation
-      ? `QT-${parseInt(lastQuotation.quotationNumber.split("-")[1]) + 1}`
-      : "QT-0001";
-
-    // Calculate amounts
-    const itemsWithAmounts = data.items.map((item) => ({
-      ...item,
-      amount: item.quantity * item.unitPrice,
-      taxAmount: item.taxRate
-        ? (item.quantity * item.unitPrice * item.taxRate) / 100
-        : 0,
-    }));
-
-    const subtotal = itemsWithAmounts.reduce(
-      (sum, item) => sum + item.amount,
+    // 1. Calculate subtotal first
+    const subtotal = data.items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
       0
     );
 
-    const totalTax = itemsWithAmounts.reduce(
-      (sum, item) => sum + (item.taxAmount || 0),
-      0
-    );
-
-    // FIX: Calculate average tax rate as percentage
-    const taxRate = subtotal > 0 ? (totalTax / subtotal) * 100 : 0;
-
-    // Calculate discount properly
+    // 2. Calculate discount amount
     let discountAmount = 0;
     if (data.discountType === DiscountType.PERCENTAGE && data.discountAmount) {
-      discountAmount = (subtotal + totalTax) * (data.discountAmount / 100);
+      discountAmount = subtotal * (data.discountAmount / 100);
     } else if (
       data.discountType === DiscountType.AMOUNT &&
       data.discountAmount
@@ -80,7 +55,66 @@ export async function POST(req: Request) {
       discountAmount = data.discountAmount;
     }
 
-    const totalAmount = subtotal + totalTax - discountAmount;
+    // Prevent discount from exceeding subtotal
+    discountAmount = Math.min(discountAmount, subtotal);
+
+    // 3. Calculate discounted subtotal (amount after discount, before tax)
+    const discountedSubtotal = subtotal - discountAmount;
+
+    // 4. Calculate tax on the DISCOUNTED amount (proportionally per item)
+    const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
+
+    const itemsWithAmounts = data.items.map((item) => {
+      const itemAmount = item.quantity * item.unitPrice;
+      const discountedItemAmount = itemAmount - itemAmount * discountRatio;
+      const taxAmount = item.taxRate
+        ? (discountedItemAmount * item.taxRate) / 100
+        : 0;
+
+      return {
+        ...item,
+        amount: itemAmount,
+        taxAmount,
+      };
+    });
+
+    const totalTax = itemsWithAmounts.reduce(
+      (sum, item) => sum + (item.taxAmount || 0),
+      0
+    );
+
+    // 5. Total amount is discounted subtotal + tax
+    const totalAmount = discountedSubtotal + totalTax;
+
+    // 6. Calculate effective tax rate based on discounted subtotal
+    const taxRate =
+      discountedSubtotal > 0 ? (totalTax / discountedSubtotal) * 100 : 0;
+
+    // Generate quotation number atomically
+    const lastQuotation = await db.quotation.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { quotationNumber: true },
+    });
+
+    const quotationNumber = lastQuotation
+      ? `QT-${(parseInt(lastQuotation.quotationNumber.split("-")[1]) + 1)
+          .toString()
+          .padStart(4, "0")}`
+      : "QT-0001";
+
+    let calculatedDepositAmount = 0;
+    if (data.depositRequired) {
+      if (data.depositType === "PERCENTAGE" && data.depositAmount) {
+        calculatedDepositAmount = totalAmount * (data.depositAmount / 100);
+      } else if (data.depositType === "AMOUNT" && data.depositAmount) {
+        calculatedDepositAmount = data.depositAmount;
+      }
+
+      // Ensure deposit cannot exceed total amount
+      calculatedDepositAmount = Math.min(calculatedDepositAmount, totalAmount);
+    }
+
+    const amountDue = totalAmount - calculatedDepositAmount;
 
     // Create the quotation in a transaction
     const result = await db.$transaction(async (prisma) => {
@@ -100,6 +134,12 @@ export async function POST(req: Request) {
           discountAmount: data.discountAmount,
           discountType: data.discountType,
           totalAmount,
+          depositRequired: data.depositRequired,
+          depositType: data.depositType,
+          depositAmount:
+            calculatedDepositAmount > 0 ? calculatedDepositAmount : null,
+          depositRate:
+            data.depositType === "PERCENTAGE" ? data.depositAmount : 0,
           terms: data.terms,
           notes: data.notes,
           paymentTerms: data.paymentTerms,
@@ -123,6 +163,7 @@ export async function POST(req: Request) {
         })),
       });
 
+      // Create notification
       await db.notification.create({
         data: {
           title: "New Quotation Created",

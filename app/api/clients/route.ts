@@ -23,14 +23,56 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, company, email, phone, type } = body;
+    const {
+      name,
+      email,
+      phone,
+      phone2,
+      type,
+      status,
+      // Personal Address
+      address,
+      country,
+      province,
+      town,
+      village,
+      street,
+      // Company Information
+      companyFullName,
+      tradingName,
+      registrationNumber,
+      vatNumber,
+      taxNumber,
+      telNo1,
+      telNo2,
+      website,
+      // Company Address
+      companyCountry,
+      companyProvince,
+      companytown,
+      companyvillage,
+      companystreet,
+      companyaddress,
+      additionalInfo,
+      // Financial Information
+      creditLimit,
+      paymentTerms,
+      currency,
+      // Additional Information
+      assignedTo,
+      source,
+      notes,
+    } = body;
 
     const lastClient = await db.client.findFirst({
       orderBy: { createdAt: "desc" },
       select: { clientNumber: true },
     });
+
     const clientNumber = lastClient
-      ? `CNT-${parseInt(lastClient.clientNumber.split("-")[1]) + 1}`
+      ? `CNT-${(parseInt(lastClient.clientNumber.split("-")[1]) + 1)
+          .toString()
+          .padStart(4, "0")}`
       : "CNT-0001";
 
     const client = await db.client.create({
@@ -38,10 +80,45 @@ export async function POST(req: Request) {
         clientNumber,
         name,
         email,
-        type,
-        company,
         phone,
-        createdBy: creater?.name,
+        phone2,
+        type,
+        status: status || "ACTIVE",
+        // Personal Address
+        address,
+        country,
+        province,
+        town,
+        village,
+        street,
+        // Company Information
+        companyFullName,
+        tradingName,
+        registrationNumber,
+        vatNumber,
+        taxNumber,
+        telNo1,
+        telNo2,
+        website,
+        // Company Address
+        companyCountry,
+        companyProvince,
+        companytown,
+        companyvillage,
+        companystreet,
+        companyaddress,
+        additionalInfo,
+        company: companyFullName,
+
+        // Financial Information
+        creditLimit: creditLimit ? parseFloat(creditLimit) : null,
+        paymentTerms,
+        currency: currency || "ZAR",
+        // Additional Information
+        assignedTo,
+        source,
+        notes,
+        createdBy: creater.name,
       },
     });
 
@@ -58,7 +135,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ client });
   } catch (error) {
-    console.error("[MESSAGE ERROR]", error);
+    console.error("[CLIENT_CREATE_ERROR]", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }

@@ -124,7 +124,7 @@ export function EmploymentDetailsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Employment Details</CardTitle>
+        <CardTitle>Freelancer Details</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Manager */}
@@ -137,7 +137,7 @@ export function EmploymentDetailsCard({
 
         {/* Start Date */}
         <div>
-          <p className="text-sm font-medium">Start Date</p>
+          <p className="text-sm font-medium">Commencement date</p>
           <p className="text-sm text-muted-foreground">
             {new Date(freelancer.hireDate).toLocaleDateString()}
           </p>

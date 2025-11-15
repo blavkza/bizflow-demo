@@ -28,7 +28,6 @@ export async function GET(
             },
           },
         },
-
         payments: {
           select: {
             id: true,
@@ -40,6 +39,21 @@ export async function GET(
           },
           orderBy: {
             payDate: "desc",
+          },
+        },
+        documents: {
+          select: {
+            id: true,
+            name: true,
+            originalName: true,
+            type: true,
+            url: true,
+            size: true,
+            mimeType: true,
+            createdAt: true,
+          },
+          orderBy: {
+            createdAt: "desc",
           },
         },
       },
@@ -54,9 +68,9 @@ export async function GET(
 
     return NextResponse.json(employee);
   } catch (error) {
-    console.error("Error fetching invoice:", error);
+    console.error("Error fetching employee:", error);
     return NextResponse.json(
-      { error: "Failed to fetch invoice" },
+      { error: "Failed to fetch employee" },
       { status: 500 }
     );
   }
@@ -81,10 +95,16 @@ export async function PUT(
       position,
       phone,
       departmentId,
-      salary,
+      salaryType,
+      dailySalary,
+      monthlySalary,
       status,
       hireDate,
       address,
+      city,
+      province,
+      postalCode,
+      country,
       scheduledKnockIn,
       scheduledKnockOut,
       workingDays,
@@ -117,10 +137,16 @@ export async function PUT(
         position,
         phone,
         departmentId,
-        salary,
+        salaryType,
+        dailySalary: dailySalary || 0,
+        monthlySalary: monthlySalary || 0,
         status,
         hireDate,
         address,
+        city,
+        province,
+        postalCode,
+        country,
         scheduledKnockIn,
         scheduledKnockOut,
         workingDays,

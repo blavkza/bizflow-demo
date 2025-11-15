@@ -27,8 +27,20 @@ import {
 } from "@/lib/formValidationSchemas";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2, CalendarIcon } from "lucide-react";
-import { Department, Employee, EmployeeStatus } from "@prisma/client";
+import {
+  Loader2,
+  CalendarIcon,
+  Calculator,
+  Eye,
+  EyeOff,
+  MapPin,
+} from "lucide-react";
+import {
+  Department,
+  Employee,
+  EmployeeStatus,
+  SalaryType,
+} from "@prisma/client";
 import { cn } from "@/lib/utils";
 import {
   Popover,
@@ -39,6 +51,7 @@ import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 
 interface EmployeeFormProps {
   type: "create" | "update";
@@ -63,6 +76,22 @@ const WORKING_DAYS = [
   { id: "SUN", label: "Sunday" },
 ];
 
+// South African provinces
+const SOUTH_AFRICAN_PROVINCES = [
+  "Eastern Cape",
+  "Free State",
+  "Gauteng",
+  "KwaZulu-Natal",
+  "Limpopo",
+  "Mpumalanga",
+  "North West",
+  "Northern Cape",
+  "Western Cape",
+];
+
+// Constants for calculations
+const WORKING_DAYS_PER_MONTH = 22; // Average working days per month
+
 export default function EmployeeForm({
   type,
   data,
@@ -74,6 +103,7 @@ export default function EmployeeForm({
     ComboboxOption[]
   >([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showBothSalaries, setShowBothSalaries] = useState(false);
 
   const parseDate = (dateValue: any): Date => {
     if (!dateValue) return new Date();
@@ -102,10 +132,17 @@ export default function EmployeeForm({
       position: data?.position || "",
       email: data?.email || "",
       departmentId: data?.departmentId || "",
-      salary: data?.salary ? Number(data.salary) : 0,
+      salaryType: data?.salaryType || "MONTHLY",
+      dailySalary: data?.dailySalary ? Number(data.dailySalary) : 0,
+      monthlySalary: data?.monthlySalary ? Number(data.monthlySalary) : 0,
       hireDate: parseDate(data?.hireDate),
       status: data?.status || "ACTIVE",
+      // Address fields with defaults
       address: data?.address || "",
+      city: data?.city || "",
+      province: data?.province || "",
+      postalCode: data?.postalCode || "",
+      country: data?.country || "South Africa",
       scheduledKnockIn: data?.scheduledKnockIn || "09:00",
       scheduledKnockOut: data?.scheduledKnockOut || "17:00",
       workingDays: parseWorkingDays(data?.workingDays) || [
@@ -117,6 +154,58 @@ export default function EmployeeForm({
       ],
     },
   });
+
+  // Watch salary type and values for calculations
+  const salaryType = form.watch("salaryType");
+  const dailySalary = form.watch("dailySalary");
+  const monthlySalary = form.watch("monthlySalary");
+
+  // Safe type guards
+  const getDailySalary = (): number => {
+    return dailySalary || 0;
+  };
+
+  const getMonthlySalary = (): number => {
+    return monthlySalary || 0;
+  };
+
+  // Auto-calculate salaries when one changes (only if not showing both)
+  useEffect(() => {
+    if (!showBothSalaries) {
+      const currentDailySalary = getDailySalary();
+      const currentMonthlySalary = getMonthlySalary();
+
+      if (salaryType === "DAILY" && currentDailySalary > 0) {
+        const calculatedMonthly = currentDailySalary * WORKING_DAYS_PER_MONTH;
+        form.setValue(
+          "monthlySalary",
+          parseFloat(calculatedMonthly.toFixed(2))
+        );
+      } else if (salaryType === "MONTHLY" && currentMonthlySalary > 0) {
+        const calculatedDaily = currentMonthlySalary / WORKING_DAYS_PER_MONTH;
+        form.setValue("dailySalary", parseFloat(calculatedDaily.toFixed(2)));
+      }
+    }
+  }, [dailySalary, monthlySalary, salaryType, form, showBothSalaries]);
+
+  // Reset the non-primary salary field when switching salary type and not showing both
+  useEffect(() => {
+    if (!showBothSalaries) {
+      const currentDailySalary = getDailySalary();
+      const currentMonthlySalary = getMonthlySalary();
+
+      if (salaryType === "DAILY" && currentMonthlySalary > 0) {
+        const calculatedDaily = currentMonthlySalary / WORKING_DAYS_PER_MONTH;
+        form.setValue("dailySalary", parseFloat(calculatedDaily.toFixed(2)));
+      } else if (salaryType === "MONTHLY" && currentDailySalary > 0) {
+        const calculatedMonthly = currentDailySalary * WORKING_DAYS_PER_MONTH;
+        form.setValue(
+          "monthlySalary",
+          parseFloat(calculatedMonthly.toFixed(2))
+        );
+      }
+    }
+  }, [salaryType, form, showBothSalaries]);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -140,10 +229,12 @@ export default function EmployeeForm({
   const onSubmit = async (values: employeeSchemaType) => {
     setIsLoading(true);
     try {
-      // No need for time conversion - just pass the string values directly
       const formattedData = {
         ...values,
         workingDays: values.workingDays,
+        // Both salary fields are guaranteed to be numbers now
+        dailySalary: values.dailySalary,
+        monthlySalary: values.monthlySalary,
       };
 
       if (type === "create") {
@@ -152,7 +243,7 @@ export default function EmployeeForm({
       } else if (type === "update" && data?.id) {
         await axios.put(`/api/employees/${data.id}`, {
           ...formattedData,
-          avatar: data.avatar, // Include existing avatar if not updated
+          avatar: data.avatar,
         });
         toast.success("Employee updated successfully");
       }
@@ -166,6 +257,26 @@ export default function EmployeeForm({
       setIsLoading(false);
     }
   };
+
+  const calculateEquivalentSalary = () => {
+    const currentDailySalary = getDailySalary();
+    const currentMonthlySalary = getMonthlySalary();
+
+    if (salaryType === "DAILY" && currentDailySalary > 0) {
+      return {
+        label: "Monthly Equivalent",
+        value: (currentDailySalary * WORKING_DAYS_PER_MONTH).toFixed(2),
+      };
+    } else if (salaryType === "MONTHLY" && currentMonthlySalary > 0) {
+      return {
+        label: "Daily Equivalent",
+        value: (currentMonthlySalary / WORKING_DAYS_PER_MONTH).toFixed(2),
+      };
+    }
+    return null;
+  };
+
+  const equivalentSalary = calculateEquivalentSalary();
 
   return (
     <Form {...form}>
@@ -266,36 +377,187 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
-          {/* Salary */}
+
+          {/* Salary Type */}
           <FormField
             control={form.control}
-            name="salary"
+            name="salaryType"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Salary Per Day</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="Enter amount"
-                    value={field.value === 0 ? "" : field.value}
-                    onChange={(e) => {
-                      const value =
-                        e.target.value === "" ? 0 : parseFloat(e.target.value);
-                      field.onChange(isNaN(value) ? 0 : value);
-                    }}
-                  />
-                </FormControl>
+                <FormLabel>Salary Type</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select salary type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {Object.values(SalaryType).map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type === "DAILY" ? "Daily Salary" : "Monthly Salary"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FormMessage />
               </FormItem>
             )}
           />
+
+          {/* Show Both Salaries Toggle */}
+          <div className="flex items-center space-x-2 pt-2">
+            <Switch
+              checked={showBothSalaries}
+              onCheckedChange={setShowBothSalaries}
+            />
+            <FormLabel className="flex items-center gap-2 cursor-pointer">
+              {showBothSalaries ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+              Show Both Salary Fields
+            </FormLabel>
+          </div>
+
+          {/* Salary Fields */}
+          <div className="space-y-4 md:col-span-2">
+            {/* Primary Salary Field */}
+            {!showBothSalaries ? (
+              <FormField
+                control={form.control}
+                name={salaryType === "DAILY" ? "dailySalary" : "monthlySalary"}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      {salaryType === "DAILY"
+                        ? "Daily Salary"
+                        : "Monthly Salary"}
+                      <Calculator className="h-4 w-4 text-muted-foreground" />
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder={`Enter ${salaryType === "DAILY" ? "daily" : "monthly"} salary`}
+                        value={field.value === 0 ? "" : field.value}
+                        onChange={(e) => {
+                          const value =
+                            e.target.value === ""
+                              ? 0
+                              : parseFloat(e.target.value);
+                          field.onChange(isNaN(value) ? 0 : value);
+                        }}
+                      />
+                    </FormControl>
+                    {equivalentSalary && (
+                      <div className="text-sm text-muted-foreground p-2 bg-muted rounded-md">
+                        <strong>{equivalentSalary.label}:</strong> R{" "}
+                        {equivalentSalary.value}
+                      </div>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              // Show Both Salary Fields
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Daily Salary */}
+                <FormField
+                  control={form.control}
+                  name="dailySalary"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        Daily Salary
+                        <Calculator className="h-4 w-4 text-muted-foreground" />
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Enter daily salary"
+                          value={field.value === 0 ? "" : field.value}
+                          onChange={(e) => {
+                            const value =
+                              e.target.value === ""
+                                ? 0
+                                : parseFloat(e.target.value);
+                            field.onChange(isNaN(value) ? 0 : value);
+                          }}
+                        />
+                      </FormControl>
+                      <div className="text-xs text-muted-foreground">
+                        Based on {WORKING_DAYS_PER_MONTH} working days/month
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Monthly Salary */}
+                <FormField
+                  control={form.control}
+                  name="monthlySalary"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-2">
+                        Monthly Salary
+                        <Calculator className="h-4 w-4 text-muted-foreground" />
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          placeholder="Enter monthly salary"
+                          value={field.value === 0 ? "" : field.value}
+                          onChange={(e) => {
+                            const value =
+                              e.target.value === ""
+                                ? 0
+                                : parseFloat(e.target.value);
+                            field.onChange(isNaN(value) ? 0 : value);
+                          }}
+                        />
+                      </FormControl>
+                      <div className="text-xs text-muted-foreground">
+                        Based on {WORKING_DAYS_PER_MONTH} working days/month
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Calculation Info */}
+                <div className="md:col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="text-sm text-blue-800">
+                    <strong>Calculation Info:</strong> When both fields are
+                    shown, they are independent. The system will use the{" "}
+                    {salaryType.toLowerCase()}
+                    salary for payroll calculations.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Salary Type Info */}
+            <div className="p-3 bg-muted rounded-md">
+              <div className="text-sm text-muted-foreground">
+                <strong>Payroll Setting:</strong> Payroll calculations will be
+                based on{" "}
+                <strong>{salaryType === "DAILY" ? "daily" : "monthly"}</strong>{" "}
+                salary.
+                {!showBothSalaries &&
+                  " The other value is calculated automatically."}
+              </div>
+            </div>
+          </div>
+
           {/* Hire Date */}
           <FormField
             control={form.control}
             name="hireDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Hire Date</FormLabel>
+                <FormLabel>commencement date</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -360,50 +622,140 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
-          {/* Address */}
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Address</FormLabel>
-                <FormControl>
-                  <Input placeholder="Address" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        </div>
 
-          {/* Scheduled Knock In */}
-          <FormField
-            control={form.control}
-            name="scheduledKnockIn"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Scheduled Knock In Time</FormLabel>
-                <FormControl>
-                  <Input type="time" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        {/* Address Section */}
+        <div className="space-y-6 border-t pt-6">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-lg font-medium">Address Information</h3>
+          </div>
 
-          {/* Scheduled Knock Out */}
-          <FormField
-            control={form.control}
-            name="scheduledKnockOut"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Scheduled Knock Out Time</FormLabel>
-                <FormControl>
-                  <Input type="time" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* Address */}
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Street Address</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Street address" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* City */}
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>City</FormLabel>
+                  <FormControl>
+                    <Input placeholder="City" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="province"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Province</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value || undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select province" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {SOUTH_AFRICAN_PROVINCES.map((province) => (
+                        <SelectItem key={province} value={province}>
+                          {province}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Postal Code */}
+            <FormField
+              control={form.control}
+              name="postalCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Postal Code</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Postal code" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Country */}
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Country</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Country" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Schedule Section */}
+        <div className="space-y-6 border-t pt-6">
+          <h3 className="text-lg font-medium">Schedule Information</h3>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* Scheduled Knock In */}
+            <FormField
+              control={form.control}
+              name="scheduledKnockIn"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Scheduled Knock In Time</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Scheduled Knock Out */}
+            <FormField
+              control={form.control}
+              name="scheduledKnockOut"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Scheduled Knock Out Time</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         </div>
 
         {/* Working Days */}
@@ -411,7 +763,7 @@ export default function EmployeeForm({
           control={form.control}
           name="workingDays"
           render={() => (
-            <FormItem>
+            <FormItem className="border-t pt-6">
               <div className="mb-4">
                 <FormLabel className="text-base">Working Days</FormLabel>
                 <div className="text-sm text-muted-foreground">

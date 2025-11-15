@@ -116,7 +116,7 @@ export function EmploymentDetailsCard({
 
         {/* Start Date */}
         <div>
-          <p className="text-sm font-medium">Start Date</p>
+          <p className="text-sm font-medium">commencement date</p>
           <p className="text-sm text-muted-foreground">
             {new Date(employee.hireDate).toLocaleDateString()}
           </p>

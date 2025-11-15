@@ -39,6 +39,9 @@ interface OverviewChartProps {
   labels?: string[];
   incomeData?: number[];
   expensesData?: number[];
+  type?: "line" | "bar" | "area" | "pie";
+  isLoading?: boolean;
+  data?: any;
 }
 
 const COLORS = [
@@ -54,35 +57,77 @@ export function OverviewChart({
   labels = [],
   incomeData = [],
   expensesData = [],
+  type = "line",
+  isLoading = false,
+  data,
 }: OverviewChartProps) {
   const [chartType, setChartType] = useState<"line" | "bar" | "area" | "pie">(
-    "line"
+    type
   );
   const [timeRange, setTimeRange] = useState<"month" | "quarter" | "year">(
     "month"
   );
 
-  const data = labels.map((label, index) => ({
-    label,
-    income: incomeData[index] || 0,
-    expenses: expensesData[index] || 0,
-    net: (incomeData[index] || 0) - (expensesData[index] || 0),
-  }));
+  // Use provided data or fallback to individual arrays
+  const chartData = data?.labels
+    ? data.labels.map((label: string, index: number) => ({
+        label,
+        income: data.incomeData?.[index] || 0,
+        expenses: data.expensesData?.[index] || 0,
+        net:
+          (data.incomeData?.[index] || 0) - (data.expensesData?.[index] || 0),
+      }))
+    : labels.map((label, index) => ({
+        label,
+        income: incomeData[index] || 0,
+        expenses: expensesData[index] || 0,
+        net: (incomeData[index] || 0) - (expensesData[index] || 0),
+      }));
 
   const pieData = [
-    { name: "Income", value: incomeData.reduce((sum, val) => sum + val, 0) },
+    {
+      name: "Income",
+      value: chartData.reduce((sum: number, item: any) => sum + item.income, 0),
+    },
     {
       name: "Expenses",
-      value: expensesData.reduce((sum, val) => sum + val, 0),
+      value: chartData.reduce(
+        (sum: number, item: any) => sum + item.expenses,
+        0
+      ),
     },
   ];
 
   const renderChart = (): JSX.Element => {
+    if (isLoading) {
+      return (
+        <div className="h-full w-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Loading chart...
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    if (chartData.length === 0) {
+      return (
+        <div className="h-full w-full flex items-center justify-center">
+          <div className="text-center">
+            <BarChart3 className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+            <p className="text-muted-foreground">No data available</p>
+          </div>
+        </div>
+      );
+    }
+
     switch (chartType) {
       case "line":
         return (
           <LineChart
-            data={data}
+            data={chartData}
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
@@ -96,6 +141,7 @@ export function OverviewChart({
                 }).format(Number(value))
               }
             />
+            <Legend />
             <Line
               type="monotone"
               dataKey="income"
@@ -128,7 +174,7 @@ export function OverviewChart({
       case "bar":
         return (
           <BarChart
-            data={data}
+            data={chartData}
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
@@ -151,7 +197,7 @@ export function OverviewChart({
       case "area":
         return (
           <AreaChart
-            data={data}
+            data={chartData}
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
@@ -165,6 +211,7 @@ export function OverviewChart({
                 }).format(Number(value))
               }
             />
+            <Legend />
             <Area
               type="monotone"
               dataKey="income"
@@ -228,10 +275,9 @@ export function OverviewChart({
           </PieChart>
         );
       default:
-        // Fallback to line chart if somehow an invalid chart type is selected
         return (
           <LineChart
-            data={data}
+            data={chartData}
             margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           >
             <CartesianGrid strokeDasharray="3 3" />
@@ -245,6 +291,7 @@ export function OverviewChart({
                 }).format(Number(value))
               }
             />
+            <Legend />
             <Line
               type="monotone"
               dataKey="income"
@@ -275,22 +322,6 @@ export function OverviewChart({
           Financial Overview
         </CardTitle>
         <div className="flex items-center gap-2">
-          {/*   <Select
-            value={timeRange}
-            onValueChange={(value: "month" | "quarter" | "year") =>
-              setTimeRange(value)
-            }
-          >
-            <SelectTrigger className="w-[100px] h-8">
-              <SelectValue placeholder="Range" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="month">Monthly</SelectItem>
-              <SelectItem value="quarter">Quarterly</SelectItem>
-              <SelectItem value="year">Yearly</SelectItem>
-            </SelectContent>
-          </Select> */}
-
           <Tabs
             value={chartType}
             onValueChange={(value) =>

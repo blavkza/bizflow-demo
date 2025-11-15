@@ -1,6 +1,7 @@
 import {
   CategoryStatus,
   CategoryType,
+  ClientStatus,
   ClientType,
   DiscountType,
   EmployeeStatus,
@@ -11,6 +12,7 @@ import {
   Priority,
   QuotationStatus,
   RecurringFrequency,
+  SalaryType,
   TaskStatus,
   TransactionStatus,
   TransactionType,
@@ -62,16 +64,66 @@ export const updateUserSchema = z.object({
 
 export type updateUserSchemaType = z.infer<typeof updateUserSchema>;
 
-export const clientSchema = z.object({
-  name: z.string().min(1, { message: "Name is required!" }),
-  company: z.string().optional(),
-  phone: z.string().min(1, { message: "Phone is required!" }),
-  email: z.string().email({ message: "Invalid email address!" }),
-  type: z.nativeEnum(ClientType),
-  taxNumber: z.string().optional(),
-  website: z.string().optional(),
-  address: z.string().optional(),
-});
+export const clientSchema = z
+  .object({
+    // Basic Information
+    name: z.string().min(1, "Name is required"),
+    email: z.string().email("Invalid email address"),
+    phone: z.string().min(1, "Phone is required"),
+    phone2: z.string().optional().or(z.literal("")),
+    type: z.nativeEnum(ClientType),
+    status: z.nativeEnum(ClientStatus),
+
+    // Personal Address Information
+    address: z.string().optional().or(z.literal("")),
+    country: z.string().optional().or(z.literal("")),
+    province: z.string().optional().or(z.literal("")),
+    town: z.string().optional().or(z.literal("")),
+    village: z.string().optional().or(z.literal("")),
+    street: z.string().optional().or(z.literal("")),
+
+    // Company Information
+    companyFullName: z.string().optional().or(z.literal("")),
+    tradingName: z.string().optional().or(z.literal("")),
+    registrationNumber: z.string().optional().or(z.literal("")),
+    vatNumber: z.string().optional().or(z.literal("")),
+    taxNumber: z.string().optional().or(z.literal("")),
+    telNo1: z.string().optional().or(z.literal("")),
+    telNo2: z.string().optional().or(z.literal("")),
+    website: z.string().optional().or(z.literal("")),
+
+    // Company Address Information
+    companyCountry: z.string().optional().or(z.literal("")),
+    companyProvince: z.string().optional().or(z.literal("")),
+    companytown: z.string().optional().or(z.literal("")),
+    companyvillage: z.string().optional().or(z.literal("")),
+    companystreet: z.string().optional().or(z.literal("")),
+    companyaddress: z.string().optional().or(z.literal("")),
+    additionalInfo: z.string().optional().or(z.literal("")),
+
+    // Financial Information
+    creditLimit: z.string().optional().or(z.literal("")),
+    paymentTerms: z.number().int().positive().optional().nullable(),
+    currency: z.string().default("ZAR"),
+
+    // Additional Information
+    assignedTo: z.string().optional().or(z.literal("")),
+    source: z.string().optional().or(z.literal("")),
+    notes: z.string().optional().or(z.literal("")),
+  })
+  .refine(
+    (data) => {
+      // If client type is COMPANY, require company full name
+      if (data.type === ClientType.COMPANY) {
+        return !!data.companyFullName;
+      }
+      return true;
+    },
+    {
+      message: "Company full name is required for company type",
+      path: ["companyFullName"],
+    }
+  );
 
 export type clientSchemaType = z.infer<typeof clientSchema>;
 
@@ -162,47 +214,89 @@ export const memberSchema = z.object({
 
 export type MemberSchemaType = z.infer<typeof memberSchema>;
 
-export const employeeSchema = z.object({
-  firstName: z.string().min(1, { message: "First name is required" }),
-  lastName: z.string().min(1, { message: "Last name is required" }),
-  phone: z.string().min(1, { message: "Phone number is required" }),
-  email: z
-    .string()
-    .email({ message: "Invalid email address!" })
-    .optional()
-    .or(z.literal("")),
-  position: z.string().min(1, { message: "Position is required" }),
-  departmentId: z.string().min(1, { message: "Department is required" }),
-  salary: z
-    .union([
-      z
-        .string()
-        .min(1, { message: "Salary is required" })
-        .refine((val) => !isNaN(Number(val)), {
-          message: "Must be a valid number",
-        }),
-      z.number().min(0, { message: "Salary must be positive" }),
-    ])
-    .transform((val) => Number(val)),
-  hireDate: z.date({ required_error: "Hire date is required" }),
-  status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
-  address: z.string().min(1, { message: "Address is required" }),
-  scheduledKnockIn: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
-      message: "Invalid time format (HH:mm)",
-    })
-    .optional()
-    .or(z.literal("")),
-  scheduledKnockOut: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
-      message: "Invalid time format (HH:mm)",
-    })
-    .optional()
-    .or(z.literal("")),
-  workingDays: z.array(z.string()).default([]),
-});
+export const employeeSchema = z
+  .object({
+    firstName: z.string().min(1, { message: "First name is required" }),
+    lastName: z.string().min(1, { message: "Last name is required" }),
+    phone: z.string().min(1, { message: "Phone number is required" }),
+    email: z
+      .string()
+      .email({ message: "Invalid email address!" })
+      .optional()
+      .or(z.literal("")),
+    position: z.string().min(1, { message: "Position is required" }),
+    departmentId: z.string().min(1, { message: "Department is required" }),
+    // Update salary fields
+    salaryType: z.nativeEnum(SalaryType).default("MONTHLY"),
+    dailySalary: z
+      .union([
+        z
+          .string()
+          .min(1, { message: "Daily salary is required" })
+          .refine((val) => !isNaN(Number(val)), {
+            message: "Must be a valid number",
+          }),
+        z.number().min(0, { message: "Daily salary must be positive" }),
+      ])
+      .transform((val) => Number(val))
+      .optional(),
+    monthlySalary: z
+      .union([
+        z
+          .string()
+          .min(1, { message: "Monthly salary is required" })
+          .refine((val) => !isNaN(Number(val)), {
+            message: "Must be a valid number",
+          }),
+        z.number().min(0, { message: "Monthly salary must be positive" }),
+      ])
+      .transform((val) => Number(val))
+      .optional(),
+    hireDate: z.date({ required_error: "Hire date is required" }),
+    status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
+    address: z.string().min(1, { message: "Address is required" }),
+    city: z.string().or(z.literal("")),
+    province: z.string().or(z.literal("")),
+    postalCode: z.string().or(z.literal("")),
+    country: z.string().or(z.literal("")),
+    scheduledKnockIn: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+        message: "Invalid time format (HH:mm)",
+      })
+      .optional()
+      .or(z.literal("")),
+    scheduledKnockOut: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+        message: "Invalid time format (HH:mm)",
+      })
+      .optional()
+      .or(z.literal("")),
+    workingDays: z.array(z.string()).default([]),
+  })
+  .refine(
+    (data) => {
+      // Validate that at least one salary field is provided based on salaryType
+      if (
+        data.salaryType === "DAILY" &&
+        (!data.dailySalary || data.dailySalary <= 0)
+      ) {
+        return false;
+      }
+      if (
+        data.salaryType === "MONTHLY" &&
+        (!data.monthlySalary || data.monthlySalary <= 0)
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Salary is required for the selected salary type",
+      path: ["salaryType"],
+    }
+  );
 
 export type employeeSchemaType = z.infer<typeof employeeSchema>;
 
@@ -337,6 +431,9 @@ export const InvoiceSchema = z.object({
   frequency: z.nativeEnum(RecurringFrequency).optional(),
   interval: z.number().min(1).max(365).default(1).optional(),
   endDate: z.date().optional().nullable(),
+  depositRequired: z.boolean().default(false),
+  depositType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
+  depositAmount: z.number().min(0).optional(),
 });
 
 export const invoicePaymentSchema = z.object({
@@ -426,6 +523,9 @@ export const QuotationSchema = z.object({
   discountType: z.nativeEnum(DiscountType).optional(),
   discountAmount: z.number().min(0).optional(),
   status: z.nativeEnum(QuotationStatus).optional().default("DRAFT"),
+  depositRequired: z.boolean().default(false),
+  depositType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
+  depositAmount: z.number().min(0).optional(),
 });
 
 export const PRODUCT_CATEGORIES = [

@@ -34,24 +34,13 @@ export async function POST(req: Request) {
       data.interval
     );
 
-    // Calculate amounts for the first invoice
-    const itemsWithAmounts = data.items.map((item) => ({
-      ...item,
-      amount: item.quantity * item.unitPrice,
-      taxAmount: item.taxRate
-        ? (item.quantity * item.unitPrice * item.taxRate) / 100
-        : 0,
-    }));
-
-    const subtotal = itemsWithAmounts.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
-    const totalTax = itemsWithAmounts.reduce(
-      (sum, item) => sum + (item.taxAmount || 0),
+    // Calculate amounts with proper order: discount first, then tax
+    const subtotal = data.items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
       0
     );
 
+    // Calculate discount
     let discountAmount = 0;
     if (data.discountType === "PERCENTAGE" && data.discountAmount) {
       discountAmount = subtotal * (data.discountAmount / 100);
@@ -59,8 +48,40 @@ export async function POST(req: Request) {
       discountAmount = data.discountAmount;
     }
 
-    const totalAmount = subtotal + totalTax - discountAmount;
-    const taxRate = subtotal > 0 ? totalTax / subtotal : 0;
+    // Prevent discount from exceeding subtotal
+    discountAmount = Math.min(discountAmount, subtotal);
+
+    // Calculate discounted subtotal
+    const discountedSubtotal = subtotal - discountAmount;
+
+    // Calculate tax on DISCOUNTED amount (proportionally per item)
+    const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
+
+    const itemsWithAmounts = data.items.map((item) => {
+      const itemAmount = item.quantity * item.unitPrice;
+      const discountedItemAmount = itemAmount - itemAmount * discountRatio;
+      const taxAmount = item.taxRate
+        ? (discountedItemAmount * item.taxRate) / 100
+        : 0;
+
+      return {
+        ...item,
+        amount: itemAmount, // Original amount for record keeping
+        taxAmount, // Tax calculated on discounted amount
+      };
+    });
+
+    const totalTax = itemsWithAmounts.reduce(
+      (sum, item) => sum + (item.taxAmount || 0),
+      0
+    );
+
+    // Total amount is discounted subtotal + tax
+    const totalAmount = discountedSubtotal + totalTax;
+
+    // Calculate effective tax rate based on discounted subtotal
+    const taxRate =
+      discountedSubtotal > 0 ? (totalTax / discountedSubtotal) * 100 : 0;
 
     // Generate invoice number
     const lastInvoice = await db.invoice.findFirst({
@@ -104,17 +125,17 @@ export async function POST(req: Request) {
           project:
             data.description ||
             `Recurring Invoice ${data.frequency.toLowerCase()}`,
-          amount: subtotal,
+          amount: subtotal, // Original subtotal before discount
           currency: data.currency,
           status: InvoiceStatus.DRAFT,
           issueDate: new Date(data.startDate),
           dueDate: calculateDueDate(new Date(data.startDate), 30),
           description: data.description,
-          taxAmount: totalTax,
-          taxRate: taxRate,
+          taxAmount: totalTax, // Tax calculated on discounted amount
+          taxRate: taxRate, // Effective tax rate based on discounted subtotal
           discountAmount: discountAmount,
           discountType: data.discountType,
-          totalAmount,
+          totalAmount, // Final total (discounted subtotal + tax)
           paymentTerms: data.paymentTerms,
           notes: data.notes,
           createdBy: creator.id,
@@ -130,10 +151,10 @@ export async function POST(req: Request) {
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          amount: item.amount,
+          amount: item.amount, // Original amount (quantity * unitPrice)
           currency: data.currency,
-          taxRate: item.taxRate ? item.taxRate / 100 : 0,
-          taxAmount: item.taxAmount,
+          taxRate: item.taxRate,
+          taxAmount: item.taxAmount, // Tax calculated on discounted item amount
           shopProductId: item.shopProductId || null,
         })),
       });
@@ -291,6 +312,8 @@ export async function POST(req: Request) {
 }
 
 // Helper function to calculate next invoice date
+
+// Helper function to calculate next invoice date
 function calculateNextDate(
   startDate: Date,
   frequency: string,
@@ -324,6 +347,7 @@ function calculateDueDate(issueDate: Date, days: number): Date {
   dueDate.setDate(dueDate.getDate() + days);
   return dueDate;
 }
+
 export async function GET(req: Request) {
   try {
     const { userId } = await auth();

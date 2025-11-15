@@ -236,7 +236,7 @@ export function ContactCard({
 
                 <div className="pt-4 border-t">
                   <h4 className="font-medium flex items-center gap-2 mb-4">
-                    <AlertCircle className="h-4 w-4" /> Emergency Contact
+                    <AlertCircle className="h-4 w-4" /> Next Of Kin
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
@@ -403,7 +403,7 @@ export function ContactCard({
 
               <div className="pt-4 border-t">
                 <h4 className="font-medium flex items-center gap-2 mb-4">
-                  <AlertCircle className="h-4 w-4" /> Emergency Contact
+                  <AlertCircle className="h-4 w-4" /> Next Of Kin
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
