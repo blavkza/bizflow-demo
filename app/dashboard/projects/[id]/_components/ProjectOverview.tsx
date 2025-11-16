@@ -139,12 +139,34 @@ export function ProjectOverview({
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 p-4">
           {/* Client */}
           <div className="flex items-center gap-3">
-            <Building2 className="text-primary" size={20} />
             <div>
               <p className="text-sm text-muted-foreground">Client</p>
-              <p className="text-sm font-medium">
-                {project.client?.name || "No client"}
-              </p>
+
+              <div className="text-sm flex flex-col">
+                {project.client?.company && (
+                  <span>{project.client.company}</span>
+                )}
+
+                <span className="font-medium">
+                  {project.client?.name || "No client"}
+                </span>
+
+                {project.client?.email && <span>{project.client.email}</span>}
+
+                {(project.client?.phone || project.client?.phone2) && (
+                  <div className="flex items-center gap-2">
+                    {project.client?.phone && (
+                      <span>{project.client.phone}</span>
+                    )}
+                    {project.client?.phone && project.client?.phone2 && (
+                      <span>,</span>
+                    )}
+                    {project.client?.phone2 && (
+                      <span>{project.client.phone2}</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -163,7 +185,7 @@ export function ProjectOverview({
               )}
             </Avatar>
             <div>
-              <p className="text-sm text-muted-foreground">Project Manager</p>
+              <p className="text-sm text-muted-foreground">Team Leader</p>
               <p className="text-sm font-medium">
                 {project.manager?.name || "Unassigned"}
               </p>

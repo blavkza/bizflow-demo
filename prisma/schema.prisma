@@ -1031,6 +1031,9 @@ model Document {
   mimeType     String?
   checksum     String?
 
+  starred Boolean @default(false)
+  shared  Boolean @default(false)
+
   // Relations (polymorphic)
   employeeId    String?
   clientId      String?
@@ -1095,9 +1098,10 @@ model Note {
   transactionId String?
   projectId     String?
   folderId      String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  color         String?
+  pinned        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   employee     Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   client       Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)

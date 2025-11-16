@@ -6,19 +6,26 @@ import { Plus, FileText, Calendar, User } from "lucide-react";
 import { format } from "date-fns";
 import { Decimal } from "@prisma/client/runtime/library";
 import Link from "next/link";
+import { UserRole } from "@prisma/client";
 
 interface ProjectExpensesProps {
   project: Project;
   fetchProject: () => void;
   canViewFinancial?: boolean | null;
+  currentUserRole: string | null;
+  isManager: boolean;
 }
 
 export function ProjectExpenses({
   project,
   fetchProject,
   canViewFinancial,
+  currentUserRole,
+  isManager,
 }: ProjectExpensesProps) {
   const expenses = project.Expense || [];
+
+  console.log(project.Expense);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -60,7 +67,11 @@ export function ProjectExpenses({
     return sum + Number(expense.remainingAmount || 0);
   }, 0);
 
-  if (!canViewFinancial) {
+  if (
+    canViewFinancial ||
+    currentUserRole === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+    isManager
+  ) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-8">
@@ -208,7 +219,7 @@ export function ProjectExpenses({
                         </div>
 
                         <Link
-                          href={`/dashboard/expenese/${expense.id}`}
+                          href={`/dashboard/expeneses/${expense.id}`}
                           className="flex space-x-2 justify-end"
                         >
                           <Button variant="outline" size="sm">

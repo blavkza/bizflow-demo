@@ -102,7 +102,6 @@ export default function ProjectsDetailsPage({
     refetchInterval: 10000,
   });
 
-  // Update progress whenever tasks change
   useEffect(() => {
     const progress = calculateProjectProgress(tasks);
     setProjectProgress(progress);
@@ -116,7 +115,6 @@ export default function ProjectsDetailsPage({
       setProjectStatus(data.status);
       setIsStarred(data.starred);
 
-      // Calculate initial progress
       const progress = calculateProjectProgress(data.tasks || []);
       setProjectProgress(progress);
     }
@@ -486,6 +484,8 @@ export default function ProjectsDetailsPage({
             <ProjectExpenses
               project={project}
               fetchProject={refetch}
+              currentUserRole={currentUserRole}
+              isManager={isManager}
               canViewFinancial={currentUserPermissions?.canViewFinancial}
             />
           ) : viewMode === "worklogs" ? (

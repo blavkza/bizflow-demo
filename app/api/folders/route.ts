@@ -49,3 +49,40 @@ export async function POST(req: Request) {
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
+
+export async function GET(request: Request) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const projectId = searchParams.get("projectId");
+
+    const where = projectId ? { projectId } : {};
+
+    const folders = await db.folder.findMany({
+      where,
+      include: {
+        Document: true,
+        Note: true,
+        Project: {
+          select: {
+            title: true,
+            id: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(folders);
+  } catch (error) {
+    console.error("Error fetching folders:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}

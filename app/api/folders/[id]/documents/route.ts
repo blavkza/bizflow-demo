@@ -113,36 +113,22 @@ export async function POST(
     const isImage = file.type.startsWith("image/");
 
     // Use "raw" resource type for PDFs and documents to preserve file format
-    // Use "image" for images, "auto" for others
-    let resourceType = "auto";
-    if (isPDF || isDocument) {
-      resourceType = "raw";
-    } else if (isImage) {
-      resourceType = "image";
-    }
+    // Use "auto" for images and other files
+    const resourceType = isPDF || isDocument ? "raw" : "auto";
 
     // Cloudinary upload
     const cloudinaryFormData = new FormData();
-
-    if (resourceType === "raw") {
-      // For raw files, send the file as-is without base64 encoding
-      const blob = new Blob([buffer], { type: file.type });
-      cloudinaryFormData.append("file", blob, file.name);
-    } else {
-      // For images and other files, use base64 encoding
-      cloudinaryFormData.append(
-        "file",
-        `data:${file.type};base64,${buffer.toString("base64")}`
-      );
-    }
-
+    cloudinaryFormData.append(
+      "file",
+      `data:${file.type};base64,${buffer.toString("base64")}`
+    );
     cloudinaryFormData.append("upload_preset", uploadPreset);
     cloudinaryFormData.append("folder", "financeFlow/folders");
     cloudinaryFormData.append("resource_type", resourceType);
 
-    // For raw files, include the original filename in public_id
-    const fileExtension = file.name.split(".").pop() || "bin";
+    // For raw files, we need to specify the file format in public_id
     if (resourceType === "raw") {
+      const fileExtension = file.name.split(".").pop() || "bin";
       cloudinaryFormData.append(
         "public_id",
         `folder_${id}_${safeFileName}_${timestamp}.${fileExtension}`
@@ -157,18 +143,8 @@ export async function POST(
     // Add context for better organization
     cloudinaryFormData.append(
       "context",
-      `folder_id=${id}|uploaded_by=${userId}|document_type=${documentType}|resource_type=${resourceType}`
+      `folder_id=${id}|uploaded_by=${userId}|document_type=${documentType}`
     );
-
-    console.log("Cloudinary upload details:", {
-      resourceType,
-      fileType: file.type,
-      fileName: file.name,
-      public_id:
-        resourceType === "raw"
-          ? `folder_${id}_${safeFileName}_${timestamp}.${fileExtension}`
-          : `folder_${id}_${safeFileName}_${timestamp}`,
-    });
 
     const cloudinaryResponse = await fetch(cloudinaryUrl, {
       method: "POST",
@@ -182,24 +158,17 @@ export async function POST(
         {
           error: "Cloudinary upload failed",
           details: errorData.error?.message,
-          resourceType,
-          fileType: file.type,
         },
         { status: cloudinaryResponse.status }
       );
     }
 
     const cloudinaryData = await cloudinaryResponse.json();
-    console.log("Cloudinary upload success:", {
-      resource_type: cloudinaryData.resource_type,
-      url: cloudinaryData.secure_url,
-      format: cloudinaryData.format,
-    });
 
     // Create database record
     const document = await db.document.create({
       data: {
-        name: file.name, // Use original file name
+        name: file.name, // Use original file name instead of safe name
         originalName: file.name,
         type: documentType,
         url: cloudinaryData.secure_url,

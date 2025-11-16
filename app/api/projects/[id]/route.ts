@@ -173,7 +173,14 @@ export async function GET(
       },
       include: {
         client: {
-          select: { id: true, name: true, company: true, email: true },
+          select: {
+            id: true,
+            name: true,
+            company: true,
+            email: true,
+            phone: true,
+            phone2: true,
+          },
         },
         manager: {
           select: { id: true, name: true, email: true, avatar: true },

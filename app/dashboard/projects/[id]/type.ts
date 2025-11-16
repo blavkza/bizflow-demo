@@ -6,6 +6,8 @@ export interface Client {
   name: string;
   company: string;
   email: string;
+  phone: string | null;
+  phone2: string | null;
 }
 
 export interface Manager {
@@ -179,10 +181,9 @@ export interface Project {
   comment: Comment[];
   Expense: Expense[];
   toolInterUses: ToolInterUse[];
-  workLogs: WorkLog[]; // Add work logs
+  workLogs: WorkLog[];
 }
 
-// Add ProjectType and BillingType enums
 export enum ProjectType {
   NEW_PROJECT = "NEW_PROJECT",
   RETURN_JOB = "RETURN_JOB",
