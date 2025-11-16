@@ -42,6 +42,10 @@ export const KanbanTaskCard = ({
     }
   };
 
+  const getFullName = (firstName: string, lastName: string) => {
+    return `${firstName} ${lastName}`;
+  };
+
   const getInitials = (firstName: string, lastName: string) => {
     return (
       `${firstName?.[0]?.toUpperCase() ?? ""}${lastName?.[0]?.toUpperCase() ?? ""}` ||
@@ -54,11 +58,27 @@ export const KanbanTaskCard = ({
     new Date(task.dueDate) < new Date() &&
     task.status !== "COMPLETED";
 
+  // Combine all assignees (employees and freelancers)
+  const allAssignees = [
+    ...(task.assignees?.map((assignee) => ({
+      ...assignee,
+      fullName: getFullName(assignee.firstName, assignee.lastName),
+      initials: getInitials(assignee.firstName, assignee.lastName),
+      type: "employee" as const,
+    })) || []),
+    ...(task.freeLancerAssignees?.map((freelancer) => ({
+      ...freelancer,
+      fullName: getFullName(freelancer.firstName, freelancer.lastName),
+      initials: getInitials(freelancer.firstName, freelancer.lastName),
+      type: "freelancer" as const,
+    })) || []),
+  ];
+
   // Handle multiple assignees
   const maxVisibleAssignees = 3;
-  const visibleAssignees = task.assignees?.slice(0, maxVisibleAssignees) || [];
+  const visibleAssignees = allAssignees.slice(0, maxVisibleAssignees);
   const extraAssigneesCount = Math.max(
-    (task.assignees?.length || 0) - maxVisibleAssignees,
+    allAssignees.length - maxVisibleAssignees,
     0
   );
 
@@ -97,27 +117,31 @@ export const KanbanTaskCard = ({
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
-          {task.assignees?.length ? (
+          {allAssignees.length > 0 ? (
             <div className="flex items-center -space-x-2">
               {visibleAssignees.map((assignee, index) => (
                 <Avatar
-                  key={index}
+                  key={`${assignee.type}-${assignee.firstName}`}
                   className="w-6 h-6 border-2 border-background"
+                  title={assignee.fullName}
                 >
                   {assignee.avatar ? (
                     <AvatarImage
                       src={assignee.avatar}
-                      alt={`${assignee.firstName} ${assignee.lastName}`}
+                      alt={assignee.fullName}
                     />
                   ) : (
                     <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                      {getInitials(assignee.firstName, assignee.lastName)}
+                      {assignee.initials}
                     </AvatarFallback>
                   )}
                 </Avatar>
               ))}
               {extraAssigneesCount > 0 && (
-                <div className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs">
+                <div
+                  className="w-6 h-6 rounded-full bg-muted border-2 border-background flex items-center justify-center text-xs"
+                  title={`${extraAssigneesCount} more assignee${extraAssigneesCount !== 1 ? "s" : ""}`}
+                >
                   +{extraAssigneesCount}
                 </div>
               )}
@@ -157,6 +181,13 @@ export const KanbanTaskCard = ({
             <Clock size={14} />
             <span>Estimated: {Number(task.estimatedHours) || 0} hrs</span>
           </div>
+        </div>
+      )}
+
+      {/* Show task number if available */}
+      {task.taskNumber && (
+        <div className="text-xs text-muted-foreground text-right">
+          #{task.taskNumber}
         </div>
       )}
     </div>

@@ -36,6 +36,7 @@ export async function PUT(
       dueDate,
       estimatedHours,
       assigneeIds = [],
+      freelancerIds = [],
     } = body;
 
     if (!title) {
@@ -48,6 +49,7 @@ export async function PUT(
       },
       include: {
         assignees: true,
+        freeLancerAssignees: true,
         subtask: true,
       },
     });
@@ -59,16 +61,45 @@ export async function PUT(
       );
     }
 
+    if (assigneeIds.length > 0) {
+      const existingEmployees = await db.employee.findMany({
+        where: { id: { in: assigneeIds } },
+      });
+
+      if (existingEmployees.length !== assigneeIds.length) {
+        const missingIds = assigneeIds.filter(
+          (id: string) => !existingEmployees.some((emp) => emp.id === id)
+        );
+        return NextResponse.json(
+          { error: `Employees not found: ${missingIds.join(", ")}` },
+          { status: 404 }
+        );
+      }
+    }
+
+    if (freelancerIds.length > 0) {
+      const existingFreelancers = await db.freeLancer.findMany({
+        where: { id: { in: freelancerIds } },
+      });
+
+      if (existingFreelancers.length !== freelancerIds.length) {
+        const missingIds = freelancerIds.filter(
+          (id: string) => !existingFreelancers.some((fl) => fl.id === id)
+        );
+        return NextResponse.json(
+          { error: `Freelancers not found: ${missingIds.join(", ")}` },
+          { status: 404 }
+        );
+      }
+    }
+
     const updateData: any = {
       title,
-      description: description,
+      description: description || null,
       status: status,
       priority: priority,
       dueDate: dueDate ? new Date(dueDate) : null,
       estimatedHours: estimatedHours || null,
-      assignees: {
-        set: assigneeIds.map((id: string) => ({ id })),
-      },
     };
 
     if (status === "COMPLETED" && existingTask.status !== "COMPLETED") {
@@ -77,49 +108,107 @@ export async function PUT(
       updateData.completedAt = null;
     }
 
-    const result = await db.$transaction(async (tx) => {
-      const updatedTask = await tx.task.update({
-        where: { id },
-        data: updateData,
-        include: {
-          assignees: true,
-          subtask: true,
-        },
-      });
-
-      if (
-        status === "COMPLETED" &&
-        existingTask.status !== "COMPLETED" &&
-        existingTask.subtask.length > 0
-      ) {
-        await tx.subtask.updateMany({
-          where: {
-            taskId: id,
-            status: {
-              not: "COMPLETED",
-            },
-          },
-          data: {
-            status: "COMPLETED",
-          },
+    const result = await db.$transaction(
+      async (tx) => {
+        const updatedTask = await tx.task.update({
+          where: { id },
+          data: updateData,
         });
-      }
 
+        if (assigneeIds.length > 0 || existingTask.assignees.length > 0) {
+          await tx.task.update({
+            where: { id },
+            data: {
+              assignees: {
+                set: assigneeIds.map((id: string) => ({ id })),
+              },
+            },
+          });
+        }
+
+        if (
+          freelancerIds.length > 0 ||
+          existingTask.freeLancerAssignees.length > 0
+        ) {
+          await tx.task.update({
+            where: { id },
+            data: {
+              freeLancerAssignees: {
+                set: freelancerIds.map((id: string) => ({ id })),
+              },
+            },
+          });
+        }
+
+        if (
+          status === "COMPLETED" &&
+          existingTask.status !== "COMPLETED" &&
+          existingTask.subtask.length > 0
+        ) {
+          await tx.subtask.updateMany({
+            where: {
+              taskId: id,
+              status: {
+                not: "COMPLETED",
+              },
+            },
+            data: {
+              status: "COMPLETED",
+            },
+          });
+        }
+
+        return updatedTask;
+      },
+      {
+        timeout: 30000,
+        maxWait: 30000,
+      }
+    );
+
+    const fullUpdatedTask = await db.task.findUnique({
+      where: { id },
+      include: {
+        assignees: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+          },
+        },
+        freeLancerAssignees: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+          },
+        },
+        subtask: true,
+        project: {
+          select: {
+            title: true,
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (fullUpdatedTask) {
       await db.notification.create({
         data: {
           title: "Task Updated",
-          message: `Task ${updatedTask.title} has been updated by ${updater.name}.`,
+          message: `Task "${fullUpdatedTask.title}" has been updated by ${updater.name}.`,
           type: "PROJECT",
           isRead: false,
-          actionUrl: `/dashboard/projects/${updatedTask.projectId}`,
+          actionUrl: `/dashboard/projects/${fullUpdatedTask.projectId}/tasks/${fullUpdatedTask.id}`,
           userId: updater.id,
         },
       });
+    }
 
-      return updatedTask;
-    });
-
-    return NextResponse.json(result);
+    return NextResponse.json(fullUpdatedTask);
   } catch (error) {
     console.error("[TASK_UPDATE_ERROR]", error);
     return NextResponse.json(
@@ -237,6 +326,15 @@ export async function GET(
           },
         },
         assignees: {
+          select: {
+            firstName: true,
+            lastName: true,
+            id: true,
+            position: true,
+            avatar: true,
+          },
+        },
+        freeLancerAssignees: {
           select: {
             firstName: true,
             lastName: true,

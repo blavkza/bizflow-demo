@@ -1,4 +1,5 @@
 import {
+  BillingType,
   CategoryStatus,
   CategoryType,
   ClientStatus,
@@ -10,6 +11,7 @@ import {
   PaymentMethod,
   PaymentType,
   Priority,
+  ProjectType,
   QuotationStatus,
   RecurringFrequency,
   SalaryType,
@@ -157,9 +159,11 @@ export type departmentSchemaType = z.infer<typeof departmentSchema>;
 export const projectSchema = z.object({
   title: z.string().min(1, { message: "Name is required!" }),
   description: z.string().min(1, { message: "Description is required!" }),
+  projectType: z.nativeEnum(ProjectType),
+  billingType: z.nativeEnum(BillingType).optional(),
   clientId: z.string().optional(),
   priority: z.nativeEnum(Priority),
-  managerId: z.string().min(1, "Manager is required"),
+  managerId: z.string().min(1, "Team leader is required"),
   startDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
   endDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
   deadline: z.union([z.date(), z.string().transform((str) => new Date(str))]),
@@ -187,6 +191,7 @@ export const taskSchema = z.object({
     .transform((val) => (val instanceof Date ? val : null)),
   estimatedHours: z.number().optional(),
   assigneeIds: z.array(z.string()).optional(),
+  freelancerIds: z.array(z.string()).optional(),
   isAIGenerated: z.boolean().optional().default(false),
   subtasks: z.array(subtaskSchema).optional().default([]),
 });

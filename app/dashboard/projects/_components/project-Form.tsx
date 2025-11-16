@@ -20,7 +20,13 @@ import { useRouter } from "next/navigation";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { Client, Priority, User } from "@prisma/client";
+import {
+  Client,
+  Priority,
+  User,
+  ProjectType,
+  BillingType,
+} from "@prisma/client";
 import { Combobox } from "@/components/ui/combobox";
 import {
   Popover,
@@ -37,6 +43,8 @@ interface ProjectFormProps {
     id?: string;
     title?: string;
     description?: string;
+    projectType?: ProjectType;
+    billingType?: BillingType | null;
     managerId?: string | null;
     clientId?: string | null;
     priority?: Priority;
@@ -70,6 +78,8 @@ export default function ProjectForm({
     defaultValues: {
       title: data?.title || "",
       description: data?.description || "",
+      projectType: data?.projectType || ProjectType.NEW_PROJECT,
+      billingType: data?.billingType || undefined,
       managerId: data?.managerId || undefined,
       clientId: data?.clientId || undefined,
       priority: data?.priority || "MEDIUM",
@@ -164,9 +174,56 @@ export default function ProjectForm({
 
           <FormField
             control={form.control}
-            name="description"
+            name="projectType"
             render={({ field }) => (
               <FormItem>
+                <FormLabel>Project Type</FormLabel>
+                <FormControl>
+                  <select
+                    {...field}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value={ProjectType.NEW_PROJECT}>New Project</option>
+                    <option value={ProjectType.RETURN_JOB}>Return Job</option>
+                    <option value={ProjectType.MAINTENANCE}>Maintenance</option>
+                    <option value={ProjectType.FAULT_FINDING}>
+                      Fault Finding
+                    </option>
+                  </select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="billingType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Billing Type</FormLabel>
+                <FormControl>
+                  <select
+                    {...field}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <option value="">Select billing type</option>
+                    <option value={BillingType.INVOICED}>Invoiced</option>
+                    <option value={BillingType.MAINTENANCE_CONTRACT}>
+                      Under Maintenance Contract
+                    </option>
+                  </select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem className="md:col-span-2">
                 <FormLabel>Description</FormLabel>
                 <FormControl>
                   <Textarea
@@ -185,14 +242,14 @@ export default function ProjectForm({
             name="managerId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Manager</FormLabel>
+                <FormLabel>Team Leader</FormLabel>
                 <FormControl>
                   <Combobox
                     options={usersOptions}
                     value={field.value || ""}
                     onChange={field.onChange}
                     isLoading={isLoadingUsers}
-                    placeholder="Select manager"
+                    placeholder="Select Team Leader"
                   />
                 </FormControl>
                 <FormMessage />
@@ -247,7 +304,7 @@ export default function ProjectForm({
             control={form.control}
             name="startDate"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
+              <FormItem className="">
                 <FormLabel>Start Date</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -287,7 +344,7 @@ export default function ProjectForm({
             control={form.control}
             name="endDate"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
+              <FormItem className="">
                 <FormLabel>End Date</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
@@ -331,7 +388,7 @@ export default function ProjectForm({
             control={form.control}
             name="deadline"
             render={({ field }) => (
-              <FormItem className="flex flex-col">
+              <FormItem className="">
                 <FormLabel>Deadline</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>

@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { Task } from "@/types/project";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   DndContext,
   DragEndEvent,
@@ -9,12 +7,9 @@ import {
   DragStartEvent,
   closestCenter,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
 import { KanbanColumn } from "../_components/KanbanColumn";
 import { KanbanTaskCard } from "./KanbanTaskCard";
+import { toast } from "sonner";
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -91,16 +86,21 @@ export const KanbanBoard = ({
 
     if (targetColumn && active.id !== over.id) {
       const activeTask = tasks.find((t) => t.id === active.id);
+
       if (activeTask && activeTask.status !== targetColumn.status) {
         const originalStatus = activeTask.status;
 
+        // Update tasks optimistically
         const updatedTasks = tasks.map((task) =>
           task.id === active.id
             ? { ...task, status: targetColumn.status }
             : task
         );
+
+        // This triggers the parent's useEffect and progress recalculation
         setTasks(updatedTasks);
 
+        // Calculate new project status
         const allTasksCompleted = updatedTasks.every(
           (task) => task.status === "COMPLETED"
         );
@@ -112,6 +112,9 @@ export const KanbanBoard = ({
             "status",
             targetColumn.status
           );
+
+          /*           toast.success("Task status updated");
+           */
         } catch (error) {
           // Revert if API call fails
           setTasks((prevTasks) =>
@@ -119,12 +122,15 @@ export const KanbanBoard = ({
               task.id === active.id ? { ...task, status: originalStatus } : task
             )
           );
-          // Also revert project status if needed
+
+          // Also revert project status
           const wereAllTasksCompleted = tasks.every(
             (task) => task.status === "COMPLETED"
           );
           setProjectStatus(wereAllTasksCompleted ? "COMPLETED" : "ACTIVE");
+
           console.error("Failed to update task status:", error);
+          toast.error("Failed to update task status");
         }
       }
     }

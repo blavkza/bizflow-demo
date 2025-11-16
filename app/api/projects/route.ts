@@ -36,6 +36,8 @@ export async function POST(req: Request) {
     const {
       title,
       description,
+      projectType,
+      billingType,
       managerId,
       clientId,
       startDate,
@@ -58,20 +60,40 @@ export async function POST(req: Request) {
       }
     }
 
-    function generateClientNumber() {
-      const randomSix = Math.floor(100000 + Math.random() * 900000);
-      return `PRO-${randomSix}`;
+    // Only check client if clientId is provided
+    if (clientId) {
+      const clientExists = await db.client.findUnique({
+        where: { id: clientId },
+      });
+
+      if (!clientExists) {
+        return NextResponse.json(
+          { error: "Specified client does not exist" },
+          { status: 400 }
+        );
+      }
     }
 
-    const projectNumber = generateClientNumber();
+    const lastProject = await db.project.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { projectNumber: true },
+    });
+
+    const projectNumber = lastProject
+      ? `PRO-${(parseInt(lastProject.projectNumber.split("-")[1]) + 1)
+          .toString()
+          .padStart(4, "0")}`
+      : "PRO-0001";
 
     const project = await db.project.create({
       data: {
         projectNumber,
         title,
-        clientId,
-        managerId,
         description,
+        projectType,
+        billingType,
+        clientId: clientId || null,
+        managerId: managerId || creater.id, // Fallback to creator if no manager specified
         priority,
         startDate,
         endDate,
@@ -80,13 +102,14 @@ export async function POST(req: Request) {
       },
       include: {
         manager: true,
+        client: true,
       },
     });
 
     const notification = await db.notification.create({
       data: {
         title: "New Project Created",
-        message: `Project ${project.title} , has been created By ${creater.name}.`,
+        message: `Project ${project.title} has been created by ${creater.name}.`,
         type: "PROJECT",
         isRead: false,
         actionUrl: `/dashboard/projects/${project.id}`,
@@ -96,7 +119,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ project, notification });
   } catch (error) {
-    console.error("[DEPARTMENT_CREATE_ERROR]", error);
+    console.error("[PROJECT_CREATE_ERROR]", error);
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
@@ -157,15 +180,25 @@ export async function GET() {
             totalAmount: true,
           },
         },
-        Folder: { include: { Document: true, Note: true } },
-
+        Folder: {
+          include: {
+            Document: true,
+            Note: true,
+          },
+        },
         timeEntries: {
           select: {
             id: true,
           },
         },
+        workLogs: {
+          select: {
+            id: true,
+            date: true,
+            hours: true,
+          },
+        },
       },
-
       orderBy: {
         updatedAt: "desc",
       },
@@ -177,6 +210,8 @@ export async function GET() {
       projectNumber: project.projectNumber,
       title: project.title,
       description: project.description,
+      projectType: project.projectType,
+      billingType: project.billingType,
       status: project.status,
       priority: project.priority,
       starred: project.starred,
@@ -191,13 +226,14 @@ export async function GET() {
       updatedAt: project.updatedAt.toISOString(),
       tasks: project.tasks,
       folder: project.Folder,
-      invoice: project.invoices,
+      invoices: project.invoices,
       archived: project.archived,
       client: project.client
         ? {
             id: project.client.id,
             name: project.client.name,
             email: project.client.email,
+            company: project.client.company,
           }
         : null,
       manager: {
@@ -212,6 +248,9 @@ export async function GET() {
           (task) => task.status === "COMPLETED"
         ).length,
         timeEntries: project.timeEntries.length,
+        totalWorkHours: project.workLogs.reduce((total, log) => {
+          return total + (log.hours ? Number(log.hours) : 0);
+        }, 0),
       },
     }));
 

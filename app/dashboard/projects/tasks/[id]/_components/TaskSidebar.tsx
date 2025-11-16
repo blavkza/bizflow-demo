@@ -9,6 +9,8 @@ import {
   User,
   Clock,
   MessageSquare,
+  Briefcase,
+  UserCogIcon,
 } from "lucide-react";
 import {
   Task,
@@ -23,6 +25,26 @@ interface TaskSidebarProps {
 }
 
 export default function TaskSidebar({ task }: TaskSidebarProps) {
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName?.[0] || ""}${lastName?.[0] || ""}`.toUpperCase();
+  };
+
+  // Combine all assignees (employees and freelancers)
+  const allAssignees = [
+    ...(task.assignees?.map((assignee) => ({
+      ...assignee,
+      type: "employee" as const,
+      role: assignee.position,
+      initials: getInitials(assignee.firstName, assignee.lastName),
+    })) || []),
+    ...(task.freeLancerAssignees?.map((freelancer) => ({
+      ...freelancer,
+      type: "freelancer" as const,
+      role: "Freelancer",
+      initials: getInitials(freelancer.firstName, freelancer.lastName),
+    })) || []),
+  ];
+
   return (
     <div className="space-y-6">
       <Card>
@@ -46,28 +68,41 @@ export default function TaskSidebar({ task }: TaskSidebarProps) {
 
           <div>
             <Label className="text-sm font-medium text-muted-foreground">
-              Assignees
+              Assignees ({allAssignees.length})
             </Label>
             <div className="space-y-2 mt-1">
-              {task.assignees.map((assignee) => (
-                <div key={assignee?.id} className="flex items-center space-x-2">
+              {allAssignees.map((assignee) => (
+                <div
+                  key={`${assignee.type}-${assignee.id}`}
+                  className="flex items-center space-x-2"
+                >
                   <Avatar className="h-6 w-6">
-                    <AvatarImage src={assignee?.avatar || "/placeholder.svg"} />
+                    <AvatarImage src={assignee.avatar || "/placeholder.svg"} />
                     <AvatarFallback className="text-xs">
-                      {assignee.firstName +
-                        assignee?.lastName
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                      {assignee.initials}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-sm">
-                    {assignee?.firstName} {assignee?.lastName} (
-                    {assignee?.position})
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-sm">
+                      {assignee.firstName} {assignee.lastName}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${assignee.type === "freelancer" ? "bg-purple-100 text-purple-800 border-purple-200" : "bg-blue-100 text-blue-800 border-blue-200"}`}
+                      >
+                        {assignee.type === "freelancer" ? (
+                          <UserCogIcon className="w-3 h-3 mr-1" />
+                        ) : (
+                          <User className="w-3 h-3 mr-1" />
+                        )}
+                        {assignee.role}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
               ))}
-              {task.assignees.length === 0 && (
+              {allAssignees.length === 0 && (
                 <span className="text-sm text-muted-foreground">
                   Unassigned
                 </span>
@@ -131,6 +166,29 @@ export default function TaskSidebar({ task }: TaskSidebarProps) {
                 Actual Hours
               </Label>
               <p className="text-sm mt-1">{task.actualHours}h</p>
+            </div>
+          )}
+
+          {/* Task Number */}
+          <div>
+            <Label className="text-sm font-medium text-muted-foreground">
+              Task Number
+            </Label>
+            <p className="text-sm mt-1 font-mono">#{task.taskNumber}</p>
+          </div>
+
+          {/* AI Generated Badge */}
+          {task.isAIGenerated && (
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">
+                Source
+              </Label>
+              <Badge
+                variant="outline"
+                className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+              >
+                🤖 AI Generated
+              </Badge>
             </div>
           )}
         </CardContent>

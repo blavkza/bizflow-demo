@@ -37,8 +37,8 @@ export function ProjectHeader({
 }: ProjectHeaderProps) {
   const router = useRouter();
   const [isPrinting, setIsPrinting] = useState(false);
-  const isManager = user.id === project.managerId;
-  const isCEO = user.role === "CHIEF_EXECUTIVE_OFFICER";
+  const isManager = user?.id === project.managerId;
+  const isCEO = user?.role === "CHIEF_EXECUTIVE_OFFICER";
   const hasEditPermissions = isManager || isCEO;
 
   const { companyInfo } = useCompanyInfo();

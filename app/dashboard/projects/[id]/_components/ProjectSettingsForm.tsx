@@ -177,7 +177,7 @@ export function ProjectSettings({ project, onSuccess }: ProjectSettingsProps) {
                 )}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
                 <FormField
                   control={form.control}
                   name="budget"
@@ -202,7 +202,7 @@ export function ProjectSettings({ project, onSuccess }: ProjectSettingsProps) {
                   )}
                 />
 
-                <FormField
+                {/*       <FormField
                   control={form.control}
                   name="budgetSpent"
                   render={({ field }) => (
@@ -224,7 +224,7 @@ export function ProjectSettings({ project, onSuccess }: ProjectSettingsProps) {
                       <FormMessage />
                     </FormItem>
                   )}
-                />
+                /> */}
               </div>
             </div>
 

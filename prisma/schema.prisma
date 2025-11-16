@@ -59,6 +59,8 @@ model User {
   Expense             Expense[]
   recurringInvoices   RecurringInvoice[]
   dashboardSettings   DashboardSettings?
+  workLogs            WorkLog[]
+  timeEntries         TimeEntry[]
 
   @@map("users")
 }
@@ -358,7 +360,6 @@ model Employee {
   documents        Document[]
   targets          Target[]
   kpiResults       KpiResult[]
-  timeEntries      TimeEntry[]
   leaveRequests    LeaveRequest[]
   Note             Note[]
   AttendanceRecord AttendanceRecord[]
@@ -441,17 +442,17 @@ model FreeLancer {
   additionalInfo    String?
 
   // Relations
-  department        Department?        @relation("DepartmentFreelancers", fields: [departmentId], references: [id])
+  department    Department? @relation("DepartmentFreelancers", fields: [departmentId], references: [id])
+  assignedTasks Task[]      @relation(name: "FreeLancerTaskAssignments")
+
   payments          Payment[]
   documents         Document[]
   targets           Target[]
   kpiResults        KpiResult[]
-  timeEntries       TimeEntry[]
   leaveRequests     LeaveRequest[]
   notes             Note[]
   attendanceRecords AttendanceRecord[]
   warnings          Warning[]
-  tasks             Task[]
 
   @@index([departmentId])
   @@index([status])
@@ -872,6 +873,8 @@ model Project {
   projectNumber String
   title         String
   description   String?
+  projectType   ProjectType   @default(NEW_PROJECT)
+  billingType   BillingType?
   clientId      String?
   managerId     String
   status        ProjectStatus @default(PLANNING)
@@ -892,6 +895,9 @@ model Project {
 
   // Progress
   progress Int @default(0) // 0-100
+
+  // Daily work tracking
+  workLogs WorkLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -914,7 +920,27 @@ model Project {
 
   @@index([clientId])
   @@index([status])
+  @@index([projectType])
   @@map("projects")
+}
+
+model WorkLog {
+  id          String   @id @default(cuid())
+  date        DateTime
+  hours       Decimal  @db.Decimal(5, 2)
+  description String
+  projectId   String
+  userId      String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([userId])
+  @@map("work_logs")
 }
 
 model ProjectTeam {
@@ -967,14 +993,14 @@ model Task {
   updatedAt DateTime @updatedAt
 
   // Relations
-  project      Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignees    Employee[]  @relation("TaskAssignments")
-  freelancer   FreeLancer? @relation(fields: [freelancerId], references: [id])
-  freelancerId String?
-  comment      comment[]
-  documents    Document[]
-  timeEntries  TimeEntry[]
-  subtask      Subtask[]
+  project             Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignees           Employee[]   @relation("TaskAssignments")
+  freeLancerAssignees FreeLancer[] @relation("FreeLancerTaskAssignments")
+  freelancerId        String?
+  comment             comment[]
+  documents           Document[]
+  timeEntries         TimeEntry[]
+  subtask             Subtask[]
 
   @@index([projectId])
   @@index([status])
@@ -1120,30 +1146,28 @@ model Folder {
 }
 
 model TimeEntry {
-  id          String   @id @default(cuid())
-  employeeId  String
+  id          String    @id @default(cuid())
   projectId   String?
   taskId      String?
   description String?
-  hours       Decimal  @db.Decimal(8, 2)
-  hourlyRate  Decimal? @db.Decimal(10, 2)
+  hours       Decimal   @db.Decimal(8, 2)
+  hourlyRate  Decimal?  @db.Decimal(10, 2)
+  timeIn      DateTime
+  timeOut     DateTime?
   date        DateTime
-  billable    Boolean  @default(true)
-  invoiced    Boolean  @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  employee     Employee    @relation(fields: [employeeId], references: [id])
-  project      Project?    @relation(fields: [projectId], references: [id])
-  task         Task?       @relation(fields: [taskId], references: [id])
-  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  freeLancerId String?
+  project Project? @relation(fields: [projectId], references: [id])
+  task    Task?    @relation(fields: [taskId], references: [id])
+  userId  String
+  user    User     @relation(fields: [userId], references: [id])
 
-  @@index([employeeId])
   @@index([projectId])
   @@index([date])
+  @@index([taskId])
   @@map("time_entries")
 }
 
@@ -2723,6 +2747,18 @@ enum ProjectStatus {
   ON_HOLD
   COMPLETED
   CANCELLED
+}
+
+enum ProjectType {
+  NEW_PROJECT
+  RETURN_JOB
+  MAINTENANCE
+  FAULT_FINDING
+}
+
+enum BillingType {
+  INVOICED
+  MAINTENANCE_CONTRACT
 }
 
 enum TaskStatus {

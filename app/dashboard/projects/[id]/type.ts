@@ -34,6 +34,13 @@ export interface Task {
   priority: Priority;
   estimatedHours: Decimal;
   assignees?: { firstName: string; lastName: string; avatar: string }[];
+  freeLancerAssignees?: {
+    firstName: string;
+    lastName: string;
+    avatar: string;
+    type?: "freelancer";
+  }[];
+  taskNumber: string;
   dueDate: string;
   createdAt: string;
 }
@@ -76,7 +83,6 @@ export interface ProjectTeam {
   role: string;
 
   // Permissions
-
   canEditTask: boolean;
   canDeleteTask: boolean;
   canDeleteFiles: boolean;
@@ -85,6 +91,7 @@ export interface ProjectTeam {
   canEditFile: boolean;
   canUploadFiles: boolean;
   canViewFinancial: boolean;
+  canAddWorkLog: boolean; // Add work log permission
 
   createdAt: Date;
   updatedAt: Date;
@@ -121,11 +128,31 @@ export interface Comment {
   updatedAt: string;
 }
 
+// Add WorkLog interface
+export interface WorkLog {
+  id: string;
+  date: string;
+  hours: number;
+  description: string;
+  projectId: string;
+  userId: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    avatar: string | null;
+  };
+}
+
 export interface Project {
   id: string;
   projectNumber: string;
   title: string;
   description: string | null;
+  projectType: ProjectType;
+  billingType: BillingType | null;
   clientId: string | null;
   managerId: string;
   status: ProjectStatus;
@@ -152,9 +179,22 @@ export interface Project {
   comment: Comment[];
   Expense: Expense[];
   toolInterUses: ToolInterUse[];
+  workLogs: WorkLog[]; // Add work logs
 }
 
-// Add these to your existing types file
+// Add ProjectType and BillingType enums
+export enum ProjectType {
+  NEW_PROJECT = "NEW_PROJECT",
+  RETURN_JOB = "RETURN_JOB",
+  MAINTENANCE = "MAINTENANCE",
+  FAULT_FINDING = "FAULT_FINDING",
+}
+
+export enum BillingType {
+  INVOICED = "INVOICED",
+  MAINTENANCE_CONTRACT = "MAINTENANCE_CONTRACT",
+}
+
 export interface Tool {
   id: string;
   name: string;
@@ -213,7 +253,8 @@ export type ViewMode =
   | "team"
   | "comments"
   | "tools"
-  | "expenses";
+  | "expenses"
+  | "worklogs"; // Add worklogs view mode
 
 export const ROLE_OPTIONS = [
   { value: "MEMBER", label: "Member" },
@@ -231,4 +272,5 @@ export const PERMISSIONS = [
   { name: "canUploadFiles", label: "Can Upload Files" },
   { name: "canDeleteFiles", label: "Can Delete Files" },
   { name: "canViewFinancial", label: "Can View Financial" },
+  { name: "canAddWorkLog", label: "Can Add Work Logs" },
 ];

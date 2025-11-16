@@ -1,10 +1,12 @@
 import {
+  BillingType,
   comment,
   Document,
   Employee,
   Folder,
   Priority,
   ProjectStatus,
+  ProjectType,
   TaskStatus,
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
@@ -18,6 +20,8 @@ export interface Projects {
   managerId: string;
   status: ProjectStatus;
   priority: Priority;
+  projectType: ProjectType;
+  billingType: BillingType | null;
   archived: boolean;
   starred: boolean;
   startDate: Date | null;
@@ -72,6 +76,13 @@ export interface Task {
   priority: Priority;
   estimatedHours: Decimal;
   assignees?: { firstName: string; lastName: string; avatar: string }[];
+  freeLancerAssignees?: {
+    firstName: string;
+    lastName: string;
+    avatar: string;
+    type?: "freelancer";
+  }[];
+  taskNumber: string;
   dueDate: string;
   createdAt: string;
 }

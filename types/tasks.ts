@@ -28,7 +28,16 @@ export interface Task {
     avatar: string | null;
     position: string;
   }>;
-  Subtask: Array<{
+  freeLancerAssignees: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatar: string | null;
+    hourlyRate?: number | null;
+    skills?: string[];
+  }>;
+  subtask: Array<{
     id: string;
     title: string;
     description: string | null;
@@ -65,6 +74,9 @@ export interface Task {
     hours: number;
     description: string | null;
     date: Date;
+    timeIn: Date;
+    timeOut: Date | null;
+    userId: string;
   }>;
 }
 

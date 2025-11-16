@@ -97,6 +97,7 @@ export const CalendarView = ({
 
         const originalDueDate = taskToUpdate.dueDate;
 
+        // This might not trigger a re-render if the reference is the same
         setTasks((prevTasks) =>
           prevTasks.map((task) =>
             task.id === taskId ? { ...task, dueDate: newDueDateString } : task
@@ -105,7 +106,10 @@ export const CalendarView = ({
 
         try {
           await onTaskUpdate(taskId, "dueDate", newDueDateString);
+          // Add success feedback
+          toast.success("Task due date updated successfully");
         } catch (error) {
+          // Revert on error
           setTasks((prevTasks) =>
             prevTasks.map((task) =>
               task.id === taskId ? { ...task, dueDate: originalDueDate } : task
@@ -118,6 +122,7 @@ export const CalendarView = ({
 
     setActiveTask(null);
   };
+
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-6">

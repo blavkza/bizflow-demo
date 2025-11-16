@@ -1,4 +1,4 @@
-import { Projects } from "@/types/project"; // Only import Projects
+import { Projects } from "@/types/project";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -9,12 +9,16 @@ import {
   DollarSign,
   Receipt,
   Building2,
+  FileText,
+  Clock,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   calculateProjectProgress,
   getPriorityColor,
   getStatusColor,
+  getProjectTypeColor,
+  getBillingTypeColor,
 } from "../[id]/utils";
 
 interface ProjectCardProps {
@@ -36,6 +40,22 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
     } catch {
       return "N/A";
     }
+  };
+
+  const formatProjectType = (type: string) => {
+    return type
+      .toLowerCase()
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  const formatBillingType = (type: string) => {
+    return type
+      .toLowerCase()
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
   const invoiceTotal =
@@ -73,6 +93,28 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Project Type and Billing Type */}
+        <div className="flex flex-wrap gap-2">
+          {project.projectType && (
+            <Badge
+              variant="outline"
+              className={getProjectTypeColor(project.projectType)}
+            >
+              <FileText size={12} className="mr-1" />
+              {formatProjectType(project.projectType)}
+            </Badge>
+          )}
+          {project.billingType && (
+            <Badge
+              variant="outline"
+              className={getBillingTypeColor(project.billingType)}
+            >
+              <DollarSign size={12} className="mr-1" />
+              {formatBillingType(project.billingType)}
+            </Badge>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 gap-3 text-sm">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Building2 size={16} />
@@ -113,11 +155,24 @@ export const ProjectCard = ({ project }: ProjectCardProps) => {
             <div className="flex items-center gap-2 text-muted-foreground">
               <div>
                 <span className="text-xs block">Invoiced</span>
-
-                <span className="font-medium">R {invoiceTotal}</span>
+                <span className="font-medium">
+                  R {invoiceTotal.toLocaleString()}
+                </span>
               </div>
             </div>
           )}
+        </div>
+
+        {/* Stats Row */}
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Users size={14} />
+            <span>{project.stats?.totalTasks || 0} tasks</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Clock size={14} />
+            <span>{project.stats?.timeEntries || 0} time entries</span>
+          </div>
         </div>
 
         <div className="flex items-center justify-between text-sm text-muted-foreground">

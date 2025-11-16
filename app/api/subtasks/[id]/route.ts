@@ -40,7 +40,7 @@ export async function PATCH(
       include: {
         task: {
           include: {
-            Subtask: true,
+            subtask: true,
             project: true,
           },
         },
@@ -48,7 +48,7 @@ export async function PATCH(
     });
 
     const parentTask = subtask.task;
-    const allSubtasks = parentTask.Subtask;
+    const allSubtasks = parentTask.subtask;
 
     const allSubtasksCompleted = allSubtasks.every(
       (st) => st.status === TaskStatus.COMPLETED

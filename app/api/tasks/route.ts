@@ -82,6 +82,7 @@ async function createSingleTask(data: any, creator: any) {
     });
   }
 
+  // Validate employees exist
   if (validatedData?.assigneeIds?.length || 0 > 0) {
     const existingAssignees = await db.employee.findMany({
       where: { id: { in: validatedData.assigneeIds } },
@@ -98,7 +99,33 @@ async function createSingleTask(data: any, creator: any) {
     }
   }
 
-  const taskNumber = `TSK-${Math.floor(100000 + Math.random() * 900000)}`;
+  // Validate freelancers exist
+  if (validatedData?.freelancerIds?.length || 0 > 0) {
+    const existingFreelancers = await db.freeLancer.findMany({
+      where: { id: { in: validatedData.freelancerIds } },
+    });
+
+    if (existingFreelancers.length !== validatedData?.freelancerIds?.length) {
+      const missingIds = validatedData?.freelancerIds?.filter(
+        (id: string) => !existingFreelancers.some((f) => f.id === id)
+      );
+      return NextResponse.json(
+        { error: `Freelancers not found: ${missingIds?.join(", ")}` },
+        { status: 404 }
+      );
+    }
+  }
+
+  const lastTask = await db.task.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: { taskNumber: true },
+  });
+
+  const taskNumber = lastTask
+    ? `TSK-${(parseInt(lastTask.taskNumber.split("-")[1]) + 1)
+        .toString()
+        .padStart(4, "0")}`
+    : "TSK-0001";
 
   const result = await db.$transaction(
     async (prisma) => {
@@ -117,9 +144,14 @@ async function createSingleTask(data: any, creator: any) {
             connect:
               validatedData.assigneeIds?.map((id: string) => ({ id })) || [],
           },
+          freeLancerAssignees: {
+            connect:
+              validatedData.freelancerIds?.map((id: string) => ({ id })) || [],
+          },
         },
         include: {
           assignees: true,
+          freeLancerAssignees: true,
           project: { select: { title: true } },
         },
       });
@@ -140,7 +172,7 @@ async function createSingleTask(data: any, creator: any) {
       return task;
     },
     {
-      timeout: 10000, // 10 second timeout for single task
+      timeout: 10000,
     }
   );
 
@@ -213,81 +245,102 @@ async function createAITasks(tasks: any[], creator: any) {
     });
   }
 
-  const BATCH_SIZE = 5; // Process 5 tasks at a time to avoid timeout
+  // Process tasks individually to avoid transaction timeouts
   const allResults = [];
 
-  for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
-    const batch = tasks.slice(i, i + BATCH_SIZE);
-
-    const batchResults = await db.$transaction(
-      async (prisma) => {
-        const createdTasks = [];
-
-        for (const taskData of batch) {
-          const taskNumber = `TSK-${Math.floor(100000 + Math.random() * 900000)}`;
-
-          const task = await prisma.task.create({
-            data: {
-              title: taskData.title,
-              description: taskData.description || "",
-              projectId: taskData.projectId,
-              status: taskData.status || "TODO",
-              priority: taskData.priority || "MEDIUM",
-              dueDate: taskData.dueDate || null,
-              estimatedHours: taskData.estimatedHours || null,
-              taskNumber,
-              isAIGenerated: true,
-              assignees: {
-                connect:
-                  taskData.assigneeIds?.map((id: string) => ({ id })) || [],
-              },
-            },
-            include: {
-              project: { select: { title: true } },
-            },
-          });
-
-          if (taskData.subtasks && taskData.subtasks.length > 0) {
-            await prisma.subtask.createMany({
-              data: taskData.subtasks.map((subtask: any, index: number) => ({
-                title: subtask.title,
-                description: subtask.description || "",
-                estimatedHours: subtask.estimatedHours || null,
-                order: index,
-                taskId: task.id,
-                status: subtask.status || "TODO",
-              })),
-            });
-          }
-
-          createdTasks.push(task);
-        }
-
-        return createdTasks;
-      },
-      {
-        timeout: 15000, // 15 seconds per batch
-      }
-    );
-
-    allResults.push(...batchResults);
-  }
-
-  // Create notifications outside transactions (they're not critical for data consistency)
-  for (const task of allResults) {
-    await db.notification.create({
-      data: {
-        title: "AI Task Created",
-        message: `AI generated task "${task.title}" in project ${task.project.title}`,
-        type: "PROJECT",
-        isRead: false,
-        actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
-        userId: creator.id,
-      },
-    });
+  for (const taskData of tasks) {
+    try {
+      const result = await createSingleTaskInBatch(
+        taskData,
+        projectId,
+        creator
+      );
+      allResults.push(result);
+    } catch (error) {
+      console.error("Failed to create task:", error);
+      // Continue with other tasks even if one fails
+      continue;
+    }
   }
 
   return NextResponse.json(allResults, { status: 201 });
+}
+
+async function createSingleTaskInBatch(
+  taskData: any,
+  projectId: string,
+  creator: any
+) {
+  const lastTask = await db.task.findFirst({
+    orderBy: { createdAt: "desc" },
+    select: { taskNumber: true },
+  });
+
+  const taskNumber = lastTask
+    ? `TSK-${(parseInt(lastTask.taskNumber.split("-")[1]) + 1)
+        .toString()
+        .padStart(4, "0")}`
+    : "TSK-0001";
+
+  return await db.$transaction(
+    async (prisma) => {
+      const task = await prisma.task.create({
+        data: {
+          title: taskData.title,
+          description: taskData.description || "",
+          projectId: projectId,
+          status: taskData.status || "TODO",
+          priority: taskData.priority || "MEDIUM",
+          dueDate: taskData.dueDate || null,
+          estimatedHours: taskData.estimatedHours || null,
+          taskNumber,
+          isAIGenerated: taskData.isAIGenerated || false,
+          assignees: {
+            connect: taskData.assigneeIds?.map((id: string) => ({ id })) || [],
+          },
+          freeLancerAssignees: {
+            connect:
+              taskData.freelancerIds?.map((id: string) => ({ id })) || [],
+          },
+        },
+        include: {
+          assignees: true,
+          freeLancerAssignees: true,
+          project: { select: { title: true } },
+        },
+      });
+
+      if (taskData.subtasks && taskData.subtasks.length > 0) {
+        await prisma.subtask.createMany({
+          data: taskData.subtasks.map((subtask: any, index: number) => ({
+            title: subtask.title,
+            description: subtask.description || "",
+            estimatedHours: subtask.estimatedHours || null,
+            order: index,
+            taskId: task.id,
+            status: subtask.status || "TODO",
+          })),
+        });
+      }
+
+      // Create notification
+      await prisma.notification.create({
+        data: {
+          title: "Task Created",
+          message: `Created task "${task.title}" in project ${task.project.title}`,
+          type: "PROJECT",
+          isRead: false,
+          actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
+          userId: creator.id,
+        },
+      });
+
+      return task;
+    },
+    {
+      timeout: 15000,
+    }
+  );
 }
 
 export async function GET() {

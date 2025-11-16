@@ -33,7 +33,7 @@ interface TaskSubtasksProps {
 }
 
 export default function TaskSubtasks({ task, refetch }: TaskSubtasksProps) {
-  const [subtasks, setSubtasks] = useState(task.Subtask || []);
+  const [subtasks, setSubtasks] = useState(task.subtask || []);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);

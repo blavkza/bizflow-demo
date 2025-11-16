@@ -11,7 +11,14 @@ import {
   Users2,
   Wrench,
   CreditCard,
+  Clock,
 } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { ViewMode } from "../type";
 
 interface ViewModeToggleProps {
@@ -37,86 +44,97 @@ export function ViewModeToggle({
   const showExpensesButton =
     currentUserPermission || currentUserRole === "ADMIN" || isManager;
 
+  const showWorkLogsButton =
+    currentUserRole === "ADMIN" || isManager || currentUserPermission;
+
+  const viewModes = [
+    {
+      mode: "list" as ViewMode,
+      icon: List,
+      label: "List View",
+      show: true,
+    },
+    {
+      mode: "kanban" as ViewMode,
+      icon: Columns,
+      label: "Kanban Board",
+      show: true,
+    },
+    {
+      mode: "calendar" as ViewMode,
+      icon: Calendar,
+      label: "Calendar View",
+      show: true,
+    },
+    {
+      mode: "team" as ViewMode,
+      icon: Users2,
+      label: "Team Members",
+      show: true,
+    },
+    {
+      mode: "files" as ViewMode,
+      icon: FolderIcon,
+      label: "Files & Documents",
+      show: true,
+    },
+    {
+      mode: "comments" as ViewMode,
+      icon: MessageCircle,
+      label: "Comments & Discussions",
+      show: true,
+    },
+    {
+      mode: "tools" as ViewMode,
+      icon: Wrench,
+      label: "Tools & Equipment",
+      show: showToolsButton,
+    },
+    {
+      mode: "expenses" as ViewMode,
+      icon: CreditCard,
+      label: "Expenses",
+      show: showExpensesButton,
+    },
+    {
+      mode: "invoices" as ViewMode,
+      icon: FileText,
+      label: "Invoices",
+      show: showInvoicesButton,
+    },
+    {
+      mode: "worklogs" as ViewMode,
+      icon: Clock,
+      label: "Work Logs",
+      show: showWorkLogsButton,
+    },
+  ];
+
   return (
-    <div className="flex items-center gap-1 bg-muted/20 rounded-md p-1">
-      <Button
-        variant={viewMode === "list" ? "default" : "ghost"}
-        size="sm"
-        onClick={() => setViewMode("list")}
-        className="h-8 px-3"
-      >
-        <List size={16} />
-      </Button>
-      <Button
-        variant={viewMode === "kanban" ? "default" : "ghost"}
-        size="sm"
-        onClick={() => setViewMode("kanban")}
-        className="h-8 px-3"
-      >
-        <Columns size={16} />
-      </Button>
-      <Button
-        variant={viewMode === "calendar" ? "default" : "ghost"}
-        size="sm"
-        onClick={() => setViewMode("calendar")}
-        className="h-8 px-3"
-      >
-        <Calendar size={16} />
-      </Button>
-      <Button
-        variant={viewMode === "team" ? "default" : "ghost"}
-        size="sm"
-        onClick={() => setViewMode("team")}
-        className="h-8 px-3"
-      >
-        <Users2 size={16} />
-      </Button>
-      <Button
-        variant={viewMode === "files" ? "default" : "ghost"}
-        size="sm"
-        onClick={() => setViewMode("files")}
-        className="h-8 px-3"
-      >
-        <FolderIcon size={16} />
-      </Button>
-      <Button
-        variant={viewMode === "comments" ? "default" : "ghost"}
-        size="sm"
-        onClick={() => setViewMode("comments")}
-        className="h-8 px-3"
-      >
-        <MessageCircle size={16} />
-      </Button>
-      {showToolsButton && (
-        <Button
-          variant={viewMode === "tools" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setViewMode("tools")}
-          className="h-8 px-3"
-        >
-          <Wrench size={16} />
-        </Button>
-      )}
-      {showExpensesButton && (
-        <Button
-          variant={viewMode === "expenses" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setViewMode("expenses")}
-          className="h-8 px-3"
-        >
-          <CreditCard size={16} />
-        </Button>
-      )}
-      {showInvoicesButton && (
-        <Button
-          variant={viewMode === "invoices" ? "default" : "ghost"}
-          size="sm"
-          onClick={() => setViewMode("invoices")}
-          className="h-8 px-3"
-        >
-          <FileText size={16} />
-        </Button>
-      )}
-    </div>
+    <TooltipProvider>
+      <div className="flex items-center gap-1 bg-muted/20 rounded-md p-1">
+        {viewModes.map(({ mode, icon: Icon, label, show }) => {
+          if (!show) return null;
+
+          return (
+            <Tooltip key={mode}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={viewMode === mode ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode(mode)}
+                  className="h-8 px-3"
+                >
+                  <Icon size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{label}</p>
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 }

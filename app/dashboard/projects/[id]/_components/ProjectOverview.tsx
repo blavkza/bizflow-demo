@@ -12,10 +12,17 @@ import {
   Users,
   TrendingUp,
   AlertTriangle,
+  FileText,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Project } from "../type";
-import { getStatusColor, getPriorityColor, formatProjectDates } from "../utils";
+import {
+  getStatusColor,
+  getPriorityColor,
+  formatProjectDates,
+  getProjectTypeColor,
+  getBillingTypeColor,
+} from "../utils";
 import { teamMembers } from "@/lib/data";
 
 interface ProjectOverviewProps {
@@ -70,12 +77,49 @@ export function ProjectOverview({
     calculateProjectExpenses();
   const projectBudget = project.budget || 0;
 
+  const formatProjectType = (type: string) => {
+    return type
+      .toLowerCase()
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  const formatBillingType = (type: string) => {
+    return type
+      .toLowerCase()
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
   return (
     <Card>
       <CardHeader>
         <div className="flex justify-between items-start">
           <CardTitle>Project Overview</CardTitle>
+
           <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {project.projectType && (
+                <Badge
+                  variant="outline"
+                  className={getProjectTypeColor(project.projectType)}
+                >
+                  <FileText size={12} className="mr-1" />
+                  {formatProjectType(project.projectType)}
+                </Badge>
+              )}
+              {project.billingType && (
+                <Badge
+                  variant="outline"
+                  className={getBillingTypeColor(project.billingType)}
+                >
+                  <DollarSign size={12} className="mr-1" />
+                  {formatBillingType(project.billingType)}
+                </Badge>
+              )}
+            </div>
             <Badge className={`${getStatusColor(projectStatus)} text-white`}>
               {projectStatus}
             </Badge>

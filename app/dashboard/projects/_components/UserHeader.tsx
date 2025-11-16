@@ -67,7 +67,7 @@ export default function UserHeader({
                 Add Project
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[900px]">
+            <DialogContent className="sm:max-w-[400px] md:min-w-[800px] max-h-[95vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Project</DialogTitle>
               </DialogHeader>

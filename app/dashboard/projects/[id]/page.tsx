@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useRef, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { ProjectTools } from "./_components/project-tools";
 import { ProjectExpenses } from "./_components/project-expenses";
 import TaskForm from "./_components/task-Form";
 import ProjectForm from "../_components/project-Form";
+import { WorkLogTab } from "./_components/WorkLogTab";
 
 import {
   Dialog,
@@ -44,6 +45,7 @@ import AddInvoiceDialog from "./_components/AddInvoiceDialog";
 import { useQuery } from "@tanstack/react-query";
 import { ProjectDetailsSkeleton } from "./_components/ProjectDetailsSkeleton";
 import { useAuth } from "@clerk/nextjs";
+import { WorkLogForm } from "./_components/work-log-form";
 
 export default function ProjectsDetailsPage({
   params,
@@ -62,6 +64,7 @@ export default function ProjectsDetailsPage({
   const [projectStatus, setProjectStatus] = useState<string | null>(null);
   const [isStarred, setIsStarred] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projectProgress, setProjectProgress] = useState(0);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   async function fetchProjectData() {
@@ -99,19 +102,29 @@ export default function ProjectsDetailsPage({
     refetchInterval: 10000,
   });
 
+  // Update progress whenever tasks change
+  useEffect(() => {
+    const progress = calculateProjectProgress(tasks);
+    setProjectProgress(progress);
+  }, [tasks]);
+
   useEffect(() => {
     if (data) {
       setLoadingProject(loadingProjects);
       setProject(data);
-      setTasks(data.tasks);
+      setTasks(data.tasks || []);
       setProjectStatus(data.status);
       setIsStarred(data.starred);
+
+      // Calculate initial progress
+      const progress = calculateProjectProgress(data.tasks || []);
+      setProjectProgress(progress);
     }
 
     if (projectError) {
-      toast.error("Fail to feact Projects data");
+      toast.error("Fail to fetch Projects data");
     }
-  }, [data]);
+  }, [data, loadingProjects, projectError]);
 
   const handleTaskUpdate = async (
     id: string,
@@ -134,6 +147,8 @@ export default function ProjectsDetailsPage({
       if (!response.ok) {
         throw new Error(`Failed to update task ${updateType}`);
       }
+
+      refetch();
 
       return await response.json();
     } catch (error) {
@@ -184,10 +199,9 @@ export default function ProjectsDetailsPage({
   );
 
   const budgetUsedPercentage = calculateBudgetUsedPercentage(project);
-  const projectProgress = calculateProjectProgress(tasks);
 
   const handleDragEnd = (event: DragEndEvent) => {
-    console.log("Drag ended:", event);
+    // Handle list view drag end if needed
   };
 
   const currentUserId = user?.id;
@@ -198,8 +212,6 @@ export default function ProjectsDetailsPage({
   const currentMember = project.teamMembers?.find(
     (member) => member.userId === currentUserId
   );
-
-  const remaingBalance = (project.budget || 0) - (project.budgetSpent || 0);
 
   const currentUserRole = currentMember?.role || null;
   const currentUserPermissions = currentMember
@@ -212,6 +224,7 @@ export default function ProjectsDetailsPage({
         canUploadFiles: currentMember.canUploadFiles,
         canEditFile: currentMember.canEditFile,
         canViewFinancial: currentMember.canViewFinancial,
+        canAddWorkLog: currentMember.canAddWorkLog || true,
       }
     : null;
 
@@ -222,10 +235,6 @@ export default function ProjectsDetailsPage({
     if (statusFilter === "completed") return task.status === "COMPLETED";
     return true;
   });
-
-  if (loadingProject) {
-    return <ProjectDetailsSkeleton />;
-  }
 
   return (
     <div className="space-y-6 p-4">
@@ -247,7 +256,7 @@ export default function ProjectsDetailsPage({
         invoiceTotal={invoiceTotal}
       />
 
-      <div className={cn("grid gap-4grid-cols-1 md:grid-cols-4")}>
+      <div className={cn("grid gap-4 grid-cols-1 md:grid-cols-4")}>
         <StatsCard
           value={taskStats.total}
           label="Total Tasks"
@@ -286,7 +295,9 @@ export default function ProjectsDetailsPage({
                         ? "Tools"
                         : viewMode === "expenses"
                           ? "Expenses"
-                          : "Tasks"}
+                          : viewMode === "worklogs"
+                            ? "Work Logs"
+                            : "Tasks"}
             </CardTitle>
             <div className="flex items-center gap-2">
               <ViewModeToggle
@@ -362,6 +373,28 @@ export default function ProjectsDetailsPage({
                       projectId={project.id}
                       onCancel={() => setIsDialogOpen(false)}
                       onSubmitSuccess={() => {
+                        setIsDialogOpen(false);
+                        refetch();
+                      }}
+                    />
+                  </DialogContent>
+                </Dialog>
+              ) : viewMode === "worklogs" &&
+                (isManager || currentUserPermissions?.canAddWorkLog) ? (
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Work Log
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle>Add Work Log</DialogTitle>
+                    </DialogHeader>
+                    <WorkLogForm
+                      projectId={project.id}
+                      onSuccess={() => {
                         setIsDialogOpen(false);
                         refetch();
                       }}
@@ -455,21 +488,26 @@ export default function ProjectsDetailsPage({
               fetchProject={refetch}
               canViewFinancial={currentUserPermissions?.canViewFinancial}
             />
+          ) : viewMode === "worklogs" ? (
+            <WorkLogTab
+              project={project}
+              fetchProject={refetch}
+              currentUserId={currentUserId}
+              isManager={isManager}
+              currentUserRole={currentUserRole}
+            />
           ) : (
             <DndContext onDragEnd={handleDragEnd}>
               {Filtedtasks.length === 0 ? (
-                <>
-                  {" "}
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p className="text-muted-foreground mb-4 text-center">
-                      {statusFilter === "all"
-                        ? "Get started by creating your first Task."
-                        : `No ${statusFilter
-                            .toUpperCase()
-                            .replace("_", " ")} projects found.`}
-                    </p>
-                  </div>
-                </>
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="text-muted-foreground mb-4 text-center">
+                    {statusFilter === "all"
+                      ? "Get started by creating your first Task."
+                      : `No ${statusFilter
+                          .toUpperCase()
+                          .replace("_", " ")} projects found.`}
+                  </p>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {Filtedtasks.map((task) => (

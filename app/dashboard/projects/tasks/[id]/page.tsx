@@ -23,6 +23,8 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  console.log(task);
+
   const fetchTask = async () => {
     try {
       const { id } = await params;

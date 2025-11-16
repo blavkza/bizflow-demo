@@ -45,7 +45,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { taskSchema, multiTaskSchema } from "@/lib/formValidationSchemas";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -54,10 +53,52 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+// Schemas
+export const subtaskSchema = z.object({
+  title: z.string().min(1, "Subtask title is required"),
+  description: z.string().optional(),
+  estimatedHours: z.number().optional(),
+  status: z.nativeEnum(TaskStatus).optional().default(TaskStatus.TODO),
+});
+
+export const taskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  projectId: z.string().min(1, "Project is required").optional(),
+  status: z.nativeEnum(TaskStatus),
+  priority: z.nativeEnum(Priority),
+  dueDate: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable()
+    .transform((val) => (val instanceof Date ? val : null)),
+  estimatedHours: z.number().optional(),
+  assigneeIds: z.array(z.string()).optional(),
+  freelancerIds: z.array(z.string()).optional(),
+  isAIGenerated: z.boolean().optional().default(false),
+  subtasks: z.array(subtaskSchema).optional().default([]),
+});
+
+export const multiTaskSchema = z.object({
+  tasks: z.array(taskSchema).min(1, "At least one task is required"),
+});
+
+export type TaskSchemaType = z.infer<typeof taskSchema>;
+export type SubtaskSchemaType = z.infer<typeof subtaskSchema>;
+export type MultiTaskSchemaType = z.infer<typeof multiTaskSchema>;
+
 type Employee = {
   id: string;
   employeeId: string;
   name: string;
+  email: string;
+};
+
+type Freelancer = {
+  id: string;
+  freelancerId: string;
+  firstName: string;
+  lastName: string;
   email: string;
 };
 
@@ -73,6 +114,7 @@ interface TaskFormProps {
     dueDate?: Date;
     estimatedHours?: number;
     assignees?: { id: string }[];
+    freeLancerAssignees?: { id: string }[];
     isAIGenerated?: boolean;
     subtasks?: any[];
   };
@@ -89,6 +131,7 @@ export default function TaskForm({
   onSubmitSuccess,
 }: TaskFormProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isMultiTaskMode, setIsMultiTaskMode] = useState(false);
@@ -107,6 +150,7 @@ export default function TaskForm({
       dueDate: data?.dueDate || null,
       estimatedHours: data?.estimatedHours,
       assigneeIds: data?.assignees?.map((a) => a.id) || [],
+      freelancerIds: data?.freeLancerAssignees?.map((f) => f.id) || [],
       isAIGenerated: data?.isAIGenerated || false,
       subtasks: data?.subtasks || [],
     },
@@ -126,6 +170,7 @@ export default function TaskForm({
           dueDate: null,
           estimatedHours: undefined,
           assigneeIds: [],
+          freelancerIds: [],
           isAIGenerated: false,
           subtasks: [],
         },
@@ -151,27 +196,45 @@ export default function TaskForm({
     name: "subtasks",
   });
 
-  const { isSubmitting: isSingleSubmitting } = singleTaskForm.formState;
-  const { isSubmitting: isMultiSubmitting } = multiTaskForm.formState;
-
-  const isSubmitting = isSingleSubmitting || isMultiSubmitting;
-
   const toggleTaskExpansion = (index: number) => {
     setExpandedTasks((prev) =>
       prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
     );
   };
 
+  // Function to separate selected IDs into employees and freelancers
+  const separateAssignees = (selectedIds: string[]) => {
+    const employeeIds: string[] = [];
+    const freelancerIds: string[] = [];
+
+    selectedIds.forEach((id) => {
+      if (employees.some((emp) => emp.id === id)) {
+        employeeIds.push(id);
+      } else if (freelancers.some((freelancer) => freelancer.id === id)) {
+        freelancerIds.push(id);
+      }
+    });
+
+    return { employeeIds, freelancerIds };
+  };
+
   const onSubmitSingle = async (values: z.infer<typeof taskSchema>) => {
     try {
       setIsLoading(true);
-      console.log("Submitting single task:", values);
+
+      // For single task mode, we already have separate fields
+      const submitData = {
+        ...values,
+        projectId: projectId, // Ensure projectId is set
+      };
+
+      console.log("Submitting single task:", submitData);
 
       if (type === "create") {
-        await axios.post("/api/tasks", values);
+        await axios.post("/api/tasks", submitData);
         toast.success("Task created successfully");
       } else if (type === "update" && data?.id) {
-        await axios.put(`/api/tasks/${data.id}`, values);
+        await axios.put(`/api/tasks/${data.id}`, submitData);
         toast.success("Task updated successfully");
       }
 
@@ -188,11 +251,30 @@ export default function TaskForm({
   const onSubmitMulti = async (values: z.infer<typeof multiTaskSchema>) => {
     try {
       setIsLoading(true);
-      console.log("Submitting multiple tasks:", values);
+
+      // Process each task to ensure proper data structure
+      const processedTasks = values.tasks.map((task) => ({
+        ...task,
+        projectId: projectId,
+        // For multi-task mode, we need to separate the assignees
+        ...separateAssignees(task.assigneeIds || []),
+      }));
+
+      // Validate that at least one task has a title
+      const validTasks = processedTasks.filter(
+        (task) => task.title && task.title.trim() !== ""
+      );
+
+      if (validTasks.length === 0) {
+        toast.error("At least one task must have a title");
+        return;
+      }
+
+      console.log("Submitting multiple tasks:", validTasks);
 
       if (type === "create") {
-        await axios.post("/api/tasks/bulk", { tasks: values.tasks });
-        toast.success(`${values.tasks.length} tasks created successfully`);
+        await axios.post("/api/tasks", { tasks: validTasks });
+        toast.success(`${validTasks.length} tasks created successfully`);
       } else {
         toast.error("Bulk update is not supported");
         return;
@@ -206,6 +288,24 @@ export default function TaskForm({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Custom handler for multi-select changes in multi-task mode
+  const handleMultiSelectChange = (index: number, selectedIds: string[]) => {
+    const { employeeIds, freelancerIds } = separateAssignees(selectedIds);
+
+    // Update both fields in the form
+    multiTaskForm.setValue(`tasks.${index}.assigneeIds`, employeeIds);
+    multiTaskForm.setValue(`tasks.${index}.freelancerIds`, freelancerIds);
+  };
+
+  // Custom handler for multi-select changes in single task mode
+  const handleSingleMultiSelectChange = (selectedIds: string[]) => {
+    const { employeeIds, freelancerIds } = separateAssignees(selectedIds);
+
+    // Update both fields in the form
+    singleTaskForm.setValue("assigneeIds", employeeIds);
+    singleTaskForm.setValue("freelancerIds", freelancerIds);
   };
 
   const generateAITasks = async () => {
@@ -222,8 +322,12 @@ export default function TaskForm({
       const { tasks } = response.data;
 
       if (isMultiTaskMode) {
-        // Set multiple AI-generated tasks
-        multiTaskForm.setValue("tasks", tasks);
+        // Set multiple AI-generated tasks with projectId
+        const tasksWithProjectId = tasks.map((task: any) => ({
+          ...task,
+          projectId: projectId,
+        }));
+        multiTaskForm.setValue("tasks", tasksWithProjectId);
         toast.success(`Generated ${tasks.length} tasks with AI`);
       } else {
         // Set single AI-generated task with subtasks
@@ -245,21 +349,26 @@ export default function TaskForm({
     }
   };
 
-  const fetchEmployees = async () => {
+  const fetchAssignees = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get("/api/employees");
-      setEmployees(response.data.employees || []);
+      const [employeesResponse, freelancersResponse] = await Promise.all([
+        axios.get("/api/employees"),
+        axios.get("/api/freelancers"),
+      ]);
+
+      setEmployees(employeesResponse.data.employees || []);
+      setFreelancers(freelancersResponse.data.freelancers || []);
     } catch (err) {
-      console.error("Error fetching employees:", err);
-      toast.error("Failed to load employees");
+      console.error("Error fetching assignees:", err);
+      toast.error("Failed to load assignees");
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchEmployees();
+    fetchAssignees();
   }, []);
 
   // Don't allow multi-task mode for updates
@@ -269,10 +378,38 @@ export default function TaskForm({
     }
   }, [type, isMultiTaskMode]);
 
+  // Update projectId when projectId prop changes
+  useEffect(() => {
+    if (isMultiTaskMode) {
+      const currentTasks = multiTaskForm.getValues("tasks") || [];
+      const updatedTasks = currentTasks.map((task) => ({
+        ...task,
+        projectId: projectId,
+      }));
+      multiTaskForm.setValue("tasks", updatedTasks);
+    }
+  }, [projectId, isMultiTaskMode, multiTaskForm]);
+
+  // Combine employees and freelancers for the assignee options
   const employeeOptions = employees.map((employee) => ({
-    label: employee.name,
+    label: `${employee.name} (Employee)`,
     value: employee.id,
   }));
+
+  const freelancerOptions = freelancers.map((freelancer) => ({
+    label: `${freelancer.firstName} ${freelancer.lastName} (Freelancer)`,
+    value: freelancer.id,
+  }));
+
+  const allAssigneeOptions = [...employeeOptions, ...freelancerOptions];
+
+  // Get combined selected IDs for display in multi-select
+  const getCombinedSelectedIds = (
+    assigneeIds: string[] = [],
+    freelancerIds: string[] = []
+  ) => {
+    return [...assigneeIds, ...freelancerIds];
+  };
 
   return (
     <div className="space-y-4">
@@ -470,25 +607,21 @@ export default function TaskForm({
                 )}
               />
 
-              <FormField
-                control={singleTaskForm.control}
-                name="assigneeIds"
-                render={({ field }) => (
-                  <FormItem className="md:col-span-2">
-                    <FormLabel>Assignees (Optional)</FormLabel>
-                    <FormControl>
-                      <MultiSelect
-                        options={employeeOptions}
-                        selected={field.value || []}
-                        onChange={field.onChange}
-                        placeholder="Select assignees..."
-                        loading={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <FormItem className="md:col-span-2">
+                <FormLabel>Assignees (Employees & Freelancers)</FormLabel>
+                <FormControl>
+                  <MultiSelect
+                    options={allAssigneeOptions}
+                    selected={getCombinedSelectedIds(
+                      singleTaskForm.watch("assigneeIds"),
+                      singleTaskForm.watch("freelancerIds")
+                    )}
+                    onChange={handleSingleMultiSelectChange}
+                    placeholder="Select assignees..."
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
 
               {/* Subtasks Section */}
               <div className="md:col-span-2 space-y-4">
@@ -620,17 +753,13 @@ export default function TaskForm({
                 type="button"
                 variant="outline"
                 onClick={onCancel}
-                disabled={isSubmitting}
+                disabled={isLoading}
                 className="min-w-24"
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="min-w-24"
-              >
-                {isSubmitting ? (
+              <Button type="submit" disabled={isLoading} className="min-w-24">
+                {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : type === "create" ? (
                   "Create Task"
@@ -840,25 +969,23 @@ export default function TaskForm({
                       )}
                     />
 
-                    <FormField
-                      control={multiTaskForm.control}
-                      name={`tasks.${index}.assigneeIds`}
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel>Assignees (Optional)</FormLabel>
-                          <FormControl>
-                            <MultiSelect
-                              options={employeeOptions}
-                              selected={field.value || []}
-                              onChange={field.onChange}
-                              placeholder="Select assignees..."
-                              loading={isLoading}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>Assignees (Employees & Freelancers)</FormLabel>
+                      <FormControl>
+                        <MultiSelect
+                          options={allAssigneeOptions}
+                          selected={getCombinedSelectedIds(
+                            multiTaskForm.watch(`tasks.${index}.assigneeIds`),
+                            multiTaskForm.watch(`tasks.${index}.freelancerIds`)
+                          )}
+                          onChange={(selectedIds) =>
+                            handleMultiSelectChange(index, selectedIds)
+                          }
+                          placeholder="Select assignees..."
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   </div>
 
                   {/* Subtasks Section for Multi-Task Mode */}
@@ -1045,6 +1172,7 @@ export default function TaskForm({
                     dueDate: null,
                     estimatedHours: undefined,
                     assigneeIds: [],
+                    freelancerIds: [],
                     isAIGenerated: false,
                     subtasks: [],
                   })
@@ -1061,17 +1189,13 @@ export default function TaskForm({
                 type="button"
                 variant="outline"
                 onClick={onCancel}
-                disabled={isSubmitting}
+                disabled={isLoading}
                 className="min-w-24"
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="min-w-24"
-              >
-                {isSubmitting ? (
+              <Button type="submit" disabled={isLoading} className="min-w-24">
+                {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   `Create ${taskFields.length} Tasks`

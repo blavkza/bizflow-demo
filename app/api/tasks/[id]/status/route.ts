@@ -31,7 +31,7 @@ export async function PUT(
     const currentTask = await db.task.findUnique({
       where: { id },
       include: {
-        Subtask: true, 
+        subtask: true,
       },
     });
 
@@ -56,7 +56,7 @@ export async function PUT(
       if (
         status === "COMPLETED" &&
         currentTask.status !== "COMPLETED" &&
-        currentTask.Subtask.length > 0
+        currentTask.subtask.length > 0
       ) {
         await tx.subtask.updateMany({
           where: {

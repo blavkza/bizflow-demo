@@ -1,5 +1,6 @@
 import { format } from "date-fns";
 import { Project, Task } from "./type";
+import { BillingType, ProjectType } from "@prisma/client";
 
 export const getStatusColor = (status: string | null) => {
   switch (status) {
@@ -64,4 +65,22 @@ export const formatProjectDates = (project: Project) => {
       ? format(new Date(project.endDate), "MMM d, yyyy")
       : "Not set",
   };
+};
+
+export const getProjectTypeColor = (type: ProjectType): string => {
+  const colors = {
+    NEW_PROJECT: "bg-blue-100 text-blue-800 border-blue-200",
+    RETURN_JOB: "bg-orange-100 text-orange-800 border-orange-200",
+    MAINTENANCE: "bg-green-100 text-green-800 border-green-200",
+    FAULT_FINDING: "bg-red-100 text-red-800 border-red-200",
+  };
+  return colors[type] || "bg-gray-100 text-gray-800 border-gray-200";
+};
+
+export const getBillingTypeColor = (type: BillingType): string => {
+  const colors = {
+    INVOICED: "bg-purple-100 text-purple-800 border-purple-200",
+    MAINTENANCE_CONTRACT: "bg-indigo-100 text-indigo-800 border-indigo-200",
+  };
+  return colors[type] || "bg-gray-100 text-gray-800 border-gray-200";
 };

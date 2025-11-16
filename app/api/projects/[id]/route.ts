@@ -183,6 +183,9 @@ export async function GET(
             assignees: {
               select: { firstName: true, lastName: true, avatar: true },
             },
+            freeLancerAssignees: {
+              select: { firstName: true, lastName: true, avatar: true },
+            },
           },
         },
         Expense: {
@@ -237,6 +240,7 @@ export async function GET(
           },
         },
         documents: true,
+        workLogs: true,
         teamMembers: {
           include: {
             user: true,
