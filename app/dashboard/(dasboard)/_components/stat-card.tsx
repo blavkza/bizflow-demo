@@ -57,6 +57,9 @@ export function StatCard({
   const IconComponent = iconMap[icon];
   const formattedValue = formatter ? formatter(value || 0) : value;
 
+  // Only show change if it's defined (0% is allowed)
+  const shouldShowChange = change !== undefined;
+
   return (
     <Card
       className={`cursor-pointer transition-all hover:shadow-md hover:border-primary ${
@@ -84,12 +87,18 @@ export function StatCard({
                 {description}
               </p>
             )}
-            {change !== undefined && (
+            {shouldShowChange && (
               <p className="text-xs text-muted-foreground mt-1">
                 <span
-                  className={change >= 0 ? "text-green-600" : "text-red-600"}
+                  className={
+                    change > 0
+                      ? "text-green-600"
+                      : change < 0
+                        ? "text-red-600"
+                        : "text-gray-600"
+                  }
                 >
-                  {change >= 0 ? "+" : ""}
+                  {change > 0 ? "+" : ""}
                   {change?.toFixed(1)}%
                 </span>{" "}
                 from last month

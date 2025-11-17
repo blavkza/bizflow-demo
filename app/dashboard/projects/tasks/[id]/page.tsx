@@ -69,7 +69,7 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps) {
 
         <TaskSidebar task={task} />
       </div>
-      <TaskTabs task={task} />
+      <TaskTabs task={task} refetch={fetchTask} />
     </div>
   );
 }

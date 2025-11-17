@@ -461,8 +461,8 @@ model FreeLancer {
 
 model AttendanceRecord {
   id         String    @id @default(cuid())
-  employeeId String
-  employee   Employee  @relation(fields: [employeeId], references: [id])
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id])
   date       DateTime  @db.Date
   checkIn    DateTime?
   checkOut   DateTime?

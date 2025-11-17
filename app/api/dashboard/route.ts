@@ -1,132 +1,28 @@
-// app/api/dashboard/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getAuth } from "@clerk/nextjs/server";
-
-// Simplified Type definitions that match Prisma results
-interface DashboardInvoice {
-  id: string;
-  invoiceNumber: string;
-  totalAmount: any;
-  paidAmount: any;
-  status: string;
-  dueDate?: Date | null;
-  createdAt: Date;
-  client?: {
-    name: string;
-  };
-}
-
-interface DashboardExpense {
-  id: string;
-  description: string;
-  totalAmount: any;
-  status: string;
-  dueDate?: Date | null;
-  createdAt: Date;
-  category?: {
-    name: string;
-  };
-}
-
-interface DashboardPayment {
-  id: string;
-  amount: any;
-  paymentDate: Date;
-  invoice?: {
-    invoiceNumber: string;
-  };
-}
-
-interface DashboardQuotation {
-  id: string;
-  quotationNumber: string;
-  totalAmount: any;
-  status: string;
-  validUntil: Date;
-  client?: {
-    name: string;
-  };
-}
-
-interface DashboardProject {
-  id: string;
-  title: string;
-  status: string;
-  budget: any;
-  endDate?: Date | null;
-  createdAt: Date;
-  tasks: DashboardTask[];
-  client?: {
-    name: string;
-  };
-}
-
-interface DashboardTask {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  dueDate?: Date | null;
-  progress?: number | null;
-  createdAt: Date;
-  assignees: any[];
-  project?: {
-    title: string;
-  };
-}
-
-interface DashboardEmployee {
-  id: string;
-  firstName: string;
-  lastName: string;
-  status: string;
-  timeEntries: any[];
-}
-
-interface DashboardFreeLancer {
-  id: string;
-  firstName: string;
-  lastName: string;
-  status: string;
-  reliable?: boolean | null;
-  timeEntries: any[];
-}
-
-interface DashboardTimeEntry {
-  id: string;
-  date: Date;
-  employee?: any;
-  freeLancer?: any;
-}
-
-interface DashboardLeaveRequest {
-  id: string;
-  status: string;
-  startDate: Date;
-  endDate: Date;
-  employee?: any;
-  freeLancer?: any;
-}
-
-interface DashboardTransaction {
-  id: string;
-  amount: any;
-  type: string;
-  date: Date;
-  description: string;
-  category?: string;
-}
-
-interface Alert {
-  id: string;
-  type: "invoice" | "expense" | "quotation" | "project" | "payroll" | "task";
-  title: string;
-  description: string;
-  dueDate?: string;
-  daysRemaining: number;
-  priority?: "low" | "medium" | "high" | "critical";
-}
+import {
+  DashboardInvoice,
+  DashboardExpense,
+  DashboardPayment,
+  DashboardQuotation,
+  DashboardProject,
+  DashboardTask,
+  DashboardEmployee,
+  DashboardFreeLancer,
+  DashboardLeaveRequest,
+  DashboardTransaction,
+  Alert,
+  DashboardResponse,
+} from "@/types/dashboard";
+import {
+  EmployeeStatus,
+  FreeLancerStatus,
+  ProjectStatus,
+  QuotationStatus,
+  TransactionStatus,
+  TransactionType,
+} from "@prisma/client";
 
 // Helper function to safely convert Decimal to number
 function convertDecimalToNumber(value: any): number {
@@ -138,23 +34,166 @@ function convertDecimalToNumber(value: any): number {
   return 0;
 }
 
+// Helper function to calculate percentage change
+function calculateChange(current: number, previous: number): number {
+  if (previous === 0) {
+    return current > 0 ? 100 : 0;
+  }
+  return ((current - previous) / previous) * 100;
+}
+
+// Cash Flow Forecast function (your provided function)
+async function getCashFlowForecast() {
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+
+  // Calculate days in current month and days remaining
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  const daysRemaining = daysInMonth - now.getDate();
+  const monthProgress = ((daysInMonth - daysRemaining) / daysInMonth) * 100;
+
+  // Calculate quarter information
+  const currentQuarter = Math.floor(currentMonth / 3) + 1;
+  const quarterStartMonth = (currentQuarter - 1) * 3;
+  const quarterEndMonth = quarterStartMonth + 2;
+
+  const quarterStartDate = new Date(currentYear, quarterStartMonth, 1);
+  const quarterEndDate = new Date(currentYear, quarterEndMonth + 1, 0);
+
+  const quarterDaysTotal = Math.floor(
+    (quarterEndDate.getTime() - quarterStartDate.getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+  const quarterDaysElapsed = Math.floor(
+    (now.getTime() - quarterStartDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const quarterProgress = (quarterDaysElapsed / quarterDaysTotal) * 100;
+
+  // Calculate year information
+  const yearStartDate = new Date(currentYear, 0, 1);
+  const yearEndDate = new Date(currentYear, 11, 31);
+
+  const yearDaysTotal = Math.floor(
+    (yearEndDate.getTime() - yearStartDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const yearDaysElapsed = Math.floor(
+    (now.getTime() - yearStartDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const yearProgress = (yearDaysElapsed / yearDaysTotal) * 100;
+
+  // Get current month's transactions
+  const currentMonthStart = new Date(currentYear, currentMonth, 1);
+  const currentMonthTransactions = await db.transaction.findMany({
+    where: {
+      date: {
+        gte: currentMonthStart,
+        lte: now,
+      },
+    },
+  });
+
+  // Get current quarter's transactions
+  const currentQuarterTransactions = await db.transaction.findMany({
+    where: {
+      date: {
+        gte: quarterStartDate,
+        lte: now,
+      },
+    },
+  });
+
+  // Get current year's transactions
+  const currentYearTransactions = await db.transaction.findMany({
+    where: {
+      date: {
+        gte: yearStartDate,
+        lte: now,
+      },
+    },
+  });
+
+  // Calculate actual amounts
+  const calculateNet = (transactions: any[]) => {
+    const income = transactions
+      .filter((t) => t.type === "INCOME")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const expenses = transactions
+      .filter((t) => t.type === "EXPENSE")
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    return income - expenses;
+  };
+
+  const monthToDateNet = calculateNet(currentMonthTransactions);
+  const quarterToDateNet = calculateNet(currentQuarterTransactions);
+  const yearToDateNet = calculateNet(currentYearTransactions);
+
+  // Project remaining amounts based on current daily rate
+  const daysElapsedInMonth = daysInMonth - daysRemaining;
+  const dailyRateMonth = monthToDateNet / Math.max(1, daysElapsedInMonth);
+  const monthProjection = monthToDateNet + dailyRateMonth * daysRemaining;
+
+  const dailyRateQuarter = quarterToDateNet / Math.max(1, quarterDaysElapsed);
+  const quarterProjection =
+    quarterToDateNet +
+    dailyRateQuarter * (quarterDaysTotal - quarterDaysElapsed);
+
+  const dailyRateYear = yearToDateNet / Math.max(1, yearDaysElapsed);
+  const yearProjection =
+    yearToDateNet + dailyRateYear * (yearDaysTotal - yearDaysElapsed);
+
+  return {
+    nextMonth: {
+      amount: monthProjection,
+      progress: monthProgress,
+      daysRemaining,
+      daysInMonth,
+    },
+    quarterEnd: {
+      amount: quarterProjection,
+      progress: quarterProgress,
+      daysRemaining: quarterDaysTotal - quarterDaysElapsed,
+      daysTotal: quarterDaysTotal,
+    },
+    yearEnd: {
+      amount: yearProjection,
+      progress: yearProgress,
+      daysRemaining: yearDaysTotal - yearDaysElapsed,
+      daysTotal: yearDaysTotal,
+    },
+  };
+}
+
+// Recent Transactions function (your provided function)
+async function getRecentTransactions() {
+  return await db.transaction.findMany({
+    orderBy: {
+      date: "desc",
+    },
+    take: 6,
+    include: {
+      client: true,
+      category: true,
+    },
+  });
+}
+
 // Helper function to generate alerts
 function generateAlerts(
-  invoices: DashboardInvoice[],
+  invoices: any[],
   expenses: DashboardExpense[],
   quotations: DashboardQuotation[],
   projects: DashboardProject[],
-  tasks: DashboardTask[]
+  tasks: DashboardTask[],
+  hrSettings: any
 ): Alert[] {
   const alerts: Alert[] = [];
   const now = new Date();
 
   // Invoice alerts (due in next 3 days or overdue)
-  const dueInvoices = invoices.filter((invoice: DashboardInvoice) => {
+  const dueInvoices = invoices.filter((invoice: any) => {
     if (!invoice.dueDate) return false;
-    const totalAmount = convertDecimalToNumber(invoice.totalAmount);
-    const paidAmount = convertDecimalToNumber(invoice.paidAmount || 0);
-    const isNotFullyPaid = paidAmount < totalAmount;
+    const isNotFullyPaid = invoice.remainingAmount > 0;
 
     const dueDate = new Date(invoice.dueDate);
     const daysUntilDue = Math.ceil(
@@ -163,7 +202,7 @@ function generateAlerts(
     return daysUntilDue <= 3 && isNotFullyPaid;
   });
 
-  dueInvoices.forEach((invoice: DashboardInvoice) => {
+  dueInvoices.forEach((invoice: any) => {
     const dueDate = new Date(invoice.dueDate!);
     const daysRemaining = Math.ceil(
       (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
@@ -301,19 +340,70 @@ function generateAlerts(
     });
   });
 
-  // Payroll alert (next payroll in 5 days)
-  const nextPayroll = new Date(now);
-  nextPayroll.setDate(now.getDate() + 5);
+  // FIXED: Payroll alert using actual payday from HRSettings
+  if (hrSettings) {
+    const today = now.getDate();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
 
-  alerts.push({
-    id: "payroll-next",
-    type: "payroll",
-    title: "Payroll Processing",
-    description: "Next payroll run in 5 days",
-    dueDate: nextPayroll.toISOString(),
-    daysRemaining: 5,
-    priority: "medium",
-  });
+    let nextPayrollDate: Date;
+    const paymentDay = hrSettings.paymentDay || 25;
+    const paymentMonth = hrSettings.paymentMonth || "CURRENT";
+
+    if (today <= paymentDay) {
+      // Payday is this month
+      nextPayrollDate = new Date(currentYear, currentMonth, paymentDay);
+    } else {
+      // Payday is next month
+      if (paymentMonth === "CURRENT") {
+        nextPayrollDate = new Date(currentYear, currentMonth, paymentDay);
+      } else {
+        nextPayrollDate = new Date(currentYear, currentMonth + 1, paymentDay);
+      }
+    }
+
+    // Ensure we don't set payday in the past
+    if (nextPayrollDate < now) {
+      nextPayrollDate = new Date(currentYear, currentMonth + 1, paymentDay);
+    }
+
+    const daysUntilPayroll = Math.ceil(
+      (nextPayrollDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Only show alert if payroll is within next 7 days
+    if (daysUntilPayroll <= 7) {
+      const priority =
+        daysUntilPayroll <= 1
+          ? "high"
+          : daysUntilPayroll <= 3
+            ? "medium"
+            : "low";
+
+      alerts.push({
+        id: "payroll-next",
+        type: "payroll",
+        title: `Payroll Processing - ${nextPayrollDate.toLocaleDateString()}`,
+        description: `Next payroll run in ${daysUntilPayroll} day${daysUntilPayroll !== 1 ? "s" : ""}`,
+        dueDate: nextPayrollDate.toISOString(),
+        daysRemaining: daysUntilPayroll,
+        priority,
+      });
+    }
+
+    // Add alert for payroll processing today
+    if (daysUntilPayroll === 0) {
+      alerts.push({
+        id: "payroll-today",
+        type: "payroll",
+        title: "Payroll Processing Today",
+        description: "Payroll is scheduled to run today",
+        dueDate: nextPayrollDate.toISOString(),
+        daysRemaining: 0,
+        priority: "high",
+      });
+    }
+  }
 
   // Sort alerts by priority and due date
   const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -336,7 +426,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get date ranges
+    // Get date ranges for current and previous month
     const now = new Date();
     const todayStart = new Date(
       now.getFullYear(),
@@ -353,43 +443,158 @@ export async function GET(request: NextRequest) {
     const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
 
-    // Fetch all data in parallel
+    // Fetch all data in parallel including the new functions
     const [
-      invoices,
-      expenses,
+      currentMonthInvoices,
+      currentMonthExpenses,
+      currentMonthInvoicePayments,
+      currentMonthExpensePayments,
+      currentMonthTransactions,
+      lastMonthInvoices,
+      lastMonthExpenses,
+      lastMonthInvoicePayments,
+      lastMonthExpensePayments,
+      lastMonthTransactions,
       quotations,
       projects,
       tasks,
       employees,
       freelancers,
-      timeEntries,
       leaveRequests,
-      payments,
       clients,
-      transactions,
+      todayEmployeeAttendance,
+      todayFreelancerAttendance,
+      hrSettings,
+      cashFlowForecast,
+      recentTransactionsData,
     ] = await Promise.all([
-      // Invoices
+      // Current month invoices
       db.invoice.findMany({
-        include: {
-          client: true,
+        where: {
+          createdAt: {
+            gte: monthStart,
+            lte: monthEnd,
+          },
         },
+        include: { client: true },
       }),
 
-      // Expenses
+      // Current month expenses
       db.expense.findMany({
+        where: {
+          createdAt: {
+            gte: monthStart,
+            lte: monthEnd,
+          },
+        },
+        include: { category: true },
+      }),
+
+      // Current month invoice payments
+      db.invoicePayment.findMany({
+        where: {
+          status: "COMPLETED",
+          paidAt: {
+            gte: monthStart,
+            lte: monthEnd,
+          },
+        },
         include: {
-          category: true,
+          invoice: true,
         },
       }),
 
-      // Quotations
+      // Current month expense payments
+      db.expensePayment.findMany({
+        where: {
+          status: "PAID",
+          paymentDate: {
+            gte: monthStart,
+            lte: monthEnd,
+          },
+        },
+        include: {
+          expense: true,
+        },
+      }),
+
+      // Current month transactions
+      db.transaction.findMany({
+        where: {
+          type: "INCOME",
+          date: {
+            gte: monthStart,
+            lte: monthEnd,
+          },
+        },
+      }),
+
+      // Last month invoices
+      db.invoice.findMany({
+        where: {
+          createdAt: {
+            gte: lastMonthStart,
+            lte: lastMonthEnd,
+          },
+        },
+        include: { client: true },
+      }),
+
+      // Last month expenses
+      db.expense.findMany({
+        where: {
+          createdAt: {
+            gte: lastMonthStart,
+            lte: lastMonthEnd,
+          },
+        },
+        include: { category: true },
+      }),
+
+      // Last month invoice payments
+      db.invoicePayment.findMany({
+        where: {
+          status: "COMPLETED",
+          paidAt: {
+            gte: lastMonthStart,
+            lte: lastMonthEnd,
+          },
+        },
+        include: {
+          invoice: true,
+        },
+      }),
+
+      // Last month expense payments
+      db.expensePayment.findMany({
+        where: {
+          status: "PAID",
+          paymentDate: {
+            gte: lastMonthStart,
+            lte: lastMonthEnd,
+          },
+        },
+        include: {
+          expense: true,
+        },
+      }),
+
+      // Last month transactions
+      db.transaction.findMany({
+        where: {
+          type: "INCOME",
+          date: {
+            gte: lastMonthStart,
+            lte: lastMonthEnd,
+          },
+        },
+      }),
+
+      // Other data
       db.quotation.findMany({
-        include: {
-          client: true,
-        },
+        include: { client: true },
       }),
 
-      // Projects
       db.project.findMany({
         include: {
           tasks: {
@@ -399,10 +604,14 @@ export async function GET(request: NextRequest) {
             },
           },
           client: true,
+          Expense: {
+            include: {
+              category: true,
+            },
+          },
         },
       }),
 
-      // Tasks
       db.task.findMany({
         include: {
           assignees: true,
@@ -410,49 +619,53 @@ export async function GET(request: NextRequest) {
         },
       }),
 
-      // Employees
+      // Employees with AttendanceRecord for today
       db.employee.findMany({
         include: {
-          timeEntries: {
+          department: true,
+          AttendanceRecord: {
             where: {
               date: {
                 gte: todayStart,
                 lt: todayEnd,
               },
+              checkIn: { not: null },
+            },
+          },
+          leaveRequests: {
+            where: {
+              status: "APPROVED",
+              startDate: { lte: todayEnd },
+              endDate: { gte: todayStart },
             },
           },
         },
       }),
 
-      // Freelancers
+      // Freelancers with attendanceRecords for today
       db.freeLancer.findMany({
         include: {
-          timeEntries: {
+          department: true,
+          attendanceRecords: {
             where: {
               date: {
                 gte: todayStart,
                 lt: todayEnd,
               },
+              checkIn: { not: null },
+            },
+          },
+          leaveRequests: {
+            where: {
+              status: "APPROVED",
+              startDate: { lte: todayEnd },
+              endDate: { gte: todayStart },
             },
           },
         },
       }),
 
-      // Time entries for today
-      db.timeEntry.findMany({
-        where: {
-          date: {
-            gte: todayStart,
-            lt: todayEnd,
-          },
-        },
-        include: {
-          employee: true,
-          freeLancer: true,
-        },
-      }),
-
-      // Leave requests
+      // Leave requests for today
       db.leaveRequest.findMany({
         where: {
           startDate: { lte: todayEnd },
@@ -465,27 +678,52 @@ export async function GET(request: NextRequest) {
         },
       }),
 
-      // Payments
-      db.invoicePayment.findMany({
-        include: {
-          invoice: true,
-        },
-      }),
-
-      // Clients
       db.client.findMany({}),
 
-      // Transactions - INCOME type only
-      db.transaction.findMany({
+      db.attendanceRecord.findMany({
         where: {
-          type: "INCOME",
+          date: { gte: todayStart, lt: todayEnd },
+          employeeId: { not: null },
+          checkIn: { not: null },
         },
       }),
+
+      db.attendanceRecord.findMany({
+        where: {
+          date: { gte: todayStart, lt: todayEnd },
+          freeLancerId: { not: null },
+          checkIn: { not: null },
+        },
+      }),
+
+      db.hRSettings.findFirst({}),
+
+      // Add the new function calls
+      getCashFlowForecast(),
+      getRecentTransactions(),
     ]);
 
-    // Type the results after fetching
-    const typedInvoices = invoices as unknown as DashboardInvoice[];
-    const typedExpenses = expenses as unknown as DashboardExpense[];
+    // Type the results
+    const typedCurrentMonthInvoices =
+      currentMonthInvoices as unknown as DashboardInvoice[];
+    const typedCurrentMonthExpenses =
+      currentMonthExpenses as unknown as DashboardExpense[];
+    const typedCurrentMonthInvoicePayments =
+      currentMonthInvoicePayments as unknown as DashboardPayment[];
+    const typedCurrentMonthExpensePayments =
+      currentMonthExpensePayments as unknown as any[];
+    const typedCurrentMonthTransactions =
+      currentMonthTransactions as unknown as DashboardTransaction[];
+    const typedLastMonthInvoices =
+      lastMonthInvoices as unknown as DashboardInvoice[];
+    const typedLastMonthExpenses =
+      lastMonthExpenses as unknown as DashboardExpense[];
+    const typedLastMonthInvoicePayments =
+      lastMonthInvoicePayments as unknown as DashboardPayment[];
+    const typedLastMonthExpensePayments =
+      lastMonthExpensePayments as unknown as any[];
+    const typedLastMonthTransactions =
+      lastMonthTransactions as unknown as DashboardTransaction[];
     const typedQuotations = quotations as unknown as DashboardQuotation[];
     const typedProjects = projects as unknown as DashboardProject[];
     const typedTasks = tasks as unknown as DashboardTask[];
@@ -493,167 +731,338 @@ export async function GET(request: NextRequest) {
     const typedFreelancers = freelancers as unknown as DashboardFreeLancer[];
     const typedLeaveRequests =
       leaveRequests as unknown as DashboardLeaveRequest[];
-    const typedPayments = payments as unknown as DashboardPayment[];
-    const typedTransactions = transactions as unknown as DashboardTransaction[];
 
-    // FIXED: Calculate Outstanding Invoices properly
-    const outstandingInvoices = typedInvoices.filter(
-      (invoice: DashboardInvoice) => {
-        const totalAmount = convertDecimalToNumber(invoice.totalAmount);
-        const paidAmount = convertDecimalToNumber(invoice.paidAmount || 0);
-        return paidAmount < totalAmount; // Invoice is not fully paid
-      }
-    );
-
-    const outstandingInvoicesAmount = outstandingInvoices.reduce(
-      (sum: number, invoice: DashboardInvoice) => {
-        const totalAmount = convertDecimalToNumber(invoice.totalAmount);
-        const paidAmount = convertDecimalToNumber(invoice.paidAmount || 0);
-        return sum + (totalAmount - paidAmount); // Calculate outstanding amount
-      },
-      0
-    );
-
-    // Calculate other invoice metrics
-    const totalInvoicesAmount = typedInvoices.reduce(
+    // Calculate current month metrics
+    const currentMonthTotalInvoicesAmount = typedCurrentMonthInvoices.reduce(
       (sum: number, invoice: DashboardInvoice) =>
         sum + convertDecimalToNumber(invoice.totalAmount),
       0
     );
 
-    const paidInvoices = typedInvoices.filter((invoice: DashboardInvoice) => {
-      const totalAmount = convertDecimalToNumber(invoice.totalAmount);
-      const paidAmount = convertDecimalToNumber(invoice.paidAmount || 0);
-      return paidAmount >= totalAmount; // Fully paid
-    });
+    const currentMonthTotalPaidInvoicesAmount =
+      typedCurrentMonthInvoicePayments.reduce(
+        (sum, payment) => sum + convertDecimalToNumber(payment.amount),
+        0
+      );
 
-    const paidInvoicesAmount = paidInvoices.reduce(
-      (sum: number, invoice: DashboardInvoice) =>
-        sum + convertDecimalToNumber(invoice.totalAmount),
-      0
-    );
-
-    const overdueInvoices = typedInvoices.filter(
-      (invoice: DashboardInvoice) => {
-        const totalAmount = convertDecimalToNumber(invoice.totalAmount);
-        const paidAmount = convertDecimalToNumber(invoice.paidAmount || 0);
-        const isOverdue = invoice.dueDate && new Date(invoice.dueDate) < now;
-        return isOverdue && paidAmount < totalAmount; // Overdue AND not fully paid
-      }
-    );
-
-    const overdueInvoicesAmount = overdueInvoices.reduce(
-      (sum: number, invoice: DashboardInvoice) => {
-        const totalAmount = convertDecimalToNumber(invoice.totalAmount);
-        const paidAmount = convertDecimalToNumber(invoice.paidAmount || 0);
-        return sum + (totalAmount - paidAmount); // Outstanding amount for overdue invoices
-      },
-      0
-    );
-
-    // Expense calculations
-    const totalExpensesAmount = typedExpenses.reduce(
+    const currentMonthTotalExpensesAmount = typedCurrentMonthExpenses.reduce(
       (sum: number, expense: DashboardExpense) =>
         sum + convertDecimalToNumber(expense.totalAmount),
       0
     );
 
-    const paidExpenses = typedExpenses.filter(
-      (expense: DashboardExpense) => expense.status === "PAID"
-    );
-    const paidExpensesAmount = paidExpenses.reduce(
-      (sum: number, expense: DashboardExpense) =>
-        sum + convertDecimalToNumber(expense.totalAmount),
-      0
-    );
-
-    const pendingExpenses = typedExpenses.filter(
-      (expense: DashboardExpense) => expense.status === "PENDING"
-    );
-
-    // REVENUE CALCULATIONS - USING TRANSACTIONS OF TYPE INCOME
-    const monthlyRevenue = typedTransactions
-      .filter((transaction: DashboardTransaction) => {
-        const transactionDate = new Date(transaction.date);
-        return transactionDate >= monthStart && transactionDate <= monthEnd;
-      })
-      .reduce(
-        (sum: number, transaction: DashboardTransaction) =>
-          sum + convertDecimalToNumber(transaction.amount),
+    const currentMonthTotalPaidExpensesAmount =
+      typedCurrentMonthExpensePayments.reduce(
+        (sum, payment) => sum + convertDecimalToNumber(payment.amount),
         0
       );
 
-    const lastMonthRevenue = typedTransactions
-      .filter((transaction: DashboardTransaction) => {
-        const transactionDate = new Date(transaction.date);
-        return (
-          transactionDate >= lastMonthStart && transactionDate <= lastMonthEnd
-        );
-      })
-      .reduce(
-        (sum: number, transaction: DashboardTransaction) =>
-          sum + convertDecimalToNumber(transaction.amount),
-        0
-      );
-
-    // OVERALL REVENUE - SUM OF ALL INCOME TRANSACTIONS
-    const overallRevenue = typedTransactions.reduce(
+    const currentMonthRevenue = typedCurrentMonthTransactions.reduce(
       (sum: number, transaction: DashboardTransaction) =>
         sum + convertDecimalToNumber(transaction.amount),
       0
     );
 
-    const revenueChange =
-      lastMonthRevenue > 0
-        ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
-        : 0;
+    // Calculate last month metrics
+    const lastMonthTotalInvoicesAmount = typedLastMonthInvoices.reduce(
+      (sum: number, invoice: DashboardInvoice) =>
+        sum + convertDecimalToNumber(invoice.totalAmount),
+      0
+    );
 
-    const netProfit = monthlyRevenue - totalExpensesAmount;
-    const lastMonthProfit = lastMonthRevenue - totalExpensesAmount * 0.9;
-    const profitChange =
-      lastMonthProfit > 0
-        ? ((netProfit - lastMonthProfit) / lastMonthProfit) * 100
-        : 0;
+    const lastMonthTotalPaidInvoicesAmount =
+      typedLastMonthInvoicePayments.reduce(
+        (sum, payment) => sum + convertDecimalToNumber(payment.amount),
+        0
+      );
 
-    // FIXED: Employee metrics using correct status enums
+    const lastMonthTotalExpensesAmount = typedLastMonthExpenses.reduce(
+      (sum: number, expense: DashboardExpense) =>
+        sum + convertDecimalToNumber(expense.totalAmount),
+      0
+    );
+
+    const lastMonthTotalPaidExpensesAmount =
+      typedLastMonthExpensePayments.reduce(
+        (sum, payment) => sum + convertDecimalToNumber(payment.amount),
+        0
+      );
+
+    const lastMonthRevenue = typedLastMonthTransactions.reduce(
+      (sum: number, transaction: DashboardTransaction) =>
+        sum + convertDecimalToNumber(transaction.amount),
+      0
+    );
+
+    // Calculate real changes
+    const invoiceChange = calculateChange(
+      currentMonthTotalInvoicesAmount,
+      lastMonthTotalInvoicesAmount
+    );
+
+    const paidInvoiceChange = calculateChange(
+      currentMonthTotalPaidInvoicesAmount,
+      lastMonthTotalPaidInvoicesAmount
+    );
+
+    const expenseChange = calculateChange(
+      currentMonthTotalExpensesAmount,
+      lastMonthTotalExpensesAmount
+    );
+
+    const paidExpenseChange = calculateChange(
+      currentMonthTotalPaidExpensesAmount,
+      lastMonthTotalPaidExpensesAmount
+    );
+
+    const revenueChange = calculateChange(
+      currentMonthRevenue,
+      lastMonthRevenue
+    );
+
+    // Calculate current month net profit
+    const currentMonthNetProfit =
+      currentMonthRevenue - currentMonthTotalExpensesAmount;
+    const lastMonthNetProfit = lastMonthRevenue - lastMonthTotalExpensesAmount;
+    const profitChange = calculateChange(
+      currentMonthNetProfit,
+      lastMonthNetProfit
+    );
+
+    // Get all invoices and expenses for detailed calculations
+    const allInvoices = await db.invoice.findMany({
+      include: { client: true },
+    });
+    const allExpenses = await db.expense.findMany({
+      include: { category: true },
+    });
+    const allInvoicePayments = await db.invoicePayment.findMany({
+      where: { status: "COMPLETED" },
+      include: { invoice: true },
+    });
+    const allExpensePayments = await db.expensePayment.findMany({
+      where: { status: "PAID" },
+      include: { expense: true },
+    });
+
+    const typedAllInvoices = allInvoices as unknown as DashboardInvoice[];
+    const typedAllExpenses = allExpenses as unknown as DashboardExpense[];
+    const typedAllInvoicePayments =
+      allInvoicePayments as unknown as DashboardPayment[];
+    const typedAllExpensePayments = allExpensePayments as unknown as any[];
+
+    // Calculate detailed metrics using all data
+    const paymentsByInvoice = typedAllInvoicePayments.reduce(
+      (acc, payment) => {
+        const invoiceId = payment.invoiceId;
+        if (!acc[invoiceId]) {
+          acc[invoiceId] = [];
+        }
+        acc[invoiceId].push(payment);
+        return acc;
+      },
+      {} as Record<string, DashboardPayment[]>
+    );
+
+    const invoicesWithActualPayments = typedAllInvoices.map(
+      (invoice: DashboardInvoice) => {
+        const invoicePayments = paymentsByInvoice[invoice.id] || [];
+        const actualPaidAmount = invoicePayments.reduce((sum, payment) => {
+          return sum + convertDecimalToNumber(payment.amount);
+        }, 0);
+
+        const totalAmount = convertDecimalToNumber(invoice.totalAmount);
+        const remainingAmount = totalAmount - actualPaidAmount;
+
+        return {
+          ...invoice,
+          actualPaidAmount,
+          remainingAmount,
+          isFullyPaid: remainingAmount <= 0,
+          isOverdue:
+            invoice.dueDate &&
+            new Date(invoice.dueDate) < now &&
+            remainingAmount > 0,
+        };
+      }
+    );
+
+    const paymentsByExpense = typedAllExpensePayments.reduce(
+      (acc, payment) => {
+        const expenseId = payment.expenseId;
+        if (!acc[expenseId]) {
+          acc[expenseId] = [];
+        }
+        acc[expenseId].push(payment);
+        return acc;
+      },
+      {} as Record<string, any[]>
+    );
+
+    const expensesWithActualPayments = typedAllExpenses.map(
+      (expense: DashboardExpense) => {
+        const expensePayments = paymentsByExpense[expense.id] || [];
+        const actualPaidAmount = expensePayments.reduce(
+          (sum: any, payment: any) => {
+            return sum + convertDecimalToNumber(payment.amount);
+          },
+          0
+        );
+
+        const totalAmount = convertDecimalToNumber(expense.totalAmount);
+        const remainingAmount = totalAmount - actualPaidAmount;
+
+        return {
+          ...expense,
+          actualPaidAmount,
+          remainingAmount,
+          isFullyPaid: remainingAmount <= 0,
+          paymentStatus:
+            actualPaidAmount >= totalAmount
+              ? "PAID"
+              : actualPaidAmount > 0
+                ? "PARTIALLY_PAID"
+                : "UNPAID",
+        };
+      }
+    );
+
+    // Calculate overall totals
+    const totalInvoicesAmount = invoicesWithActualPayments.reduce(
+      (sum: number, invoice: any) =>
+        sum + convertDecimalToNumber(invoice.totalAmount),
+      0
+    );
+
+    const totalPaidInvoicesAmount = invoicesWithActualPayments.reduce(
+      (sum: number, invoice: any) => sum + invoice.actualPaidAmount,
+      0
+    );
+
+    const paidInvoices = invoicesWithActualPayments.filter(
+      (invoice: any) => invoice.remainingAmount <= 0
+    );
+
+    const paidInvoicesCount = paidInvoices.length;
+
+    const overdueInvoices = invoicesWithActualPayments.filter(
+      (invoice: any) => invoice.isOverdue
+    );
+
+    const overdueInvoicesAmount = overdueInvoices.reduce(
+      (sum: number, invoice: any) => sum + invoice.remainingAmount,
+      0
+    );
+
+    const outstandingInvoices = invoicesWithActualPayments.filter(
+      (invoice: any) => invoice.remainingAmount > 0
+    );
+
+    const outstandingInvoicesAmount = outstandingInvoices.reduce(
+      (sum: number, invoice: any) => sum + invoice.remainingAmount,
+      0
+    );
+
+    const partiallyPaidInvoices = invoicesWithActualPayments.filter(
+      (invoice: any) =>
+        invoice.actualPaidAmount > 0 && invoice.remainingAmount > 0
+    );
+
+    const partiallyPaidInvoicesCount = partiallyPaidInvoices.length;
+    const partiallyPaidInvoicesAmount = partiallyPaidInvoices.reduce(
+      (sum: number, invoice: any) => sum + invoice.actualPaidAmount,
+      0
+    );
+
+    const totalExpensesAmount = expensesWithActualPayments.reduce(
+      (sum: number, expense: any) =>
+        sum + convertDecimalToNumber(expense.totalAmount),
+      0
+    );
+
+    const paidExpenses = expensesWithActualPayments.filter(
+      (expense: any) => expense.isFullyPaid
+    );
+
+    const paidExpensesCount = paidExpenses.length;
+    const paidExpensesAmount = paidExpenses.reduce(
+      (sum: number, expense: any) =>
+        sum + convertDecimalToNumber(expense.totalAmount),
+      0
+    );
+
+    const pendingExpenses = expensesWithActualPayments.filter(
+      (expense: any) => !expense.isFullyPaid
+    );
+
+    const pendingExpensesCount = pendingExpenses.length;
+    const pendingExpensesAmount = pendingExpenses.reduce(
+      (sum: number, expense: any) =>
+        sum + convertDecimalToNumber(expense.totalAmount),
+      0
+    );
+
+    const partiallyPaidExpenses = expensesWithActualPayments.filter(
+      (expense: any) => expense.actualPaidAmount > 0 && !expense.isFullyPaid
+    );
+
+    const partiallyPaidExpensesCount = partiallyPaidExpenses.length;
+    const partiallyPaidExpensesAmount = partiallyPaidExpenses.reduce(
+      (sum: number, expense: any) => sum + expense.actualPaidAmount,
+      0
+    );
+
+    // Calculate overall revenue from all transactions
+    const allTransactions = await db.transaction.findMany({
+      where: { type: "INCOME" },
+    });
+    const typedAllTransactions =
+      allTransactions as unknown as DashboardTransaction[];
+
+    const overallRevenue = typedAllTransactions.reduce(
+      (sum: number, transaction: DashboardTransaction) =>
+        sum + convertDecimalToNumber(transaction.amount),
+      0
+    );
+
+    // Employee metrics
     const activeEmployees = typedEmployees.filter(
       (employee: DashboardEmployee) => employee.status === "ACTIVE"
     );
 
-    const onDutyEmployees = typedEmployees.filter(
-      (employee: DashboardEmployee) =>
-        employee.status === "ACTIVE" &&
-        employee.timeEntries &&
-        employee.timeEntries.length > 0
+    const onDutyEmployees = activeEmployees.filter(
+      (employee) =>
+        employee.AttendanceRecord && employee.AttendanceRecord.length > 0
     );
 
-    const offDutyEmployees = typedEmployees.filter(
-      (employee: DashboardEmployee) =>
-        employee.status === "ACTIVE" &&
-        (!employee.timeEntries || employee.timeEntries.length === 0)
+    const offDutyEmployees = activeEmployees.filter(
+      (employee) =>
+        !employee.AttendanceRecord || employee.AttendanceRecord.length === 0
     );
 
     const employeesOnLeave = typedLeaveRequests.filter(
       (lr: DashboardLeaveRequest) => lr.employee
     ).length;
 
-    // FIXED: Freelancer metrics using correct status enums
+    // Freelancer metrics
     const activeFreelancers = typedFreelancers.filter(
       (freelancer: DashboardFreeLancer) => freelancer.status === "ACTIVE"
     );
 
-    const onDutyFreelancers = typedFreelancers.filter(
-      (freelancer: DashboardFreeLancer) =>
-        freelancer.status === "ACTIVE" &&
-        freelancer.timeEntries &&
-        freelancer.timeEntries.length > 0
+    const onDutyFreelancers = activeFreelancers.filter(
+      (freelancer) =>
+        freelancer.attendanceRecords && freelancer.attendanceRecords.length > 0
     );
 
-    const offDutyFreelancers = typedFreelancers.filter(
-      (freelancer: DashboardFreeLancer) =>
-        freelancer.status === "ACTIVE" &&
-        (!freelancer.timeEntries || freelancer.timeEntries.length === 0)
+    const offDutyFreelancers = activeFreelancers.filter(
+      (freelancer) =>
+        !freelancer.attendanceRecords ||
+        freelancer.attendanceRecords.length === 0
     );
+
+    const freelancersOnLeave = typedLeaveRequests.filter(
+      (lr: DashboardLeaveRequest) => lr.freeLancer
+    ).length;
 
     const reliableFreelancers = activeFreelancers.filter(
       (freelancer: DashboardFreeLancer) => freelancer.reliable
@@ -661,19 +1070,19 @@ export async function GET(request: NextRequest) {
 
     // Project metrics
     const activeProjects = typedProjects.filter(
-      (project: DashboardProject) => project.status === "IN_PROGRESS"
+      (project: DashboardProject) => project.status === ProjectStatus.ACTIVE
     );
     const completedProjects = typedProjects.filter(
-      (project: DashboardProject) => project.status === "COMPLETED"
+      (project: DashboardProject) => project.status === ProjectStatus.COMPLETED
     );
     const pendingProjects = typedProjects.filter(
-      (project: DashboardProject) => project.status === "PENDING"
+      (project: DashboardProject) => project.status === ProjectStatus.PLANNING
     );
     const overdueProjects = typedProjects.filter(
       (project: DashboardProject) =>
         project.endDate &&
         new Date(project.endDate) < now &&
-        project.status !== "COMPLETED"
+        project.status !== ProjectStatus.COMPLETED
     );
 
     const totalProjectValue = typedProjects.reduce(
@@ -696,54 +1105,39 @@ export async function GET(request: NextRequest) {
         task.status !== "COMPLETED"
     );
 
-    const taskStatusDistribution = typedTasks.reduce(
-      (acc: Record<string, number>, task: DashboardTask) => {
-        acc[task.status] = (acc[task.status] || 0) + 1;
-        return acc;
-      },
-      {}
-    );
-
-    const taskPriorityDistribution = typedTasks.reduce(
-      (acc: Record<string, number>, task: DashboardTask) => {
-        acc[task.priority] = (acc[task.priority] || 0) + 1;
-        return acc;
-      },
-      {}
-    );
-
-    // Recent transactions (last 10 payments)
-    const recentTransactions = typedPayments
-      .sort(
-        (a: DashboardPayment, b: DashboardPayment) =>
-          new Date(b.paymentDate).getTime() - new Date(a.paymentDate).getTime()
-      )
-      .slice(0, 10)
-      .map((payment: DashboardPayment) => ({
-        id: payment.id,
-        type: "payment",
-        description: `Payment for ${payment.invoice?.invoiceNumber || "Invoice"}`,
-        amount: convertDecimalToNumber(payment.amount),
-        date: payment.paymentDate,
+    // Use the new recent transactions function instead of the old one
+    const recentTransactions = recentTransactionsData.map(
+      (transaction: any) => ({
+        id: transaction.id,
+        type: transaction.type,
+        description: transaction.description || `Transaction ${transaction.id}`,
+        amount: convertDecimalToNumber(transaction.amount),
+        date: transaction.date,
         status: "completed",
-      }));
+        client: transaction.client?.name,
+        category: transaction.category?.name,
+      })
+    );
 
     // Performance metrics
     const collectionRate =
       totalInvoicesAmount > 0
-        ? (paidInvoicesAmount / totalInvoicesAmount) * 100
+        ? (totalPaidInvoicesAmount / totalInvoicesAmount) * 100
         : 0;
     const expenseRatio =
-      monthlyRevenue > 0 ? (totalExpensesAmount / monthlyRevenue) * 100 : 0;
+      currentMonthRevenue > 0
+        ? (currentMonthTotalExpensesAmount / currentMonthRevenue) * 100
+        : 0;
     const convertedQuotations = typedQuotations.filter(
-      (quotation: DashboardQuotation) => quotation.status === "ACCEPTED"
+      (quotation: DashboardQuotation) =>
+        quotation.status === QuotationStatus.CONVERTED
     );
     const conversionRate =
       typedQuotations.length > 0
         ? (convertedQuotations.length / typedQuotations.length) * 100
         : 0;
 
-    // Chart data - Last 6 months USING TRANSACTIONS
+    // Chart data - Last 6 months
     const chartLabels: string[] = [];
     const incomeData: number[] = [];
     const expensesData: number[] = [];
@@ -757,7 +1151,7 @@ export async function GET(request: NextRequest) {
       const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
       const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-      const monthIncome = typedTransactions
+      const monthIncome = typedAllTransactions
         .filter((transaction: DashboardTransaction) => {
           const transactionDate = new Date(transaction.date);
           return transactionDate >= monthStart && transactionDate <= monthEnd;
@@ -768,7 +1162,7 @@ export async function GET(request: NextRequest) {
           0
         );
 
-      const monthExpenses = typedExpenses
+      const monthExpenses = typedAllExpenses
         .filter((expense: DashboardExpense) => {
           const expenseDate = new Date(expense.createdAt);
           return expenseDate >= monthStart && expenseDate <= monthEnd;
@@ -785,14 +1179,15 @@ export async function GET(request: NextRequest) {
 
     // Alerts generation
     const alerts = generateAlerts(
-      typedInvoices,
-      typedExpenses,
+      invoicesWithActualPayments,
+      typedAllExpenses,
       typedQuotations,
       typedProjects,
-      typedTasks
+      typedTasks,
+      hrSettings
     );
 
-    // Recent tasks for detail view
+    // Recent tasks
     const recentTasks = typedTasks
       .sort(
         (a: DashboardTask, b: DashboardTask) =>
@@ -814,43 +1209,53 @@ export async function GET(request: NextRequest) {
         project: task.project?.title || "No Project",
       }));
 
-    // Recent invoices for detail view
-    const recentInvoices = typedInvoices
+    // Recent invoices
+    const recentInvoices = invoicesWithActualPayments
       .sort(
-        (a: DashboardInvoice, b: DashboardInvoice) =>
+        (a: any, b: any) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       )
       .slice(0, 15)
-      .map((invoice: DashboardInvoice) => ({
+      .map((invoice: any) => ({
         id: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
         clientName: invoice.client?.name || "No Client",
         amount: convertDecimalToNumber(invoice.totalAmount),
-        paidAmount: convertDecimalToNumber(invoice.paidAmount || 0),
-        outstandingAmount:
-          convertDecimalToNumber(invoice.totalAmount) -
-          convertDecimalToNumber(invoice.paidAmount || 0),
-        status: invoice.status,
+        paidAmount: invoice.actualPaidAmount,
+        outstandingAmount: invoice.remainingAmount,
+        status: invoice.isFullyPaid
+          ? "PAID"
+          : invoice.isOverdue
+            ? "OVERDUE"
+            : "PENDING",
         dueDate: invoice.dueDate,
+        paymentStatus: invoice.isFullyPaid
+          ? "FULLY_PAID"
+          : invoice.actualPaidAmount > 0
+            ? "PARTIALLY_PAID"
+            : "UNPAID",
       }));
 
-    // Recent expenses for detail view
-    const recentExpenses = typedExpenses
+    // Recent expenses
+    const recentExpenses = expensesWithActualPayments
       .sort(
-        (a: DashboardExpense, b: DashboardExpense) =>
+        (a: any, b: any) =>
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       )
       .slice(0, 15)
-      .map((expense: DashboardExpense) => ({
+      .map((expense: any) => ({
         id: expense.id,
         description: expense.description,
         category: expense.category?.name || "Uncategorized",
         totalAmount: convertDecimalToNumber(expense.totalAmount),
-        status: expense.status,
+        paidAmount: expense.actualPaidAmount,
+        outstandingAmount: expense.remainingAmount,
+        status: expense.isFullyPaid ? "PAID" : "PENDING",
         dueDate: expense.dueDate,
+        paymentStatus: expense.paymentStatus,
       }));
 
-    // Top projects for detail view
+    // Top projects
     const topProjects = typedProjects
       .sort(
         (a: DashboardProject, b: DashboardProject) =>
@@ -865,40 +1270,48 @@ export async function GET(request: NextRequest) {
         status: project.status,
         endDate: project.endDate,
         tasks: project.tasks || [],
+        Expense: project.Expense || [],
       }));
 
     const responseData = {
-      // Current user data
-      currentUser: {
-        name: "User",
-        avatar: null,
-        createdAt: new Date().toISOString(),
-      },
-
-      // Financial Summary - WITH CORRECT OUTSTANDING INVOICES
       financialSummary: {
         totalInvoicesAmount,
-        paidInvoicesCount: paidInvoices.length,
+        paidInvoicesCount,
+        paidInvoicesAmount: totalPaidInvoicesAmount,
         overdueInvoicesCount: overdueInvoices.length,
         overdueInvoicesAmount,
         outstandingInvoicesCount: outstandingInvoices.length,
-        outstandingInvoicesAmount, // This is what shows in WelcomeHeader
+        outstandingInvoicesAmount,
+        partiallyPaidInvoicesCount: partiallyPaidInvoicesCount,
+        partiallyPaidAmount: partiallyPaidInvoicesAmount,
+
         totalExpensesAmount,
-        paidExpensesCount: paidExpenses.length,
+        paidExpensesCount,
         paidExpensesAmount,
-        pendingExpensesCount: pendingExpenses.length,
-        monthlyRevenue,
+        pendingExpensesCount: pendingExpensesCount,
+        pendingExpensesAmount,
+        partiallyPaidExpensesCount: partiallyPaidExpensesCount,
+        partiallyPaidExpensesAmount,
+
+        monthlyRevenue: currentMonthRevenue,
         overallRevenue,
-        quarterlyRevenue: monthlyRevenue * 3,
-        yearlyRevenue: monthlyRevenue * 12,
-        netProfit,
-        grossRevenue: monthlyRevenue,
+        quarterlyRevenue: currentMonthRevenue * 3,
+        yearlyRevenue: currentMonthRevenue * 12,
+        netProfit: currentMonthNetProfit,
+        grossRevenue: currentMonthRevenue,
         profitMargin:
-          monthlyRevenue > 0 ? (netProfit / monthlyRevenue) * 100 : 0,
-        invoiceChange: 12.5,
-        expenseChange: -8.2,
+          currentMonthRevenue > 0
+            ? (currentMonthNetProfit / currentMonthRevenue) * 100
+            : 0,
+
+        // REAL CHANGES - no placeholders
+        invoiceChange,
+        paidInvoiceChange,
+        expenseChange,
+        paidExpenseChange,
         revenueChange,
         profitChange,
+        collectionRate,
       },
 
       // Project Summary
@@ -908,10 +1321,10 @@ export async function GET(request: NextRequest) {
         pendingProjects: pendingProjects.length,
         overdueProjects: overdueProjects.length,
         totalProjectValue,
-        activeChange: 5.3,
-        completedChange: 15.7,
-        pendingChange: -2.1,
-        overdueChange: 8.9,
+        activeChange: 0,
+        completedChange: 0,
+        pendingChange: 0,
+        overdueChange: 0,
       },
 
       // Task Summary
@@ -920,43 +1333,78 @@ export async function GET(request: NextRequest) {
         completedTasks: completedTasks.length,
         inProgressTasks: inProgressTasks.length,
         overdueTasks: overdueTasks.length,
-        totalChange: 10.2,
-        completedChange: 25.5,
-        inProgressChange: -5.3,
-        overdueChange: 15.8,
+        totalChange: 0,
+        completedChange: 0,
+        inProgressChange: 0,
+        overdueChange: 0,
       },
 
-      // Employee Summary - WITH CORRECT STATUS FILTERING
+      // Employee Summary
       employeeSummary: {
         activeEmployees: activeEmployees.length,
         onDutyToday: onDutyEmployees.length,
         offDutyToday: offDutyEmployees.length,
         onLeave: employeesOnLeave,
         totalEmployees: typedEmployees.length,
-        activeChange: 3.2,
-        onDutyChange: 8.7,
-        offDutyChange: -2.1,
-        leaveChange: 12.5,
+        activeChange: 0,
+        onDutyChange: 0,
+        offDutyChange: 0,
+        leaveChange: 0,
       },
 
-      // Freelancer Summary - WITH CORRECT STATUS FILTERING
+      // Freelancer Summary
       freelancerSummary: {
         totalFreelancers: activeFreelancers.length,
         reliableFreelancers: reliableFreelancers.length,
         onDutyToday: onDutyFreelancers.length,
         offDutyToday: offDutyFreelancers.length,
+        onLeave: freelancersOnLeave,
         totalFreelancersAll: typedFreelancers.length,
-        totalChange: 15.3,
-        reliableChange: 22.1,
-        onDutyChange: 18.7,
-        offDutyChange: -5.2,
+        totalChange: 0,
+        reliableChange: 0,
+        onDutyChange: 0,
+        offDutyChange: 0,
       },
 
-      // Additional Data
+      employees: typedEmployees.map((employee: any) => ({
+        id: employee.id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        position: employee.position,
+        status: employee.status,
+        department: employee.department,
+        AttendanceRecord: employee.AttendanceRecord || [],
+        leaveRequests: employee.leaveRequests || [],
+      })),
+
+      freelancers: typedFreelancers.map((freelancer: any) => ({
+        id: freelancer.id,
+        firstName: freelancer.firstName,
+        lastName: freelancer.lastName,
+        position: freelancer.position,
+        status: freelancer.status,
+        reliable: freelancer.reliable,
+        department: freelancer.department,
+        attendanceRecords: freelancer.attendanceRecords || [],
+        leaveRequests: freelancer.leaveRequests || [],
+      })),
+
       recentTransactions,
       taskMetrics: {
-        statusDistribution: taskStatusDistribution,
-        priorityDistribution: taskPriorityDistribution,
+        statusDistribution: typedTasks.reduce(
+          (acc: Record<string, number>, task: DashboardTask) => {
+            acc[task.status] = (acc[task.status] || 0) + 1;
+            return acc;
+          },
+          {}
+        ),
+        priorityDistribution: typedTasks.reduce(
+          (acc: Record<string, number>, task: DashboardTask) => {
+            acc[task.priority] = (acc[task.priority] || 0) + 1;
+            return acc;
+          },
+          {}
+        ),
         avgCompletionTime: 7.5,
         onTimeCompletionRate: 78.3,
         weeklyDueTasks: typedTasks.filter((task: DashboardTask) => {
@@ -974,7 +1422,7 @@ export async function GET(request: NextRequest) {
         expenseRatio,
         conversionRate,
         paidInvoicesCount: paidInvoices.length,
-        invoicesLength: typedInvoices.length,
+        invoicesLength: typedAllInvoices.length,
       },
 
       projectMetrics: {
@@ -993,28 +1441,31 @@ export async function GET(request: NextRequest) {
       recentExpenses,
       allTasks: recentTasks,
 
-      // Chart summaries for different views
+      // Chart summaries with real changes
       chartSummaries: {
         invoice: {
-          totalInvoices: typedInvoices.length,
-          amountDue: totalInvoicesAmount - paidInvoicesAmount,
-          paidAmount: paidInvoicesAmount,
+          totalInvoices: typedAllInvoices.length,
+          amountDue: totalInvoicesAmount - totalPaidInvoicesAmount,
+          paidAmount: totalPaidInvoicesAmount,
           overdueAmount: overdueInvoicesAmount,
           outstandingAmount: outstandingInvoicesAmount,
-          invoiceChange: 12.5,
-          dueChange: -8.3,
-          paidChange: 15.7,
-          overdueChange: 25.2,
+          invoiceChange,
+          dueChange: calculateChange(
+            totalInvoicesAmount - totalPaidInvoicesAmount,
+            lastMonthTotalInvoicesAmount - lastMonthTotalPaidInvoicesAmount
+          ),
+          paidChange: paidInvoiceChange,
+          overdueChange: calculateChange(overdueInvoicesAmount, 0),
         },
         expense: {
-          totalExpenses: typedExpenses.length,
-          pendingExpenses: pendingExpenses.length,
-          paidExpenses: paidExpenses.length,
-          monthlyExpenses: totalExpensesAmount,
-          expenseChange: -8.2,
-          pendingChange: 12.3,
-          paidChange: 18.7,
-          monthlyChange: -5.4,
+          totalExpenses: typedAllExpenses.length,
+          pendingExpenses: pendingExpensesCount,
+          paidExpenses: paidExpensesCount,
+          monthlyExpenses: currentMonthTotalExpensesAmount,
+          expenseChange,
+          pendingChange: calculateChange(pendingExpensesCount, 0),
+          paidChange: paidExpenseChange,
+          monthlyChange: expenseChange,
         },
         quotation: {
           totalQuotations: typedQuotations.length,
@@ -1025,25 +1476,30 @@ export async function GET(request: NextRequest) {
               sum + convertDecimalToNumber(q.totalAmount),
             0
           ),
-          quoteChange: 8.9,
-          convertedChange: 22.1,
-          rateChange: 15.3,
-          valueChange: 18.7,
+          quoteChange: 0,
+          convertedChange: 0,
+          rateChange: 0,
+          valueChange: 0,
         },
         revenue: {
           totalRevenue: overallRevenue,
-          netProfit,
+          netProfit: currentMonthNetProfit,
           profitMargin:
-            monthlyRevenue > 0 ? (netProfit / monthlyRevenue) * 100 : 0,
+            currentMonthRevenue > 0
+              ? (currentMonthNetProfit / currentMonthRevenue) * 100
+              : 0,
           growthRate: revenueChange,
           revenueChange,
           profitChange,
-          marginChange: 3.2,
-          growthChange: 8.7,
+          marginChange: calculateChange(
+            (currentMonthNetProfit / currentMonthRevenue) * 100,
+            (lastMonthNetProfit / lastMonthRevenue) * 100
+          ),
+          growthChange: revenueChange,
         },
       },
 
-      // Chart data for different financial views
+      // Chart data
       invoiceChartData: {
         labels: chartLabels,
         incomeData: incomeData,
@@ -1070,7 +1526,10 @@ export async function GET(request: NextRequest) {
         incomeData,
         expensesData,
       },
-    };
+
+      // Cash Flow Data - using your provided function
+      cashFlow: cashFlowForecast,
+    } as Omit<DashboardResponse, "currentUser"> & { cashFlow: any };
 
     return NextResponse.json(responseData);
   } catch (error) {

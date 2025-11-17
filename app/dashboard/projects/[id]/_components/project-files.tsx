@@ -311,8 +311,8 @@ export function ProjectFiles({
                   <p className="text-xs text-muted-foreground">
                     {folder.Document?.length || 0}{" "}
                     {(folder.Document?.length || 0) === 1 ? "file" : "files"} •{" "}
-                    {folder.notes?.length || 0}{" "}
-                    {(folder.notes?.length || 0) === 1 ? "note" : "notes"} •
+                    {folder.Note?.length || 0}{" "}
+                    {(folder.Note?.length || 0) === 1 ? "note" : "notes"} •
                     Updated {format(new Date(folder.updatedAt), "MMM d, yyyy")}
                   </p>
                 </div>

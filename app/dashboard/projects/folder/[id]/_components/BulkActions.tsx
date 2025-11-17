@@ -22,7 +22,7 @@ export default function BulkActions({
   onDeleteSelected,
   onDownloadAll,
   canDeleteFiles = false,
-  canDownloadFiles = true, // Default to true since download is usually allowed
+  canDownloadFiles = true,
   canShareFiles = false,
 }: BulkActionsProps) {
   if (selectedFiles.length === 0) return null;

@@ -31,27 +31,36 @@ export function RecentTransactions({
     );
   }
 
+  // Safe transaction processing
+  const safeTransactions = transactions.map((tx) => ({
+    ...tx,
+    amount: typeof tx.amount === "number" ? tx.amount : 0,
+    type: String(tx.type || "EXPENSE").toUpperCase(),
+    description: tx.description || `Transaction ${tx.id}`,
+  }));
+
   return (
     <div className="space-y-4">
-      {transactions.map((tx) => (
+      {safeTransactions.map((tx) => (
         <div key={tx.id} className="flex items-center justify-between">
-          <div className="min-w-0">
-            <div className="font-medium truncate max-w-[400px]">
-              {tx.description}
-            </div>
-            <div className="text-sm text-muted-foreground truncate max-w-[200px]">
-              {tx.client?.name ? tx.client.name + " • " : ""}
-              {tx.category?.name || "Uncategorized"}
+          <div className="min-w-0 flex-1">
+            <div className="font-medium truncate">{tx.description}</div>
+            <div className="text-sm text-muted-foreground truncate">
+              {[tx.client?.name, tx.category?.name]
+                .filter(Boolean)
+                .join(" • ") || "Uncategorized"}
             </div>
           </div>
 
           <div
-            className={`font-medium ml-8 ${
+            className={`font-medium ml-4 whitespace-nowrap ${
               tx.type === "INCOME" ? "text-green-600" : "text-red-600"
             }`}
           >
             {tx.type === "INCOME" ? "+" : "-"}
-            {formatter ? formatter(tx.amount) : tx.amount.toFixed(2)}
+            {formatter
+              ? formatter(Math.abs(tx.amount))
+              : Math.abs(tx.amount).toFixed(2)}
           </div>
         </div>
       ))}

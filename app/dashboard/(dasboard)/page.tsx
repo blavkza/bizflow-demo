@@ -1,23 +1,45 @@
-// app/dashboard/(dashboard)/page.tsx
 "use client";
 
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, Settings, RefreshCw } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useDashboardData } from "@/hooks/useDashboardData";
 import WelcomeHeader from "./_components/welcome-header";
+import StatsGrid from "./_components/stats-grid";
+import FinancialTabs from "./_components/financial-tabs";
+import CashFlowCard from "./_components/cash-flow-card";
+import RecentTransactionsCard from "./_components/recent-transactions-card";
+import MetricCards from "./_components/metric-cards";
+import { QuickActions } from "@/components/quick-actions";
+import { UserPermission, UserRole } from "@prisma/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import Loader from "./_components/loader";
+import { useEffect } from "react";
 import AlertsHorizontal from "./_components/alerts-horizontal";
 import FinancialSummary from "./_components/financial-summary";
 import ProjectSummary from "./_components/project-summary";
 import TaskSummary from "./_components/task-summary";
 import EmployeeSummary from "./_components/employee-summary";
 import FreelancerSummary from "./_components/freelancer-summary";
-import FinancialCharts from "./_components/financial-charts";
-import Loader from "./_components/loader";
+import { ChartSwitcher } from "./_components/chart-switcher";
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function DashboardPage() {
-  const { data, isLoading, error, refetch, isRefetching } = useDashboardData();
+  const { data, isLoading, error } = useDashboardData();
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.currentUser?.role
+    ? hasRole(data?.currentUser?.role, fullAccessRoles)
+    : false;
+
+  const canViewDashboard = data?.currentUser?.permissions?.includes(
+    UserPermission.SYSTEMS_DASHBOARD
+  );
 
   if (isLoading) {
     return <Loader />;
@@ -32,13 +54,32 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">{error.message}</p>
           <Button
             variant="outline"
-            onClick={() => refetch()}
+            onClick={() => window.location.reload()}
             className="mt-4"
-            disabled={isRefetching}
           >
-            {isRefetching ? (
-              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-            ) : null}
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoading && canViewDashboard === false && hasFullAccess === false) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center space-y-2">
+          <AlertTriangle className="h-8 w-8 mx-auto text-red-500" />
+          <h3 className="text-lg font-medium">
+            You Don't Have Permission to Access Dashboard
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Please contact your administrator for access.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => window.location.reload()}
+            className="mt-4"
+          >
             Retry
           </Button>
         </div>
@@ -53,47 +94,33 @@ export default function DashboardPage() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="text-lg font-semibold">Dashboard</h1>
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            onClick={() => refetch()}
-            disabled={isRefetching}
-          >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${isRefetching ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              /* Open settings dialog */
-            }}
-          >
-            <Settings className="h-4 w-4 mr-2" />
-            Customize
-          </Button>
         </div>
       </header>
-
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        {/* Horizontal Alerts above Welcome Header */}
         <AlertsHorizontal isLoading={isLoading} data={data} />
 
-        {/* Welcome Header with Finance Focus */}
         <WelcomeHeader isLoading={isLoading} data={data} />
-
-        {/* All Summary Rows */}
         <FinancialSummary isLoading={isLoading} data={data} />
         <ProjectSummary isLoading={isLoading} data={data} />
         <TaskSummary isLoading={isLoading} data={data} />
         <EmployeeSummary isLoading={isLoading} data={data} />
         <FreelancerSummary isLoading={isLoading} data={data} />
 
-        {/* Financial Charts - Overall Financial View */}
-        <FinancialCharts isLoading={isLoading} data={data} />
+        <div className="grid gap-4 md:grid-cols-7">
+          <div className="md:col-span-5">
+            <FinancialTabs isLoading={isLoading} data={data} />
+          </div>
+
+          <div className="md:col-span-2 space-y-4">
+            <CashFlowCard isLoading={isLoading} data={data} />
+            <QuickActions isLoading={isLoading} data={data} />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <RecentTransactionsCard isLoading={isLoading} data={data} />
+          <MetricCards isLoading={isLoading} data={data} />
+        </div>
       </div>
     </div>
   );

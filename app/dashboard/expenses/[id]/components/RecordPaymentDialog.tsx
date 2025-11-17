@@ -67,8 +67,7 @@ export default function RecordPaymentDialog({
         reference: "",
         notes: "",
       });
-      /*       onPaymentRecorded();
-       */
+      onPaymentRecorded();
     } catch (error: any) {
       console.error("Error recording payment:", error);
       toast.error(error.response?.data?.error || "Failed to record payment");

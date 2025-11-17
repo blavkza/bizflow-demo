@@ -1,120 +1,130 @@
-// types/dashboard.ts
-export interface Invoice {
+import { UserPermission, UserRole } from "@prisma/client";
+
+// Simplified Type definitions that match Prisma results
+export interface DashboardInvoice {
   id: string;
   invoiceNumber: string;
-  totalAmount: number | string | Decimal;
+  totalAmount: any;
+  paidAmount: any;
   status: string;
-  dueDate?: string | Date;
-  createdAt: string | Date;
+  dueDate?: Date | null;
+  createdAt: Date;
   client?: {
     name: string;
   };
-  items: any[];
 }
 
-export interface Expense {
+export interface DashboardExpense {
   id: string;
   description: string;
-  totalAmount: number | string | Decimal;
+  totalAmount: any;
   status: string;
-  dueDate?: string | Date;
-  createdAt: string | Date;
+  dueDate?: Date | null;
+  createdAt: Date;
   category?: {
     name: string;
   };
-  vendor?: {
-    name: string;
-  };
 }
 
-export interface Payment {
+export interface DashboardPayment {
   id: string;
-  amount: number | string | Decimal;
-  paymentDate: string | Date;
+  amount: any;
+  paymentDate: Date;
   invoice?: {
     invoiceNumber: string;
   };
+  invoiceId: string;
 }
 
-export interface Quotation {
+export interface DashboardQuotation {
   id: string;
   quotationNumber: string;
-  totalAmount: number | string | Decimal;
+  totalAmount: any;
   status: string;
-  validUntil: string | Date;
+  validUntil: Date;
   client?: {
     name: string;
   };
-  items: any[];
 }
 
-export interface Project {
+export interface DashboardProject {
   id: string;
   title: string;
   status: string;
-  budget: number | string | Decimal;
-  endDate?: string | Date;
-  createdAt: string | Date;
+  budget: any;
+  endDate?: Date | null;
+  createdAt: Date;
+  tasks: DashboardTask[];
   client?: {
     name: string;
   };
-  tasks: Task[];
+  Expense?: DashboardExpense[];
 }
 
-export interface Task {
+export interface DashboardTask {
   id: string;
   title: string;
   status: string;
   priority: string;
-  dueDate?: string | Date;
-  progress?: number;
-  createdAt: string | Date;
-  assignedTo?: {
-    firstName: string;
-    lastName: string;
-  };
+  dueDate?: Date | null;
+  progress?: number | null;
+  createdAt: Date;
+  assignees: any[];
   project?: {
     title: string;
   };
 }
 
-export interface Employee {
+export interface DashboardEmployee {
   id: string;
   firstName: string;
   lastName: string;
   status: string;
+  position?: string;
   department?: {
     name: string;
   };
-  timeEntries: TimeEntry[];
+  AttendanceRecord: any[];
+  leaveRequests: any[];
 }
 
-export interface FreeLancer {
+export interface DashboardFreeLancer {
   id: string;
   firstName: string;
   lastName: string;
   status: string;
-  reliable?: boolean;
+  position?: string;
+  reliable?: boolean | null;
   department?: {
     name: string;
   };
-  timeEntries: TimeEntry[];
+  attendanceRecords: any[];
+  leaveRequests: any[];
 }
 
-export interface TimeEntry {
+export interface DashboardTimeEntry {
   id: string;
-  date: string | Date;
-  employee?: Employee;
-  freeLancer?: FreeLancer;
+  date: Date;
+  employee?: any;
+  freeLancer?: any;
 }
 
-export interface LeaveRequest {
+export interface DashboardLeaveRequest {
   id: string;
   status: string;
-  startDate: string | Date;
-  endDate: string | Date;
-  employee?: Employee;
-  freeLancer?: FreeLancer;
+  startDate: Date;
+  endDate: Date;
+  employee?: any;
+  freeLancer?: any;
+}
+
+export interface DashboardTransaction {
+  id: string;
+  amount: any;
+  type: string;
+  date: Date;
+  description: string;
+  category?: string;
 }
 
 export interface Alert {
@@ -127,53 +137,66 @@ export interface Alert {
   priority?: "low" | "medium" | "high" | "critical";
 }
 
-// For Decimal type from Prisma
-export type Decimal = {
-  toNumber: () => number;
-};
+export interface DashboardUser {
+  id: string;
+  name: string;
+  email: string;
+  avatar: string | null;
+  createdAt: string;
+  role: UserRole;
+  permissions: UserPermission[];
+}
 
-// Dashboard response types
-export interface DashboardData {
-  financialSummary: FinancialSummary;
-  projectSummary: ProjectSummary;
-  taskSummary: TaskSummary;
-  employeeSummary: EmployeeSummary;
-  freelancerSummary: FreelancerSummary;
-  recentTransactions: RecentTransaction[];
-  taskMetrics: TaskMetrics;
-  performanceMetrics: PerformanceMetrics;
-  overviewChartData: ChartData;
-  alerts: Alert[];
-  recentTasks: RecentTask[];
-  recentInvoices: RecentInvoice[];
-  recentExpenses: RecentExpense[];
-  allTasks: RecentTask[];
-  chartSummaries: ChartSummaries;
-  invoiceChartData: ChartData;
-  expenseChartData: ChartData;
-  quotationChartData: ChartData;
-  revenueChartData: ChartData;
+export interface CashFlowData {
+  nextMonth: {
+    amount: number;
+    progress: number;
+  };
+  quarterEnd: {
+    amount: number;
+    progress: number;
+  };
+  yearEnd: {
+    amount: number;
+    progress: number;
+  };
 }
 
 export interface FinancialSummary {
   totalInvoicesAmount: number;
   paidInvoicesCount: number;
+  paidInvoicesAmount: number;
   overdueInvoicesCount: number;
   overdueInvoicesAmount: number;
+  outstandingInvoicesCount: number;
+  outstandingInvoicesAmount: number;
+  partiallyPaidInvoicesCount: number;
+  partiallyPaidAmount: number;
+
   totalExpensesAmount: number;
   paidExpensesCount: number;
   paidExpensesAmount: number;
   pendingExpensesCount: number;
+  pendingExpensesAmount: number;
+  partiallyPaidExpensesCount: number;
+  partiallyPaidExpensesAmount: number;
+
   monthlyRevenue: number;
+  overallRevenue: number;
   quarterlyRevenue: number;
   yearlyRevenue: number;
   netProfit: number;
   grossRevenue: number;
   profitMargin: number;
+
   invoiceChange: number;
+  paidInvoiceChange: number;
   expenseChange: number;
+  paidExpenseChange: number;
   revenueChange: number;
   profitChange: number;
+
+  collectionRate: number;
 }
 
 export interface ProjectSummary {
@@ -204,6 +227,7 @@ export interface EmployeeSummary {
   onDutyToday: number;
   offDutyToday: number;
   onLeave: number;
+  totalEmployees: number;
   activeChange: number;
   onDutyChange: number;
   offDutyChange: number;
@@ -215,19 +239,12 @@ export interface FreelancerSummary {
   reliableFreelancers: number;
   onDutyToday: number;
   offDutyToday: number;
+  onLeave: number;
+  totalFreelancersAll: number;
   totalChange: number;
   reliableChange: number;
   onDutyChange: number;
   offDutyChange: number;
-}
-
-export interface RecentTransaction {
-  id: string;
-  type: string;
-  description: string;
-  amount: number;
-  date: string | Date;
-  status: string;
 }
 
 export interface TaskMetrics {
@@ -246,48 +263,105 @@ export interface PerformanceMetrics {
   invoicesLength: number;
 }
 
+export interface ProjectMetrics {
+  topProjects: any[];
+}
+
+export interface OverviewChartData {
+  labels: string[];
+  incomeData: number[];
+  expensesData: number[];
+}
+
+export interface ChartSummary {
+  invoice: {
+    totalInvoices: number;
+    amountDue: number;
+    paidAmount: number;
+    overdueAmount: number;
+    outstandingAmount: number;
+    invoiceChange: number;
+    dueChange: number;
+    paidChange: number;
+    overdueChange: number;
+  };
+  expense: {
+    totalExpenses: number;
+    pendingExpenses: number;
+    paidExpenses: number;
+    monthlyExpenses: number;
+    expenseChange: number;
+    pendingChange: number;
+    paidChange: number;
+    monthlyChange: number;
+  };
+  quotation: {
+    totalQuotations: number;
+    convertedQuotations: number;
+    conversionRate: number;
+    totalValue: number;
+    quoteChange: number;
+    convertedChange: number;
+    rateChange: number;
+    valueChange: number;
+  };
+  revenue: {
+    totalRevenue: number;
+    netProfit: number;
+    profitMargin: number;
+    growthRate: number;
+    revenueChange: number;
+    profitChange: number;
+    marginChange: number;
+    growthChange: number;
+  };
+}
+
 export interface ChartData {
   labels: string[];
   incomeData: number[];
   expensesData: number[];
 }
 
-export interface RecentTask {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  dueDate?: string | Date;
-  assignee: string;
-  progress: number;
-  project: string;
-}
+export interface DashboardResponse {
+  // Current user data with all required properties
+  currentUser: DashboardUser;
 
-export interface RecentInvoice {
-  id: string;
-  invoiceNumber: string;
-  clientName: string;
-  amount: number;
-  status: string;
-  dueDate?: string | Date;
-}
+  // Summary sections
+  financialSummary: FinancialSummary;
+  projectSummary: ProjectSummary;
+  taskSummary: TaskSummary;
+  employeeSummary: EmployeeSummary;
+  freelancerSummary: FreelancerSummary;
 
-export interface RecentExpense {
-  id: string;
-  description: string;
-  category: string;
-  totalAmount: number;
-  status: string;
-  dueDate?: string | Date;
-}
+  // Employee and freelancer data
+  employees: DashboardEmployee[];
+  freelancers: DashboardFreeLancer[];
 
-export interface ChartSummaries {
-  invoice: ChartSummary;
-  expense: ChartSummary;
-  quotation: ChartSummary;
-  revenue: ChartSummary;
-}
+  // Recent data
+  recentTransactions: any[];
+  recentTasks: any[];
+  recentInvoices: any[];
+  recentExpenses: any[];
+  allTasks: any[];
 
-export interface ChartSummary {
-  [key: string]: number;
+  // Metrics and analytics
+  taskMetrics: TaskMetrics;
+  performanceMetrics: PerformanceMetrics;
+  projectMetrics: ProjectMetrics;
+
+  // Charts and visualizations
+  overviewChartData: OverviewChartData;
+  invoiceChartData: ChartData;
+  expenseChartData: ChartData;
+  quotationChartData: ChartData;
+  revenueChartData: ChartData;
+
+  // Alerts and notifications
+  alerts: Alert[];
+
+  // Chart summaries for different views
+  chartSummaries: ChartSummary;
+
+  cashFlow: CashFlowData;
 }

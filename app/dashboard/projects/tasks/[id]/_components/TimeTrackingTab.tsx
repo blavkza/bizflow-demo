@@ -503,13 +503,13 @@ export default function TimeTrackingTab({
                             {format(new Date(entry.date), "MMM d, yyyy")}
                           </p>
                         </div>
-                        <Button
+                        {/* <Button
                           variant="ghost"
                           size="sm"
                           onClick={() => deleteTimeEntry(entry.id)}
                         >
                           <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </Button> */}
                       </div>
                     );
                   })}

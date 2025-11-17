@@ -19,28 +19,24 @@ export default function ProjectSummary({
         isLoading={isLoading}
         title="Active Projects"
         value={projectData.activeProjects}
-        change={projectData.activeChange}
         icon="folder"
       />
       <StatCard
         isLoading={isLoading}
         title="Completed Projects"
         value={projectData.completedProjects}
-        change={projectData.completedChange}
         icon="check-square"
       />
       <StatCard
         isLoading={isLoading}
         title="Pending Projects"
         value={projectData.pendingProjects}
-        change={projectData.pendingChange}
         icon="clock"
       />
       <StatCard
         isLoading={isLoading}
         title="Overdue Projects"
         value={projectData.overdueProjects}
-        change={projectData.overdueChange}
         icon="alert-triangle"
       />
     </div>

@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "./stat-card";
-import { formatCurrency } from "@/lib/formatters";
 import { useState } from "react";
 import {
   Dialog,
@@ -40,13 +39,6 @@ export default function FreelancerSummary({
     setOpenDialog(type);
   };
 
-  const calculateFreelancerCost = () => {
-    const activeFreelancers = freelancerData.totalFreelancers || 0;
-    const avgHourlyRate = 120;
-    const avgMonthlyHours = 80;
-    return activeFreelancers * avgHourlyRate * avgMonthlyHours;
-  };
-
   const renderFreelancerDialogContent = (
     type: string | null,
     data: any,
@@ -65,8 +57,6 @@ export default function FreelancerSummary({
         return <OnDutyFreelancersDetails freelancers={onDuty} />;
       case "off-duty":
         return <OffDutyFreelancersDetails freelancers={offDuty} />;
-      case "cost":
-        return <FreelancerCostDetails data={data} />;
       default:
         return null;
     }
@@ -79,12 +69,11 @@ export default function FreelancerSummary({
           <CardTitle className="text-lg">Freelancer Resources</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <StatCard
               isLoading={isLoading}
               title="Active Freelancers"
               value={freelancerData.totalFreelancers}
-              change={freelancerData.totalChange}
               icon="users"
               description={`${freelancerData.reliableFreelancers || 0} reliable`}
               onClick={() => handleCardClick("workforce")}
@@ -93,7 +82,6 @@ export default function FreelancerSummary({
               isLoading={isLoading}
               title="On Duty Today"
               value={freelancersOnDuty.length}
-              change={freelancerData.onDutyChange}
               icon="user-check"
               description="Currently working"
               onClick={() => handleCardClick("on-duty")}
@@ -102,20 +90,9 @@ export default function FreelancerSummary({
               isLoading={isLoading}
               title="Off Duty Today"
               value={freelancersOffDuty.length}
-              change={freelancerData.offDutyChange}
               icon="user-x"
               description="Not currently working"
               onClick={() => handleCardClick("off-duty")}
-            />
-            <StatCard
-              isLoading={isLoading}
-              title="Monthly Cost"
-              value={calculateFreelancerCost()}
-              change={15.3}
-              icon="dollar"
-              formatter={formatCurrency}
-              description="Contract costs"
-              onClick={() => handleCardClick("cost")}
             />
           </div>
         </CardContent>
@@ -128,7 +105,6 @@ export default function FreelancerSummary({
               {openDialog === "workforce" && "Freelancer Workforce"}
               {openDialog === "on-duty" && "Freelancers On Duty"}
               {openDialog === "off-duty" && "Freelancers Off Duty"}
-              {openDialog === "cost" && "Freelancer Cost Analysis"}
             </DialogTitle>
           </DialogHeader>
           {renderFreelancerDialogContent(
@@ -184,53 +160,61 @@ const FreelancerWorkforceDetails = ({
     <div className="border rounded-lg">
       <div className="p-4 font-semibold border-b">All Active Freelancers</div>
       <div className="max-h-96 overflow-y-auto">
-        {freelancers.map((freelancer: any) => (
-          <div
-            key={freelancer.id}
-            className="p-4 border-b last:border-b-0 hover:bg-gray-50"
-          >
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-3 h-3 rounded-full ${
-                    freelancer.timeEntries && freelancer.timeEntries.length > 0
-                      ? "bg-green-500"
-                      : "bg-gray-300"
-                  }`}
-                />
-                <div>
-                  <div className="font-medium">
-                    {freelancer.firstName} {freelancer.lastName}
+        {freelancers.length > 0 ? (
+          freelancers.map((freelancer: any) => (
+            <div
+              key={freelancer.id}
+              className="p-4 border-b last:border-b-0 hover:bg-gray-50"
+            >
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      freelancer.timeEntries &&
+                      freelancer.timeEntries.length > 0
+                        ? "bg-green-500"
+                        : "bg-gray-300"
+                    }`}
+                  />
+                  <div>
+                    <div className="font-medium">
+                      {freelancer.firstName} {freelancer.lastName}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {freelancer.position}
+                    </div>
+                    {freelancer.reliable && (
+                      <Badge variant="default" className="mt-1 text-xs">
+                        Reliable
+                      </Badge>
+                    )}
                   </div>
-                  <div className="text-sm text-gray-500">
-                    {freelancer.position}
-                  </div>
-                  {freelancer.reliable && (
-                    <Badge variant="default" className="mt-1 text-xs">
-                      Reliable
-                    </Badge>
-                  )}
                 </div>
-              </div>
-              <div className="text-right">
-                <Badge
-                  variant={
-                    freelancer.timeEntries && freelancer.timeEntries.length > 0
-                      ? "default"
-                      : "secondary"
-                  }
-                >
-                  {freelancer.timeEntries && freelancer.timeEntries.length > 0
-                    ? "On Duty"
-                    : "Off Duty"}
-                </Badge>
-                <div className="text-sm text-gray-500 mt-1">
-                  {freelancer.department?.name || "No Department"}
+                <div className="text-right">
+                  <Badge
+                    variant={
+                      freelancer.timeEntries &&
+                      freelancer.timeEntries.length > 0
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
+                    {freelancer.timeEntries && freelancer.timeEntries.length > 0
+                      ? "On Duty"
+                      : "Off Duty"}
+                  </Badge>
+                  <div className="text-sm text-gray-500 mt-1">
+                    {freelancer.department?.name || "No Department"}
+                  </div>
                 </div>
               </div>
             </div>
+          ))
+        ) : (
+          <div className="p-8 text-center text-gray-500">
+            No freelancers data available
           </div>
-        ))}
+        )}
       </div>
     </div>
   </div>
@@ -251,31 +235,32 @@ const OnDutyFreelancersDetails = ({ freelancers }: { freelancers: any[] }) => (
     <div className="border rounded-lg">
       <div className="p-4 font-semibold border-b">On Duty Freelancers</div>
       <div className="max-h-96 overflow-y-auto">
-        {freelancers.map((freelancer: any) => (
-          <div
-            key={freelancer.id}
-            className="p-4 border-b last:border-b-0 hover:bg-gray-50"
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="font-medium">
-                  {freelancer.firstName} {freelancer.lastName}
+        {freelancers.length > 0 ? (
+          freelancers.map((freelancer: any) => (
+            <div
+              key={freelancer.id}
+              className="p-4 border-b last:border-b-0 hover:bg-gray-50"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="font-medium">
+                    {freelancer.firstName} {freelancer.lastName}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {freelancer.position}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Time entries today: {freelancer.timeEntries?.length || 0}
+                    {freelancer.reliable && (
+                      <span className="ml-2 text-green-600">• Reliable</span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {freelancer.position}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  Time entries today: {freelancer.timeEntries?.length || 0}
-                  {freelancer.reliable && (
-                    <span className="ml-2 text-green-600">• Reliable</span>
-                  )}
-                </div>
+                <Badge variant="default">On Duty</Badge>
               </div>
-              <Badge variant="default">On Duty</Badge>
             </div>
-          </div>
-        ))}
-        {freelancers.length === 0 && (
+          ))
+        ) : (
           <div className="p-8 text-center text-gray-500">
             No freelancers on duty
           </div>
@@ -300,80 +285,37 @@ const OffDutyFreelancersDetails = ({ freelancers }: { freelancers: any[] }) => (
     <div className="border rounded-lg">
       <div className="p-4 font-semibold border-b">Off Duty Freelancers</div>
       <div className="max-h-96 overflow-y-auto">
-        {freelancers.map((freelancer: any) => (
-          <div
-            key={freelancer.id}
-            className="p-4 border-b last:border-b-0 hover:bg-gray-50"
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <div className="font-medium">
-                  {freelancer.firstName} {freelancer.lastName}
+        {freelancers.length > 0 ? (
+          freelancers.map((freelancer: any) => (
+            <div
+              key={freelancer.id}
+              className="p-4 border-b last:border-b-0 hover:bg-gray-50"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="font-medium">
+                    {freelancer.firstName} {freelancer.lastName}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {freelancer.position}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    Status: {freelancer.status}
+                    {freelancer.reliable && (
+                      <span className="ml-2 text-green-600">• Reliable</span>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500">
-                  {freelancer.position}
-                </div>
-                <div className="text-xs text-gray-400 mt-1">
-                  Status: {freelancer.status}
-                  {freelancer.reliable && (
-                    <span className="ml-2 text-green-600">• Reliable</span>
-                  )}
-                </div>
+                <Badge variant="secondary">Off Duty</Badge>
               </div>
-              <Badge variant="secondary">Off Duty</Badge>
             </div>
+          ))
+        ) : (
+          <div className="p-8 text-center text-gray-500">
+            No freelancers off duty
           </div>
-        ))}
+        )}
       </div>
     </div>
   </div>
 );
-
-const FreelancerCostDetails = ({ data }: { data: any }) => {
-  const freelancerData = data?.freelancerSummary || {};
-  const monthlyCost = (freelancerData.totalFreelancers || 0) * 120 * 80;
-
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4 text-sm">
-        <div className="text-center p-4 bg-blue-50 rounded-lg">
-          <div className="text-2xl font-bold text-blue-600">
-            {formatCurrency(monthlyCost)}
-          </div>
-          <div className="text-blue-800">Monthly Contract Cost</div>
-        </div>
-        <div className="text-center p-4 bg-purple-50 rounded-lg">
-          <div className="text-2xl font-bold text-purple-600">
-            {formatCurrency(monthlyCost * 12)}
-          </div>
-          <div className="text-purple-800">Annual Contract Cost</div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 text-sm">
-        <div className="text-center p-4 bg-gray-50 rounded-lg">
-          <div className="text-xl font-bold text-gray-600">
-            {freelancerData.totalFreelancers || 0}
-          </div>
-          <div className="text-gray-800">Active Freelancers</div>
-        </div>
-        <div className="text-center p-4 bg-gray-50 rounded-lg">
-          <div className="text-xl font-bold text-gray-600">R 120/hr</div>
-          <div className="text-gray-800">Avg. Hourly Rate</div>
-        </div>
-        <div className="text-center p-4 bg-gray-50 rounded-lg">
-          <div className="text-xl font-bold text-gray-600">80 hrs</div>
-          <div className="text-gray-800">Avg. Monthly Hours</div>
-        </div>
-      </div>
-
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <div className="text-sm text-yellow-800">
-          <strong>Note:</strong> Cost estimates based on average rates and
-          hours. Actual costs may vary based on individual contracts and project
-          requirements.
-        </div>
-      </div>
-    </div>
-  );
-};
