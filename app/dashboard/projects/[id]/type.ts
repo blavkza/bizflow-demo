@@ -73,7 +73,7 @@ export interface Folder {
   title: string;
   projectId: string;
   Document: Document[];
-  notes: Note[];
+  Note: Note[];
   createdAt: string;
   updatedAt: string;
 }

@@ -46,6 +46,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ProjectDetailsSkeleton } from "./_components/ProjectDetailsSkeleton";
 import { useAuth } from "@clerk/nextjs";
 import { WorkLogForm } from "./_components/work-log-form";
+import { UserRole } from "@prisma/client";
 
 export default function ProjectsDetailsPage({
   params,
@@ -205,7 +206,9 @@ export default function ProjectsDetailsPage({
   const currentUserId = user?.id;
   const managerId = project.managerId;
 
-  const isManager = currentUserId === managerId;
+  const isManager =
+    currentUserId === managerId ||
+    user.role === UserRole.CHIEF_EXECUTIVE_OFFICER;
 
   const currentMember = project.teamMembers?.find(
     (member) => member.userId === currentUserId
@@ -486,7 +489,6 @@ export default function ProjectsDetailsPage({
               fetchProject={refetch}
               currentUserRole={currentUserRole}
               isManager={isManager}
-              canViewFinancial={currentUserPermissions?.canViewFinancial}
             />
           ) : viewMode === "worklogs" ? (
             <WorkLogTab

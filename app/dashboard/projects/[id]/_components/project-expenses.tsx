@@ -25,7 +25,8 @@ export function ProjectExpenses({
 }: ProjectExpensesProps) {
   const expenses = project.Expense || [];
 
-  console.log(project.Expense);
+  const hasPermission =
+    canViewFinancial || currentUserRole === "ADMIN" || isManager;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -67,11 +68,7 @@ export function ProjectExpenses({
     return sum + Number(expense.remainingAmount || 0);
   }, 0);
 
-  if (
-    canViewFinancial ||
-    currentUserRole === UserRole.CHIEF_EXECUTIVE_OFFICER ||
-    isManager
-  ) {
+  if (!hasPermission) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-8">
