@@ -105,7 +105,7 @@ export function VendorTable({ vendors, loading }: VendorTableProps) {
               <TableCell>
                 <div className="flex gap-2">
                   <Button variant="ghost" size="sm" asChild>
-                    <Link href={`/vendors/${vendor.id}`}>
+                    <Link href={`/dashboard/vendors/${vendor.id}`}>
                       <Eye className="h-4 w-4" />
                     </Link>
                   </Button>
