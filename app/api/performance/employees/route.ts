@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-// Define proper types for attendance status
 type AttendanceStatus =
   | "PRESENT"
   | "HALF_DAY"
@@ -11,7 +10,6 @@ type AttendanceStatus =
   | "UNPAID_LEAVE"
   | "ABSENT";
 
-// Define type for attendance weights
 interface AttendanceWeights {
   [key: string]: number;
 }
@@ -26,7 +24,7 @@ export async function GET(request: NextRequest) {
         assignedTasks: {
           include: {
             timeEntries: true,
-            Subtask: true,
+            subtask: true,
             project: true,
           },
         },
@@ -62,12 +60,26 @@ export async function GET(request: NextRequest) {
       const teamwork = calculateTeamwork(employee.assignedTasks);
 
       console.log(
-        `Final metrics - Attendance: ${attendanceRate}%, Tasks: ${taskPerformance}%, Productivity: ${productivity}%`
+        `Final metrics - Attendance: ${attendanceRate}%, Tasks: ${taskPerformance}%, Productivity: ${productivity}%, Teamwork: ${teamwork}%`
       );
 
+      // Validate metrics for logical consistency
+      const metrics = {
+        productivity: productivity,
+        quality: taskPerformance,
+        attendance: attendanceRate,
+        teamwork: teamwork,
+      };
+
+      if (!validateMetrics(metrics)) {
+        console.warn(
+          `Illogical metrics detected for employee: ${employee.firstName} ${employee.lastName}`
+        );
+      }
+
       const overallScore = Math.round(
-        attendanceRate * 0.2 +
-          taskPerformance * 0.3 +
+        attendanceRate * 0.15 +
+          taskPerformance * 0.35 +
           productivity * 0.25 +
           projectContribution * 0.15 +
           teamwork * 0.1
@@ -82,12 +94,7 @@ export async function GET(request: NextRequest) {
         currentPoints: overallScore,
         trend: calculateEmployeeTrend(employee),
         status: getPerformanceStatus(overallScore),
-        metrics: {
-          productivity: productivity,
-          quality: taskPerformance,
-          attendance: attendanceRate,
-          teamwork: teamwork,
-        },
+        metrics: metrics,
         goals: getEmployeeGoals(taskPerformance, attendanceRate, productivity),
         warnings: employee.Warning.map((warning) => ({
           id: warning.id,
@@ -106,7 +113,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// FIXED CALCULATION FUNCTIONS WITH PROPER TYPING
+// FIXED CALCULATION FUNCTIONS
 
 function calculateAttendanceRate(records: any[]): number {
   if (records.length === 0) {
@@ -118,7 +125,7 @@ function calculateAttendanceRate(records: any[]): number {
   const weights: AttendanceWeights = {
     PRESENT: 1.0, // Full credit
     HALF_DAY: 0.8, // 80% credit
-    LATE: 0.7, // 70% credit (favorable but less favorable)
+    LATE: 0.7, // 70% credit
     SICK_LEAVE: 0.5, // 50% credit
     ANNUAL_LEAVE: 0.5, // 50% credit
     UNPAID_LEAVE: 0.3, // 30% credit
@@ -126,7 +133,7 @@ function calculateAttendanceRate(records: any[]): number {
   };
 
   let totalScore = 0;
-  let totalPossible = records.length; // Each day is worth 1 point max
+  let totalPossible = records.length;
 
   records.forEach((record) => {
     const status = record.status as AttendanceStatus;
@@ -140,14 +147,6 @@ function calculateAttendanceRate(records: any[]): number {
   console.log(`  Total records: ${records.length}`);
   console.log(`  Weighted score: ${totalScore}/${totalPossible}`);
   console.log(`  Rate: ${rate}%`);
-
-  // Breakdown by status with proper typing
-  const statusCount: Record<string, number> = {};
-  records.forEach((record) => {
-    const status = record.status as string;
-    statusCount[status] = (statusCount[status] || 0) + 1;
-  });
-  console.log(`  Status breakdown:`, statusCount);
 
   return rate;
 }
@@ -189,15 +188,13 @@ function calculateProductivity(tasks: any[]): number {
   }
 
   const completedTasks = tasks.filter((task) => task.status === "COMPLETED");
-
   if (completedTasks.length === 0) {
     console.log("No completed tasks for productivity calculation");
     return 0;
   }
 
-  let totalEfficiency = 0;
-  let validTasksWithTime = 0;
-  let tasksWithoutTime = 0;
+  let totalProductivity = 0;
+  let validTasks = 0;
 
   completedTasks.forEach((task, index) => {
     const estimatedHours = task.estimatedHours
@@ -207,39 +204,37 @@ function calculateProductivity(tasks: any[]): number {
       return sum + (entry.hours ? Number(entry.hours) : 0);
     }, 0);
 
+    let taskProductivity = 100; // Default for completed tasks
+
+    if (actualHours > 0 && estimatedHours > 0) {
+      // Realistic productivity calculation with reasonable caps
+      taskProductivity = Math.min((estimatedHours / actualHours) * 100, 120);
+      taskProductivity = Math.max(70, taskProductivity); // Minimum 70% for tracked work
+    } else {
+      // Task has no time entries - use default with small penalty
+      taskProductivity = 90;
+    }
+
     console.log(
-      `Completed Task ${index + 1}: estimated=${estimatedHours}h, actual=${actualHours}h`
+      `Completed Task ${index + 1}: estimated=${estimatedHours}h, actual=${actualHours}h, productivity=${taskProductivity}%`
     );
 
-    if (actualHours > 0) {
-      // Task has time entries - calculate actual efficiency
-      const efficiency =
-        estimatedHours > 0 ? (estimatedHours / actualHours) * 100 : 100; // If no estimate, assume good productivity
-
-      // Cap efficiency between 50% and 150% to avoid extreme values
-      const cappedEfficiency = Math.max(50, Math.min(150, efficiency));
-      totalEfficiency += cappedEfficiency;
-      validTasksWithTime++;
-    } else {
-      // Task has no time entries - assume good productivity (100%)
-      // but with a small penalty to encourage time tracking
-      totalEfficiency += 90; // 90% for completed tasks without time tracking
-      tasksWithoutTime++;
-    }
+    totalProductivity += taskProductivity;
+    validTasks++;
   });
 
   const productivity =
-    completedTasks.length > 0
-      ? Math.round(totalEfficiency / completedTasks.length)
-      : 0;
+    validTasks > 0 ? Math.round(totalProductivity / validTasks) : 0;
+
+  // Final sanity check
+  const finalProductivity = Math.min(120, Math.max(0, productivity));
 
   console.log(`Productivity calculation:`);
   console.log(`  Completed tasks: ${completedTasks.length}`);
-  console.log(`  Tasks with time entries: ${validTasksWithTime}`);
-  console.log(`  Tasks without time entries: ${tasksWithoutTime}`);
-  console.log(`  Final productivity: ${productivity}%`);
+  console.log(`  Valid tasks: ${validTasks}`);
+  console.log(`  Final productivity: ${finalProductivity}%`);
 
-  return productivity;
+  return finalProductivity;
 }
 
 function calculateProjectContribution(tasks: any[]): number {
@@ -285,39 +280,43 @@ function calculateProjectContribution(tasks: any[]): number {
 }
 
 function calculateTeamwork(tasks: any[]): number {
-  if (tasks.length === 0) return 0;
+  if (tasks.length === 0) return 50; // Default for no tasks
 
-  // Teamwork based on:
-  // 1. Tasks with subtasks (collaboration)
-  // 2. Tasks in REVIEW status (peer review)
-  // 3. Variety of projects (cross-team work)
-
+  // FIXED: Use correct field name (subtask, not Subtask)
   const collaborativeTasks = tasks.filter(
-    (task) => task.Subtask && task.Subtask.length > 0
+    (task) => task.subtask && task.subtask.length > 0
   ).length;
 
   const reviewTasks = tasks.filter((task) => task.status === "REVIEW").length;
-
   const uniqueProjects = new Set(
     tasks.map((task) => task.projectId).filter(Boolean)
   ).size;
 
-  // Calculate teamwork score (0-100)
-  const collaborationScore = (collaborativeTasks / tasks.length) * 40;
-  const reviewScore = (reviewTasks / tasks.length) * 30;
-  const projectDiversityScore = Math.min(uniqueProjects * 10, 30);
+  // More balanced and reasonable scoring
+  const collaborationScore = Math.min(
+    (collaborativeTasks / Math.max(tasks.length, 1)) * 50,
+    50
+  );
+  const reviewScore = Math.min(
+    (reviewTasks / Math.max(tasks.length, 1)) * 30,
+    30
+  );
+  const projectDiversityScore = Math.min(uniqueProjects * 7, 20);
 
   const teamwork = Math.round(
     collaborationScore + reviewScore + projectDiversityScore
   );
 
+  // Ensure reasonable bounds - minimum 20%, maximum 100%
+  const finalTeamwork = Math.min(100, Math.max(20, teamwork));
+
   console.log(`Teamwork calculation:`);
   console.log(`  Collaborative tasks: ${collaborativeTasks}/${tasks.length}`);
   console.log(`  Review tasks: ${reviewTasks}/${tasks.length}`);
   console.log(`  Unique projects: ${uniqueProjects}`);
-  console.log(`  Score: ${teamwork}%`);
+  console.log(`  Final teamwork: ${finalTeamwork}%`);
 
-  return teamwork;
+  return finalTeamwork;
 }
 
 function calculateEmployeeTrend(employee: any): string {
@@ -362,6 +361,39 @@ function getGoalStatus(progress: number): string {
   if (progress >= 90) return "Completed";
   if (progress >= 70) return "In Progress";
   return "Behind";
+}
+
+// NEW: Metric validation function
+function validateMetrics(metrics: {
+  productivity: number;
+  quality: number;
+  attendance: number;
+  teamwork: number;
+}): boolean {
+  const { productivity, quality, attendance, teamwork } = metrics;
+
+  // Check for logical inconsistencies
+  if (productivity > 110 && quality < 70) {
+    console.warn("Illogical: High productivity with low quality");
+    return false;
+  }
+
+  if (attendance > 90 && teamwork < 30) {
+    console.warn("Illogical: Good attendance but very poor teamwork");
+    return false;
+  }
+
+  if (productivity > 120) {
+    console.warn("Suspicious: Productivity over 120%");
+    return false;
+  }
+
+  if (teamwork < 10) {
+    console.warn("Suspicious: Extremely low teamwork score");
+    return false;
+  }
+
+  return true;
 }
 
 export async function POST(request: NextRequest) {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -17,7 +18,38 @@ import {
   WarningsTab,
   WarningDialog,
 } from "./components";
-import { Employee, WarningFormData } from "./types";
+import { Employee, WarningFormData, UnifiedPerformanceData } from "./types";
+import { toast } from "sonner";
+
+// Define the unified data structure
+interface UnifiedPerformanceResponse {
+  overview: {
+    averageScore: number;
+    topPerformers: number;
+    needsAttention: number;
+    activeWarnings: number;
+    trend: number;
+    totalEmployees: number;
+    departmentStats: any[];
+    calculatedAt: string;
+  };
+  employees: Employee[];
+  departments: any[];
+  warnings: any[];
+  trends: any[];
+  distribution: any[];
+}
+
+// Fetch function for React Query
+const fetchPerformanceData = async (
+  period: string
+): Promise<UnifiedPerformanceResponse> => {
+  const response = await fetch(`/api/performance/unified?period=${period}`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch performance data: ${response.status}`);
+  }
+  return response.json();
+};
 
 export default function EmployeePerformancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState("6months");
@@ -26,9 +58,50 @@ export default function EmployeePerformancePage() {
     null
   );
 
+  // React Query for performance data
+  const {
+    data: performanceData,
+    isLoading: loading,
+    error,
+    refetch: refetchPerformanceData,
+  } = useQuery<UnifiedPerformanceResponse>({
+    queryKey: ["performance", selectedPeriod],
+    queryFn: () => fetchPerformanceData(selectedPeriod),
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 10000, // Consider data fresh for 10 seconds
+  });
+
   const handleGenerateWarning = (employee: Employee) => {
     setSelectedEmployee(employee);
     setIsWarningDialogOpen(true);
+  };
+
+  const handleResolveWarning = async (warning: any, employee: Employee) => {
+    try {
+      const response = await fetch(`/api/performance/warnings`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          warningId: warning.id,
+          status: "RESOLVED",
+          resolutionNotes: `Warning resolved for ${employee.name}`,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to resolve warning");
+      }
+
+      // Invalidate and refetch the performance data
+      refetchPerformanceData();
+
+      toast.success(`Warning resolved for ${employee.name}`);
+    } catch (error) {
+      console.error("Failed to resolve warning:", error);
+      toast.error("Failed to resolve warning. Please try again.");
+    }
   };
 
   const handleWarningSubmit = async (data: WarningFormData) => {
@@ -45,16 +118,54 @@ export default function EmployeePerformancePage() {
         throw new Error("Failed to generate warning");
       }
 
-      // Show success message
-      alert(`Warning generated successfully for ${selectedEmployee?.name}!`);
+      toast.success(
+        `Warning generated successfully for ${selectedEmployee?.name}!`
+      );
 
-      // Refresh the page to show updated data
-      window.location.reload();
+      // Invalidate and refetch the performance data
+      refetchPerformanceData();
+
+      setIsWarningDialogOpen(false);
+      setSelectedEmployee(null);
     } catch (error) {
       console.error("Failed to generate warning:", error);
-      alert("Failed to generate warning. Please try again.");
+      toast.error("Failed to generate warning. Please try again.");
     }
   };
+
+  const handleRefreshData = () => {
+    refetchPerformanceData();
+  };
+
+  // Handle error state
+  if (error) {
+    return (
+      <div className="flex-1 space-y-6 p-4 pt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">
+              Employee Performance
+            </h2>
+            <p className="text-muted-foreground">
+              Track performance metrics, goals, and generate warnings
+            </p>
+          </div>
+        </div>
+        <div className="text-center py-12">
+          <div className="text-red-600 mb-4">
+            <h3 className="text-lg font-semibold mb-2">Failed to load data</h3>
+            <p>{error.message}</p>
+          </div>
+          <button
+            onClick={() => refetchPerformanceData()}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 space-y-6 p-4 pt-6">
@@ -65,6 +176,15 @@ export default function EmployeePerformancePage() {
           </h2>
           <p className="text-muted-foreground">
             Track performance metrics, goals, and generate warnings
+            {performanceData && (
+              <span>
+                {" "}
+                • Last updated:{" "}
+                {new Date(
+                  performanceData.overview.calculatedAt
+                ).toLocaleTimeString()}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center space-x-2">
@@ -82,7 +202,12 @@ export default function EmployeePerformancePage() {
         </div>
       </div>
 
-      <PerformanceCards />
+      {/* Pass data to PerformanceCards */}
+      <PerformanceCards
+        overview={performanceData?.overview}
+        loading={loading}
+        onRefresh={handleRefreshData}
+      />
 
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
@@ -93,19 +218,39 @@ export default function EmployeePerformancePage() {
         </TabsList>
 
         <TabsContent value="overview">
-          <OverviewTab />
+          <OverviewTab
+            trends={performanceData?.trends || []}
+            distribution={performanceData?.distribution || []}
+            departmentStats={performanceData?.overview?.departmentStats || []}
+            loading={loading}
+            onRefresh={handleRefreshData}
+          />
         </TabsContent>
 
         <TabsContent value="individual">
-          <IndividualPerformanceTab onGenerateWarning={handleGenerateWarning} />
+          <IndividualPerformanceTab
+            employees={performanceData?.employees || []}
+            loading={loading}
+            onGenerateWarning={handleGenerateWarning}
+            onRefresh={handleRefreshData}
+          />
         </TabsContent>
 
         <TabsContent value="departments">
-          <DepartmentsTab />
+          <DepartmentsTab
+            departments={performanceData?.departments || []}
+            loading={loading}
+            onRefresh={handleRefreshData}
+          />
         </TabsContent>
 
         <TabsContent value="warnings">
-          <WarningsTab />
+          <WarningsTab
+            warnings={performanceData?.warnings || []}
+            loading={loading}
+            onResolveWarning={handleResolveWarning}
+            onRefresh={handleRefreshData}
+          />
         </TabsContent>
       </Tabs>
 

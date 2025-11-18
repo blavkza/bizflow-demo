@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -13,31 +12,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { TrendingUp, TrendingDown, Users, AlertTriangle } from "lucide-react";
+import {
+  TrendingUp,
+  TrendingDown,
+  Users,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react";
 import { Department, Employee } from "../types";
+import { useState } from "react";
 
-export default function DepartmentsTab() {
-  const [departments, setDepartments] = useState<Department[]>([]);
-  const [loading, setLoading] = useState(true);
+interface DepartmentsTabProps {
+  departments?: Department[];
+  loading?: boolean;
+  onRefresh?: () => void;
+}
+
+export default function DepartmentsTab({
+  departments = [],
+  loading = false,
+  onRefresh,
+}: DepartmentsTabProps) {
   const [selectedDepartment, setSelectedDepartment] =
     useState<Department | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  useEffect(() => {
-    fetchDepartments();
-  }, []);
-
-  const fetchDepartments = async () => {
-    try {
-      const response = await fetch("/api/performance/departments");
-      const data = await response.json();
-      setDepartments(data);
-    } catch (error) {
-      console.error("Failed to fetch departments:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openDepartmentDialog = (dept: Department) => {
     setSelectedDepartment(dept);
@@ -81,7 +79,6 @@ export default function DepartmentsTab() {
     return "text-red-600";
   };
 
-  // Safe calculation functions
   const getHighPerformers = (dept: Department): number => {
     if (!dept.employees || !Array.isArray(dept.employees)) return 0;
     return dept.employees.filter((emp: Employee) => emp.currentPoints >= 80)
@@ -101,12 +98,7 @@ export default function DepartmentsTab() {
 
   const getPerformanceDistribution = (dept: Department) => {
     if (!dept.employees || !Array.isArray(dept.employees)) {
-      return {
-        excellent: 0,
-        good: 0,
-        needsImprovement: 0,
-        poor: 0,
-      };
+      return { excellent: 0, good: 0, needsImprovement: 0, poor: 0 };
     }
 
     return {
@@ -126,42 +118,61 @@ export default function DepartmentsTab() {
 
   if (loading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {[...Array(6)].map((_, i) => (
-          <Card key={i}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
-                <div className="h-6 w-16 bg-gray-200 rounded animate-pulse"></div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="text-center">
-                  <div className="h-12 w-16 bg-gray-200 rounded animate-pulse mx-auto mb-2"></div>
-                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mx-auto"></div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-medium">Department Analysis</h3>
+            <p className="text-sm text-muted-foreground">
+              Performance overview by department
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="h-6 w-24 bg-gray-200 rounded animate-pulse"></div>
+                  <div className="h-6 w-16 bg-gray-200 rounded animate-pulse"></div>
                 </div>
-                <div className="h-3 w-full bg-gray-200 rounded animate-pulse"></div>
-                <div className="grid grid-cols-2 gap-4">
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
                   <div className="text-center">
-                    <div className="h-6 w-8 bg-gray-200 rounded animate-pulse mx-auto mb-1"></div>
-                    <div className="h-4 w-16 bg-gray-200 rounded animate-pulse mx-auto"></div>
+                    <div className="h-12 w-16 bg-gray-200 rounded animate-pulse mx-auto mb-2"></div>
+                    <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mx-auto"></div>
                   </div>
-                  <div className="text-center">
-                    <div className="h-6 w-8 bg-gray-200 rounded animate-pulse mx-auto mb-1"></div>
-                    <div className="h-4 w-16 bg-gray-200 rounded animate-pulse mx-auto"></div>
+                  <div className="h-3 w-full bg-gray-200 rounded animate-pulse"></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <div className="h-6 w-8 bg-gray-200 rounded animate-pulse mx-auto mb-1"></div>
+                      <div className="h-4 w-16 bg-gray-200 rounded animate-pulse mx-auto"></div>
+                    </div>
+                    <div className="text-center">
+                      <div className="h-6 w-8 bg-gray-200 rounded animate-pulse mx-auto mb-1"></div>
+                      <div className="h-4 w-16 bg-gray-200 rounded animate-pulse mx-auto"></div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
-    <>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-medium">Department Analysis</h3>
+          <p className="text-sm text-muted-foreground">
+            Performance overview by department
+          </p>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {departments.map((dept) => {
           const highPerformers = getHighPerformers(dept);
@@ -186,20 +197,19 @@ export default function DepartmentsTab() {
               </CardHeader>
               <CardContent className="flex-1">
                 <div className="space-y-4">
-                  {/* Department Summary */}
                   <div className="text-center">
                     <div
                       className="text-3xl font-bold"
-                      style={{ color: dept.color }}
+                      style={{ color: dept.color || "#8884d8" }}
                     >
-                      {dept.avgScore}
+                      {dept.avgScore || 0}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Average Score
                     </p>
                   </div>
 
-                  <Progress value={dept.avgScore} className="h-3" />
+                  <Progress value={dept.avgScore || 0} className="h-3" />
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="text-center">
@@ -218,7 +228,6 @@ export default function DepartmentsTab() {
                     </div>
                   </div>
 
-                  {/* Quick Employee Preview */}
                   {hasEmployees && (
                     <div className="border-t pt-3">
                       <div className="flex justify-between items-center mb-2">
@@ -264,7 +273,6 @@ export default function DepartmentsTab() {
         })}
       </div>
 
-      {/* Department Details Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
           {selectedDepartment && (
@@ -273,17 +281,18 @@ export default function DepartmentsTab() {
                 <DialogTitle className="flex items-center space-x-2">
                   <div
                     className="h-4 w-4 rounded-full"
-                    style={{ backgroundColor: selectedDepartment.color }}
+                    style={{
+                      backgroundColor: selectedDepartment.color || "#8884d8",
+                    }}
                   ></div>
                   <span>{selectedDepartment.name} Department</span>
                 </DialogTitle>
                 <DialogDescription>
                   {getEmployeeCount(selectedDepartment)} employees • Average
-                  Score: {selectedDepartment.avgScore}
+                  Score: {selectedDepartment.avgScore || 0}
                 </DialogDescription>
               </DialogHeader>
 
-              {/* Performance Overview */}
               <div className="grid grid-cols-4 gap-4 mb-6">
                 {(() => {
                   const distribution =
@@ -321,14 +330,15 @@ export default function DepartmentsTab() {
                 })()}
               </div>
 
-              {/* Employees List */}
               <div className="space-y-4">
                 <h3 className="font-semibold text-lg">Employees</h3>
                 <div className="grid gap-3">
                   {selectedDepartment.employees &&
                   Array.isArray(selectedDepartment.employees) ? (
                     selectedDepartment.employees
-                      .sort((a, b) => b.currentPoints - a.currentPoints)
+                      .sort(
+                        (a: any, b: any) => b.currentPoints - a.currentPoints
+                      )
                       .map((employee: Employee) => (
                         <div
                           key={employee.id}
@@ -354,7 +364,6 @@ export default function DepartmentsTab() {
                             </div>
                           </div>
 
-                          {/* Performance Metrics */}
                           <div className="flex items-center space-x-6">
                             <div className="grid grid-cols-4 gap-4 text-center">
                               <div>
@@ -399,7 +408,6 @@ export default function DepartmentsTab() {
                               </div>
                             </div>
 
-                            {/* Overall Score */}
                             <div className="text-right min-w-[100px]">
                               <div className="flex items-center justify-end space-x-1 mb-1">
                                 <span className="text-lg font-bold">
@@ -416,7 +424,6 @@ export default function DepartmentsTab() {
                               </Badge>
                             </div>
 
-                            {/* Warnings Indicator */}
                             {employee.warnings &&
                               employee.warnings.length > 0 && (
                                 <div className="flex items-center space-x-1 text-red-600">
@@ -441,6 +448,6 @@ export default function DepartmentsTab() {
           )}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

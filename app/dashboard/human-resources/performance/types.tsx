@@ -68,3 +68,27 @@ export interface Warning {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface UnifiedPerformanceData {
+  overview: {
+    averageScore: number;
+    topPerformers: number;
+    needsAttention: number;
+    activeWarnings: number;
+    trend: number;
+    totalEmployees: number;
+    departmentStats: Department[];
+    calculatedAt: string;
+  };
+  employees: Employee[];
+  departments: Department[];
+  warnings: Warning[];
+  trends: PerformanceData[];
+  distribution: PerformanceDistribution[];
+}
+
+export interface PerformanceDistribution {
+  name: string;
+  value: number;
+  fill: string;
+}

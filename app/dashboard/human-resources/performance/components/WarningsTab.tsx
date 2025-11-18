@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -12,40 +12,30 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { RefreshCw } from "lucide-react";
 import { Employee, Warning } from "../types";
-
-interface WarningsTabProps {
-  onResolveWarning: (warning: any, employee: Employee) => void;
-}
 
 interface WarningWithEmployee extends Warning {
   employee: Employee;
 }
 
-export default function WarningsTab({ onResolveWarning }: WarningsTabProps) {
-  const [warnings, setWarnings] = useState<WarningWithEmployee[]>([]);
-  const [loading, setLoading] = useState(true);
+interface WarningsTabProps {
+  warnings?: WarningWithEmployee[];
+  loading?: boolean;
+  onResolveWarning: (warning: any, employee: Employee) => void;
+  onRefresh?: () => void;
+}
+
+export default function WarningsTab({
+  warnings = [],
+  loading = false,
+  onResolveWarning,
+  onRefresh,
+}: WarningsTabProps) {
   const [warningFilter, setWarningFilter] = useState<
     "all" | "active" | "resolved"
   >("all");
 
-  useEffect(() => {
-    fetchWarnings();
-  }, []);
-
-  const fetchWarnings = async () => {
-    try {
-      const response = await fetch("/api/performance/warnings");
-      const data = await response.json();
-      setWarnings(data);
-    } catch (error) {
-      console.error("Failed to fetch warnings:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Safe function to get warning status with fallback
   const getWarningStatus = (warning: Warning): string => {
     return warning.status || "ACTIVE";
   };
@@ -113,11 +103,25 @@ export default function WarningsTab({ onResolveWarning }: WarningsTabProps) {
     return (
       <Card>
         <CardHeader>
-          <div className="h-7 w-40 bg-gray-200 rounded animate-pulse mb-2"></div>
-          <div className="h-4 w-60 bg-gray-200 rounded animate-pulse"></div>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Warning Management</CardTitle>
+              <CardDescription>
+                View and manage all warnings - both active and resolved
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-4 mb-6">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="text-center p-4 bg-gray-100 rounded-lg">
+                  <div className="h-8 w-12 bg-gray-200 rounded animate-pulse mx-auto mb-2"></div>
+                  <div className="h-4 w-20 bg-gray-200 rounded animate-pulse mx-auto"></div>
+                </div>
+              ))}
+            </div>
             <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
               <div className="h-6 w-48 bg-gray-200 rounded animate-pulse mb-2"></div>
               <div className="space-y-2">
@@ -137,7 +141,6 @@ export default function WarningsTab({ onResolveWarning }: WarningsTabProps) {
 
   const filteredWarnings = getFilteredWarnings(warnings);
 
-  // Group warnings by employee for better display
   const warningsByEmployee = filteredWarnings.reduce(
     (acc, warning) => {
       const employeeId = warning.employee.id;
@@ -167,14 +170,17 @@ export default function WarningsTab({ onResolveWarning }: WarningsTabProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Warning Management</CardTitle>
-        <CardDescription>
-          View and manage all warnings - both active and resolved
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Warning Management</CardTitle>
+            <CardDescription>
+              View and manage all warnings - both active and resolved
+            </CardDescription>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
-          {/* Warning Statistics */}
           <div className="grid grid-cols-3 gap-4 mb-6">
             <div className="text-center p-4 bg-blue-50 rounded-lg">
               <div className="text-2xl font-bold text-blue-600">
@@ -196,7 +202,6 @@ export default function WarningsTab({ onResolveWarning }: WarningsTabProps) {
             </div>
           </div>
 
-          {/* Filter Tabs */}
           <Tabs
             value={warningFilter}
             onValueChange={(value: any) => setWarningFilter(value)}
@@ -348,7 +353,6 @@ export default function WarningsTab({ onResolveWarning }: WarningsTabProps) {
             </TabsContent>
           </Tabs>
 
-          {/* Information Panel */}
           <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h4 className="font-medium text-yellow-800 mb-2">
               Warning Management System

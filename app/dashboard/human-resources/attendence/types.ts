@@ -66,6 +66,7 @@ export interface CheckInRecord {
   employeeId: string;
   employeeNumber: string;
   employeeAvatar: string;
+  personType: "employee" | "freelancer";
   method: CheckInMethod;
   location: string;
   address?: string;

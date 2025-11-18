@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
         assignedTasks: {
           include: {
             timeEntries: true,
-            Subtask: true,
+            subtask: true,
           },
         },
       },
