@@ -1,47 +1,63 @@
 import { CheckInMethod, AttendanceStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
-// Use Prisma's generated types as base and extend them
+// Use the exact same structure as Prisma expects
 export interface AttendanceRecord {
   id: string;
-  employeeId: string;
-  employee: {
+  employeeId: string | null;
+  freeLancerId: string | null;
+  employee?: {
     id: string;
     employeeNumber: string;
     firstName: string;
     lastName: string;
-    avatar?: string;
+    avatar?: string | null;
     position: string;
     department?: {
       name: string;
-    };
-    scheduledKnockIn?: Date | null;
-    scheduledKnockOut?: Date | null;
-    workingDays?: string[];
-  };
+    } | null;
+    scheduledKnockIn: string | null;
+    scheduledKnockOut: string | null;
+    workingDays: string[];
+  } | null;
+  freeLancer?: {
+    id: string;
+    freeLancerNumber: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string | null;
+    position: string;
+    department?: {
+      name: string;
+    } | null;
+    scheduledKnockIn: string | null;
+    scheduledKnockOut: string | null;
+    workingDays: string[];
+  } | null;
   date: Date;
-  checkIn?: Date | null;
-  checkOut?: Date | null;
-  scheduledKnockIn?: Date | null;
-  scheduledKnockOut?: Date | null;
-  checkInLat?: Decimal | null;
-  checkInLng?: Decimal | null;
-  checkOutLat?: Decimal | null;
-  checkOutLng?: Decimal | null;
-  checkInAddress?: string | null;
-  checkOutAddress?: string | null;
-  checkInMethod?: CheckInMethod | null;
-  regularHours?: Decimal | null;
-  overtimeHours?: Decimal | null;
-  breakDuration?: number | null;
+  checkIn: Date | null;
+  checkOut: Date | null;
+  scheduledKnockIn: string | null;
+  scheduledKnockOut: string | null;
+  checkInLat: Decimal | null;
+  checkInLng: Decimal | null;
+  checkOutLat: Decimal | null;
+  checkOutLng: Decimal | null;
+  checkInAddress: string | null;
+  checkOutAddress: string | null;
+  checkInMethod: CheckInMethod | null;
+  regularHours: Decimal | null;
+  overtimeHours: Decimal | null;
+  breakDuration: number | null;
   status: AttendanceStatus;
-  notes?: string | null;
-  breakStart?: Date | null;
-  breakEnd?: Date | null;
+  notes: string | null;
+  breakStart: Date | null;
+  breakEnd: Date | null;
   createdAt: Date;
   updatedAt: Date;
   displayStatus?: string;
   isVirtualRecord?: boolean;
+  personType?: "employee" | "freelancer";
 }
 
 export interface CheckInRecord {
@@ -67,15 +83,16 @@ export interface Department {
 }
 
 export interface ManualCheckInData {
-  employeeId: string;
+  employeeId?: string;
+  freelancerId?: string;
   location: string;
   notes: string;
+  lat?: number;
+  lng?: number;
 }
 
-// Helper type for leave status check - use string literals instead of enum values
 export type LeaveStatus = "SICK_LEAVE" | "ANNUAL_LEAVE" | "UNPAID_LEAVE";
 
-// Type guard to check if status is a leave status
 export function isLeaveStatus(
   status: AttendanceStatus
 ): status is Extract<AttendanceStatus, LeaveStatus> {

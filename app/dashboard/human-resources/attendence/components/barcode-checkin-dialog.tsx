@@ -4,7 +4,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -33,14 +32,11 @@ export function BarcodeCheckInDialog({
 }: BarcodeCheckInDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <div style={{ display: "none" }} />
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Barcode Check-In/Out</DialogTitle>
           <DialogDescription>
-            Scan employee barcode or QR code, or enter manually
+            Scan employee or freelancer barcode/QR code
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

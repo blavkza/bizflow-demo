@@ -2,6 +2,7 @@ import type React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+
 import { SidebarProvider } from "@/components/ui/sidebar";
 import ClientWrapper from "@/components/ClientWrapper";
 import { ClerkProvider } from "@clerk/nextjs";

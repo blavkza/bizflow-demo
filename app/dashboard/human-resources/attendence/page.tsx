@@ -7,9 +7,6 @@ import { useAuth } from "@clerk/nextjs";
 import { useToast } from "@/hooks/use-toast";
 import { UserPermission, UserRole } from "@prisma/client";
 
-// Components
-
-// Types & API functions
 import { AttendanceRecord, CheckInRecord, Department } from "./types";
 import {
   fetchUserData,
@@ -134,10 +131,19 @@ export default function AttendancePage() {
         departmentOptions={departmentOptions}
         attendanceRecords={attendanceRecords}
         filteredAttendance={attendanceRecords.filter((record) => {
-          const employeeName = `${record.employee.firstName} ${record.employee.lastName}`;
+          const personName = record.employee
+            ? `${record.employee.firstName} ${record.employee.lastName}`
+            : record.freeLancer
+              ? `${record.freeLancer.firstName} ${record.freeLancer.lastName}`
+              : "";
+
+          const personId = record.employee
+            ? record.employee.employeeNumber
+            : record.freeLancer?.freeLancerNumber || "";
+
           const matchesSearch =
-            employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            record.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+            personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            personId.toLowerCase().includes(searchTerm.toLowerCase());
           return matchesSearch;
         })}
         gpsCheckIns={gpsCheckIns}
@@ -158,15 +164,31 @@ export default function AttendancePage() {
               checkInType === "in"
                 ? "/api/attendance/check-in"
                 : "/api/attendance/check-out";
+
+            const payload: any = {
+              location: data.location,
+              notes: data.notes,
+              method: "MANUAL",
+            };
+
+            // Add the appropriate ID based on what was provided
+            if (data.employeeId) {
+              payload.employeeId = data.employeeId;
+            } else if (data.freelancerId) {
+              payload.freelancerId = data.freelancerId;
+            }
+
+            // Add coordinates if available
+            if (data.lat && data.lng) {
+              payload.lat = data.lat;
+              payload.lng = data.lng;
+              payload.address = data.location;
+            }
+
             const response = await fetch(endpoint, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                employeeId: data.employeeId,
-                location: data.location,
-                notes: data.notes,
-                method: "MANUAL",
-              }),
+              body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -174,12 +196,16 @@ export default function AttendancePage() {
               throw new Error(error.message || "Failed to record check-in");
             }
 
+            const result = await response.json();
+            const personType = data.employeeId ? "Employee" : "Freelancer";
+            const personId = data.employeeId || data.freelancerId;
+
             toast({
               title: "Success",
-              description: `Employee ${data.employeeId} has been checked ${checkInType === "in" ? "in" : "out"} manually`,
+              description: `${personType} ${personId} has been checked ${checkInType === "in" ? "in" : "out"} manually`,
             });
-            setIsLoading(false);
 
+            setIsLoading(false);
             setIsManualCheckInOpen(false);
             refetchRecords();
           } catch (error) {
@@ -191,6 +217,7 @@ export default function AttendancePage() {
                   : "Failed to record check-in",
               variant: "destructive",
             });
+            setIsLoading(false);
           }
         }}
       />
@@ -206,13 +233,17 @@ export default function AttendancePage() {
               checkInType === "in"
                 ? "/api/attendance/check-in"
                 : "/api/attendance/check-out";
+
+            // Determine if it's an employee or freelancer ID based on prefix
+            const isFreelancer = barcode.startsWith("FRL");
+            const payload = isFreelancer
+              ? { freelancerId: barcode, method: "BARCODE" }
+              : { employeeId: barcode, method: "BARCODE" };
+
             const response = await fetch(endpoint, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                employeeId: barcode,
-                method: "BARCODE",
-              }),
+              body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -220,9 +251,10 @@ export default function AttendancePage() {
               throw new Error(error.message || "Failed to record check-in");
             }
 
+            const personType = isFreelancer ? "Freelancer" : "Employee";
             toast({
               title: "Success",
-              description: `Employee ${barcode} has been checked ${checkInType === "in" ? "in" : "out"} via barcode`,
+              description: `${personType} ${barcode} has been checked ${checkInType === "in" ? "in" : "out"} via barcode`,
             });
 
             setIsBarcodeCheckInOpen(false);

@@ -14,7 +14,9 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    const where: any = {};
+    const where: any = {
+      checkIn: { not: null },
+    };
 
     if (startDate && endDate) {
       where.checkIn = {
@@ -24,38 +26,91 @@ export async function GET(request: NextRequest) {
     }
 
     const checkins = await db.attendanceRecord.findMany({
-      where: {
-        ...where,
-        checkIn: { not: null },
-      },
+      where,
       include: {
-        employee: true,
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            employeeNumber: true,
+            avatar: true,
+          },
+        },
+        freeLancer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            freeLancerNumber: true,
+            avatar: true,
+          },
+        },
       },
       orderBy: {
         checkIn: "desc",
       },
     });
 
-    const formattedCheckins = checkins.map((record) => ({
-      id: record.id,
-      employeeId: record.employee.id,
-      employeeName: `${record.employee.firstName} ${record.employee.lastName}`,
-      employeeNumber: record.employee.employeeNumber,
-      employeeAvatar: record.employee.avatar,
-      method: record.checkInMethod,
-      location: record.checkInAddress || "Unknown",
-      address: record.checkInAddress,
-      timestamp: record.checkIn,
-      coordinates:
-        record.checkInLat && record.checkInLng
-          ? {
-              lat: record.checkInLat,
-              lng: record.checkInLng,
-            }
-          : undefined,
-    }));
+    const formattedCheckins = checkins
+      .map((record) => {
+        try {
+          // Safely get person data (employee or freelancer)
+          const person = record.employee || record.freeLancer;
 
-    return NextResponse.json({ checkins: formattedCheckins });
+          if (!person) {
+            console.warn(
+              `Attendance record ${record.id} has no associated person`
+            );
+            return null;
+          }
+
+          const isEmployee = !!record.employee;
+          const personType = isEmployee ? "employee" : "freelancer";
+          const personId = isEmployee
+            ? record.employee!.id
+            : record.freeLancer!.id;
+          const personNumber = isEmployee
+            ? record.employee!.employeeNumber
+            : record.freeLancer!.freeLancerNumber;
+          const personName = `${person.firstName} ${person.lastName}`;
+
+          // Safely get coordinates
+          let coordinates = undefined;
+          if (record.checkInLat && record.checkInLng) {
+            coordinates = {
+              lat: Number(record.checkInLat),
+              lng: Number(record.checkInLng),
+            };
+          }
+
+          return {
+            id: record.id,
+            employeeId: personId,
+            employeeName: personName,
+            employeeNumber: personNumber,
+            employeeAvatar: person.avatar || null,
+            personType,
+            method: record.checkInMethod,
+            location: record.checkInAddress || "Unknown",
+            address: record.checkInAddress,
+            timestamp: record.checkIn!.toISOString(),
+            coordinates,
+          };
+        } catch (error) {
+          console.error(
+            `Error formatting check-in record ${record.id}:`,
+            error
+          );
+          return null;
+        }
+      })
+      .filter((checkin) => checkin !== null);
+
+    return NextResponse.json({
+      checkins: formattedCheckins,
+      total: formattedCheckins.length,
+    });
   } catch (error) {
     console.error("Fetch check-ins error:", error);
     return NextResponse.json(

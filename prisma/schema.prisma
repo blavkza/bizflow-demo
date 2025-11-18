@@ -460,43 +460,46 @@ model FreeLancer {
 }
 
 model AttendanceRecord {
-  id         String    @id @default(cuid())
+  id String @id @default(cuid())
+
   employeeId String?
   employee   Employee? @relation(fields: [employeeId], references: [id])
-  date       DateTime  @db.Date
-  checkIn    DateTime?
-  checkOut   DateTime?
-  breakStart DateTime?
-  breakEnd   DateTime?
 
-  // GPS Data
-  checkInLat      Decimal? @db.Decimal(10, 8)
-  checkInLng      Decimal? @db.Decimal(11, 8)
-  checkOutLat     Decimal? @db.Decimal(10, 8)
-  checkOutLng     Decimal? @db.Decimal(11, 8)
-  checkInAddress  String?
+  freeLancerId String?
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
+
+  date DateTime @db.Date
+
+  checkIn        DateTime?
+  checkInLat     Decimal?       @db.Decimal(10, 8)
+  checkInLng     Decimal?       @db.Decimal(11, 8)
+  checkInAddress String?
+  checkInMethod  CheckInMethod? @default(MANUAL)
+
+  checkOut        DateTime?
+  checkOutLat     Decimal?  @db.Decimal(10, 8)
+  checkOutLng     Decimal?  @db.Decimal(11, 8)
   checkOutAddress String?
 
-  // Check-in Method
-  checkInMethod CheckInMethod? @default(MANUAL)
+  breakStart    DateTime?
+  breakEnd      DateTime?
+  breakDuration Int?
 
-  // Scheduled Times 
   scheduledKnockIn  String?
   scheduledKnockOut String?
 
-  // Calculated Fields
-  regularHours  Decimal?         @db.Decimal(4, 2)
-  overtimeHours Decimal?         @db.Decimal(4, 2)
-  breakDuration Int?
-  status        AttendanceStatus @default(PRESENT)
-  notes         String?
+  // Calculated hours
+  regularHours  Decimal? @db.Decimal(5, 2)
+  overtimeHours Decimal? @db.Decimal(5, 2)
 
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  freeLancerId String?
+  status AttendanceStatus @default(PRESENT)
+  notes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([employeeId, date])
+  @@unique([freeLancerId, date])
   @@map("attendance_records")
 }
 

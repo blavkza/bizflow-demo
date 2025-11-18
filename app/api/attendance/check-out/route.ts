@@ -5,6 +5,7 @@ import {
   CheckInMethod,
   AttendanceStatus,
   EmployeeStatus,
+  FreeLancerStatus,
   LeaveStatus,
 } from "@prisma/client";
 
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       employeeId,
+      freelancerId,
       location,
       notes,
       method = CheckInMethod.MANUAL,
@@ -27,21 +29,34 @@ export async function POST(request: NextRequest) {
       address,
     } = body;
 
-    if (!employeeId) {
+    if (!employeeId && !freelancerId) {
       return NextResponse.json(
-        { error: "Employee ID is required" },
+        { error: "Employee ID or Freelancer ID is required" },
         { status: 400 }
       );
     }
 
-    // Find employee
-    const employee = await db.employee.findUnique({
-      where: { employeeNumber: employeeId },
-    });
+    let person: any = null;
+    let personType: "employee" | "freelancer" = "employee";
 
-    if (!employee) {
+    // Find employee or freelancer
+    if (employeeId) {
+      person = await db.employee.findUnique({
+        where: { employeeNumber: employeeId },
+      });
+      personType = "employee";
+    } else {
+      person = await db.freeLancer.findUnique({
+        where: { freeLancerNumber: freelancerId },
+      });
+      personType = "freelancer";
+    }
+
+    if (!person) {
       return NextResponse.json(
-        { error: "Employee not found" },
+        {
+          error: `${personType === "employee" ? "Employee" : "Freelancer"} not found`,
+        },
         { status: 404 }
       );
     }
@@ -51,13 +66,13 @@ export async function POST(request: NextRequest) {
     const currentTime = new Date();
 
     // Find today's attendance record
+    const uniqueConstraint =
+      personType === "employee"
+        ? { employeeId_date: { employeeId: person.id, date: today } }
+        : { freeLancerId_date: { freeLancerId: person.id, date: today } };
+
     let attendanceRecord = await db.attendanceRecord.findUnique({
-      where: {
-        employeeId_date: {
-          employeeId: employee.id,
-          date: today,
-        },
-      },
+      where: uniqueConstraint,
     });
 
     if (!attendanceRecord) {
@@ -69,7 +84,9 @@ export async function POST(request: NextRequest) {
 
     if (attendanceRecord.checkOut) {
       return NextResponse.json(
-        { error: "Employee already checked out today" },
+        {
+          error: `${personType === "employee" ? "Employee" : "Freelancer"} already checked out today`,
+        },
         { status: 400 }
       );
     }
@@ -79,7 +96,7 @@ export async function POST(request: NextRequest) {
     // Calculate hours and determine new status
     const { regularHours, overtimeHours, newStatus, workedPercentage } =
       await calculateHoursAndStatus(
-        employee,
+        person,
         checkInTime,
         currentTime,
         attendanceRecord.status
@@ -107,11 +124,11 @@ export async function POST(request: NextRequest) {
       statusNotes += (statusNotes ? " | " : "") + `Overtime: ${overtimeHours}h`;
     }
 
-    // Check for absent warnings (for manual absent status from check-out)
+    // Check for absent warnings (only for employees, not freelancers)
     let warningCreated = null;
-    if (finalStatus === AttendanceStatus.ABSENT) {
+    if (finalStatus === AttendanceStatus.ABSENT && personType === "employee") {
       warningCreated = await checkAndCreateAbsentWarning(
-        employee.id,
+        person.id,
         currentTime,
         finalStatus,
         false // isAutoCreated = false (manual absence from check-out)
@@ -132,17 +149,31 @@ export async function POST(request: NextRequest) {
         notes: statusNotes,
       },
       include: {
-        employee: {
-          include: {
-            department: true,
-          },
-        },
+        employee:
+          personType === "employee"
+            ? {
+                include: {
+                  department: true,
+                },
+              }
+            : false,
+        freeLancer:
+          personType === "freelancer"
+            ? {
+                include: {
+                  department: true,
+                },
+              }
+            : false,
       },
     });
 
-    // Check if we should create absent records based on worked percentage
-    const shouldCreateAbsentRecords =
-      await checkAndCreateAbsentRecords(workedPercentage);
+    // Check if we should create absent records (only for employees)
+    let shouldCreateAbsentRecords = false;
+    if (personType === "employee") {
+      shouldCreateAbsentRecords =
+        await checkAndCreateAbsentRecords(workedPercentage);
+    }
 
     return NextResponse.json({
       message: "Check-out recorded successfully",
@@ -154,6 +185,7 @@ export async function POST(request: NextRequest) {
       hasOvertime: overtimeHours > 0,
       warning: warningCreated,
       triggeredAbsentCreation: shouldCreateAbsentRecords,
+      personType,
     });
   } catch (error) {
     console.error("Check-out error:", error);
@@ -166,7 +198,7 @@ export async function POST(request: NextRequest) {
 
 // Calculate hours and determine new status based on worked percentage
 async function calculateHoursAndStatus(
-  employee: any,
+  person: any,
   checkInTime: Date,
   checkOutTime: Date,
   currentStatus: AttendanceStatus
@@ -185,12 +217,12 @@ async function calculateHoursAndStatus(
   const actualHoursWorked =
     (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
-  if (employee.scheduledKnockIn && employee.scheduledKnockOut) {
+  if (person.scheduledKnockIn && person.scheduledKnockOut) {
     // Parse time strings (e.g., "20:00" and "06:00")
-    const [startHours, startMinutes] = employee.scheduledKnockIn
+    const [startHours, startMinutes] = person.scheduledKnockIn
       .split(":")
       .map(Number);
-    const [endHours, endMinutes] = employee.scheduledKnockOut
+    const [endHours, endMinutes] = person.scheduledKnockOut
       .split(":")
       .map(Number);
 
@@ -211,9 +243,9 @@ async function calculateHoursAndStatus(
       (scheduledEndTime.getTime() - scheduledStartTime.getTime()) /
       (1000 * 60 * 60);
 
-    //  OVERTIME CALCULATION - ONLY if worked beyond scheduled end time
+    // OVERTIME CALCULATION - ONLY if worked beyond scheduled end time
     if (checkOutTime > scheduledEndTime) {
-      // Employee worked overtime
+      // Person worked overtime
       regularHours = scheduledHours; // Full scheduled hours as regular
       overtimeHours =
         (checkOutTime.getTime() - scheduledEndTime.getTime()) /
@@ -228,13 +260,13 @@ async function calculateHoursAndStatus(
         `Overtime Scenario: Scheduled=${scheduledHours.toFixed(2)}h, Regular=${regularHours.toFixed(2)}h, Overtime=${overtimeHours.toFixed(2)}h, Status=${newStatus}`
       );
     } else {
-      // Employee checked out BEFORE or AT scheduled end time - NO OVERTIME
+      // Person checked out BEFORE or AT scheduled end time - NO OVERTIME
       overtimeHours = 0;
 
       // Calculate worked percentage based on actual hours vs scheduled hours
       workedPercentage = (actualHoursWorked / scheduledHours) * 100;
 
-      //  Smart status change logic (only for employees who didn't work overtime)
+      // Smart status change logic (only for persons who didn't work overtime)
       if (workedPercentage >= 50 && workedPercentage < 90) {
         // Worked 50% to 90% → Change to HALF_DAY
         newStatus = AttendanceStatus.HALF_DAY;
@@ -258,7 +290,7 @@ async function calculateHoursAndStatus(
     const defaultScheduledHours = 8;
     workedPercentage = (actualHoursWorked / defaultScheduledHours) * 100;
 
-    //  NO OVERTIME in default calculation (since no specific schedule)
+    // NO OVERTIME in default calculation (since no specific schedule)
     overtimeHours = 0;
 
     // Apply the same logic for default schedule
@@ -285,7 +317,7 @@ async function calculateHoursAndStatus(
   return { regularHours, overtimeHours, newStatus, workedPercentage };
 }
 
-// Check and create absent warnings
+// Check and create absent warnings (only for employees)
 async function checkAndCreateAbsentWarning(
   employeeId: string,
   currentTime: Date,
@@ -393,7 +425,7 @@ async function checkAndCreateAbsentWarning(
   }
 }
 
-// Check if we should create absent records and create them if needed
+// Check if we should create absent records and create them if needed (only for employees)
 async function checkAndCreateAbsentRecords(
   currentEmployeeWorkedPercentage: number
 ): Promise<boolean> {
@@ -407,6 +439,7 @@ async function checkAndCreateAbsentRecords(
         date: today,
         checkOut: { not: null },
         regularHours: { gt: 0 },
+        employeeId: { not: null }, // Only check employees, not freelancers
       },
       include: {
         employee: {
@@ -423,8 +456,8 @@ async function checkAndCreateAbsentRecords(
     // Check if any employee worked more than 50%
     for (const record of employeesWorkedOver50) {
       if (
-        record.employee.scheduledKnockIn &&
-        record.employee.scheduledKnockOut
+        record.employee?.scheduledKnockIn &&
+        record.employee?.scheduledKnockOut
       ) {
         const [startHours, startMinutes] = record.employee.scheduledKnockIn
           .split(":")
@@ -477,17 +510,17 @@ async function checkAndCreateAbsentRecords(
   }
 }
 
-// Background function to create absent records for employees who didn't check in
+// Background function to create absent records for employees who didn't check in (NOT freelancers)
 async function createAbsentRecords() {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     console.log(
-      "Auto-attendance: Creating absent records for employees who didn't check in..."
+      "Auto-attendance: Creating absent records for EMPLOYEES who didn't check in..."
     );
 
-    // Get all active employees who don't have attendance records for today
+    // Get all active EMPLOYEES (not freelancers) who don't have attendance records for today
     const activeEmployeesWithoutRecords = await db.employee.findMany({
       where: {
         status: EmployeeStatus.ACTIVE,
@@ -560,10 +593,10 @@ async function createAbsentRecords() {
         });
 
         console.log(
-          `Auto-attendance: Created absent record for ${employee.firstName} ${employee.lastName}`
+          `Auto-attendance: Created absent record for EMPLOYEE ${employee.firstName} ${employee.lastName}`
         );
 
-        // CREATE WARNING FOR AUTO-CREATED ABSENT RECORD
+        // CREATE WARNING FOR AUTO-CREATED ABSENT RECORD (only for employees)
         const warning = await checkAndCreateAbsentWarning(
           employee.id,
           today,
@@ -586,7 +619,7 @@ async function createAbsentRecords() {
     }
 
     console.log(
-      `Auto-attendance: Completed. Created ${createdRecords.length} absent records and ${createdWarnings.length} warnings.`
+      `Auto-attendance: Completed. Created ${createdRecords.length} EMPLOYEE absent records and ${createdWarnings.length} warnings.`
     );
     return createdRecords.length > 0;
   } catch (error) {

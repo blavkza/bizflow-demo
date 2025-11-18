@@ -5,7 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MapPin, UserCheck, QrCode } from "lucide-react";
+import { MapPin, UserCheck, QrCode, User, UserCog } from "lucide-react";
 import {
   AttendanceRecord,
   AttendanceStatus,
@@ -18,17 +18,27 @@ interface ReportsSectionProps {
 }
 
 export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
-  const totalEmployees = attendanceRecords.length;
-  const presentEmployees = attendanceRecords.filter(
+  const totalEmployees = attendanceRecords.filter(
+    (record) => record.employeeId
+  ).length;
+  const totalFreelancers = attendanceRecords.filter(
+    (record) => record.freeLancerId
+  ).length;
+  const totalPersons = attendanceRecords.length;
+
+  const presentPersons = attendanceRecords.filter(
     (r) => r.status === AttendanceStatus.PRESENT
   ).length;
-  const lateEmployees = attendanceRecords.filter(
+
+  const latePersons = attendanceRecords.filter(
     (r) => r.status === AttendanceStatus.LATE
   ).length;
-  const absentEmployees = attendanceRecords.filter(
+
+  const absentPersons = attendanceRecords.filter(
     (r) => r.status === AttendanceStatus.ABSENT
   ).length;
-  const onLeaveEmployees = attendanceRecords.filter((r) =>
+
+  const onLeavePersons = attendanceRecords.filter((r) =>
     isLeaveStatus(r.status)
   ).length;
 
@@ -50,8 +60,21 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
     0
   );
 
+  // Check-in methods breakdown
+  const gpsCheckIns = attendanceRecords.filter(
+    (r) => r.checkInMethod === CheckInMethod.GPS
+  ).length;
+
+  const manualCheckIns = attendanceRecords.filter(
+    (r) => r.checkInMethod === CheckInMethod.MANUAL
+  ).length;
+
+  const barcodeCheckIns = attendanceRecords.filter(
+    (r) => r.checkInMethod === CheckInMethod.BARCODE
+  ).length;
+
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       <Card>
         <CardHeader>
           <CardTitle>Attendance Summary</CardTitle>
@@ -60,11 +83,23 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
         <CardContent>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
+              <span>Total Persons</span>
+              <span className="font-semibold">{totalPersons}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Employees</span>
+              <span className="font-semibold">{totalEmployees}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Freelancers</span>
+              <span className="font-semibold">{totalFreelancers}</span>
+            </div>
+            <div className="flex items-center justify-between">
               <span>Present</span>
               <span className="font-semibold text-green-600">
-                {presentEmployees} (
-                {totalEmployees > 0
-                  ? Math.round((presentEmployees / totalEmployees) * 100)
+                {presentPersons} (
+                {totalPersons > 0
+                  ? Math.round((presentPersons / totalPersons) * 100)
                   : 0}
                 %)
               </span>
@@ -72,9 +107,9 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
             <div className="flex items-center justify-between">
               <span>Late</span>
               <span className="font-semibold text-yellow-600">
-                {lateEmployees} (
-                {totalEmployees > 0
-                  ? Math.round((lateEmployees / totalEmployees) * 100)
+                {latePersons} (
+                {totalPersons > 0
+                  ? Math.round((latePersons / totalPersons) * 100)
                   : 0}
                 %)
               </span>
@@ -82,9 +117,9 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
             <div className="flex items-center justify-between">
               <span>Absent</span>
               <span className="font-semibold text-red-600">
-                {absentEmployees} (
-                {totalEmployees > 0
-                  ? Math.round((absentEmployees / totalEmployees) * 100)
+                {absentPersons} (
+                {totalPersons > 0
+                  ? Math.round((absentPersons / totalPersons) * 100)
                   : 0}
                 %)
               </span>
@@ -92,9 +127,9 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
             <div className="flex items-center justify-between">
               <span>On Leave</span>
               <span className="font-semibold text-blue-600">
-                {onLeaveEmployees} (
-                {totalEmployees > 0
-                  ? Math.round((onLeaveEmployees / totalEmployees) * 100)
+                {onLeavePersons} (
+                {totalPersons > 0
+                  ? Math.round((onLeavePersons / totalPersons) * 100)
                   : 0}
                 %)
               </span>
@@ -127,12 +162,9 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Average Hours per Employee</span>
+              <span>Average Hours per Person</span>
               <span className="font-semibold">
-                {totalEmployees > 0
-                  ? (totalHours / totalEmployees).toFixed(1)
-                  : 0}
-                h
+                {totalPersons > 0 ? (totalHours / totalPersons).toFixed(1) : 0}h
               </span>
             </div>
           </div>
@@ -153,13 +185,7 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
                 </div>
                 <span>GPS Check-In</span>
               </div>
-              <span className="font-semibold">
-                {
-                  attendanceRecords.filter(
-                    (r) => r.checkInMethod === CheckInMethod.GPS
-                  ).length
-                }
-              </span>
+              <span className="font-semibold">{gpsCheckIns}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -168,13 +194,7 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
                 </div>
                 <span>Manual Check-In</span>
               </div>
-              <span className="font-semibold">
-                {
-                  attendanceRecords.filter(
-                    (r) => r.checkInMethod === CheckInMethod.MANUAL
-                  ).length
-                }
-              </span>
+              <span className="font-semibold">{manualCheckIns}</span>
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
@@ -183,13 +203,7 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
                 </div>
                 <span>Barcode Check-In</span>
               </div>
-              <span className="font-semibold">
-                {
-                  attendanceRecords.filter(
-                    (r) => r.checkInMethod === CheckInMethod.BARCODE
-                  ).length
-                }
-              </span>
+              <span className="font-semibold">{barcodeCheckIns}</span>
             </div>
           </div>
         </CardContent>

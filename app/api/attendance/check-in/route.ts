@@ -4,6 +4,7 @@ import {
   CheckInMethod,
   AttendanceStatus,
   EmployeeStatus,
+  FreeLancerStatus,
   LeaveStatus,
 } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
@@ -19,6 +20,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       employeeId,
+      freelancerId,
       location,
       notes,
       method = CheckInMethod.MANUAL,
@@ -27,29 +29,45 @@ export async function POST(request: NextRequest) {
       address,
     } = body;
 
-    if (!employeeId) {
+    if (!employeeId && !freelancerId) {
       return NextResponse.json(
-        { error: "Employee ID is required" },
+        { error: "Employee ID or Freelancer ID is required" },
         { status: 400 }
       );
     }
 
-    // Find employee with scheduled times and leave requests
-    const employee = await db.employee.findUnique({
-      where: { employeeNumber: employeeId },
-      include: {
-        department: true,
-        leaveRequests: {
-          where: {
-            status: LeaveStatus.APPROVED,
+    let person: any = null;
+    let personType: "employee" | "freelancer" = "employee";
+
+    // Find employee or freelancer
+    if (employeeId) {
+      person = await db.employee.findUnique({
+        where: { employeeNumber: employeeId },
+        include: {
+          department: true,
+          leaveRequests: {
+            where: {
+              status: LeaveStatus.APPROVED,
+            },
           },
         },
-      },
-    });
+      });
+      personType = "employee";
+    } else {
+      person = await db.freeLancer.findUnique({
+        where: { freeLancerNumber: freelancerId },
+        include: {
+          department: true,
+        },
+      });
+      personType = "freelancer";
+    }
 
-    if (!employee) {
+    if (!person) {
       return NextResponse.json(
-        { error: "Employee not found" },
+        {
+          error: `${personType === "employee" ? "Employee" : "Freelancer"} not found`,
+        },
         { status: 404 }
       );
     }
@@ -58,26 +76,20 @@ export async function POST(request: NextRequest) {
     today.setHours(0, 0, 0, 0);
     const currentTime = new Date();
 
-    // Check if employee is on leave today
-    const isOnLeave = await checkIfEmployeeOnLeave(employee, today);
+    // Check if employee is on leave today (only for employees, not freelancers)
+    if (personType === "employee") {
+      const isOnLeave = await checkIfEmployeeOnLeave(person, today);
 
-    if (isOnLeave) {
-      return NextResponse.json(
-        {
-          error: "Employee is on approved leave today",
-          leaveType: isOnLeave.leaveType,
-          reason: isOnLeave.reason,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check if employee status is ON_LEAVE
-    if (employee.status === EmployeeStatus.ON_LEAVE) {
-      return NextResponse.json(
-        { error: "Employee is currently on leave status" },
-        { status: 400 }
-      );
+      if (isOnLeave) {
+        return NextResponse.json(
+          {
+            error: "Employee is on approved leave today",
+            leaveType: isOnLeave.leaveType,
+            reason: isOnLeave.reason,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // Check if today is a working day
@@ -85,9 +97,9 @@ export async function POST(request: NextRequest) {
     const todayDay = dayNames[currentTime.getDay()];
 
     if (
-      employee.workingDays &&
-      employee.workingDays.length > 0 &&
-      !employee.workingDays.includes(todayDay)
+      person.workingDays &&
+      person.workingDays.length > 0 &&
+      !person.workingDays.includes(todayDay)
     ) {
       return NextResponse.json(
         {
@@ -97,19 +109,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if employee has already checked in today
+    // Check if already checked in today
+    const uniqueConstraint =
+      personType === "employee"
+        ? { employeeId_date: { employeeId: person.id, date: today } }
+        : { freeLancerId_date: { freeLancerId: person.id, date: today } };
+
     let attendanceRecord = await db.attendanceRecord.findUnique({
-      where: {
-        employeeId_date: {
-          employeeId: employee.id,
-          date: today,
-        },
-      },
+      where: uniqueConstraint,
     });
 
     if (attendanceRecord && attendanceRecord.checkIn) {
       return NextResponse.json(
-        { error: "Employee already checked in today" },
+        {
+          error: `${personType === "employee" ? "Employee" : "Freelancer"} already checked in today`,
+        },
         { status: 400 }
       );
     }
@@ -118,17 +132,14 @@ export async function POST(request: NextRequest) {
     let status: AttendanceStatus = AttendanceStatus.PRESENT;
     let isLate = false;
 
-    if (employee.scheduledKnockIn) {
-      // Parse the time string (e.g., "20:00") to compare with current time
-      const scheduledTimeString = employee.scheduledKnockIn;
-      const [scheduledHours, scheduledMinutes] = scheduledTimeString
+    if (person.scheduledKnockIn) {
+      const [scheduledHours, scheduledMinutes] = person.scheduledKnockIn
         .split(":")
         .map(Number);
 
       const scheduledDateTime = new Date();
       scheduledDateTime.setHours(scheduledHours, scheduledMinutes, 0, 0);
 
-      // If current time is more than 30 minutes after scheduled time, mark as late
       const lateThreshold = new Date(scheduledDateTime.getTime() + 30 * 60000);
 
       if (currentTime > lateThreshold) {
@@ -137,13 +148,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    //  Check for late attendance warnings
+    // Check for late attendance warnings (only for employees)
     let warningCreated = null;
-    if (isLate) {
-      warningCreated = await checkAndCreateLateWarning(
-        employee.id,
-        currentTime
-      );
+    if (isLate && personType === "employee") {
+      warningCreated = await checkAndCreateLateWarning(person.id, currentTime);
     }
 
     // Prepare data for create/update
@@ -155,30 +163,41 @@ export async function POST(request: NextRequest) {
       checkInLng: lng ? parseFloat(lng) : null,
       status: status,
       notes: notes || null,
+      scheduledKnockIn: person.scheduledKnockIn,
+      scheduledKnockOut: person.scheduledKnockOut,
     };
 
-    // Only include scheduled times as strings
-    if (employee.scheduledKnockIn) {
-      attendanceData.scheduledKnockIn = employee.scheduledKnockIn;
-    }
-    if (employee.scheduledKnockOut) {
-      attendanceData.scheduledKnockOut = employee.scheduledKnockOut;
+    // Set the correct relationship field
+    if (personType === "employee") {
+      attendanceData.employeeId = person.id;
+    } else {
+      attendanceData.freeLancerId = person.id;
     }
 
     if (!attendanceRecord) {
       // Create new attendance record
       attendanceRecord = await db.attendanceRecord.create({
         data: {
-          employeeId: employee.id,
-          date: today,
           ...attendanceData,
+          date: today,
         },
         include: {
-          employee: {
-            include: {
-              department: true,
-            },
-          },
+          employee:
+            personType === "employee"
+              ? {
+                  include: {
+                    department: true,
+                  },
+                }
+              : false,
+          freeLancer:
+            personType === "freelancer"
+              ? {
+                  include: {
+                    department: true,
+                  },
+                }
+              : false,
         },
       });
     } else {
@@ -187,16 +206,27 @@ export async function POST(request: NextRequest) {
         where: { id: attendanceRecord.id },
         data: attendanceData,
         include: {
-          employee: {
-            include: {
-              department: true,
-            },
-          },
+          employee:
+            personType === "employee"
+              ? {
+                  include: {
+                    department: true,
+                  },
+                }
+              : false,
+          freeLancer:
+            personType === "freelancer"
+              ? {
+                  include: {
+                    department: true,
+                  },
+                }
+              : false,
         },
       });
     }
 
-    // ALWAYS trigger auto-attendance for leave employees in the background
+    // Trigger auto-attendance for leave employees (only employees)
     console.log("Triggering auto-attendance for leave employees...");
     triggerAutoAttendanceForLeave().catch((error) => {
       console.error("Auto-attendance background task failed:", error);
@@ -208,6 +238,7 @@ export async function POST(request: NextRequest) {
       status: status.toLowerCase(),
       isLate: isLate,
       warning: warningCreated,
+      personType,
     });
   } catch (error) {
     console.error("Check-in error:", error);
@@ -218,7 +249,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Check if employee is on leave today
 async function checkIfEmployeeOnLeave(
   employee: any,
   today: Date
@@ -244,14 +274,6 @@ async function checkIfEmployeeOnLeave(
       }
     }
 
-    // Check if employee status is ON_LEAVE
-    if (employee.status === EmployeeStatus.ON_LEAVE) {
-      return {
-        leaveType: "ON_LEAVE",
-        reason: "Employee is on leave status",
-      };
-    }
-
     return null;
   } catch (error) {
     console.error("Error checking leave status:", error);
@@ -259,7 +281,7 @@ async function checkIfEmployeeOnLeave(
   }
 }
 
-// Check and create late attendance warnings
+// Keep your existing checkAndCreateLateWarning function exactly as is
 async function checkAndCreateLateWarning(
   employeeId: string,
   currentTime: Date
@@ -365,7 +387,7 @@ async function checkAndCreateLateWarning(
   }
 }
 
-// Background function to create auto-attendance records for leave employees
+// Keep your existing triggerAutoAttendanceForLeave function exactly as is
 async function triggerAutoAttendanceForLeave() {
   try {
     const today = new Date();
@@ -378,7 +400,6 @@ async function triggerAutoAttendanceForLeave() {
     const employees = await db.employee.findMany({
       where: {
         OR: [
-          { status: EmployeeStatus.ON_LEAVE },
           {
             leaveRequests: {
               some: {
@@ -469,6 +490,7 @@ async function triggerAutoAttendanceForLeave() {
   }
 }
 
+// Keep your existing shouldCreateLeaveAttendanceRecord function exactly as is
 async function shouldCreateLeaveAttendanceRecord(
   employee: any,
   targetDate: Date
@@ -510,24 +532,13 @@ async function shouldCreateLeaveAttendanceRecord(
     };
   }
 
-  // Check if employee is on leave status (without specific approved leave request)
-  if (employee.status === EmployeeStatus.ON_LEAVE) {
-    console.log(
-      `Employee ${employee.firstName} ${employee.lastName} has ON_LEAVE status`
-    );
-    return {
-      shouldCreate: true,
-      status: AttendanceStatus.ANNUAL_LEAVE,
-      notes: "Auto-created: On Leave Status",
-    };
-  }
-
   console.log(
     `shouldCreateLeaveAttendanceRecord: No condition met for employee ${employee.firstName} ${employee.lastName}`
   );
   return { shouldCreate: false };
 }
 
+// Keep your existing helper functions exactly as is
 function getLeaveAttendanceStatus(leaveType: string): AttendanceStatus {
   switch (leaveType) {
     case "SICK":

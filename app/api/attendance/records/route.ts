@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
-import { AttendanceStatus, EmployeeStatus } from "@prisma/client";
+import {
+  AttendanceStatus,
+  EmployeeStatus,
+  FreeLancerStatus,
+} from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,15 +27,18 @@ export async function GET(request: NextRequest) {
     const targetDate = new Date(date);
     targetDate.setHours(0, 0, 0, 0);
 
-    // Build where clause for active employees
+    // Build where clause for active employees and freelancers
     const activeEmployeesWhere: any = {
       status: EmployeeStatus.ACTIVE,
     };
 
+    const activeFreelancersWhere: any = {
+      status: FreeLancerStatus.ACTIVE,
+    };
+
     if (department && department !== "All Departments") {
-      activeEmployeesWhere.department = {
-        name: department,
-      };
+      activeEmployeesWhere.department = { name: department };
+      activeFreelancersWhere.department = { name: department };
     }
 
     // Get all active employees with their scheduled times
@@ -39,7 +46,6 @@ export async function GET(request: NextRequest) {
       where: activeEmployeesWhere,
       include: {
         department: true,
-        // Get today's attendance record if it exists
         AttendanceRecord: {
           where: {
             date: targetDate,
@@ -52,25 +58,41 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Transform data to include calculated status
-    const records = activeEmployees.map((employee) => {
-      const todayRecord = employee.AttendanceRecord[0];
-      const currentTime = new Date();
+    // Get all active freelancers with their scheduled times
+    const activeFreelancers = await db.freeLancer.findMany({
+      where: activeFreelancersWhere,
+      include: {
+        department: true,
+        attendanceRecords: {
+          where: {
+            date: targetDate,
+          },
+          take: 1,
+        },
+      },
+      orderBy: {
+        firstName: "asc",
+      },
+    });
 
-      // Calculate status based on current time and employee's scheduled times
+    const currentTime = new Date();
+
+    // Transform employee data
+    const employeeRecords = activeEmployees.map((employee) => {
+      const todayRecord = employee.AttendanceRecord[0];
+
       let status: AttendanceStatus;
       let displayStatus: string;
 
       if (todayRecord) {
-        // Employee has an attendance record for today
         status = todayRecord.status;
         displayStatus = getStatusDisplayName(todayRecord.status);
       } else {
-        // No attendance record - calculate based on current time and employee's scheduled times
         const calculatedStatus = calculateAttendanceStatus(
           employee,
           currentTime,
-          targetDate
+          targetDate,
+          "employee"
         );
         status = calculatedStatus.status;
         displayStatus = calculatedStatus.displayStatus;
@@ -87,10 +109,11 @@ export async function GET(request: NextRequest) {
           avatar: employee.avatar,
           position: employee.position,
           department: employee.department,
-          scheduledKnockIn: employee.scheduledKnockIn, // From employee record
-          scheduledKnockOut: employee.scheduledKnockOut, // From employee record
-          workingDays: employee.workingDays, // From employee record
+          scheduledKnockIn: employee.scheduledKnockIn,
+          scheduledKnockOut: employee.scheduledKnockOut,
+          workingDays: employee.workingDays,
         },
+        freeLancer: null,
         date: targetDate.toISOString(),
         checkIn: todayRecord?.checkIn,
         checkOut: todayRecord?.checkOut,
@@ -104,13 +127,73 @@ export async function GET(request: NextRequest) {
         status,
         displayStatus,
         isVirtualRecord: !todayRecord,
+        personType: "employee" as const,
         createdAt: todayRecord?.createdAt,
         updatedAt: todayRecord?.updatedAt,
       };
     });
 
+    // Transform freelancer data
+    const freelancerRecords = activeFreelancers.map((freelancer) => {
+      const todayRecord = freelancer.attendanceRecords[0];
+
+      let status: AttendanceStatus;
+      let displayStatus: string;
+
+      if (todayRecord) {
+        status = todayRecord.status;
+        displayStatus = getStatusDisplayName(todayRecord.status);
+      } else {
+        const calculatedStatus = calculateAttendanceStatus(
+          freelancer,
+          currentTime,
+          targetDate,
+          "freelancer"
+        );
+        status = calculatedStatus.status;
+        displayStatus = calculatedStatus.displayStatus;
+      }
+
+      return {
+        id: todayRecord?.id || `virtual-${freelancer.id}`,
+        freeLancerId: freelancer.id,
+        freeLancer: {
+          id: freelancer.id,
+          firstName: freelancer.firstName,
+          lastName: freelancer.lastName,
+          freeLancerNumber: freelancer.freeLancerNumber,
+          avatar: freelancer.avatar,
+          position: freelancer.position,
+          department: freelancer.departmentId,
+          scheduledKnockIn: freelancer.scheduledKnockIn,
+          scheduledKnockOut: freelancer.scheduledKnockOut,
+          workingDays: freelancer.workingDays,
+        },
+        employee: null,
+        date: targetDate.toISOString(),
+        checkIn: todayRecord?.checkIn,
+        checkOut: todayRecord?.checkOut,
+        checkInMethod: todayRecord?.checkInMethod,
+        checkInAddress: todayRecord?.checkInAddress,
+        checkInLat: todayRecord?.checkInLat,
+        checkInLng: todayRecord?.checkInLng,
+        regularHours: todayRecord?.regularHours,
+        overtimeHours: todayRecord?.overtimeHours,
+        notes: todayRecord?.notes,
+        status,
+        displayStatus,
+        isVirtualRecord: !todayRecord,
+        personType: "freelancer" as const,
+        createdAt: todayRecord?.createdAt,
+        updatedAt: todayRecord?.updatedAt,
+      };
+    });
+
+    // Combine both employee and freelancer records
+    const allRecords = [...employeeRecords, ...freelancerRecords];
+
     // Filter by status if specified
-    let filteredRecords = records;
+    let filteredRecords = allRecords;
     if (status && status !== "All Status") {
       const statusMap: { [key: string]: AttendanceStatus } = {
         Present: AttendanceStatus.PRESENT,
@@ -118,11 +201,12 @@ export async function GET(request: NextRequest) {
         Absent: AttendanceStatus.ABSENT,
         "Annual Leave": AttendanceStatus.ANNUAL_LEAVE,
         "Sick Leave": AttendanceStatus.SICK_LEAVE,
+        "Half Day": AttendanceStatus.HALF_DAY,
       };
 
       const targetStatus = statusMap[status];
       if (targetStatus) {
-        filteredRecords = records.filter(
+        filteredRecords = allRecords.filter(
           (record) => record.status === targetStatus
         );
       }
@@ -139,30 +223,22 @@ export async function GET(request: NextRequest) {
 }
 
 function calculateAttendanceStatus(
-  employee: any,
+  person: any,
   currentTime: Date,
-  targetDate: Date
+  targetDate: Date,
+  personType: "employee" | "freelancer"
 ) {
   const today = new Date().toDateString();
   const targetDay = targetDate.toDateString();
   const isToday = today === targetDay;
 
-  // Check if employee is on leave
-  const isOnLeave = employee.status === EmployeeStatus.ON_LEAVE;
-  if (isOnLeave) {
-    return {
-      status: AttendanceStatus.ANNUAL_LEAVE,
-      displayStatus: "On Leave",
-    };
-  }
-
-  // Check if today is a working day for this employee
+  // Check if today is a working day for this person
   const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
   const todayDay = dayNames[currentTime.getDay()];
-  const workingDays = Array.isArray(employee.workingDays)
-    ? employee.workingDays
-    : employee.workingDays
-      ? JSON.parse(employee.workingDays)
+  const workingDays = Array.isArray(person.workingDays)
+    ? person.workingDays
+    : person.workingDays
+      ? JSON.parse(person.workingDays)
       : [];
 
   const isWorkingDay = workingDays.includes(todayDay);
@@ -182,17 +258,17 @@ function calculateAttendanceStatus(
     };
   }
 
-  // For today - calculate based on employee's scheduled times
-  if (!employee.scheduledKnockIn || !employee.scheduledKnockOut) {
+  // For today - calculate based on person's scheduled times
+  if (!person.scheduledKnockIn || !person.scheduledKnockOut) {
     return {
       status: AttendanceStatus.ABSENT,
       displayStatus: "No Schedule",
     };
   }
 
-  // Get scheduled times from employee record
-  const scheduledKnockIn = new Date(employee.scheduledKnockIn);
-  const scheduledKnockOut = new Date(employee.scheduledKnockOut);
+  // Get scheduled times from person record
+  const scheduledKnockIn = new Date(person.scheduledKnockIn);
+  const scheduledKnockOut = new Date(person.scheduledKnockOut);
 
   // Set scheduled times to today for comparison
   const scheduledInToday = new Date(currentTime);
@@ -211,7 +287,7 @@ function calculateAttendanceStatus(
     0
   );
 
-  const lateThreshold = new Date(scheduledInToday.getTime() + 30 * 60000); // 15 minutes grace period
+  const lateThreshold = new Date(scheduledInToday.getTime() + 30 * 60000); // 30 minutes grace period
 
   if (currentTime < scheduledInToday) {
     // Before scheduled knock-in time - show as ABSENT but "Not Checked In"
@@ -262,6 +338,12 @@ function getStatusDisplayName(status: AttendanceStatus): string {
       return "Unpaid Leave";
     case AttendanceStatus.HALF_DAY:
       return "Half Day";
+    case AttendanceStatus.MATERNITY_LEAVE:
+      return "Maternity Leave";
+    case AttendanceStatus.PATERNITY_LEAVE:
+      return "Paternity Leave";
+    case AttendanceStatus.STUDY_LEAVE:
+      return "Study Leave";
     default:
       return status;
   }

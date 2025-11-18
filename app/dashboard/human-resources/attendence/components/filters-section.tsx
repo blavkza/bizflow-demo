@@ -1,4 +1,5 @@
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -6,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 
 interface FiltersSectionProps {
   searchTerm: string;
@@ -20,15 +21,6 @@ interface FiltersSectionProps {
   departmentOptions: string[];
 }
 
-const statusOptions = [
-  "All Status",
-  "Present",
-  "Late",
-  "Absent",
-  "Annual Leave",
-  "Sick Leave",
-];
-
 export function FiltersSection({
   searchTerm,
   setSearchTerm,
@@ -41,48 +33,80 @@ export function FiltersSection({
   departmentOptions,
 }: FiltersSectionProps) {
   return (
-    <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-      <div className="flex-1">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="space-y-2">
+        <Label htmlFor="search">Search</Label>
         <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search employees..."
+            id="search"
+            placeholder="Search by name or ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
+            className="pl-10"
           />
         </div>
       </div>
-      <Input
-        type="date"
-        value={selectedDate}
-        onChange={(e) => setSelectedDate(e.target.value)}
-        className="w-[180px]"
-      />
-      <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Department" />
-        </SelectTrigger>
-        <SelectContent>
-          {departmentOptions.map((dept) => (
-            <SelectItem key={dept} value={dept}>
-              {dept}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          {statusOptions.map((status) => (
-            <SelectItem key={status} value={status}>
-              {status}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+
+      <div className="space-y-2">
+        <Label htmlFor="date">Date</Label>
+        <Input
+          id="date"
+          type="date"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="department">Department</Label>
+        <Select
+          value={selectedDepartment}
+          onValueChange={setSelectedDepartment}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {departmentOptions.map((dept) => (
+              <SelectItem key={dept} value={dept}>
+                {dept}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="status">Status</Label>
+        <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All Status">All Status</SelectItem>
+            <SelectItem value="Present">Present</SelectItem>
+            <SelectItem value="Late">Late</SelectItem>
+            <SelectItem value="Absent">Absent</SelectItem>
+            <SelectItem value="Half Day">Half Day</SelectItem>
+            <SelectItem value="Annual Leave">Annual Leave</SelectItem>
+            <SelectItem value="Sick Leave">Sick Leave</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-end">
+        <div className="flex items-center justify-center w-full h-10 rounded-md border bg-muted/50">
+          <Filter className="h-4 w-4 text-muted-foreground mr-2" />
+          <span className="text-sm text-muted-foreground">
+            {searchTerm ||
+            selectedDepartment !== "All Departments" ||
+            selectedStatus !== "All Status"
+              ? "Filters Active"
+              : "All Records"}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -6,7 +6,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,8 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ManualCheckInData } from "../types";
-import { Loader2 } from "lucide-react";
+import { Loader2, MapPin } from "lucide-react";
+import { LocationPicker } from "./location-picker";
 
 interface ManualCheckInDialogProps {
   open: boolean;
@@ -41,30 +42,94 @@ export function ManualCheckInDialog({
 }: ManualCheckInDialogProps) {
   const [formData, setFormData] = useState<ManualCheckInData>({
     employeeId: "",
+    freelancerId: "",
     location: "",
     notes: "",
+    lat: undefined,
+    lng: undefined,
   });
+  const [personType, setPersonType] = useState<"employee" | "freelancer">(
+    "employee"
+  );
+  const [showMap, setShowMap] = useState(false);
 
   const handleSubmit = () => {
-    if (!formData.employeeId || !formData.location) {
+    const id =
+      personType === "employee" ? formData.employeeId : formData.freelancerId;
+
+    if (!id || !formData.location) {
       return;
     }
     onCheckIn(formData);
-    setFormData({ employeeId: "", location: "", notes: "" });
+    setFormData({
+      employeeId: "",
+      freelancerId: "",
+      location: "",
+      notes: "",
+      lat: undefined,
+      lng: undefined,
+    });
+  };
+
+  const handleLocationSelect = (location: {
+    address: string;
+    lat: number;
+    lng: number;
+  }) => {
+    setFormData((prev) => ({
+      ...prev,
+      location: location.address,
+      lat: location.lat,
+      lng: location.lng,
+    }));
+    setShowMap(false);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      employeeId: "",
+      freelancerId: "",
+      location: "",
+      notes: "",
+      lat: undefined,
+      lng: undefined,
+    });
+    setPersonType("employee");
+    setShowMap(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <div style={{ display: "none" }} />
-      </DialogTrigger>
-      <DialogContent>
+    <Dialog
+      open={open}
+      onOpenChange={(open) => {
+        if (!open) {
+          resetForm();
+        }
+        onOpenChange(open);
+      }}
+    >
+      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Manual Check-In/Out</DialogTitle>
           <DialogDescription>
-            Record attendance manually without GPS or barcode
+            Record attendance manually for employees or freelancers
           </DialogDescription>
         </DialogHeader>
+
+        <Tabs
+          value={personType}
+          onValueChange={(value) => {
+            if (value === "employee" || value === "freelancer") {
+              setPersonType(value);
+            }
+          }}
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="employee">Employee</TabsTrigger>
+            <TabsTrigger value="freelancer">Freelancer</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Check-In Type</Label>
@@ -81,31 +146,56 @@ export function ManualCheckInDialog({
               </SelectContent>
             </Select>
           </div>
+
           <div className="space-y-2">
-            <Label htmlFor="employeeId">Employee ID *</Label>
+            <Label htmlFor="id">
+              {personType === "employee" ? "Employee ID" : "Freelancer ID"} *
+            </Label>
             <Input
-              id="employeeId"
-              placeholder="EMP001"
-              value={formData.employeeId}
+              id="id"
+              placeholder={personType === "employee" ? "EMP001" : "FRL001"}
+              value={
+                personType === "employee"
+                  ? formData.employeeId
+                  : formData.freelancerId
+              }
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  employeeId: e.target.value.toUpperCase(),
+                  [personType === "employee" ? "employeeId" : "freelancerId"]:
+                    e.target.value.toUpperCase(),
                 })
               }
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="location">Location *</Label>
-            <Input
-              id="location"
-              placeholder="Main Office, Client Site, etc."
-              value={formData.location}
-              onChange={(e) =>
-                setFormData({ ...formData, location: e.target.value })
-              }
-            />
-          </div>
+
+          {!showMap ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="location">Location *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowMap(true)}
+                >
+                  <MapPin className="mr-2 h-4 w-4" />
+                  Select on Map
+                </Button>
+              </div>
+              <Input
+                id="location"
+                placeholder="Main Office, Client Site, etc."
+                value={formData.location}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
+              />
+            </div>
+          ) : (
+            <LocationPicker onLocationSelect={handleLocationSelect} />
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="notes">Notes (Optional)</Label>
             <Textarea
@@ -118,13 +208,24 @@ export function ManualCheckInDialog({
             />
           </div>
         </div>
+
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              resetForm();
+              onOpenChange(false);
+            }}
+          >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isLoading || !formData.employeeId || !formData.location}
+            disabled={
+              isLoading ||
+              !formData.location ||
+              !(formData.employeeId || formData.freelancerId)
+            }
           >
             {isLoading ? (
               <>

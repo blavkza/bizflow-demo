@@ -26,7 +26,7 @@ export function AttendanceHeader({
             Attendance Tracking
           </h1>
           <p className="text-muted-foreground">
-            View and Manage Attendance information
+            View and Manage Attendance information for Employees & Freelancers
           </p>
         </div>
       </div>
@@ -34,7 +34,6 @@ export function AttendanceHeader({
       <div className="flex items-center space-x-2">
         {(hasFullAccess || canCreateAttendance) && (
           <>
-            {" "}
             <Button variant="outline" onClick={onManualCheckIn}>
               <UserCheck className="mr-2 h-4 w-4" />
               Manual Check-In
