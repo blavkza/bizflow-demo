@@ -509,18 +509,18 @@ const TaskDetailsDialog = ({ data }: { data: any }) => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
+                {/*   <div className="flex justify-between">
                   <span>Average Completion Time</span>
                   <span className="font-medium">
                     {taskMetrics.avgCompletionTime || "not calculated"} days
                   </span>
-                </div>
-                <div className="flex justify-between">
+                </div> */}
+                {/* <div className="flex justify-between">
                   <span>On-Time Completion</span>
                   <span className="font-medium">
-                    {taskMetrics.onTimeCompletionRate || 0}%
+                    {taskMetrics.onTimeCompletionRate || 78.3}%
                   </span>
-                </div>
+                </div> */}
                 <div className="flex justify-between">
                   <span>Tasks Due This Week</span>
                   <span className="font-medium">
