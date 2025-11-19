@@ -432,14 +432,14 @@ export default function PayrollHistory({
                         <Eye className="h-4 w-4 mr-1" />
                         View
                       </Button>
-                      <Button
+                      {/* <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleDownloadReport(payroll.id)}
                       >
                         <Download className="h-4 w-4 mr-1" />
                         Report
-                      </Button>
+                      </Button> */}
                     </div>
                   </TableCell>
                 </TableRow>
