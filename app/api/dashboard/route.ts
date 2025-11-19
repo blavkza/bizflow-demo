@@ -468,6 +468,7 @@ export async function GET(request: NextRequest) {
       hrSettings,
       cashFlowForecast,
       recentTransactionsData,
+      allTimeExpenseTransactions, // <--- ADDED ALL TIME EXPENSE TRANSACTIONS
     ] = await Promise.all([
       // Current month invoices
       db.invoice.findMany({
@@ -714,6 +715,14 @@ export async function GET(request: NextRequest) {
       // Add the new function calls
       getCashFlowForecast(),
       getRecentTransactions(),
+
+      // <--- NEW QUERY FOR ALL-TIME EXPENSE TRANSACTIONS --->
+      db.transaction.findMany({
+        where: {
+          type: TransactionType.EXPENSE, // Filter by EXPENSE type
+        },
+      }),
+      // <--- END NEW QUERY --->
     ]);
 
     // Type the results
@@ -746,6 +755,11 @@ export async function GET(request: NextRequest) {
     const typedFreelancers = freelancers as unknown as DashboardFreeLancer[];
     const typedLeaveRequests =
       leaveRequests as unknown as DashboardLeaveRequest[];
+
+    // <--- NEW TYPING --->
+    const typedAllTimeExpenseTransactions =
+      allTimeExpenseTransactions as unknown as DashboardTransaction[];
+    // <--- END NEW TYPING --->
 
     // NEW: Calculate income and expenses from transactions for WelcomeHeader and charts
     const currentMonthIncomeFromTransactions = typedAllTransactions
@@ -1111,6 +1125,14 @@ export async function GET(request: NextRequest) {
         0
       );
 
+    // <--- NEW CALCULATION FOR ALL-TIME EXPENSE TRANSACTIONS --->
+    const allTimeTotalExpensesAmount = typedAllTimeExpenseTransactions.reduce(
+      (sum: number, transaction: DashboardTransaction) =>
+        sum + convertDecimalToNumber(transaction.amount),
+      0
+    );
+    // <--- END NEW CALCULATION --->
+
     // Employee metrics
     const activeEmployees = typedEmployees.filter(
       (employee: DashboardEmployee) => employee.status === "ACTIVE"
@@ -1388,6 +1410,10 @@ export async function GET(request: NextRequest) {
         pendingExpensesAmount,
         partiallyPaidExpensesCount: partiallyPaidExpensesCount,
         partiallyPaidExpensesAmount,
+
+        // <--- ADDED NEW FIELD --->
+        allTimeTotalExpensesAmount,
+        // <--- END ADDED NEW FIELD --->
 
         // USE TRANSACTIONS FOR WELCOMEHEADER AND CHARTS
         monthlyRevenue: currentMonthIncomeFromTransactions,

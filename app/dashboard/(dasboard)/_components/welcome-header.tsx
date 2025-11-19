@@ -29,7 +29,7 @@ export default function WelcomeHeader({ isLoading, data }: WelcomeHeaderProps) {
   const financialMetrics = {
     netProfit: financialData.netProfit || 0, // All-time net profit from transactions
     totalRevenue: financialData.monthlyRevenue || 0, // All-time total revenue (renamed from monthlyRevenue)
-    totalExpenses: financialData.totalExpensesAmount || 0, // All-time total expenses
+    totalExpenses: financialData.allTimeTotalExpensesAmount || 0, // All-time total expenses
     outstandingInvoices: financialData.outstandingInvoicesAmount || 0, // Current outstanding
   };
 
