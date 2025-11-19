@@ -46,28 +46,40 @@ export async function POST(request: Request) {
     // Get company info for the PDF
     const companyInfo = await db.generalSetting.findFirst();
 
-    // Generate PDF
-    let pdfBuffer: Buffer;
+    // Generate PDF or fallback to HTML
+    let attachment: any;
+    let attachmentType: "pdf" | "html" = "pdf";
     let pdfGenerationMethod = "primary";
 
     try {
-      pdfBuffer = await QuotationPDFService.generateQuotationPDF(
+      const pdfBuffer = await QuotationPDFService.generateQuotationPDF(
         quotation,
         companyInfo
       );
+      attachment = {
+        filename: `quotation_${quotation.quotationNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      };
     } catch (pdfError) {
       console.error("Primary PDF generation failed:", pdfError);
 
       // Fallback: Try basic PDF generation
       try {
-        pdfBuffer = await QuotationPDFService.generateQuotationPDF(
+        const pdfBuffer = await QuotationPDFService.generateQuotationPDF(
           quotation,
           companyInfo
         );
+        attachment = {
+          filename: `quotation_${quotation.quotationNumber}.pdf`,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        };
         pdfGenerationMethod = "fallback";
       } catch (fallbackError) {
         console.error("All PDF generation methods failed:", fallbackError);
 
+        // Final fallback: Use HTML content
         const mappedCompanyInfo = companyInfo
           ? {
               id: companyInfo.id,
@@ -92,13 +104,18 @@ export async function POST(request: Request) {
             }
           : null;
 
-        // Final fallback: Use HTML content
         const htmlContent =
           QuotationReportGenerator.generateQuotationReportHTML(
             quotation,
             mappedCompanyInfo
           );
-        pdfBuffer = Buffer.from(htmlContent, "utf-8");
+
+        attachment = {
+          filename: `quotation_${quotation.quotationNumber}.html`,
+          content: htmlContent,
+          contentType: "text/html",
+        };
+        attachmentType = "html";
         pdfGenerationMethod = "html";
       }
     }
@@ -128,14 +145,6 @@ export async function POST(request: Request) {
       (new Date(quotation.validUntil).getTime() - new Date().getTime()) /
         (1000 * 60 * 60 * 24)
     );
-
-    // Determine attachment type
-    const isPDF = pdfGenerationMethod !== "html";
-    const attachment = {
-      filename: `quotation_${quotation.quotationNumber}.${isPDF ? "pdf" : "html"}`,
-      content: pdfBuffer,
-      contentType: isPDF ? "application/pdf" : "text/html",
-    };
 
     // Get company name from quotation or use default
     const companyName =
@@ -174,6 +183,7 @@ export async function POST(request: Request) {
       success: true,
       messageId: info.messageId,
       pdfMethod: pdfGenerationMethod,
+      attachmentType,
       daysUntilExpiry,
       message: `Quotation sent successfully to ${toEmail}`,
     });

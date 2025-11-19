@@ -279,18 +279,20 @@ model Department {
 }
 
 model Employee {
-  id              String         @id @default(cuid())
-  employeeNumber  String         @unique
-  firstName       String
-  lastName        String
-  email           String?        @unique
-  phone           String?
-  avatar          String?
-  position        String
-  departmentId    String?
-  salaryType      SalaryType?    @default(MONTHLY)
-  dailySalary     Decimal        @db.Decimal(15, 2)
-  monthlySalary   Decimal        @db.Decimal(15, 2)
+  id               String      @id @default(cuid())
+  employeeNumber   String      @unique
+  firstName        String
+  lastName         String
+  email            String?     @unique
+  phone            String?
+  avatar           String?
+  position         String
+  departmentId     String?
+  salaryType       SalaryType? @default(MONTHLY)
+  dailySalary      Decimal     @db.Decimal(15, 2)
+  monthlySalary    Decimal     @db.Decimal(15, 2)
+  overtimeHourRate Float       @default(50.00)
+
   currency        String         @default("ZAR")
   hireDate        DateTime
   terminationDate DateTime?
@@ -371,21 +373,23 @@ model Employee {
 }
 
 model FreeLancer {
-  id               String           @id @default(cuid())
-  freeLancerNumber String           @unique
+  id               String  @id @default(cuid())
+  freeLancerNumber String  @unique
   firstName        String
   lastName         String
-  email            String?          @unique
+  email            String? @unique
   phone            String?
   avatar           String?
   position         String
   departmentId     String?
-  salary           Decimal          @db.Decimal(15, 2)
-  currency         String           @default("ZAR")
-  hireDate         DateTime
-  terminationDate  DateTime?
-  status           FreeLancerStatus @default(ACTIVE)
-  reliable         Boolean?
+  salary           Decimal @db.Decimal(15, 2)
+  overtimeHourRate Float   @default(50.00)
+
+  currency        String           @default("ZAR")
+  hireDate        DateTime
+  terminationDate DateTime?
+  status          FreeLancerStatus @default(ACTIVE)
+  reliable        Boolean?
 
   // Personal Information
   idNumber      String?
@@ -1944,14 +1948,15 @@ model Customer {
 }
 
 model Payment {
-  id          String        @id @default(cuid())
-  employeeId  String
-  amount      Decimal       @db.Decimal(15, 2)
-  currency    String        @default("ZAR")
-  type        PaymentType
-  description String?
-  payDate     DateTime
-  status      PaymentStatus @default(PAID)
+  id           String        @id @default(cuid())
+  employeeId   String?
+  freeLancerId String?
+  amount       Decimal       @db.Decimal(15, 2)
+  currency     String        @default("ZAR")
+  type         PaymentType
+  description  String?
+  payDate      DateTime
+  status       PaymentStatus @default(PAID)
 
   baseAmount     Decimal @db.Decimal(15, 2)
   overtimeAmount Decimal @db.Decimal(15, 2)
@@ -1966,16 +1971,15 @@ model Payment {
   updatedAt DateTime @updatedAt
 
   transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
-  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  Payroll      Payroll?    @relation(fields: [payrollId], references: [id])
-  payrollId    String?
-  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  freeLancerId String?
+  employee   Employee?   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  freeLancer FreeLancer? @relation(fields: [freeLancerId], references: [id], onDelete: Cascade)
+  Payroll    Payroll?    @relation(fields: [payrollId], references: [id])
+  payrollId  String?
 
   @@index([employeeId])
+  @@index([freeLancerId])
   @@index([payDate])
   @@map("payments")
 }

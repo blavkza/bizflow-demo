@@ -1,30 +1,15 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, Calendar, Users } from "lucide-react";
-import { Employee } from "@prisma/client";
-import { Decimal } from "@prisma/client/runtime/library";
+import {
+  DollarSign,
+  Calendar,
+  Users,
+  UserCheck,
+  Briefcase,
+} from "lucide-react";
 import { useEffect, useState } from "react";
-
-interface Payment {
-  amount: Decimal;
-  payDate: Date;
-}
-
-interface DepartmentManager {
-  name: string;
-}
-
-interface Department {
-  id: string;
-  name: string;
-  manager: DepartmentManager | null;
-}
-
-interface EmployeeWithDetails extends Employee {
-  department: Department | null;
-  payments: Payment[];
-}
+import { WorkerWithDetails } from "@/types/payroll"; // Import from your types file
 
 interface HRSettings {
   paymentDay: number;
@@ -32,7 +17,20 @@ interface HRSettings {
 }
 
 interface StatsCardProps {
-  employees?: EmployeeWithDetails[];
+  employees?: WorkerWithDetails[]; // Use the imported type
+}
+
+// Type guard functions
+function isFreelancer(
+  worker: WorkerWithDetails
+): worker is WorkerWithDetails & { isFreelancer: true } {
+  return worker.isFreelancer === true;
+}
+
+function isEmployee(
+  worker: WorkerWithDetails
+): worker is WorkerWithDetails & { isFreelancer: false } {
+  return !worker.isFreelancer;
 }
 
 export default function StatsCard({ employees = [] }: StatsCardProps) {
@@ -40,14 +38,58 @@ export default function StatsCard({ employees = [] }: StatsCardProps) {
   const [nextPayDate, setNextPayDate] = useState<Date | null>(null);
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
 
-  const totalPayroll = employees.reduce(
-    (sum, employee) =>
-      employee?.status === "ACTIVE" ? sum + Number(employee?.salary || 0) : sum,
+  const activeWorkers = employees.filter(
+    (worker) => worker?.status === "ACTIVE"
+  );
+
+  const activeEmployees = activeWorkers.filter(isEmployee);
+  const activeFreelancers = activeWorkers.filter(isFreelancer);
+
+  const totalWorkers = employees.length;
+  const totalActiveWorkers = activeWorkers.length;
+
+  const employeesOnly = employees.filter(isEmployee);
+  const freelancersOnly = employees.filter(isFreelancer);
+
+  const calculateEmployeePayroll = (
+    employee: WorkerWithDetails & { isFreelancer: false }
+  ): number => {
+    // Use type assertion to access the properties safely
+    const emp = employee as any;
+
+    if (employee.salaryType === "DAILY") {
+      return Number(emp.dailySalary || emp.salary || 0);
+    } else {
+      return Number(emp.monthlySalary || emp.salary || 0) / 22;
+    }
+  };
+
+  const calculateFreelancerPayroll = (
+    freelancer: WorkerWithDetails & { isFreelancer: true }
+  ): number => {
+    // Freelancers always use daily rate from salary field
+    const free = freelancer as any;
+    return Number(free.salary || 0);
+  };
+
+  const totalEmployeePayroll = activeEmployees.reduce(
+    (sum, employee) => sum + calculateEmployeePayroll(employee),
     0
   );
 
-  const activeWorkers = employees.filter(
-    (employee) => employee?.status === "ACTIVE"
+  const totalFreelancerPayroll = activeFreelancers.reduce(
+    (sum, freelancer) => sum + calculateFreelancerPayroll(freelancer),
+    0
+  );
+
+  const totalPayroll = totalEmployeePayroll + totalFreelancerPayroll;
+
+  // Calculate salary type breakdown
+  const dailyEmployees = activeEmployees.filter(
+    (emp) => emp.salaryType === "DAILY"
+  ).length;
+  const monthlyEmployees = activeEmployees.filter(
+    (emp) => emp.salaryType === "MONTHLY"
   ).length;
 
   // Fetch HR settings and calculate next pay date
@@ -126,37 +168,90 @@ export default function StatsCard({ employees = [] }: StatsCardProps) {
     return `${days} days remaining`;
   };
 
+  // Format currency
+  const formatCurrency = (value: number): string => {
+    return `R${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-4">
+      {/* Total Workers Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Workers</CardTitle>
           <Users className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{employees.length}</div>
+          <div className="text-2xl font-bold">{totalWorkers}</div>
           <p className="text-xs text-muted-foreground">
-            {activeWorkers} active workers
+            {totalActiveWorkers} active workers
+          </p>
+          <p className="text-xs text-blue-500 mt-1">
+            {employeesOnly.length} emp + {freelancersOnly.length} free
           </p>
         </CardContent>
       </Card>
+
+      {/* Employees Payroll Card */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Daily Payroll</CardTitle>
+          <CardTitle className="text-sm font-medium">Employees Daily</CardTitle>
+          <UserCheck className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-blue-600">
+            {formatCurrency(totalEmployeePayroll)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {activeEmployees.length} active employees
+          </p>
+          <p className="text-xs text-blue-500 mt-1">
+            {dailyEmployees} daily + {monthlyEmployees} monthly
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Freelancers Payroll Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">
+            Freelancers Daily
+          </CardTitle>
+          <Briefcase className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-green-600">
+            {formatCurrency(totalFreelancerPayroll)}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {activeFreelancers.length} active freelancers
+          </p>
+          <p className="text-xs text-green-500 mt-1">All daily rate</p>
+        </CardContent>
+      </Card>
+
+      {/* Total Daily Payroll Card */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Total Daily</CardTitle>
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            R{totalPayroll.toLocaleString()}
+          <div className="text-2xl font-bold text-purple-600">
+            {formatCurrency(totalPayroll)}
           </div>
           <p className="text-xs text-muted-foreground">
-            Total expenses for{" "}
-            <span className="text-green-500 font-bold">ACTIVE</span> employees
-            per Day
+            Combined daily payroll
+          </p>
+          <p className="text-xs text-purple-500 mt-1">
+            Emp: {formatCurrency(totalEmployeePayroll)} + Free:{" "}
+            {formatCurrency(totalFreelancerPayroll)}
           </p>
         </CardContent>
       </Card>
-      <Card>
+
+      {/* Next Payroll Card */}
+      <Card className="md:col-span-4">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Next Payroll</CardTitle>
           <Calendar className="h-4 w-4 text-muted-foreground" />

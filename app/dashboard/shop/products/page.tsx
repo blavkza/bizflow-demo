@@ -11,6 +11,7 @@ import { SummaryCards } from "./components/SummaryCards";
 import { Filters } from "./components/Filters";
 import { ProductGrid } from "./components/ProductGrid";
 import ShopPageSkeleton from "./components/ShopPageSkeleton";
+import { ExportProductsButton } from "./components/ExportProductsButton";
 
 export default function ShopPage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -191,17 +192,21 @@ export default function ShopPage() {
             <Plus className="mr-2 h-4 w-4" />
             Add Category
           </Button>
-
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Product
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/dashboard/shop/sales">
               <ShoppingCart className="mr-2 h-4 w-4" />
               Sales
             </Link>
           </Button>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Product
-          </Button>
+          <ExportProductsButton
+            searchTerm={searchTerm}
+            categoryFilter={selectedCategory}
+            statusFilter={selectedStatus}
+          />
         </div>
       </div>
 

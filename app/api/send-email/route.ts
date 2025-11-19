@@ -7,6 +7,7 @@ import db from "@/lib/db";
 import { InvoiceReportGenerator } from "@/lib/invoiceReportGenerator";
 import { PDFService } from "@/lib/services/pdf-service";
 import { auth } from "@clerk/nextjs/server";
+import { InvoiceStatus } from "@prisma/client";
 
 interface EmailRequest {
   invoice: InvoiceProps;
@@ -46,30 +47,41 @@ export async function POST(request: Request) {
     // Get company info for the PDF
     const companyInfo = await db.generalSetting.findFirst();
 
-    // Generate PDF
-    let pdfBuffer: Buffer;
+    // Generate PDF or fallback to HTML
+    let attachment: any;
+    let attachmentType: "pdf" | "html" = "pdf";
     let pdfGenerationMethod = "primary";
 
     try {
-      pdfBuffer = await PDFService.generateInvoicePDF(invoice, companyInfo);
+      const pdfBuffer = await PDFService.generateInvoicePDF(
+        invoice,
+        companyInfo
+      );
+      attachment = {
+        filename: `invoice_${invoice.invoiceNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      };
     } catch (pdfError) {
       console.error("Primary PDF generation failed:", pdfError);
 
       // Fallback: Try basic PDF generation
       try {
         const { PDFService } = await import("@/lib/services/pdf-service");
-        pdfBuffer = await PDFService.generateInvoicePDF(invoice, companyInfo);
+        const pdfBuffer = await PDFService.generateInvoicePDF(
+          invoice,
+          companyInfo
+        );
+        attachment = {
+          filename: `invoice_${invoice.invoiceNumber}.pdf`,
+          content: pdfBuffer,
+          contentType: "application/pdf",
+        };
         pdfGenerationMethod = "fallback";
       } catch (fallbackError) {
         console.error("All PDF generation methods failed:", fallbackError);
 
-        const companyInfo = await db.generalSetting.findFirst();
-
-        console.log(`Starting email send to: ${toEmail}`);
-        console.log(`SMTP Host: ${process.env.SMTP_HOST}`);
-        console.log(`SMTP Port: ${process.env.SMTP_PORT}`);
-        console.log(`SMTP User: ${process.env.SMTP_MAIL}`);
-
+        // Final fallback: Use HTML content
         const mappedCompanyInfo = companyInfo
           ? {
               id: companyInfo.id,
@@ -94,12 +106,17 @@ export async function POST(request: Request) {
             }
           : null;
 
-        // Final fallback: Use HTML content
         const htmlContent = InvoiceReportGenerator.generateInvoiceReportHTML(
           invoice,
           mappedCompanyInfo
         );
-        pdfBuffer = Buffer.from(htmlContent, "utf-8");
+
+        attachment = {
+          filename: `invoice_${invoice.invoiceNumber}.html`,
+          content: htmlContent,
+          contentType: "text/html",
+        };
+        attachmentType = "html";
         pdfGenerationMethod = "html";
       }
     }
@@ -124,14 +141,6 @@ export async function POST(request: Request) {
     // Verify connection
     await transporter.verify();
 
-    // Determine attachment type
-    const isPDF = pdfGenerationMethod !== "html";
-    const attachment = {
-      filename: `invoice_${invoice.invoiceNumber}.${isPDF ? "pdf" : "html"}`,
-      content: pdfBuffer,
-      contentType: isPDF ? "application/pdf" : "text/html",
-    };
-
     // Send email with attachment
     const info = await transporter.sendMail({
       from: `"${invoice.creator.GeneralSetting[0]?.companyName || "Rethynk Domain"}" <${process.env.SMTP_MAIL}>`,
@@ -141,11 +150,12 @@ export async function POST(request: Request) {
       attachments: [attachment],
     });
 
-    // Update invoice status to SENT if not already PAID
     const updatedInvoiceStatus = await db.invoice.updateMany({
       where: {
         id: invoice.id,
-        status: { not: "PAID" },
+        status: {
+          in: [InvoiceStatus.DRAFT],
+        },
       },
       data: { status: "SENT" },
     });
@@ -167,6 +177,7 @@ export async function POST(request: Request) {
       messageId: info.messageId,
       updatedInvoiceStatus,
       pdfMethod: pdfGenerationMethod,
+      attachmentType,
       message: `Invoice sent successfully to ${toEmail}`,
     });
   } catch (error) {

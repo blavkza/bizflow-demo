@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { AttendanceStatus } from "@prisma/client";
+import { AttendanceStatus, SalaryType } from "@prisma/client";
 import { calculateOvertime } from "@/lib/overtime-calculations";
 
 export async function GET(request: Request) {
@@ -14,19 +14,11 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month");
+    const workerType = searchParams.get("workerType") || "all";
 
     if (!month) {
       return NextResponse.json(
         { error: "Month parameter is required" },
-        { status: 400 }
-      );
-    }
-
-    // Get HR settings for overtime calculation
-    const hrSettings = await db.hRSettings.findFirst();
-    if (!hrSettings) {
-      return NextResponse.json(
-        { error: "HR settings not found" },
         { status: 400 }
       );
     }
@@ -37,175 +29,111 @@ export async function GET(request: Request) {
     const endDate = new Date(year, monthNum, 0);
 
     console.log(
-      `Fetching payroll data for ${month}: ${startDate} to ${endDate}`
+      `Fetching payroll data for ${month}, workerType: ${workerType}`
     );
 
-    const employees = await db.employee.findMany({
-      where: {
-        status: "ACTIVE",
-      },
-      include: {
-        department: {
-          include: {
-            manager: {
-              select: {
-                name: true,
+    // Calculate working days in month
+    const workingDaysInMonth = getWorkingDaysInMonth(year, monthNum);
+
+    // Fetch data based on worker type
+    let employees: any[] = [];
+    let freelancers: any[] = [];
+
+    if (workerType === "all" || workerType === "employees") {
+      employees = await db.employee.findMany({
+        where: {
+          status: "ACTIVE",
+        },
+        include: {
+          department: {
+            include: {
+              manager: {
+                select: {
+                  name: true,
+                },
               },
             },
           },
-        },
-        payments: {
-          where: {
-            payDate: {
-              gte: startDate,
-              lte: endDate,
+          AttendanceRecord: {
+            where: {
+              date: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+            select: {
+              id: true,
+              date: true,
+              status: true,
+              regularHours: true,
+              overtimeHours: true,
+              checkIn: true,
+              checkOut: true,
             },
           },
-          select: {
-            amount: true,
-            payDate: true,
-          },
         },
-        // Get attendance records for the month
-        AttendanceRecord: {
-          where: {
-            date: {
-              gte: startDate,
-              lte: endDate,
+      });
+    }
+
+    if (workerType === "all" || workerType === "freelancers") {
+      freelancers = await db.freeLancer.findMany({
+        where: {
+          status: "ACTIVE",
+        },
+        include: {
+          department: {
+            include: {
+              manager: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
-          select: {
-            id: true,
-            date: true,
-            status: true,
-            regularHours: true,
-            overtimeHours: true,
-            checkIn: true,
-            checkOut: true,
+          attendanceRecords: {
+            where: {
+              date: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+            select: {
+              id: true,
+              date: true,
+              status: true,
+              regularHours: true,
+              overtimeHours: true,
+              checkIn: true,
+              checkOut: true,
+            },
           },
         },
-      },
-    });
+      });
+    }
 
     console.log(
-      `Found ${employees.length} employees with ${employees.reduce((acc, emp) => acc + emp.AttendanceRecord.length, 0)} attendance records`
+      `Found ${employees.length} employees and ${freelancers.length} freelancers`
     );
 
-    // Calculate worked days and amounts for each employee with overtime
-    const employeesWithCalculations = employees.map((employee) => {
-      const dailySalary = Number(employee.salary) || 0; // This is DAILY rate
-      const dailyRate = dailySalary;
-
-      // Count paid days and calculate overtime
-      let totalRegularHours = 0;
-      let totalOvertimeHours = 0;
-      let totalOvertimeAmount = 0;
-
-      const paidDays = employee.AttendanceRecord.filter((record) => {
-        const isPaidDay =
-          record.status !== AttendanceStatus.ABSENT &&
-          record.status !== AttendanceStatus.UNPAID_LEAVE;
-
-        if (isPaidDay && record.overtimeHours) {
-          totalOvertimeHours += Number(record.overtimeHours);
-
-          // Calculate overtime amount using FIXED RATE with DAILY salary
-          const overtimeCalc = calculateOvertime(
-            record.regularHours,
-            record.overtimeHours,
-            dailySalary, // Pass daily salary instead of monthly
-            hrSettings.overtimeHourRate // Fixed amount (e.g., 50)
-          );
-
-          totalOvertimeAmount += overtimeCalc.overtimeAmount;
-        }
-
-        if (isPaidDay && record.regularHours) {
-          totalRegularHours += Number(record.regularHours);
-        }
-
-        return isPaidDay;
-      }).length;
-
-      // Calculate base amount (daily rate * paid days)
-      const baseAmount = parseFloat((dailyRate * paidDays).toFixed(2)) || 0;
-
-      // Total amount including overtime - THIS IS THE KEY CALCULATION
-      const totalAmount = parseFloat(
-        (baseAmount + totalOvertimeAmount).toFixed(2)
-      );
-
-      console.log(`Employee ${employee.firstName} ${employee.lastName}:`, {
-        dailySalary,
-        paidDays,
-        baseAmount,
-        overtimeHours: totalOvertimeHours,
-        overtimeAmount: totalOvertimeAmount,
-        totalAmount,
-      });
-
-      // Calculate attendance breakdown
-      const presentDays = employee.AttendanceRecord.filter(
-        (record) =>
-          record.status === AttendanceStatus.PRESENT ||
-          record.status === AttendanceStatus.LATE
-      ).length;
-
-      const halfDays = employee.AttendanceRecord.filter(
-        (record) => record.status === AttendanceStatus.HALF_DAY
-      ).length;
-
-      const leaveDays = employee.AttendanceRecord.filter(
-        (record) =>
-          record.status === AttendanceStatus.ANNUAL_LEAVE ||
-          record.status === AttendanceStatus.SICK_LEAVE
-      ).length;
-
-      const absentDays = employee.AttendanceRecord.filter(
-        (record) => record.status === AttendanceStatus.ABSENT
-      ).length;
-
-      const unpaidLeaveDays = employee.AttendanceRecord.filter(
-        (record) => record.status === AttendanceStatus.UNPAID_LEAVE
-      ).length;
-
-      return {
-        id: employee.id,
-        firstName: employee.firstName,
-        lastName: employee.lastName,
-        salary: employee.salary,
-        department: employee.department,
-        dailySalary: dailySalary,
-        dailyRate: dailyRate,
-        paidDays: paidDays,
-        baseAmount: baseAmount,
-        overtimeHours: parseFloat(totalOvertimeHours.toFixed(2)),
-        overtimeAmount: parseFloat(totalOvertimeAmount.toFixed(2)),
-        amount: totalAmount, // THIS MUST BE SET CORRECTLY
-        totalAmount: totalAmount, // Added for clarity
-        regularHours: parseFloat(totalRegularHours.toFixed(2)),
-        overtimeFixedRate: hrSettings.overtimeHourRate,
-        attendanceRecords: employee.AttendanceRecord.length,
-        attendanceBreakdown: {
-          presentDays: presentDays,
-          halfDays: halfDays,
-          leaveDays: leaveDays,
-          absentDays: absentDays,
-          unpaidLeaveDays: unpaidLeaveDays,
-          totalDays: employee.AttendanceRecord.length,
-        },
-      };
+    // Process employees
+    const employeeCalculations = employees.map((employee) => {
+      return calculateWorkerPayroll(employee, false, workingDaysInMonth);
     });
 
-    // Debug: Check final amounts
-    const totalCalculated = employeesWithCalculations.reduce(
-      (sum, emp) => sum + emp.amount,
-      0
-    );
-    console.log("Total calculated payroll:", totalCalculated);
-    console.log("Employees with calculations:", employeesWithCalculations);
+    // Process freelancers
+    const freelancerCalculations = freelancers.map((freelancer) => {
+      return calculateWorkerPayroll(freelancer, true, workingDaysInMonth);
+    });
 
-    return NextResponse.json(employeesWithCalculations);
+    const allCalculations = [
+      ...employeeCalculations,
+      ...freelancerCalculations,
+    ];
+
+    console.log(`Total payroll calculations: ${allCalculations.length}`);
+    console.log("Sample calculation:", allCalculations[0]);
+
+    return NextResponse.json(allCalculations);
   } catch (error) {
     console.error("Failed to fetch payroll calculations:", error);
     return NextResponse.json(
@@ -213,4 +141,176 @@ export async function GET(request: Request) {
       { status: 500 }
     );
   }
+}
+
+function calculateWorkerPayroll(
+  worker: any,
+  isFreelancer: boolean,
+  workingDaysInMonth: number
+) {
+  const attendanceRecords = isFreelancer
+    ? worker.attendanceRecords
+    : worker.AttendanceRecord;
+  const salaryType = isFreelancer ? "DAILY" : worker.salaryType || "MONTHLY";
+
+  // Use worker's individual overtime rate
+  const overtimeHourRate = worker.overtimeHourRate || 50.0;
+
+  // Get the correct salary fields based on worker type
+  let dailyRate = 0;
+  let monthlySalary = 0;
+
+  if (isFreelancer) {
+    // Freelancers: use salary field as daily rate
+    dailyRate = Number(worker.salary) || 0;
+    monthlySalary = dailyRate * workingDaysInMonth; // For display purposes only
+  } else {
+    // Employees: use the correct salary fields from the database
+    if (salaryType === "DAILY") {
+      // Daily employees: use dailySalary field
+      dailyRate = Number(worker.dailySalary) || 0;
+      monthlySalary = dailyRate * workingDaysInMonth;
+    } else {
+      // Monthly employees: use monthlySalary field
+      monthlySalary = Number(worker.monthlySalary) || 0;
+      dailyRate = monthlySalary / workingDaysInMonth; // For unpaid leave calculation
+    }
+  }
+
+  // Count attendance records and calculate overtime
+  let totalRegularHours = 0;
+  let totalOvertimeHours = 0;
+  let totalOvertimeAmount = 0;
+
+  const paidDays = attendanceRecords.filter((record: any) => {
+    const isPaidDay =
+      record.status !== AttendanceStatus.ABSENT &&
+      record.status !== AttendanceStatus.UNPAID_LEAVE;
+
+    if (isPaidDay && record.overtimeHours) {
+      totalOvertimeHours += Number(record.overtimeHours);
+
+      const overtimeCalc = calculateOvertime(
+        record.regularHours,
+        record.overtimeHours,
+        dailyRate,
+        overtimeHourRate
+      );
+
+      totalOvertimeAmount += overtimeCalc.overtimeAmount;
+    }
+
+    if (isPaidDay && record.regularHours) {
+      totalRegularHours += Number(record.regularHours);
+    }
+
+    return isPaidDay;
+  }).length;
+
+  // Calculate base amount based on salary type
+  let baseAmount = 0;
+
+  if (isFreelancer || salaryType === "DAILY") {
+    // Freelancers and daily employees: daily rate × paid days
+    baseAmount = parseFloat((dailyRate * paidDays).toFixed(2));
+  } else {
+    // Monthly employees: full monthly salary minus unpaid leave deduction only
+    const unpaidLeaveDays = attendanceRecords.filter(
+      (record: any) => record.status === AttendanceStatus.UNPAID_LEAVE
+    ).length;
+
+    // Only deduct for unpaid leave days
+    const unpaidDeduction = dailyRate * unpaidLeaveDays;
+    baseAmount = parseFloat((monthlySalary - unpaidDeduction).toFixed(2));
+
+    console.log(`Monthly employee ${worker.firstName} ${worker.lastName}:`, {
+      monthlySalary,
+      unpaidLeaveDays,
+      unpaidDeduction,
+      baseAmount,
+    });
+  }
+
+  const totalAmount = parseFloat((baseAmount + totalOvertimeAmount).toFixed(2));
+
+  // Calculate attendance breakdown
+  const attendanceBreakdown = calculateAttendanceBreakdown(attendanceRecords);
+
+  return {
+    id: worker.id,
+    firstName: worker.firstName,
+    lastName: worker.lastName,
+    email: worker.email,
+    salaryType,
+    monthlySalary,
+    dailySalary: dailyRate,
+    overtimeHourRate: overtimeHourRate,
+    department: worker.department,
+    paidDays,
+    baseAmount,
+    overtimeHours: parseFloat(totalOvertimeHours.toFixed(2)),
+    overtimeAmount: parseFloat(totalOvertimeAmount.toFixed(2)),
+    amount: totalAmount,
+    totalAmount,
+    regularHours: parseFloat(totalRegularHours.toFixed(2)),
+    isFreelancer,
+    employeeType: isFreelancer ? "FREELANCER" : "EMPLOYEE",
+    attendanceBreakdown,
+    dailyRate,
+    overtimeFixedRate: overtimeHourRate,
+  };
+}
+
+function getWorkingDaysInMonth(year: number, month: number): number {
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0);
+  let workingDays = 0;
+
+  for (
+    let day = new Date(startDate);
+    day <= endDate;
+    day.setDate(day.getDate() + 1)
+  ) {
+    const dayOfWeek = day.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      workingDays++;
+    }
+  }
+
+  return workingDays;
+}
+
+function calculateAttendanceBreakdown(records: any[]) {
+  const presentDays = records.filter(
+    (record) =>
+      record.status === AttendanceStatus.PRESENT ||
+      record.status === AttendanceStatus.LATE
+  ).length;
+
+  const halfDays = records.filter(
+    (record) => record.status === AttendanceStatus.HALF_DAY
+  ).length;
+
+  const leaveDays = records.filter(
+    (record) =>
+      record.status === AttendanceStatus.ANNUAL_LEAVE ||
+      record.status === AttendanceStatus.SICK_LEAVE
+  ).length;
+
+  const absentDays = records.filter(
+    (record) => record.status === AttendanceStatus.ABSENT
+  ).length;
+
+  const unpaidLeaveDays = records.filter(
+    (record) => record.status === AttendanceStatus.UNPAID_LEAVE
+  ).length;
+
+  return {
+    presentDays,
+    halfDays,
+    leaveDays,
+    absentDays,
+    unpaidLeaveDays,
+    totalDays: records.length,
+  };
 }

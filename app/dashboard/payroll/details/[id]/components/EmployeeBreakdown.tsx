@@ -1,8 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Users, User, IdCard, Briefcase } from "lucide-react";
+import { Users, User, IdCard, Briefcase, UserCheck } from "lucide-react";
 import { Payroll } from "@/types/payroll";
 import { Decimal } from "@prisma/client/runtime/library";
+import { Badge } from "@/components/ui/badge";
 
 interface EmployeeBreakdownProps {
   payroll: Payroll;
@@ -22,38 +23,60 @@ export default function EmployeeBreakdown({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Users className="h-5 w-5" />
-          Employee Breakdown ({payroll.payments.length} employees)
+          Worker Breakdown ({payroll.payments.length} workers)
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {payroll.payments.map((payment, index) => (
+          {payroll.payments.map((payment: any, index) => (
             <div key={payment.id} className="space-y-4">
               {index > 0 && <Separator />}
 
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex-1 space-y-3">
-                  {/* Employee Header */}
+                  {/* Worker Header */}
                   <div className="flex items-start justify-between">
                     <div className="space-y-1">
                       <div className="flex items-center gap-3">
-                        <User className="h-5 w-5 text-muted-foreground" />
+                        {payment.worker?.isFreelancer ? (
+                          <Briefcase className="h-5 w-5 text-orange-500" />
+                        ) : (
+                          <UserCheck className="h-5 w-5 text-blue-500" />
+                        )}
                         <div>
-                          <p className="font-medium text-lg">
-                            {payment.employee.firstName}{" "}
-                            {payment.employee.lastName}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-lg">
+                              {payment.worker?.firstName || "Unknown"}{" "}
+                              {payment.worker?.lastName || "Worker"}
+                            </p>
+                            <Badge
+                              variant={
+                                payment.worker?.isFreelancer
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                              className="text-xs"
+                            >
+                              {payment.worker?.isFreelancer
+                                ? "Freelancer"
+                                : "Employee"}
+                            </Badge>
+                          </div>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <IdCard className="h-3 w-3" />
-                            <span>#{payment.employee.employeeNumber}</span>
+                            <span>
+                              #{payment.worker?.workerNumber || "N/A"}
+                            </span>
                             <span>•</span>
                             <Briefcase className="h-3 w-3" />
-                            <span>{payment.employee.position}</span>
+                            <span>
+                              {payment.worker?.position || "No position"}
+                            </span>
                           </div>
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        {payment.employee.department?.name || "No department"}
+                        {payment.worker?.department?.name || "No department"}
                       </p>
                     </div>
                     <div className="text-right">
@@ -77,22 +100,42 @@ export default function EmployeeBreakdown({
                     </div>
                   </div>
 
-                  {/* Payment Details */}
+                  {/* Worker Details */}
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Employee #:</span>
+                      <span className="text-muted-foreground">Worker #:</span>
                       <p className="font-medium">
-                        #{payment.employee.employeeNumber}
+                        #{payment.worker?.workerNumber || "N/A"}
                       </p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Position:</span>
-                      <p className="font-medium">{payment.employee.position}</p>
+                      <p className="font-medium">
+                        {payment.worker?.position || "N/A"}
+                      </p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Department:</span>
                       <p className="font-medium">
-                        {payment.employee.department?.name || "N/A"}
+                        {payment.worker?.department?.name || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        Salary Type:
+                      </span>
+                      <p className="font-medium capitalize">
+                        {payment.worker?.salaryType?.toLowerCase() || "N/A"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">
+                        Worker Type:
+                      </span>
+                      <p className="font-medium">
+                        {payment.worker?.isFreelancer
+                          ? "Freelancer"
+                          : "Employee"}
                       </p>
                     </div>
                   </div>

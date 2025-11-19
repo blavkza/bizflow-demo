@@ -98,11 +98,14 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-medium text-blue-800">
-                Base Salary Calculation
+                {employee.isFreelancer || employee.salaryType === "DAILY"
+                  ? "Daily Salary Calculation"
+                  : "Monthly Salary Calculation"}
               </p>
               <p className="text-xs text-blue-600">
-                {employee.paidDays} days × {formatCurrency(employee.dailyRate)}
-                /day
+                {employee.isFreelancer || employee.salaryType === "DAILY"
+                  ? `${employee.paidDays} days × ${formatCurrency(employee.dailyRate)}/day`
+                  : `Monthly: ${formatCurrency(employee.monthlySalary)} - ${employee.attendanceBreakdown?.unpaidLeaveDays || 0} unpaid days`}
               </p>
             </div>
             <Badge variant="outline" className="bg-blue-100 text-blue-800">

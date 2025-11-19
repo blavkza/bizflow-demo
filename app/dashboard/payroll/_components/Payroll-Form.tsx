@@ -1,15 +1,15 @@
-// components/payroll/PayrollForm.tsx
+// app/workers/_components/Payroll-Form.tsx
 "use client";
 
 import { useForm, FormProvider } from "react-hook-form";
 import { useState, useEffect } from "react";
-import { PaymentType } from "@prisma/client";
+import { PaymentType, SalaryType } from "@prisma/client";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 
 import {
-  EmployeeWithDetails,
+  WorkerWithDetails,
   PayrollData,
   PayrollSubmissionData,
   PayrollCalculationData,
@@ -23,27 +23,47 @@ import { PayrollNoDataState } from "./PayrollNoDataState";
 import { PayrollDataTabs } from "./PayrollDataTabs";
 import { PayrollSummary } from "./PayrollSummary";
 import { PayrollActions } from "./PayrollActions";
+import { WorkerTypeFilter } from "./WorkerTypeFilter";
 
 const PayrollSchema = z.object({
   description: z.string().optional(),
   type: z.nativeEnum(PaymentType),
   month: z.string().regex(/^\d{4}-\d{2}$/, "Month must be in YYYY-MM format"),
+  workerType: z.enum(["all", "employees", "freelancers"]).default("all"),
 });
 
 type PayrollFormValues = z.infer<typeof PayrollSchema>;
 
 interface PayrollFormProps {
-  employees: EmployeeWithDetails[];
+  employees: WorkerWithDetails[];
   onCancel?: () => void;
   onSubmitSuccess?: () => void;
 }
 
-// Function to get current month in YYYY-MM format
 const getCurrentMonth = () => {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
+};
+
+const getWorkingDaysInMonth = (year: number, month: number): number => {
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0);
+  let workingDays = 0;
+
+  for (
+    let day = new Date(startDate);
+    day <= endDate;
+    day.setDate(day.getDate() + 1)
+  ) {
+    const dayOfWeek = day.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      workingDays++;
+    }
+  }
+
+  return workingDays;
 };
 
 export default function PayrollForm({
@@ -54,6 +74,7 @@ export default function PayrollForm({
   const [isLoading, setIsLoading] = useState(false);
   const [payrollData, setPayrollData] = useState<PayrollCalculationData[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedWorkerType, setSelectedWorkerType] = useState<string>("all");
   const [payrollRestriction, setPayrollRestriction] = useState<{
     canProcess: boolean;
     message?: string;
@@ -68,14 +89,13 @@ export default function PayrollForm({
     defaultValues: {
       description: "",
       type: PaymentType.SALARY,
-      month: currentMonth, // Set current month as default
+      month: currentMonth,
+      workerType: "all",
     },
   });
 
-  // Load HR settings and initial payroll data
   useEffect(() => {
     const initializeData = async () => {
-      // Load HR settings
       try {
         const response = await fetch("/api/hr/settings");
         if (response.ok) {
@@ -86,24 +106,29 @@ export default function PayrollForm({
         console.error("Failed to load HR settings:", error);
       }
 
-      // Load payroll data for current month
       setSelectedMonth(currentMonth);
+      setSelectedWorkerType("all");
       checkPayrollRestrictions(currentMonth);
-      loadPayrollData(currentMonth);
+      loadPayrollData(currentMonth, "all");
     };
 
     initializeData();
   }, [currentMonth]);
 
-  // Check payroll restrictions when month changes
   useEffect(() => {
     const month = formMethods.watch("month");
-    if (month && month !== selectedMonth) {
+    const workerType = formMethods.watch("workerType");
+
+    if (
+      month &&
+      (month !== selectedMonth || workerType !== selectedWorkerType)
+    ) {
       setSelectedMonth(month);
+      setSelectedWorkerType(workerType);
       checkPayrollRestrictions(month);
-      loadPayrollData(month);
+      loadPayrollData(month, workerType);
     }
-  }, [formMethods.watch("month")]);
+  }, [formMethods.watch("month"), formMethods.watch("workerType")]);
 
   const checkPayrollRestrictions = async (month: string) => {
     try {
@@ -117,11 +142,15 @@ export default function PayrollForm({
     }
   };
 
-  const loadPayrollData = async (month: string) => {
+  const loadPayrollData = async (month: string, workerType: string) => {
     setIsLoading(true);
     try {
-      console.log(`Loading payroll data for month: ${month}`);
-      const response = await fetch(`/api/payroll/calculate?month=${month}`);
+      console.log(
+        `Loading payroll data for month: ${month}, workerType: ${workerType}`
+      );
+      const response = await fetch(
+        `/api/payroll/calculate?month=${month}&workerType=${workerType}`
+      );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to load payroll data");
@@ -158,7 +187,7 @@ export default function PayrollForm({
 
       if (response.ok) {
         toast.success("Overtime processed successfully!");
-        loadPayrollData(selectedMonth);
+        loadPayrollData(selectedMonth, selectedWorkerType);
       } else {
         throw new Error("Failed to process overtime");
       }
@@ -177,10 +206,9 @@ export default function PayrollForm({
 
     setIsLoading(true);
     try {
-      // Prepare submission data with all detailed amounts
       const submissionData: any[] = payrollData.map((emp) => ({
         id: emp.id,
-        amount: emp.amount || 0, // Total amount
+        amount: emp.amount || 0,
         baseAmount: emp.baseAmount || 0,
         overtimeAmount: emp.overtimeAmount || 0,
         daysWorked: emp.paidDays || 0,
@@ -188,9 +216,9 @@ export default function PayrollForm({
         regularHours: emp.regularHours || 0,
         description: `Salary for ${values.month} - ${emp.paidDays} days worked, ${emp.overtimeHours}h overtime`,
         departmentId: emp.department?.id,
+        isFreelancer: emp.isFreelancer,
       }));
 
-      // Calculate totals
       const totalPayroll = payrollData.reduce(
         (sum, employee) => sum + (employee.amount || 0),
         0
@@ -208,16 +236,16 @@ export default function PayrollForm({
         ...values,
         employees: submissionData,
         totalAmount: parseFloat(totalPayroll.toFixed(2)),
-        // The API will calculate baseAmount and overtimeAmount from individual employee data
       };
 
       console.log("Submitting payroll with detailed amounts:", {
         ...payrollDataToSubmit,
         summary: {
-          totalEmployees: payrollData.length,
+          totalWorkers: payrollData.length,
           totalBaseAmount,
           totalOvertimeAmount,
           totalPayroll,
+          workerType: values.workerType,
         },
       });
 
@@ -251,7 +279,6 @@ export default function PayrollForm({
     (emp) => (emp.overtimeAmount || 0) > 0
   );
 
-  // Calculate totals for display
   const totalBaseAmount = payrollData.reduce(
     (sum, employee) => sum + (employee.baseAmount || 0),
     0
@@ -277,7 +304,6 @@ export default function PayrollForm({
     0
   );
 
-  // Calculate canProcess condition - ensure it returns a boolean
   const canProcessPayroll = Boolean(
     payrollData.length > 0 &&
       selectedMonth &&
@@ -296,12 +322,17 @@ export default function PayrollForm({
 
           <HRSettingsCard hrSettings={hrSettings} />
 
+          <WorkerTypeFilter form={formMethods} />
+
           <PayrollFormFields form={formMethods} />
 
           {isLoading && <PayrollLoadingState />}
 
           {!isLoading && selectedMonth && payrollData.length === 0 && (
-            <PayrollNoDataState selectedMonth={selectedMonth} />
+            <PayrollNoDataState
+              selectedMonth={selectedMonth}
+              workerType={selectedWorkerType}
+            />
           )}
 
           {!isLoading && selectedMonth && payrollData.length > 0 && (
@@ -316,6 +347,9 @@ export default function PayrollForm({
                 totalPaidDays={totalPaidDays}
                 totalRegularHours={totalRegularHours}
                 totalOvertimeHours={totalOvertimeHours}
+                workerType={
+                  selectedWorkerType as "all" | "employees" | "freelancers"
+                }
               />
 
               <PayrollSummary
@@ -326,6 +360,9 @@ export default function PayrollForm({
                 totalPaidDays={totalPaidDays}
                 totalRegularHours={totalRegularHours}
                 totalOvertimeHours={totalOvertimeHours}
+                workerType={
+                  selectedWorkerType as "all" | "employees" | "freelancers"
+                }
               />
             </>
           )}
@@ -335,6 +372,7 @@ export default function PayrollForm({
               formMethods.reset();
               setPayrollData([]);
               setSelectedMonth("");
+              setSelectedWorkerType("all");
               onCancel?.();
             }}
             isSubmitting={formMethods.formState.isSubmitting}

@@ -1,9 +1,16 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Users, DollarSign, FileText, Clock } from "lucide-react";
+import {
+  Calendar,
+  Users,
+  DollarSign,
+  FileText,
+  Clock,
+  UserCheck,
+  Briefcase,
+} from "lucide-react";
 import { Payroll } from "@/types/payroll";
 import { PayrollStatus } from "@prisma/client";
-import { formatCurrency } from "@/lib/formatters";
 
 interface SummaryCardsProps {
   payroll: Payroll;
@@ -18,6 +25,18 @@ export default function SummaryCards({
   formatMonth,
   getStatusVariant,
 }: SummaryCardsProps) {
+  // Count employees and freelancers
+  const employeesCount = payroll.payments.filter(
+    (payment: any) => !payment.worker?.isFreelancer
+  ).length;
+  const freelancersCount = payroll.payments.filter(
+    (payment: any) => payment.worker?.isFreelancer
+  ).length;
+
+  const formatCurrency = (amount: number) => {
+    return `R${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       <Card>
@@ -40,9 +59,20 @@ export default function SummaryCards({
             <Users className="h-8 w-8 text-green-600" />
             <div>
               <p className="text-sm font-medium text-muted-foreground">
-                Employees
+                Total Workers
               </p>
               <p className="text-2xl font-bold">{payroll._count.payments}</p>
+              <div className="flex gap-1 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <UserCheck className="h-3 w-3" />
+                  {employeesCount} emp
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <Briefcase className="h-3 w-3" />
+                  {freelancersCount} free
+                </span>
+              </div>
             </div>
           </div>
         </CardContent>

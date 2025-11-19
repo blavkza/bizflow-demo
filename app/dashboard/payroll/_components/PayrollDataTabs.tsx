@@ -14,6 +14,7 @@ interface PayrollDataTabsProps {
   totalPaidDays: number;
   totalRegularHours: number;
   totalOvertimeHours: number;
+  workerType: "all" | "employees" | "freelancers";
 }
 
 export function PayrollDataTabs({
@@ -26,6 +27,7 @@ export function PayrollDataTabs({
   totalPaidDays,
   totalRegularHours,
   totalOvertimeHours,
+  workerType,
 }: PayrollDataTabsProps) {
   const employeesWithOvertime = payrollData.filter(
     (emp) => (emp.overtimeAmount || 0) > 0
@@ -41,6 +43,7 @@ export function PayrollDataTabs({
         totalPaidDays={totalPaidDays}
         totalRegularHours={totalRegularHours}
         totalOvertimeHours={totalOvertimeHours}
+        workerType={workerType} // Add this prop
       />
 
       <Tabs value={activeTab} onValueChange={onTabChange}>

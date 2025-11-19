@@ -26,6 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
 interface TaskSummaryProps {
   isLoading: boolean;
@@ -66,6 +67,8 @@ export default function TaskSummary({ isLoading, data }: TaskSummaryProps) {
   const [showTaskDetails, setShowTaskDetails] = useState(false);
 
   const taskData = data?.taskSummary || {};
+
+  const router = useRouter();
 
   return (
     <>
@@ -118,6 +121,8 @@ const TaskDetailsDialog = ({ data }: { data: any }) => {
   const [selectedPriority, setSelectedPriority] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [dateFilter, setDateFilter] = useState<string>("all");
+
+  const router = useRouter();
 
   // Transform and filter tasks
   const transformedTasks: Task[] = useMemo(() => {
@@ -312,10 +317,16 @@ const TaskDetailsDialog = ({ data }: { data: any }) => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem>View Details</DropdownMenuItem>
-            <DropdownMenuItem>Edit Task</DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() =>
+                router.push(`/dashboard/projects/tasks/${task.id}`)
+              }
+            >
+              View Details
+            </DropdownMenuItem>
+            {/* <DropdownMenuItem>Edit Task</DropdownMenuItem>
             <DropdownMenuItem>Change Status</DropdownMenuItem>
-            <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem>
+            <DropdownMenuItem className="text-red-600">Delete</DropdownMenuItem> */}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -501,13 +512,13 @@ const TaskDetailsDialog = ({ data }: { data: any }) => {
                 <div className="flex justify-between">
                   <span>Average Completion Time</span>
                   <span className="font-medium">
-                    {taskMetrics.avgCompletionTime || 7.5} days
+                    {taskMetrics.avgCompletionTime || "not calculated"} days
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span>On-Time Completion</span>
                   <span className="font-medium">
-                    {taskMetrics.onTimeCompletionRate || 78.3}%
+                    {taskMetrics.onTimeCompletionRate || 0}%
                   </span>
                 </div>
                 <div className="flex justify-between">

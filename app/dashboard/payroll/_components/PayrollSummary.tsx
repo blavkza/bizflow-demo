@@ -5,6 +5,8 @@ import {
   CreditCard,
   Users,
   DollarSign,
+  UserCheck,
+  Briefcase,
 } from "lucide-react";
 import { formatCurrency, formatHours } from "../utils";
 
@@ -16,6 +18,7 @@ interface PayrollSummaryProps {
   totalPaidDays: number;
   totalRegularHours: number;
   totalOvertimeHours: number;
+  workerType: "all" | "employees" | "freelancers";
 }
 
 export function PayrollSummary({
@@ -26,23 +29,57 @@ export function PayrollSummary({
   totalPaidDays,
   totalRegularHours,
   totalOvertimeHours,
+  workerType = "all",
 }: PayrollSummaryProps) {
+  const employees = payrollData.filter((emp) => !emp.isFreelancer);
+  const freelancers = payrollData.filter((emp) => emp.isFreelancer);
+
+  const getWorkerIcon = () => {
+    switch (workerType) {
+      case "employees":
+        return <UserCheck className="h-8 w-8 text-blue-600" />;
+      case "freelancers":
+        return <Briefcase className="h-8 w-8 text-blue-600" />;
+      default:
+        return <Users className="h-8 w-8 text-blue-600" />;
+    }
+  };
+
+  const getWorkerLabel = () => {
+    switch (workerType) {
+      case "employees":
+        return "Employees";
+      case "freelancers":
+        return "Freelancers";
+      default:
+        return "Total Workers";
+    }
+  };
+
   return (
     <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CreditCard className="h-5 w-5" />
-          Payroll Summary
+          Payroll Summary -{" "}
+          {workerType.charAt(0).toUpperCase() + workerType.slice(1)}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
           <div className="text-center p-4 bg-white rounded-lg border">
-            <Users className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Total Employees</p>
+            {getWorkerIcon()}
+            <p className="text-sm text-muted-foreground mt-2">
+              {getWorkerLabel()}
+            </p>
             <p className="text-lg font-bold text-blue-600">
               {payrollData.length}
             </p>
+            {workerType === "all" && (
+              <p className="text-xs text-muted-foreground">
+                {employees.length} emp + {freelancers.length} free
+              </p>
+            )}
           </div>
           <div className="text-center p-4 bg-white rounded-lg border">
             <CalendarIcon className="h-8 w-8 text-green-600 mx-auto mb-2" />

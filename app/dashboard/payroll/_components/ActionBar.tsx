@@ -1,10 +1,8 @@
-// app/_components/ActionBar.tsx
 "use client";
 
 import { DollarSign } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -22,14 +20,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { EmployeeWithDetails } from "@/types/payroll";
+import { WorkerWithDetails } from "@/types/payroll";
 import PayrollForm from "./Payroll-Form";
 import { useRouter } from "next/navigation";
 
 interface ActionBarProps {
   onSearch: (searchTerm: string) => void;
   onDepartmentFilter: (department: string) => void;
-  employees: EmployeeWithDetails[];
+  onWorkerTypeFilter: (workerType: "all" | "employees" | "freelancers") => void;
+  employees: WorkerWithDetails[];
   fetchEmployees: () => void;
   hasFullAccess: boolean;
   canManagePayroll: boolean;
@@ -38,6 +37,7 @@ interface ActionBarProps {
 export default function ActionBar({
   onSearch,
   onDepartmentFilter,
+  onWorkerTypeFilter,
   employees,
   fetchEmployees,
   hasFullAccess,
@@ -50,10 +50,15 @@ export default function ActionBar({
     (employee) => employee.status === "ACTIVE"
   );
 
-  const totalPayroll = activeEmployees.reduce(
-    (sum, employee) => sum + Number(employee.salary),
-    0
-  );
+  // Calculate counts
+  const employeesCount = employees.filter((emp) => !emp.isFreelancer).length;
+  const freelancersCount = employees.filter((emp) => emp.isFreelancer).length;
+  const activeEmployeesCount = activeEmployees.filter(
+    (emp) => !emp.isFreelancer
+  ).length;
+  const activeFreelancersCount = activeEmployees.filter(
+    (emp) => emp.isFreelancer
+  ).length;
 
   const departmentNames = Array.from(
     new Set(
@@ -85,6 +90,26 @@ export default function ActionBar({
               ))}
             </SelectContent>
           </Select>
+          <Select
+            onValueChange={(value: "all" | "employees" | "freelancers") =>
+              onWorkerTypeFilter(value)
+            }
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Worker type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                All Workers ({employees.length})
+              </SelectItem>
+              <SelectItem value="employees">
+                Employees ({employeesCount})
+              </SelectItem>
+              <SelectItem value="freelancers">
+                Freelancers ({freelancersCount})
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         {(canManagePayroll || hasFullAccess) && (
           <div className="flex gap-2">
@@ -106,7 +131,16 @@ export default function ActionBar({
                     <span className="text-green-600 font-bold">
                       ACTIVE ({activeEmployees.length})
                     </span>{" "}
-                    employees only.
+                    workers only.
+                    <div className="mt-2 text-sm">
+                      <span className="text-blue-600">
+                        {activeEmployeesCount} employees
+                      </span>
+                      {" + "}
+                      <span className="text-orange-600">
+                        {activeFreelancersCount} freelancers
+                      </span>
+                    </div>
                   </DialogDescription>
                 </DialogHeader>
 

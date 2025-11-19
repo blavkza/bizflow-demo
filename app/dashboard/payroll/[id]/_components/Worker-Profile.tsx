@@ -7,58 +7,34 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Employee } from "@prisma/client";
-import { DollarSign } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import PayrollForm from "../../_components/Payroll-Form";
+import { WorkerWithDetails } from "@/types/payroll";
+import { DollarSign, UserCheck, Briefcase } from "lucide-react";
+import { WorkerPaymentForm } from "./WorkerPaymentForm";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { EmployeePaymentForm } from "./EmployeePaymentForm ";
 
 interface WorkerProfileProps {
-  employee: Employee & {
-    department?: {
-      id: string;
-      name: string;
-      manager?: {
-        name: string;
-      } | null;
-    } | null;
-    payments?: {
-      id: string;
-      amount: number;
-      payDate: Date;
-      type: string;
-      status: string;
-      description?: string | null;
-    }[];
-  };
+  worker: WorkerWithDetails;
 }
 
-export default function WorkerProfile({ employee }: WorkerProfileProps) {
+export default function WorkerProfile({ worker }: WorkerProfileProps) {
   const [isPayrollDialogOpen, setIsPayrollDialogOpen] = useState(false);
   const router = useRouter();
 
-  const name = `${employee.firstName} ${employee.lastName}`;
+  const name = `${worker.firstName} ${worker.lastName}`;
+  const workerNumber = worker.isFreelancer
+    ? (worker as any).freeLancerNumber
+    : (worker as any).employeeNumber;
 
   return (
     <div>
@@ -67,7 +43,7 @@ export default function WorkerProfile({ employee }: WorkerProfileProps) {
           <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20">
               <AvatarImage
-                src={employee.avatar || "/placeholder.svg"}
+                src={worker.avatar || "/placeholder.svg"}
                 alt={name}
               />
               <AvatarFallback>
@@ -78,36 +54,47 @@ export default function WorkerProfile({ employee }: WorkerProfileProps) {
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <CardTitle className="text-2xl">{name}</CardTitle>
+              <div className="flex items-center gap-3">
+                <CardTitle className="text-2xl">{name}</CardTitle>
+                <Badge
+                  variant={worker.isFreelancer ? "secondary" : "outline"}
+                  className="flex items-center gap-1"
+                >
+                  {worker.isFreelancer ? (
+                    <Briefcase className="h-3 w-3" />
+                  ) : (
+                    <UserCheck className="h-3 w-3" />
+                  )}
+                  {worker.isFreelancer ? "Freelancer" : "Employee"}
+                </Badge>
+              </div>
               <CardDescription className="text-lg">
-                {employee.position}
+                {worker.position}
               </CardDescription>
-              <Badge
-                variant={employee.status === "ACTIVE" ? "default" : "secondary"}
-                className="mt-2"
-              >
-                {employee.status}
-              </Badge>
+              <div className="flex items-center gap-4 mt-2">
+                <Badge
+                  variant={worker.status === "ACTIVE" ? "default" : "secondary"}
+                >
+                  {worker.status}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  ID: #{workerNumber}
+                </span>
+              </div>
             </div>
             <Dialog
               open={isPayrollDialogOpen}
               onOpenChange={setIsPayrollDialogOpen}
             >
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  Process Payment
-                </Button>
-              </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Process Payroll</DialogTitle>
+                  <DialogTitle>Process Payment</DialogTitle>
                   <DialogDescription>
                     Process payment for {name}
                   </DialogDescription>
                 </DialogHeader>
-                <EmployeePaymentForm
-                  employee={employee}
+                <WorkerPaymentForm
+                  worker={worker}
                   onCancel={() => setIsPayrollDialogOpen(false)}
                   onSubmitSuccess={() => {
                     setIsPayrollDialogOpen(false);
@@ -116,6 +103,13 @@ export default function WorkerProfile({ employee }: WorkerProfileProps) {
                 />
               </DialogContent>
             </Dialog>
+            <Button
+              variant="outline"
+              onClick={() => setIsPayrollDialogOpen(true)}
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Process Payment
+            </Button>
           </div>
         </CardHeader>
       </Card>

@@ -27,7 +27,7 @@ import { Loader2 } from "lucide-react";
 import { WorkerWithDetails } from "@/types/payroll";
 
 // Update schema to handle empty string and transform to number
-const EmployeePayrollSchema = z.object({
+const WorkerPayrollSchema = z.object({
   description: z.string().optional(),
   type: z.nativeEnum(PaymentType),
   amount: z.union([
@@ -40,45 +40,53 @@ const EmployeePayrollSchema = z.object({
   ]),
 });
 
-interface EmployeePaymentFormProps {
+interface WorkerPaymentFormProps {
   worker: WorkerWithDetails;
   onCancel: () => void;
   onSubmitSuccess: () => void;
 }
 
-export function EmployeePaymentForm({
+export function WorkerPaymentForm({
   worker,
   onCancel,
   onSubmitSuccess,
-}: EmployeePaymentFormProps) {
-  const form = useForm<z.infer<typeof EmployeePayrollSchema>>({
-    resolver: zodResolver(EmployeePayrollSchema),
+}: WorkerPaymentFormProps) {
+  const form = useForm<z.infer<typeof WorkerPayrollSchema>>({
+    resolver: zodResolver(WorkerPayrollSchema),
     defaultValues: {
       description: "",
       type: "SALARY",
-      amount: worker.salary ? Number(worker.salary) : 0,
+      amount: getDefaultAmount(worker),
     },
   });
 
   const { isSubmitting } = form.formState;
 
-  const onSubmit = async (values: z.infer<typeof EmployeePayrollSchema>) => {
+  function getDefaultAmount(worker: WorkerWithDetails): number {
+    if (worker.isFreelancer) {
+      return Number(worker.salary);
+    } else {
+      const emp = worker as any;
+      if (emp.salaryType === "DAILY") {
+        return Number(emp.dailySalary || emp.salary || 0);
+      } else {
+        return Number(emp.monthlySalary || emp.salary || 0) / 22;
+      }
+    }
+  }
+
+  const onSubmit = async (values: z.infer<typeof WorkerPayrollSchema>) => {
     try {
-      const payrollData = {
+      const paymentData = {
         description: values.description,
         type: values.type,
-        workers: [
-          {
-            id: worker.id,
-            amount: values.amount,
-            departmentId: worker.department?.id,
-            isFreelancer: worker.isFreelancer,
-          },
-        ],
-        totalAmount: values.amount,
+        amount: values.amount,
+        workerId: worker.id,
+        isFreelancer: worker.isFreelancer,
+        departmentId: worker.department?.id,
       };
 
-      await axios.post("/api/payment", payrollData);
+      await axios.post("/api/payment", paymentData);
 
       toast.success("Payment processed successfully");
       form.reset();
@@ -120,10 +128,7 @@ export function EmployeePaymentForm({
                   }}
                   onBlur={() => {
                     if (form.getValues("amount") === 0) {
-                      form.setValue(
-                        "amount",
-                        worker.salary ? Number(worker.salary) : 0
-                      );
+                      form.setValue("amount", getDefaultAmount(worker));
                     }
                   }}
                 />

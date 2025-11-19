@@ -1,3 +1,4 @@
+// app/workers/page.tsx
 "use client";
 
 import axios from "axios";
@@ -13,7 +14,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Payroll } from "@/types/payroll";
+import { Payroll, WorkerWithDetails } from "@/types/payroll";
 
 async function fetchUserData(userId: string) {
   const response = await fetch(`/api/users/userId/${userId}`);
@@ -28,11 +29,11 @@ const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
 };
 
 export default function WorkersPage() {
-  const [employees, setEmployees] = useState([]);
+  const [workers, setWorkers] = useState<WorkerWithDetails[]>([]);
   const [payrolls, setPayrolls] = useState<Payroll[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("employees");
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("workers");
 
   const router = useRouter();
   const { userId } = useAuth();
@@ -66,38 +67,39 @@ export default function WorkersPage() {
     if (!isLoading && canViewPayroll === false && hasFullAccess === false) {
       router.push("/dashboard");
     }
-  }, [isLoading, canViewPayroll, hasFullAccess]);
+  }, [isLoading, canViewPayroll, hasFullAccess, router]);
 
-  const fetchEmployees = async () => {
+  const fetchWorkers = async () => {
     try {
       const response = await axios.get("/api/payroll");
-      setEmployees(response.data);
+      setWorkers(response.data);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch workers:", err);
+      setError("Failed to load workers data");
     }
   };
 
   const fetchPayrolls = async () => {
     try {
       const response = await axios.get("/api/payroll/history");
-      // If the API returns the new structure with payrolls array
       if (response.data.payrolls) {
         setPayrolls(response.data.payrolls);
       } else {
-        // If it returns just the array directly
         setPayrolls(response.data);
       }
     } catch (err) {
       console.error("Failed to fetch payrolls:", err);
+      setError("Failed to load payroll history");
     }
   };
 
   const fetchAllData = async () => {
     setLoading(true);
+    setError(null);
     try {
-      await Promise.all([fetchEmployees(), fetchPayrolls()]);
+      await Promise.all([fetchWorkers(), fetchPayrolls()]);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Failed to load data");
     } finally {
       setLoading(false);
     }
@@ -107,13 +109,37 @@ export default function WorkersPage() {
     fetchAllData();
   }, []);
 
+  // Calculate counts for display
+  const employeesCount = workers.filter(
+    (worker) => !worker.isFreelancer
+  ).length;
+  const freelancersCount = workers.filter(
+    (worker) => worker.isFreelancer
+  ).length;
+  const totalWorkersCount = workers.length;
+
   if (loading)
     return (
       <div className="p-6">
         <Loading />
       </div>
     );
-  if (error) return <div className="p-6 text-red-500">{error}</div>;
+
+  if (error)
+    return (
+      <div className="p-6">
+        <div className="text-red-500 bg-red-50 p-4 rounded-lg border border-red-200">
+          <h3 className="font-semibold">Error</h3>
+          <p>{error}</p>
+          <button
+            onClick={fetchAllData}
+            className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
 
   return (
     <div className="p-6">
@@ -125,22 +151,25 @@ export default function WorkersPage() {
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <StatsCard employees={employees} />
+        <StatsCard employees={workers} />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="employees">
-              Employees ({employees.length})
+            <TabsTrigger value="workers">
+              All Workers ({totalWorkersCount})
+              <span className="ml-2 text-xs text-muted-foreground">
+                {employeesCount}E + {freelancersCount}F
+              </span>
             </TabsTrigger>
             <TabsTrigger value="payrolls">
               Payroll History ({payrolls.length})
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="employees" className="space-y-4">
+          <TabsContent value="workers" className="space-y-4">
             <TableFilter
-              initialEmployees={employees}
-              fetchEmployees={fetchEmployees}
+              initialEmployees={workers}
+              fetchEmployees={fetchWorkers}
               canManagePayroll={canManagePayroll}
               hasFullAccess={hasFullAccess}
               canViewEmployee={canViewEmployee}

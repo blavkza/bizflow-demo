@@ -4,7 +4,6 @@ import { Separator } from "@/components/ui/separator";
 import { FileText } from "lucide-react";
 import { Payroll } from "@/types/payroll";
 import { PayrollStatus } from "@prisma/client";
-import { formatCurrency } from "@/lib/formatters";
 
 interface PayrollInformationProps {
   payroll: Payroll;
@@ -23,6 +22,10 @@ export default function PayrollInformation({
   totalOvertimeAmount,
   totalAmount,
 }: PayrollInformationProps) {
+  const formatCurrency = (amount: number) => {
+    return `R${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
   return (
     <Card className="lg:col-span-1">
       <CardHeader>

@@ -59,7 +59,7 @@ export default function PayrollDetailsPage() {
         const companyResponse = await fetch("/api/settings/general");
         if (companyResponse.ok) {
           const companyData = await companyResponse.json();
-          setCompany(companyData.data); // Access the data property
+          setCompany(companyData.data || companyData);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "An error occurred");

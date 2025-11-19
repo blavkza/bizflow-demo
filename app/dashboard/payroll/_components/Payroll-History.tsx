@@ -39,45 +39,10 @@ import { PayrollStatus } from "@prisma/client";
 import { PaginationControls } from "@/components/PaginationControls";
 import { formatCurrency } from "../utils";
 import { useRouter } from "next/navigation";
-
-interface Payment {
-  id: string;
-  amount: number;
-  employee: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    department: {
-      name: string;
-    } | null;
-  };
-}
-
-interface Transaction {
-  id: string;
-  reference: string;
-  date: Date;
-  description: string;
-}
-
-interface Payroll {
-  id: string;
-  month: string;
-  description: string;
-  type: string;
-  totalAmount: number;
-  currency: string;
-  status: PayrollStatus;
-  createdAt: Date;
-  transaction: Transaction;
-  payments: Payment[];
-  _count: {
-    payments: number;
-  };
-}
+import { Payroll } from "@/types/payroll"; // Import from your types file
 
 interface PayrollHistoryProps {
-  initialPayrolls: Payroll[];
+  initialPayrolls: Payroll[]; // Use the imported Payroll type
   fetchPayrolls: () => void;
   hasFullAccess: boolean;
   canManagePayroll: boolean;
@@ -133,10 +98,20 @@ export default function PayrollHistory({
   const endIndex = startIndex + itemsPerPage;
   const paginatedPayrolls = filteredPayrolls.slice(startIndex, endIndex);
 
-  // Calculate stats
+  // Calculate stats - convert Decimal to number for calculations
   const stats = useMemo(() => {
     const totalAmount = filteredPayrolls.reduce(
-      (sum, payroll) => sum + payroll.totalAmount,
+      (sum, payroll) => sum + Number(payroll.totalAmount),
+      0
+    );
+
+    const totalBaseAmount = filteredPayrolls.reduce(
+      (sum, payroll) => sum + Number(payroll.baseAmount),
+      0
+    );
+
+    const totalOvertimeAmount = filteredPayrolls.reduce(
+      (sum, payroll) => sum + Number(payroll.overtimeAmount),
       0
     );
 
@@ -148,7 +123,7 @@ export default function PayrollHistory({
       {} as Record<PayrollStatus, number>
     );
 
-    return { totalAmount, statusCounts };
+    return { totalAmount, totalBaseAmount, totalOvertimeAmount, statusCounts };
   }, [filteredPayrolls]);
 
   // Get unique months and years for filters
@@ -249,22 +224,80 @@ export default function PayrollHistory({
 
   return (
     <div className="space-y-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Processed
+                </p>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(stats.totalAmount)}
+                </p>
+              </div>
+              <DollarSign className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Base Amount
+                </p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {formatCurrency(stats.totalBaseAmount)}
+                </p>
+              </div>
+              <Users className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Overtime
+                </p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {formatCurrency(stats.totalOvertimeAmount)}
+                </p>
+              </div>
+              <Calendar className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">
+                  Total Payrolls
+                </p>
+                <p className="text-2xl font-bold">{filteredPayrolls.length}</p>
+                <p className="text-xs text-muted-foreground">
+                  of {initialPayrolls.length} total
+                </p>
+              </div>
+              <Filter className="h-8 w-8 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">
-                Total Processed
-              </p>
-              <p className="text-2xl font-bold">
-                {formatCurrency(stats.totalAmount)}
-              </p>
-            </div>
-          </CardTitle>
+          <CardTitle>Filters</CardTitle>
           <CardDescription>
-            Showing {filteredPayrolls.length} of {initialPayrolls.length}{" "}
-            payrolls
+            Filter payroll history by various criteria
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -275,6 +308,19 @@ export default function PayrollHistory({
               onChange={(e) => setSearchTerm(e.target.value)}
               className="md:col-span-2"
             />
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="PROCESSED">Processed</SelectItem>
+                <SelectItem value="PAID">Paid</SelectItem>
+                <SelectItem value="DRAFT">Draft</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
 
             <Select value={monthFilter} onValueChange={setMonthFilter}>
               <SelectTrigger>
@@ -288,6 +334,7 @@ export default function PayrollHistory({
                 ))}
               </SelectContent>
             </Select>
+
             <Select value={yearFilter} onValueChange={setYearFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="Year" />
@@ -301,6 +348,21 @@ export default function PayrollHistory({
               </SelectContent>
             </Select>
           </div>
+
+          {(searchTerm ||
+            statusFilter !== "all" ||
+            monthFilter !== "all" ||
+            yearFilter !== "all") && (
+            <div className="mt-4 flex justify-between items-center">
+              <p className="text-sm text-muted-foreground">
+                Showing {filteredPayrolls.length} of {initialPayrolls.length}{" "}
+                payrolls
+              </p>
+              <Button variant="outline" size="sm" onClick={handleClearFilters}>
+                Clear Filters
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -317,8 +379,9 @@ export default function PayrollHistory({
             <TableHeader>
               <TableRow>
                 <TableHead>Payroll Period</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Employees</TableHead>
+                <TableHead>Workers</TableHead>
+                <TableHead>Base Amount</TableHead>
+                <TableHead>Overtime</TableHead>
                 <TableHead>Total Amount</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Processed Date</TableHead>
@@ -334,12 +397,19 @@ export default function PayrollHistory({
                       {formatMonth(payroll.month)}
                     </div>
                   </TableCell>
-                  <TableCell>{payroll.description}</TableCell>
                   <TableCell>
-                    <div>{payroll._count.payments} employees</div>
+                    <div className="flex items-center gap-2">
+                      {payroll._count.payments} workers
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-blue-600 font-medium">
+                    {formatCurrency(Number(payroll.baseAmount))}
+                  </TableCell>
+                  <TableCell className="text-orange-600 font-medium">
+                    {formatCurrency(Number(payroll.overtimeAmount))}
                   </TableCell>
                   <TableCell className="font-semibold">
-                    {formatCurrency(payroll.totalAmount)}
+                    {formatCurrency(Number(payroll.totalAmount))}
                   </TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(payroll.status)}>
@@ -377,17 +447,27 @@ export default function PayrollHistory({
             </TableBody>
           </Table>
 
+          {paginatedPayrolls.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No payrolls found matching your criteria</p>
+              <p className="text-sm mt-2">Try adjusting your filters</p>
+            </div>
+          )}
+
           {/* Pagination Controls */}
-          <PaginationControls
-            itemsPerPage={itemsPerPage}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onItemsPerPageChange={(value) => {
-              setItemsPerPage(Number(value));
-              setCurrentPage(1);
-            }}
-            onPageChange={setCurrentPage}
-          />
+          {paginatedPayrolls.length > 0 && (
+            <PaginationControls
+              itemsPerPage={itemsPerPage}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onItemsPerPageChange={(value) => {
+                setItemsPerPage(Number(value));
+                setCurrentPage(1);
+              }}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

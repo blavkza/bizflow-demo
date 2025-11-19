@@ -9,15 +9,15 @@ import {
 } from "@prisma/client";
 import { z } from "zod";
 
-// Update the payrollSchema to include all the new fields
 const payrollSchema = z.object({
   description: z.string().optional(),
   type: z.nativeEnum(PaymentType),
   month: z.string(),
+  workerType: z.enum(["all", "employees", "freelancers"]).default("all"),
   employees: z.array(
     z.object({
       id: z.string(),
-      amount: z.union([z.number(), z.string()]).transform((val) => Number(val)), // Total amount
+      amount: z.union([z.number(), z.string()]).transform((val) => Number(val)),
       baseAmount: z
         .union([z.number(), z.string()])
         .transform((val) => Number(val)),
@@ -33,6 +33,7 @@ const payrollSchema = z.object({
         .transform((val) => Number(val)),
       description: z.string().optional(),
       departmentId: z.string().optional(),
+      isFreelancer: z.boolean().optional(),
     })
   ),
   totalAmount: z
@@ -40,7 +41,6 @@ const payrollSchema = z.object({
     .transform((val) => Number(val)),
 });
 
-// Function to check if payroll can be processed based on payday settings
 async function canProcessPayroll(
   month: string
 ): Promise<{ canProcess: boolean; message?: string }> {
@@ -150,7 +150,9 @@ export async function POST(req: Request) {
           currency: "ZAR",
           type: TransactionType.EXPENSE,
           status: TransactionStatus.COMPLETED,
-          description: data.description || `Payroll for ${data.month}`,
+          description:
+            data.description ||
+            `Payroll for ${data.month} (${data.workerType})`,
           date: payDate,
           createdBy: creater.id,
           reference: `PAYROLL-${Date.now()}`,
@@ -170,7 +172,9 @@ export async function POST(req: Request) {
       const payroll = await prisma.payroll.create({
         data: {
           month: data.month,
-          description: data.description || `Payroll for ${data.month}`,
+          description:
+            data.description ||
+            `Payroll for ${data.month} (${data.workerType})`,
           type: data.type,
           totalAmount: data.totalAmount,
           baseAmount: totalBaseAmount,
@@ -182,27 +186,35 @@ export async function POST(req: Request) {
         },
       });
 
-      // Create payments for each employee with detailed information
+      // Create payments for each worker (employee or freelancer)
       const payments = await Promise.all(
         data.employees.map(async (employee) => {
+          const paymentData: any = {
+            amount: employee.amount,
+            baseAmount: employee.baseAmount || 0,
+            overtimeAmount: employee.overtimeAmount || 0,
+            type: data.type,
+            description:
+              employee.description ||
+              `Salary payment for ${data.month} - ${employee.daysWorked} days worked, ${employee.overtimeHours || 0}h overtime`,
+            payDate: payDate,
+            daysWorked: employee.daysWorked,
+            overtimeHours: employee.overtimeHours || 0,
+            regularHours: employee.regularHours || 0,
+            createdBy: userId,
+            transactionId: transaction.id,
+            payrollId: payroll.id,
+          };
+
+          // Set either employeeId or freeLancerId based on worker type
+          if (employee.isFreelancer) {
+            paymentData.freeLancerId = employee.id;
+          } else {
+            paymentData.employeeId = employee.id;
+          }
+
           return await prisma.payment.create({
-            data: {
-              employeeId: employee.id,
-              amount: employee.amount,
-              baseAmount: employee.baseAmount || 0,
-              overtimeAmount: employee.overtimeAmount || 0,
-              type: data.type,
-              description:
-                employee.description ||
-                `Salary payment for ${data.month} - ${employee.daysWorked} days worked, ${employee.overtimeHours || 0}h overtime`,
-              payDate: payDate,
-              daysWorked: employee.daysWorked,
-              overtimeHours: employee.overtimeHours || 0,
-              regularHours: employee.regularHours || 0,
-              createdBy: userId,
-              transactionId: transaction.id,
-              payrollId: payroll.id,
-            },
+            data: paymentData,
           });
         })
       );
@@ -210,10 +222,18 @@ export async function POST(req: Request) {
       return { payroll, transaction, payments };
     });
 
+    // Count employees and freelancers for the notification
+    const employeesCount = data.employees.filter(
+      (emp: any) => !emp.isFreelancer
+    ).length;
+    const freelancersCount = data.employees.filter(
+      (emp: any) => emp.isFreelancer
+    ).length;
+
     await db.notification.create({
       data: {
         title: "New Payroll Created",
-        message: `Payroll for ${data.month} has been created by ${creater.name}.`,
+        message: `Payroll for ${data.month} (${data.workerType}) has been created by ${creater.name}. ${employeesCount} employees, ${freelancersCount} freelancers.`,
         type: "PAYMENT",
         isRead: false,
         actionUrl: `/dashboard/payroll`,
@@ -253,10 +273,42 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(employees);
+    const freelancers = await db.freeLancer.findMany({
+      include: {
+        department: {
+          include: {
+            manager: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        payments: {
+          select: {
+            amount: true,
+            payDate: true,
+          },
+        },
+      },
+    });
+
+    const employeesWithType = employees.map((emp) => ({
+      ...emp,
+      isFreelancer: false,
+    }));
+
+    const freelancersWithType = freelancers.map((freelancer) => ({
+      ...freelancer,
+      isFreelancer: true,
+    }));
+
+    const allWorkers = [...employeesWithType, ...freelancersWithType];
+
+    return NextResponse.json(allWorkers);
   } catch (error) {
     return NextResponse.json(
-      { message: "Failed to fetch employees", error },
+      { message: "Failed to fetch workers", error },
       { status: 500 }
     );
   }
