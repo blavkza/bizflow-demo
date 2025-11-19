@@ -69,18 +69,6 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_NOTIFICATIONS)
-            ? [
-                {
-                  title: "Notifications",
-                  url: "/dashboard/notifications",
-                  icon: Bell,
-                  badge: unreadCount > 0 ? unreadCount.toString() : undefined,
-                  color: "text-red-500",
-                },
-              ]
-            : []),
         ],
       },
       ...(hasFullAccess ||
@@ -413,6 +401,18 @@ export const getSidebarData = (
             icon: Palette,
             color: "text-yellow-500",
           },
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_NOTIFICATIONS)
+            ? [
+                {
+                  title: "System Activities",
+                  url: "/dashboard/notifications",
+                  icon: Bell,
+                  badge: unreadCount > 0 ? unreadCount.toString() : undefined,
+                  color: "text-red-500",
+                },
+              ]
+            : []),
         ].filter((item) => item !== null),
       },
     ],

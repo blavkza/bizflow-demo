@@ -455,7 +455,7 @@ export async function GET(request: NextRequest) {
       lastMonthInvoicePayments,
       lastMonthExpensePayments,
       lastMonthTransactions,
-      allTransactions, // All transactions for all-time calculations
+      allTransactions, // NEW: Get all transactions for income/expense calculations
       quotations,
       projects,
       tasks,
@@ -591,8 +591,13 @@ export async function GET(request: NextRequest) {
         },
       }),
 
-      // NEW: All transactions for all-time calculations
+      // NEW: All transactions for income/expense calculations
       db.transaction.findMany({
+        where: {
+          date: {
+            gte: new Date(now.getFullYear(), now.getMonth() - 5, 1), // Last 6 months for charts
+          },
+        },
         orderBy: {
           date: "asc",
         },
@@ -733,7 +738,7 @@ export async function GET(request: NextRequest) {
     const typedLastMonthTransactions =
       lastMonthTransactions as unknown as DashboardTransaction[];
     const typedAllTransactions =
-      allTransactions as unknown as DashboardTransaction[];
+      allTransactions as unknown as DashboardTransaction[]; // NEW
     const typedQuotations = quotations as unknown as DashboardQuotation[];
     const typedProjects = projects as unknown as DashboardProject[];
     const typedTasks = tasks as unknown as DashboardTask[];
@@ -742,31 +747,7 @@ export async function GET(request: NextRequest) {
     const typedLeaveRequests =
       leaveRequests as unknown as DashboardLeaveRequest[];
 
-    // NEW: Calculate ALL-TIME income and expenses from transactions for WelcomeHeader
-    const allTimeIncomeFromTransactions = typedAllTransactions
-      .filter(
-        (transaction: DashboardTransaction) => transaction.type === "INCOME"
-      )
-      .reduce(
-        (sum: number, transaction: DashboardTransaction) =>
-          sum + convertDecimalToNumber(transaction.amount),
-        0
-      );
-
-    const allTimeExpensesFromTransactions = typedAllTransactions
-      .filter(
-        (transaction: DashboardTransaction) => transaction.type === "EXPENSE"
-      )
-      .reduce(
-        (sum: number, transaction: DashboardTransaction) =>
-          sum + convertDecimalToNumber(transaction.amount),
-        0
-      );
-
-    const allTimeNetProfitFromTransactions =
-      allTimeIncomeFromTransactions - allTimeExpensesFromTransactions;
-
-    // Keep monthly calculations for other components
+    // NEW: Calculate income and expenses from transactions for WelcomeHeader and charts
     const currentMonthIncomeFromTransactions = typedAllTransactions
       .filter((transaction: DashboardTransaction) => {
         const transactionDate = new Date(transaction.date);
@@ -889,7 +870,7 @@ export async function GET(request: NextRequest) {
       0
     );
 
-    // Calculate real changes (USE MONTHLY TRANSACTIONS FOR CHANGES)
+    // Calculate real changes (USE TRANSACTIONS FOR WELCOMEHEADER)
     const invoiceChange = calculateChange(
       currentMonthTotalInvoicesAmount,
       lastMonthTotalInvoicesAmount
@@ -911,11 +892,11 @@ export async function GET(request: NextRequest) {
     );
 
     const revenueChange = calculateChange(
-      currentMonthIncomeFromTransactions,
+      currentMonthIncomeFromTransactions, // USE TRANSACTIONS FOR WELCOMEHEADER
       lastMonthIncomeFromTransactions
     );
 
-    // Calculate monthly net profit for changes
+    // Calculate current month net profit (USE TRANSACTIONS FOR WELCOMEHEADER)
     const currentMonthNetProfitFromTransactions =
       currentMonthIncomeFromTransactions - currentMonthExpensesFromTransactions;
 
@@ -1119,6 +1100,17 @@ export async function GET(request: NextRequest) {
       0
     );
 
+    // Calculate overall revenue from all transactions (USE TRANSACTIONS)
+    const overallRevenueFromTransactions = typedAllTransactions
+      .filter(
+        (transaction: DashboardTransaction) => transaction.type === "INCOME"
+      )
+      .reduce(
+        (sum: number, transaction: DashboardTransaction) =>
+          sum + convertDecimalToNumber(transaction.amount),
+        0
+      );
+
     // Employee metrics
     const activeEmployees = typedEmployees.filter(
       (employee: DashboardEmployee) => employee.status === "ACTIVE"
@@ -1219,8 +1211,9 @@ export async function GET(request: NextRequest) {
         ? (totalPaidInvoicesAmount / totalInvoicesAmount) * 100
         : 0;
     const expenseRatio =
-      allTimeIncomeFromTransactions > 0 // USE ALL-TIME FOR WELCOMEHEADER
-        ? (allTimeExpensesFromTransactions / allTimeIncomeFromTransactions) *
+      currentMonthIncomeFromTransactions > 0 // USE TRANSACTIONS
+        ? (currentMonthExpensesFromTransactions /
+            currentMonthIncomeFromTransactions) *
           100
         : 0;
     const convertedQuotations = typedQuotations.filter(
@@ -1232,7 +1225,7 @@ export async function GET(request: NextRequest) {
         ? (convertedQuotations.length / typedQuotations.length) * 100
         : 0;
 
-    // Chart data using transactions for income and expenses (last 6 months)
+    // NEW: Chart data using transactions for income and expenses
     const chartLabels: string[] = [];
     const incomeData: number[] = [];
     const expensesData: number[] = [];
@@ -1396,34 +1389,32 @@ export async function GET(request: NextRequest) {
         partiallyPaidExpensesCount: partiallyPaidExpensesCount,
         partiallyPaidExpensesAmount,
 
-        // USE ALL-TIME TRANSACTIONS FOR WELCOMEHEADER
-        monthlyRevenue: allTimeIncomeFromTransactions, // ALL-TIME for WelcomeHeader
-        overallRevenue: allTimeIncomeFromTransactions, // ALL-TIME
-        quarterlyRevenue: currentMonthIncomeFromTransactions * 3, // Keep monthly for other components
-        yearlyRevenue: currentMonthIncomeFromTransactions * 12, // Keep monthly for other components
-        netProfit: allTimeNetProfitFromTransactions, // ALL-TIME for WelcomeHeader
-        grossRevenue: allTimeIncomeFromTransactions, // ALL-TIME
-        totalExpenses: allTimeExpensesFromTransactions, // ALL-TIME EXPENSES FROM TRANSACTIONS
+        // USE TRANSACTIONS FOR WELCOMEHEADER AND CHARTS
+        monthlyRevenue: currentMonthIncomeFromTransactions,
+        overallRevenue: overallRevenueFromTransactions,
+        quarterlyRevenue: currentMonthIncomeFromTransactions * 3,
+        yearlyRevenue: currentMonthIncomeFromTransactions * 12,
+        netProfit: currentMonthNetProfitFromTransactions,
+        grossRevenue: currentMonthIncomeFromTransactions,
         profitMargin:
-          allTimeIncomeFromTransactions > 0
-            ? (allTimeNetProfitFromTransactions /
-                allTimeIncomeFromTransactions) *
+          currentMonthIncomeFromTransactions > 0
+            ? (currentMonthNetProfitFromTransactions /
+                currentMonthIncomeFromTransactions) *
               100
             : 0,
 
         // KEEP ORIGINAL FOR OTHER COMPONENTS
         monthlyRevenueOriginal: currentMonthRevenue,
-        overallRevenueOriginal: currentMonthRevenue,
+        overallRevenueOriginal: currentMonthRevenue, // This was using wrong calculation before
         netProfitOriginal: currentMonthNetProfit,
-        totalExpensesOriginal: currentMonthTotalExpensesAmount, // Monthly expenses for other components
 
-        // REAL CHANGES - use monthly for changes
+        // REAL CHANGES - use transactions for WelcomeHeader
         invoiceChange,
         paidInvoiceChange,
         expenseChange,
         paidExpenseChange,
-        revenueChange: revenueChange, // Monthly changes
-        profitChange: profitChangeFromTransactions, // Monthly changes
+        revenueChange: revenueChange, // From transactions
+        profitChange: profitChangeFromTransactions, // From transactions
         collectionRate,
       },
 
@@ -1532,7 +1523,7 @@ export async function GET(request: NextRequest) {
 
       performanceMetrics: {
         collectionRate,
-        expenseRatio, // Now uses all-time transactions
+        expenseRatio, // Now uses transactions
         conversionRate,
         paidInvoicesCount: paidInvoices.length,
         invoicesLength: typedAllInvoices.length,
@@ -1544,8 +1535,8 @@ export async function GET(request: NextRequest) {
 
       overviewChartData: {
         labels: chartLabels,
-        incomeData, // Monthly data for charts
-        expensesData, // Monthly data for charts
+        incomeData, // From transactions
+        expensesData, // From transactions
       },
 
       alerts,
@@ -1574,7 +1565,7 @@ export async function GET(request: NextRequest) {
           totalExpenses: typedAllExpenses.length,
           pendingExpenses: pendingExpensesCount,
           paidExpenses: paidExpensesCount,
-          monthlyExpenses: currentMonthExpensesFromTransactions, // Use monthly for charts
+          monthlyExpenses: currentMonthExpensesFromTransactions, // Use transactions
           expenseChange,
           pendingChange: calculateChange(pendingExpensesCount, 0),
           paidChange: paidExpenseChange,
@@ -1598,17 +1589,17 @@ export async function GET(request: NextRequest) {
           valueChange: 0,
         },
         revenue: {
-          totalRevenue: allTimeIncomeFromTransactions, // ALL-TIME for WelcomeHeader
-          netProfit: allTimeNetProfitFromTransactions, // ALL-TIME for WelcomeHeader
+          totalRevenue: overallRevenueFromTransactions, // Use transactions
+          netProfit: currentMonthNetProfitFromTransactions, // Use transactions
           profitMargin:
-            allTimeIncomeFromTransactions > 0
-              ? (allTimeNetProfitFromTransactions /
-                  allTimeIncomeFromTransactions) *
+            currentMonthIncomeFromTransactions > 0
+              ? (currentMonthNetProfitFromTransactions /
+                  currentMonthIncomeFromTransactions) *
                 100
               : 0,
           growthRate: revenueChange,
-          revenueChange: revenueChange, // Monthly changes
-          profitChange: profitChangeFromTransactions, // Monthly changes
+          revenueChange: revenueChange, // From transactions
+          profitChange: profitChangeFromTransactions, // From transactions
           marginChange: calculateChange(
             (currentMonthNetProfitFromTransactions /
               currentMonthIncomeFromTransactions) *
@@ -1621,15 +1612,15 @@ export async function GET(request: NextRequest) {
         },
       },
 
-      // Chart data - USE MONTHLY TRANSACTIONS
+      // Chart data - USE TRANSACTIONS
       invoiceChartData: {
         labels: chartLabels,
-        incomeData: incomeData, // Monthly data
+        incomeData: incomeData, // From transactions
         expensesData: Array(6).fill(0),
       },
       expenseChartData: {
         labels: chartLabels,
-        incomeData: expensesData, // Monthly data
+        incomeData: expensesData, // From transactions
         expensesData: Array(6).fill(0),
       },
       quotationChartData: {
@@ -1645,8 +1636,8 @@ export async function GET(request: NextRequest) {
       },
       revenueChartData: {
         labels: chartLabels,
-        incomeData, // Monthly data
-        expensesData, // Monthly data
+        incomeData, // From transactions
+        expensesData, // From transactions
       },
 
       // Cash Flow Data - using your provided function
