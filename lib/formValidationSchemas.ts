@@ -257,6 +257,18 @@ export const employeeSchema = z
       ])
       .transform((val) => Number(val))
       .optional(),
+    overtimeHourRate: z
+      .union([
+        z
+          .string()
+          .min(1, { message: "Overtime rate is required" })
+          .refine((val) => !isNaN(Number(val)), {
+            message: "Must be a valid number",
+          }),
+        z.number().min(0, { message: "Overtime rate must be positive" }),
+      ])
+      .transform((val) => Number(val))
+      .default(50.0),
     hireDate: z.date({ required_error: "Hire date is required" }),
     status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
     address: z.string().min(1, { message: "Address is required" }),
@@ -327,6 +339,18 @@ export const freelancerSchema = z.object({
       z.number().min(0, { message: "Salary must be positive" }),
     ])
     .transform((val) => Number(val)),
+  overtimeHourRate: z
+    .union([
+      z
+        .string()
+        .min(1, { message: "Overtime rate is required" })
+        .refine((val) => !isNaN(Number(val)), {
+          message: "Must be a valid number",
+        }),
+      z.number().min(0, { message: "Overtime rate must be positive" }),
+    ])
+    .transform((val) => Number(val))
+    .default(50.0),
   hireDate: z.date({ required_error: "Hire date is required" }),
   status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
   address: z.string().min(1, { message: "Address is required" }),
@@ -348,7 +372,7 @@ export const freelancerSchema = z.object({
   reliable: z.boolean().optional(),
 });
 
-export type freeLancerSchemaType = z.infer<typeof folderSchema>;
+export type freeLancerSchemaType = z.infer<typeof freelancerSchema>;
 
 export const projectInvoiceSchema = z.object({
   invoiceId: z.string().min(1, { message: "invoiceId is required!" }),

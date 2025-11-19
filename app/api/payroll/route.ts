@@ -141,6 +141,24 @@ export async function POST(req: Request) {
       );
     }
 
+    let paymentCategory = await db.category.findFirst({
+      where: {
+        name: "Payroll Payments",
+        type: TransactionType.EXPENSE,
+      },
+    });
+
+    if (!paymentCategory) {
+      paymentCategory = await db.category.create({
+        data: {
+          name: "Payroll Payments",
+          type: TransactionType.EXPENSE,
+          description: "Payments for Payroll",
+          createdBy: creater.id,
+        },
+      });
+    }
+
     // Start a transaction
     const result = await db.$transaction(async (prisma) => {
       // Create the main payroll transaction
@@ -155,6 +173,7 @@ export async function POST(req: Request) {
             `Payroll for ${data.month} (${data.workerType})`,
           date: payDate,
           createdBy: creater.id,
+          categoryId: paymentCategory.id,
           reference: `PAYROLL-${Date.now()}`,
         },
       });

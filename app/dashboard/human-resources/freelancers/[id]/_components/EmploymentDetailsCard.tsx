@@ -1,7 +1,7 @@
 "use client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Calendar, Shield, ShieldOff } from "lucide-react";
+import { Clock, Calendar, Shield, ShieldOff, DollarSign } from "lucide-react";
 
 interface FreelancerWithDetails {
   status: string;
@@ -16,6 +16,7 @@ interface FreelancerWithDetails {
   hireDate: string;
   scheduledKnockIn?: string;
   scheduledKnockOut?: string;
+  overtimeHourRate?: number;
   workingDays?: string[];
 }
 
@@ -176,6 +177,16 @@ export function EmploymentDetailsCard({
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Overtime Rate */}
+        <div>
+          <p className="text-sm font-medium flex items-center text-destructive">
+            Overtime Rate
+          </p>
+          <p className="text-sm  font-semibold">
+            R {freelancer.overtimeHourRate?.toFixed(2) || "0.00"} per hour
+          </p>
         </div>
 
         {/* Working Days */}

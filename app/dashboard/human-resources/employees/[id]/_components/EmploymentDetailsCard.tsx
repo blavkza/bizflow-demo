@@ -2,7 +2,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmployeeWithDetails } from "@/types/employee";
-import { Clock, Calendar } from "lucide-react";
+import { Clock, Calendar, DollarSign } from "lucide-react";
 
 export function EmploymentDetailsCard({
   employee,
@@ -142,6 +142,16 @@ export function EmploymentDetailsCard({
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Overtime Rate */}
+        <div>
+          <p className="text-sm font-medium flex items-center text-destructive">
+            Overtime Rate
+          </p>
+          <p className="text-sm  font-semibold">
+            R {employee.overtimeHourRate?.toFixed(2) || "0.00"} per hour
+          </p>
         </div>
 
         {/* Working Days */}

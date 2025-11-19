@@ -135,6 +135,10 @@ export default function EmployeeForm({
       salaryType: data?.salaryType || "MONTHLY",
       dailySalary: data?.dailySalary ? Number(data.dailySalary) : 0,
       monthlySalary: data?.monthlySalary ? Number(data.monthlySalary) : 0,
+      overtimeHourRate: data?.overtimeHourRate
+        ? Number(data.overtimeHourRate)
+        : 50.0,
+
       hireDate: parseDate(data?.hireDate),
       status: data?.status || "ACTIVE",
       // Address fields with defaults
@@ -550,7 +554,24 @@ export default function EmployeeForm({
               </div>
             </div>
           </div>
-
+          {/* Overtime Rate Field */}
+          <FormField
+            control={form.control}
+            name="overtimeHourRate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Overtime Hourly Rate (R)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="Enter overtime rate"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           {/* Hire Date */}
           <FormField
             control={form.control}

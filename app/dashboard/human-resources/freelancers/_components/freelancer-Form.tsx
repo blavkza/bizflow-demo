@@ -35,52 +35,10 @@ import { format } from "date-fns";
 import { useEffect, useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
-
-// Define the schema here or import it properly
-export const freelancerSchema = z.object({
-  firstName: z.string().min(1, { message: "First name is required" }),
-  lastName: z.string().min(1, { message: "Last name is required" }),
-  phone: z.string().min(1, { message: "Phone number is required" }),
-  email: z
-    .string()
-    .email({ message: "Invalid email address!" })
-    .optional()
-    .or(z.literal("")),
-  position: z.string().min(1, { message: "Position is required" }),
-  departmentId: z.string().min(1, { message: "Department is required" }),
-  salary: z
-    .union([
-      z
-        .string()
-        .min(1, { message: "Salary is required" })
-        .refine((val) => !isNaN(Number(val)), {
-          message: "Must be a valid number",
-        }),
-      z.number().min(0, { message: "Salary must be positive" }),
-    ])
-    .transform((val) => Number(val)),
-  hireDate: z.date({ required_error: "Hire date is required" }),
-  status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
-  address: z.string().min(1, { message: "Address is required" }),
-  scheduledKnockIn: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
-      message: "Invalid time format (HH:mm)",
-    })
-    .optional()
-    .or(z.literal("")),
-  scheduledKnockOut: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
-      message: "Invalid time format (HH:mm)",
-    })
-    .optional()
-    .or(z.literal("")),
-  workingDays: z.array(z.string()).default([]),
-  reliable: z.boolean().optional(),
-});
-
-export type freeLancerSchemaType = z.infer<typeof freelancerSchema>;
+import {
+  freelancerSchema,
+  freeLancerSchemaType,
+} from "@/lib/formValidationSchemas";
 
 interface FreeLancerFormProps {
   type: "create" | "update";
@@ -124,7 +82,6 @@ export default function FreeLancerForm({
     return new Date();
   };
 
-  // Parse working days from database
   const parseWorkingDays = (workingDays: any): string[] => {
     if (!workingDays) return [];
     if (Array.isArray(workingDays)) return workingDays;
@@ -146,6 +103,9 @@ export default function FreeLancerForm({
       email: data?.email || "",
       departmentId: data?.departmentId || "",
       salary: data?.salary ? Number(data.salary) : 0,
+      overtimeHourRate: data?.overtimeHourRate
+        ? Number(data.overtimeHourRate)
+        : 50.0,
       hireDate: parseDate(data?.hireDate),
       status: data?.status || "ACTIVE",
       address: data?.address || "",
@@ -331,6 +291,24 @@ export default function FreeLancerForm({
               </FormItem>
             )}
           />
+          {/* Overtime Rate Field */}
+          <FormField
+            control={form.control}
+            name="overtimeHourRate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Overtime Hourly Rate (R)</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="Enter overtime rate"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           {/* Hire Date */}
           <FormField
             control={form.control}
@@ -402,20 +380,6 @@ export default function FreeLancerForm({
               </FormItem>
             )}
           />
-          {/* Address */}
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Address</FormLabel>
-                <FormControl>
-                  <Input placeholder="Address" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
 
           {/* Scheduled Knock In */}
           <FormField
@@ -441,6 +405,20 @@ export default function FreeLancerForm({
                 <FormLabel>Scheduled Knock Out Time</FormLabel>
                 <FormControl>
                   <Input type="time" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          {/* Address */}
+          <FormField
+            control={form.control}
+            name="address"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Address</FormLabel>
+                <FormControl>
+                  <Input placeholder="Address" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
