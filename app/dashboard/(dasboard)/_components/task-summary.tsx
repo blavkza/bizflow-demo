@@ -300,13 +300,13 @@ const TaskDetailsDialog = ({ data }: { data: any }) => {
               </span>
             </div>
 
-            <div className="mt-2 space-y-1">
+            {/*  <div className="mt-2 space-y-1">
               <div className="flex justify-between text-xs">
                 <span>Progress</span>
                 <span>{task.progress}%</span>
               </div>
               <Progress value={task.progress} className="h-1" />
-            </div>
+            </div> */}
           </div>
         </div>
 
@@ -466,11 +466,11 @@ const TaskDetailsDialog = ({ data }: { data: any }) => {
                 {filteredTasks.slice(0, 10).map((task: Task) => (
                   <TaskItem key={task.id} task={task} />
                 ))}
-                {filteredTasks.length > 10 && (
+                {/*    {filteredTasks.length > 10 && (
                   <Button variant="outline" className="w-full mt-4">
                     View All Tasks ({filteredTasks.length})
                   </Button>
-                )}
+                )} */}
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">

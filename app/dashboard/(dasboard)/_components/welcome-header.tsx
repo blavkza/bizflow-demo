@@ -22,19 +22,15 @@ const fallbackUser = {
 
 export default function WelcomeHeader({ isLoading, data }: WelcomeHeaderProps) {
   const financialData = data?.financialSummary || {};
-  const taskData = data?.taskSummary || {};
-  const projectData = data?.projectSummary || {};
-  const employeeData = data?.employeeSummary || {};
-  const freelancerData = data?.freelancerSummary || {};
 
   const currentUser = data?.currentUser || fallbackUser;
 
-  // Financial metrics - FIXED: Using correct outstanding amount
+  // Financial metrics - USING ALL-TIME DATA FROM TRANSACTIONS
   const financialMetrics = {
-    netProfit: financialData.netProfit || 0,
-    monthlyRevenue: financialData.monthlyRevenue || 0,
-    totalExpenses: financialData.totalExpensesAmount || 0,
-    outstandingInvoices: financialData.outstandingInvoicesAmount || 0, // FIXED
+    netProfit: financialData.netProfit || 0, // All-time net profit from transactions
+    totalRevenue: financialData.monthlyRevenue || 0, // All-time total revenue (renamed from monthlyRevenue)
+    totalExpenses: financialData.totalExpensesAmount || 0, // All-time total expenses
+    outstandingInvoices: financialData.outstandingInvoicesAmount || 0, // Current outstanding
   };
 
   return (
@@ -64,7 +60,7 @@ export default function WelcomeHeader({ isLoading, data }: WelcomeHeaderProps) {
       <CardContent>
         {/* Main Financial Metrics */}
         <div className="grid gap-4 md:grid-cols-4 pt-5">
-          {/* Net Profit */}
+          {/* Net Profit - ALL-TIME */}
           <div className="flex items-center gap-4">
             <div
               className={`flex items-center justify-center rounded-lg p-3 ${
@@ -95,32 +91,32 @@ export default function WelcomeHeader({ isLoading, data }: WelcomeHeaderProps) {
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-1">
-                Revenue - Expenses
+                All-time profit
               </p>
             </div>
           </div>
 
-          {/* Monthly Income */}
+          {/* Total Revenue - ALL-TIME */}
           <div className="flex items-center gap-4">
             <div className="flex items-center justify-center rounded-lg bg-blue-50 p-3">
               <DollarSign className="h-6 w-6 text-blue-600" />
             </div>
             <div>
-              <p className="text-sm font-medium">Monthly Income</p>
+              <p className="text-sm font-medium">Total Revenue</p>
               {isLoading ? (
                 <div className="h-8 w-20 bg-gray-200 animate-pulse rounded"></div>
               ) : (
                 <p className="text-2xl font-bold text-blue-600">
-                  {formatCurrency(financialMetrics.monthlyRevenue)}
+                  {formatCurrency(financialMetrics.totalRevenue)}
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-1">
-                This month's revenue
+                All-time income
               </p>
             </div>
           </div>
 
-          {/* Total Expenses */}
+          {/* Total Expenses - ALL-TIME */}
           <div className="flex items-center gap-4">
             <div className="flex items-center justify-center rounded-lg bg-orange-50 p-3">
               <TrendingDown className="h-6 w-6 text-orange-600" />
@@ -140,7 +136,7 @@ export default function WelcomeHeader({ isLoading, data }: WelcomeHeaderProps) {
             </div>
           </div>
 
-          {/* Outstanding Invoices - FIXED */}
+          {/* Outstanding Invoices - CURRENT */}
           <div className="flex items-center gap-4">
             <div className="flex items-center justify-center rounded-lg bg-red-50 p-3">
               <AlertCircle className="h-6 w-6 text-red-600" />
@@ -160,35 +156,6 @@ export default function WelcomeHeader({ isLoading, data }: WelcomeHeaderProps) {
             </div>
           </div>
         </div>
-
-        {/* Quick Stats Row - KEPT AS YOU WANTED */}
-        {/*   <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-blue-600">
-              {projectData.activeProjects || 0}
-            </div>
-            <div className="text-sm text-muted-foreground">Active Projects</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-green-600">
-              {taskData.completedTasks || 0}
-            </div>
-            <div className="text-sm text-muted-foreground">Completed Tasks</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-orange-600">
-              {(employeeData.activeEmployees || 0) +
-                (freelancerData.totalFreelancers || 0)}
-            </div>
-            <div className="text-sm text-muted-foreground">Team Members</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-red-600">
-              {taskData.overdueTasks || 0}
-            </div>
-            <div className="text-sm text-muted-foreground">Overdue Tasks</div>
-          </div>
-        </div> */}
       </CardContent>
     </Card>
   );
