@@ -1,431 +1,177 @@
-import db from "@/lib/db";
-import { AttendanceStatus, TaskStatus } from "@prisma/client";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
 
-// --- Types for specific logic ---
-type AttendanceWeights = {
-  [key in
-    | AttendanceStatus
-    | "HALF_DAY"
-    | "LATE"
-    | "SICK_LEAVE"
-    | "ANNUAL_LEAVE"
-    | "UNPAID_LEAVE"
-    | "ABSENT"]: number;
-};
+type AttendanceStatus =
+  | "PRESENT"
+  | "HALF_DAY"
+  | "LATE"
+  | "SICK_LEAVE"
+  | "ANNUAL_LEAVE"
+  | "UNPAID_LEAVE"
+  | "ABSENT";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { userId: string } }
-) {
+interface AttendanceWeights {
+  [key: string]: number;
+}
+
+export async function GET(request: NextRequest) {
   try {
-    const { userId } = await params;
+    const { searchParams } = new URL(request.url);
+    const period = searchParams.get("period") || "6months";
+    const dateRange = getDateRange(period);
 
-    if (!userId) {
-      return NextResponse.json(
-        { error: "userId is required" },
-        { status: 400 }
-      );
-    }
-
-    // 1. Fetch User Data with Deep Nested Includes
-    const user = await db.user.findUnique({
-      where: {
-        userId,
-      },
-      include: {
-        employee: {
-          include: {
-            // Department with full hierarchy
-            department: {
-              include: {
-                manager: true,
-                parent: true,
-                children: true,
-              },
+    const [employees, warnings, trendsData] = await Promise.all([
+      db.employee.findMany({
+        where: { status: "ACTIVE" },
+        include: {
+          department: true,
+          AttendanceRecord: {
+            where: { date: { gte: dateRange.start } },
+          },
+          assignedTasks: {
+            where: { createdAt: { gte: dateRange.start } },
+            include: {
+              timeEntries: true,
+              subtask: true,
+              project: true,
             },
-
-            // Attendance records
-            AttendanceRecord: {
-              orderBy: {
-                date: "desc",
-              },
-              take: 60,
-            },
-
-            // Tasks with full project and assignment details
-            assignedTasks: {
-              include: {
-                project: {
-                  include: {
-                    client: true,
-                    manager: true,
-                    teamMembers: {
-                      include: {
-                        user: true,
-                      },
-                    },
-                    Folder: {
-                      include: {
-                        Document: true,
-                        Note: true,
-                      },
-                    },
-                    comment: {
-                      include: {
-                        commentReply: true,
-                      },
-                    },
-                    toolInterUses: true,
-                    workLogs: {
-                      orderBy: {
-                        date: "desc",
-                      },
-                      take: 50,
-                    },
-                    tasks: {
-                      include: {
-                        assignees: true,
-                        freeLancerAssignees: true,
-                        timeEntries: {
-                          where: {
-                            userId: userId,
-                          },
-                        },
-                        subtask: true,
-                      },
-                    },
-                  },
-                },
-                subtask: {
-                  orderBy: {
-                    order: "asc",
-                  },
-                },
-                timeEntries: {
-                  orderBy: {
-                    date: "desc",
-                  },
-                  take: 50,
-                },
-                assignees: {
-                  include: {
-                    department: true,
-                  },
-                },
-                freeLancerAssignees: true,
-                documents: true,
-                comment: {
-                  include: {
-                    commentReply: true,
-                  },
-                },
-              },
-              orderBy: {
-                createdAt: "desc",
-              },
-            },
-
-            // Warnings
-            Warning: {
-              orderBy: {
-                date: "desc",
-              },
-            },
-
-            // Payments
-            payments: {
-              include: {
-                transaction: {
-                  include: {
-                    category: true,
-                  },
-                },
-              },
-              orderBy: {
-                createdAt: "desc",
-              },
-            },
-
-            // Leave requests
-            leaveRequests: {
-              orderBy: {
-                requestedDate: "desc",
-              },
-            },
-
-            // Documents
-            documents: {
-              orderBy: {
-                createdAt: "desc",
-              },
-            },
-
-            // Notes
-            Note: {
-              orderBy: {
-                createdAt: "desc",
-              },
-            },
-
-            // KPI Results
-            kpiResults: {
-              take: 1,
-              orderBy: { createdAt: "desc" },
+          },
+          Warning: { where: { status: "ACTIVE" } },
+        },
+      }),
+      db.warning.findMany({
+        include: {
+          employee: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              position: true,
+              department: true,
+              avatar: true,
             },
           },
         },
+        orderBy: { date: "desc" },
+      }),
+      getHistoricalTrends(dateRange.start),
+    ]);
 
-        // User's own time entries
-        timeEntries: {
-          include: {
-            project: true,
-            task: true,
-          },
-          orderBy: {
-            date: "desc",
-          },
-          take: 100,
-        },
+    const employeePerformance = employees.map((employee) => {
+      try {
+        const metrics = calculateEmployeeMetrics(employee);
+        const overallScore = calculateOverallScore(metrics);
+        const goals = getEmployeeGoals(metrics);
 
-        // User's work logs
-        workLogs: {
-          include: {
-            project: true,
+        return {
+          id: employee.id,
+          name: `${employee.firstName} ${employee.lastName}`,
+          position: employee.position,
+          department: employee.department?.name || "No Department",
+          avatar: employee.avatar,
+          currentPoints: overallScore,
+          trend: calculateEmployeeTrend(employee.assignedTasks),
+          status: getPerformanceStatus(overallScore),
+          metrics: {
+            productivity: metrics.productivity,
+            quality: metrics.taskPerformance,
+            attendance: metrics.attendanceRate,
+            teamwork: metrics.teamwork,
           },
-          orderBy: {
-            date: "desc",
-          },
-          take: 100,
-        },
-
-        // Projects where user is manager
-        Project: {
-          where: {
-            archived: false,
-          },
-          include: {
-            client: true,
-            teamMembers: {
-              include: {
-                user: true,
-              },
-            },
-            tasks: {
-              include: {
-                assignees: true,
-                timeEntries: true,
-              },
-            },
-            timeEntries: true,
-            workLogs: true,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
-
-        // Projects where user is team member
-        projectTeams: {
-          include: {
-            project: {
-              include: {
-                client: true,
-                manager: true,
-                tasks: {
-                  include: {
-                    assignees: true,
-                    timeEntries: true,
-                  },
-                },
-                timeEntries: true,
-                workLogs: true,
-              },
-            },
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        },
-
-        // Departments managed by user
-        managedDepartments: {
-          include: {
-            employees: {
-              include: {
-                department: true,
-                assignedTasks: {
-                  include: {
-                    subtask: true,
-                    timeEntries: true,
-                    project: true,
-                  },
-                },
-                AttendanceRecord: {
-                  orderBy: {
-                    date: "desc",
-                  },
-                  take: 30,
-                },
-                Warning: true,
-              },
-            },
-            freelancers: true,
-            children: true,
-          },
-        },
-
-        // Notifications
-        notifications: {
-          orderBy: {
-            createdAt: "desc",
-          },
-          take: 50,
-        },
-
-        // Activity logs
-        activityLogs: {
-          orderBy: {
-            createdAt: "desc",
-          },
-          take: 50,
-        },
-
-        // Dashboard settings
-        dashboardSettings: true,
-      },
+          goals,
+          warnings: employee.Warning.map((warning) => ({
+            id: warning.id,
+            type: warning.type,
+            reason: warning.reason,
+            severity: warning.severity,
+            date: warning.date.toISOString(),
+          })),
+        };
+      } catch (error) {
+        return getDefaultEmployeePerformance(employee);
+      }
     });
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    const overview = calculateOverview(employeePerformance, warnings);
+    const departments = calculateDepartmentAnalysis(employeePerformance);
+    const distribution = calculatePerformanceDistribution(employeePerformance);
 
-    // 2. Calculate additional statistics
-    const statistics = await calculateUserStatistics(user);
+    const transformedWarnings = warnings.map((warning) => ({
+      id: warning.id,
+      type: warning.type,
+      severity: warning.severity,
+      reason: warning.reason,
+      actionPlan: warning.actionPlan,
+      date: warning.date.toISOString(),
+      status: warning.status,
+      resolvedAt: warning.resolvedAt?.toISOString(),
+      resolutionNotes: warning.resolutionNotes,
+      employee: {
+        id: warning.employee.id,
+        name: `${warning.employee.firstName} ${warning.employee.lastName}`,
+        position: warning.employee.position,
+        department: warning.employee.department?.name || "No Department",
+        avatar: warning.employee.avatar,
+      },
+    }));
 
-    const enhancedUser = {
-      ...user,
-      statistics,
+    const response = {
+      overview,
+      employees: employeePerformance,
+      departments,
+      warnings: transformedWarnings,
+      trends: trendsData,
+      distribution,
     };
 
-    return NextResponse.json(enhancedUser);
+    return NextResponse.json(response);
   } catch (error) {
-    console.error("Error fetching user:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json(getDefaultResponse(), { status: 200 });
   }
 }
 
-// ==========================================
-//  CALCULATION LOGIC
-// ==========================================
+function calculateEmployeeMetrics(employee: any) {
+  const attendanceRate = calculateAttendanceRate(
+    employee.AttendanceRecord || []
+  );
+  const taskPerformance = calculateTaskPerformance(
+    employee.assignedTasks || []
+  );
+  const productivity = calculateProductivity(employee.assignedTasks || []);
+  const projectContribution = calculateProjectContribution(
+    employee.assignedTasks || []
+  );
+  const teamwork = calculateTeamwork(employee.assignedTasks || []);
 
-async function calculateUserStatistics(user: any) {
-  try {
-    const attendanceRecords = user.employee?.AttendanceRecord || [];
-    const assignedTasks = user.employee?.assignedTasks || [];
-
-    // Calculate Metric Scores
-    const attendanceScore = calculateAttendanceRate(attendanceRecords);
-    const taskScore = calculateTaskPerformance(assignedTasks);
-    const productivityScore = calculateProductivity(assignedTasks);
-    const teamworkScore = calculateTeamwork(assignedTasks);
-    const projectContribution = calculateProjectContribution(assignedTasks);
-
-    // Calculate Overall Score
-    const overallScore = calculateWeightedScore({
-      attendance: attendanceScore,
-      tasks: taskScore,
-      productivity: productivityScore,
-      teamwork: teamworkScore,
-      projects: projectContribution,
-    });
-
-    // Manager View Logic
-    let managerStats = null;
-    if (user.managedDepartments && user.managedDepartments.length > 0) {
-      // Flatten employees from all managed departments
-      const allManagedEmployees = user.managedDepartments.flatMap(
-        (dept: any) => dept.employees || []
-      );
-
-      const employeesWithScores = allManagedEmployees.map((emp: any) => {
-        const empScore = calculateWeightedScore({
-          attendance: calculateAttendanceRate(emp.AttendanceRecord || []),
-          tasks: calculateTaskPerformance(emp.assignedTasks || []),
-          productivity: calculateProductivity(emp.assignedTasks || []),
-          teamwork: calculateTeamwork(emp.assignedTasks || []),
-          projects: calculateProjectContribution(emp.assignedTasks || []),
-        });
-        return { ...emp, currentPoints: empScore };
-      });
-
-      const warnings = employeesWithScores.flatMap((e: any) => e.Warning || []);
-
-      managerStats = {
-        overview: calculateOverview(employeesWithScores, warnings),
-        departmentAnalysis: calculateDepartmentAnalysis(employeesWithScores),
-        performanceDistribution:
-          calculatePerformanceDistribution(employeesWithScores),
-        departmentStats: calculateDepartmentStats(employeesWithScores),
-      };
-    }
-
-    return {
-      performance: {
-        overallScore,
-        rating: getPerformanceStatus(overallScore),
-        scores: {
-          attendance: attendanceScore,
-          tasks: taskScore,
-          productivity: productivityScore,
-          teamwork: teamworkScore,
-          projects: projectContribution,
-        },
-        goals: getEmployeeGoals({
-          taskPerformance: taskScore,
-          attendanceRate: attendanceScore,
-          productivity: productivityScore,
-        }),
-        trend: calculateEmployeeTrend(taskScore),
-      },
-      metrics: {
-        totalTasks: assignedTasks.length,
-        completedTasks: assignedTasks.filter(
-          (t: any) => t.status === "COMPLETED"
-        ).length, // CORRECTED: using Enum value [cite: 367]
-        attendanceDays: attendanceRecords.length,
-        presentDays: attendanceRecords.filter(
-          (r: any) => r.status === "PRESENT"
-        ).length,
-      },
-      managerView: managerStats,
-    };
-  } catch (error) {
-    console.error("Error calculating statistics:", error);
-    return {};
-  }
+  return {
+    attendanceRate,
+    taskPerformance,
+    productivity,
+    projectContribution,
+    teamwork,
+  };
 }
 
-function calculateWeightedScore(scores: any) {
-  // Weights based on your logic preference
+function calculateOverallScore(metrics: any): number {
+  if (!metrics) return 75;
+
+  const attendanceRate = Number(metrics.attendanceRate) || 0;
+  const taskPerformance = Number(metrics.taskPerformance) || 0;
+  const productivity = Number(metrics.productivity) || 0;
+  const projectContribution = Number(metrics.projectContribution) || 0;
+  const teamwork = Number(metrics.teamwork) || 0;
+
   return Math.round(
-    scores.attendance * 0.25 +
-      scores.tasks * 0.3 +
-      scores.productivity * 0.2 +
-      scores.teamwork * 0.15 +
-      scores.projects * 0.1
+    attendanceRate * 0.15 +
+      taskPerformance * 0.35 +
+      productivity * 0.25 +
+      projectContribution * 0.15 +
+      teamwork * 0.1
   );
 }
 
-// ==========================================
-//  HELPER FUNCTIONS
-// ==========================================
-
 function calculateAttendanceRate(records: any[]): number {
-  if (!records || records.length === 0) return 0;
+  if (records.length === 0) return 0;
 
   const weights: AttendanceWeights = {
     PRESENT: 1.0,
@@ -435,15 +181,12 @@ function calculateAttendanceRate(records: any[]): number {
     ANNUAL_LEAVE: 0.5,
     UNPAID_LEAVE: 0.3,
     ABSENT: 0.0,
-    MATERNITY_LEAVE: 1.0,
-    PATERNITY_LEAVE: 1.0,
-    STUDY_LEAVE: 1.0,
   };
 
   let totalScore = 0;
   records.forEach((record) => {
-    const status = record.status as keyof AttendanceWeights;
-    const weight = weights[status] !== undefined ? weights[status] : 0;
+    const status = record.status as AttendanceStatus;
+    const weight = weights[status] || 0;
     totalScore += weight;
   });
 
@@ -451,16 +194,14 @@ function calculateAttendanceRate(records: any[]): number {
 }
 
 function calculateTaskPerformance(tasks: any[]): number {
-  if (!tasks || tasks.length === 0) return 0;
+  if (tasks.length === 0) return 0;
 
   const completedTasks = tasks.filter(
     (task) => task.status === "COMPLETED"
   ).length;
-
   const cancelledTasks = tasks.filter(
     (task) => task.status === "CANCELLED"
   ).length;
-
   const totalAssignableTasks = tasks.length - cancelledTasks;
 
   return totalAssignableTasks > 0
@@ -469,7 +210,7 @@ function calculateTaskPerformance(tasks: any[]): number {
 }
 
 function calculateProductivity(tasks: any[]): number {
-  if (!tasks || tasks.length === 0) return 0;
+  if (tasks.length === 0) return 0;
 
   const completedTasks = tasks.filter((task) => task.status === "COMPLETED");
   if (completedTasks.length === 0) return 0;
@@ -478,16 +219,12 @@ function calculateProductivity(tasks: any[]): number {
   let validTasks = 0;
 
   completedTasks.forEach((task) => {
-    // Handle Decimal fields from Prisma
     const estimatedHours = task.estimatedHours
       ? Number(task.estimatedHours)
       : 8;
-
-    const actualHours = task.timeEntries
-      ? task.timeEntries.reduce((sum: number, entry: any) => {
-          return sum + (entry.hours ? Number(entry.hours) : 0);
-        }, 0)
-      : 0;
+    const actualHours = task.timeEntries.reduce((sum: number, entry: any) => {
+      return sum + (entry.hours ? Number(entry.hours) : 0);
+    }, 0);
 
     let taskProductivity = 100;
 
@@ -508,13 +245,13 @@ function calculateProductivity(tasks: any[]): number {
 }
 
 function calculateProjectContribution(tasks: any[]): number {
-  if (!tasks || tasks.length === 0) return 0;
+  if (tasks.length === 0) return 0;
 
   const uniqueProjects = new Set(
     tasks.map((task) => task.projectId).filter(Boolean)
   ).size;
-
   const completedTasksByProject = new Map();
+
   tasks.forEach((task) => {
     if (task.projectId) {
       const current = completedTasksByProject.get(task.projectId) || {
@@ -528,28 +265,24 @@ function calculateProjectContribution(tasks: any[]): number {
   });
 
   let totalProjectContribution = 0;
-  let projectCount = 0;
   completedTasksByProject.forEach((stats) => {
     const completionRate =
       stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
     totalProjectContribution += completionRate;
-    projectCount++;
   });
 
   const averageContribution =
-    projectCount > 0 ? totalProjectContribution / projectCount : 0;
+    uniqueProjects > 0 ? totalProjectContribution / uniqueProjects : 0;
   return Math.round(Math.min(averageContribution, 100));
 }
 
 function calculateTeamwork(tasks: any[]): number {
-  if (!tasks || tasks.length === 0) return 50;
+  if (tasks.length === 0) return 50;
 
   const collaborativeTasks = tasks.filter(
     (task) => task.subtask && task.subtask.length > 0
   ).length;
-
   const reviewTasks = tasks.filter((task) => task.status === "REVIEW").length;
-
   const uniqueProjects = new Set(
     tasks.map((task) => task.projectId).filter(Boolean)
   ).size;
@@ -569,8 +302,6 @@ function calculateTeamwork(tasks: any[]): number {
   );
   return Math.min(100, Math.max(20, teamwork));
 }
-
-// --- Dashboard / Aggregate Calculations ---
 
 function calculateOverview(employees: any[], warnings: any[]) {
   const employeesWithScores = employees.filter(
@@ -592,6 +323,7 @@ function calculateOverview(employees: any[], warnings: any[]) {
     activeWarnings: warnings.filter((w: any) => w.status === "ACTIVE").length,
     trend: calculateTrend(scores),
     totalEmployees: employees.length,
+    departmentStats: calculateDepartmentStats(employeesWithScores),
     calculatedAt: new Date().toISOString(),
   };
 }
@@ -600,7 +332,7 @@ function calculateDepartmentAnalysis(employees: any[]) {
   const deptMap = new Map();
 
   employees.forEach((emp) => {
-    const dept = emp.department?.name || "Unassigned";
+    const dept = emp.department;
     if (!deptMap.has(dept)) {
       deptMap.set(dept, {
         name: dept,
@@ -670,7 +402,7 @@ function calculateDepartmentStats(employees: any[]) {
   employees.forEach((emp) => {
     if (emp.currentPoints === null || emp.currentPoints === undefined) return;
 
-    const dept = emp.department?.name || "Unassigned";
+    const dept = emp.department;
     if (!deptStats.has(dept)) {
       deptStats.set(dept, { totalScore: 0, count: 0 });
     }
@@ -679,27 +411,17 @@ function calculateDepartmentStats(employees: any[]) {
     stats.count++;
   });
 
-  return Array.from(deptStats.entries()).map(
-    ([name, stats]: [string, any]) => ({
-      name,
-      avgScore:
-        stats.count > 0 ? Math.round(stats.totalScore / stats.count) : 0,
-      employeeCount: stats.count,
-    })
-  );
+  return Array.from(deptStats.entries()).map(([name, stats]) => ({
+    name,
+    avgScore: stats.count > 0 ? Math.round(stats.totalScore / stats.count) : 0,
+    employeeCount: stats.count,
+  }));
 }
 
-function calculateEmployeeTrend(score: number): string {
-  if (score >= 80) return "up";
-  if (score >= 60) return "stable";
-  return "down";
-}
-
-function calculateTrend(scores: number[]): string {
-  if (scores.length === 0) return "stable";
-  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
-  if (avg >= 80) return "up";
-  if (avg >= 60) return "stable";
+function calculateEmployeeTrend(tasks: any[]): string {
+  const taskPerformance = calculateTaskPerformance(tasks);
+  if (taskPerformance >= 80) return "up";
+  if (taskPerformance >= 60) return "stable";
   return "down";
 }
 
@@ -734,4 +456,282 @@ function getGoalStatus(progress: number): string {
   if (progress >= 90) return "Completed";
   if (progress >= 70) return "In Progress";
   return "Behind";
+}
+
+function calculateTrend(scores: number[]): number {
+  if (scores.length === 0) return 0;
+  const average = scores.reduce((a, b) => a + b, 0) / scores.length;
+  if (average >= 85) return 2.5;
+  if (average >= 75) return 1.8;
+  if (average >= 65) return 0.5;
+  return -1.2;
+}
+
+async function getHistoricalTrends(since: Date) {
+  try {
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const employees = await db.employee.findMany({
+      where: { status: "ACTIVE" },
+      include: {
+        AttendanceRecord: {
+          where: { date: { gte: sixMonthsAgo } },
+        },
+        assignedTasks: {
+          where: { createdAt: { gte: sixMonthsAgo } },
+          include: {
+            timeEntries: true,
+            subtask: true,
+            project: true,
+          },
+        },
+      },
+    });
+
+    // Define proper type for monthlyData
+    const monthlyData: {
+      [key: string]: {
+        month: string;
+        productivity: number[];
+        quality: number[];
+        attendance: number[];
+        teamwork: number[];
+      };
+    } = {};
+
+    employees.forEach((employee) => {
+      employee.assignedTasks.forEach((task) => {
+        const taskMonth = task.createdAt.toISOString().substring(0, 7);
+
+        if (!monthlyData[taskMonth]) {
+          monthlyData[taskMonth] = {
+            month: formatMonth(task.createdAt),
+            productivity: [],
+            quality: [],
+            attendance: [],
+            teamwork: [],
+          };
+        }
+
+        const monthData = monthlyData[taskMonth];
+
+        if (task.status === "COMPLETED") {
+          monthData.quality.push(100);
+        } else {
+          monthData.quality.push(0);
+        }
+
+        const taskProductivity = calculateTaskProductivity(task);
+        if (taskProductivity > 0) {
+          monthData.productivity.push(taskProductivity);
+        }
+
+        const taskTeamwork = calculateTaskTeamwork(task);
+        monthData.teamwork.push(taskTeamwork);
+      });
+
+      employee.AttendanceRecord.forEach((record) => {
+        const attendanceMonth = record.date.toISOString().substring(0, 7);
+
+        if (!monthlyData[attendanceMonth]) {
+          monthlyData[attendanceMonth] = {
+            month: formatMonth(record.date),
+            productivity: [],
+            quality: [],
+            attendance: [],
+            teamwork: [],
+          };
+        }
+
+        const weight = getAttendanceWeight(record.status);
+        monthlyData[attendanceMonth].attendance.push(weight * 100);
+      });
+    });
+
+    const trendsData = Object.values(monthlyData)
+      .map((monthData) => {
+        const productivity = calculateMonthlyAverage(monthData.productivity, 0);
+        const quality = calculateMonthlyAverage(monthData.quality, 0);
+        const attendance = calculateMonthlyAverage(monthData.attendance, 0);
+        const teamwork = calculateMonthlyAverage(monthData.teamwork, 0);
+
+        const totalDataPoints =
+          monthData.productivity.length +
+          monthData.quality.length +
+          monthData.attendance.length +
+          monthData.teamwork.length;
+
+        if (totalDataPoints >= 3) {
+          return {
+            month: monthData.month,
+            productivity: Math.round(productivity),
+            quality: Math.round(quality),
+            attendance: Math.round(attendance),
+            teamwork: Math.round(teamwork),
+          };
+        }
+        return null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
+      .slice(-6);
+
+    return trendsData;
+  } catch (error) {
+    console.error("Error calculating trends:", error);
+    return getDefaultTrends();
+  }
+}
+
+function calculateTaskProductivity(task: any): number {
+  if (task.status !== "COMPLETED") return 0;
+
+  const estimatedHours = task.estimatedHours ? Number(task.estimatedHours) : 8;
+  const actualHours = task.timeEntries.reduce(
+    (sum: number, entry: any) => sum + (entry.hours ? Number(entry.hours) : 0),
+    0
+  );
+
+  let taskProductivity = 100;
+
+  if (actualHours > 0 && estimatedHours > 0) {
+    taskProductivity = Math.min((estimatedHours / actualHours) * 100, 120);
+    taskProductivity = Math.max(70, taskProductivity);
+  } else {
+    taskProductivity = 90;
+  }
+
+  return taskProductivity;
+}
+
+function calculateTaskTeamwork(task: any): number {
+  let teamworkScore = 0;
+
+  if (task.subtask && task.subtask.length > 0) {
+    teamworkScore += 50;
+  }
+
+  if (task.status === "REVIEW") {
+    teamworkScore += 30;
+  }
+
+  if (task.projectId) {
+    teamworkScore += 20;
+  }
+
+  return Math.min(teamworkScore, 100);
+}
+
+function calculateMonthlyAverage(
+  values: number[],
+  defaultValue: number
+): number {
+  if (!values || values.length === 0) return defaultValue;
+  const validValues = values.filter((v) => v > 0);
+  if (validValues.length === 0) return defaultValue;
+  const sum = validValues.reduce((a, b) => a + b, 0);
+  return sum / validValues.length;
+}
+
+function getAttendanceWeight(status: string): number {
+  const weights: { [key: string]: number } = {
+    PRESENT: 1.0,
+    HALF_DAY: 0.8,
+    LATE: 0.7,
+    SICK_LEAVE: 0.5,
+    ANNUAL_LEAVE: 0.5,
+    UNPAID_LEAVE: 0.3,
+    ABSENT: 0.0,
+  };
+  return weights[status] || 0;
+}
+
+function getDefaultTrends() {
+  const months = [];
+  const now = new Date();
+
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      month: formatMonth(date),
+      productivity: 75,
+      quality: 75,
+      attendance: 85,
+      teamwork: 60,
+    });
+  }
+  return months;
+}
+
+function formatMonth(date: Date): string {
+  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+function getDateRange(period: string) {
+  const now = new Date();
+  const start = new Date();
+
+  switch (period) {
+    case "1month":
+      start.setMonth(now.getMonth() - 1);
+      break;
+    case "3months":
+      start.setMonth(now.getMonth() - 3);
+      break;
+    case "1year":
+      start.setFullYear(now.getFullYear() - 1);
+      break;
+    case "6months":
+    default:
+      start.setMonth(now.getMonth() - 6);
+      break;
+  }
+
+  return { start, end: now };
+}
+
+function getDefaultEmployeePerformance(employee: any) {
+  return {
+    id: employee.id,
+    name: `${employee.firstName} ${employee.lastName}`,
+    position: employee.position,
+    department: employee.department?.name || "No Department",
+    avatar: employee.avatar,
+    currentPoints: 75,
+    trend: "stable",
+    status: "Needs Improvement",
+    metrics: {
+      productivity: 75,
+      quality: 75,
+      attendance: 85,
+      teamwork: 60,
+    },
+    goals: [
+      { title: "Task Completion Rate", progress: 75, status: "In Progress" },
+      { title: "Attendance Rate", progress: 85, status: "In Progress" },
+      { title: "Productivity", progress: 75, status: "In Progress" },
+    ],
+    warnings: [],
+  };
+}
+
+function getDefaultResponse() {
+  return {
+    overview: {
+      averageScore: 0,
+      topPerformers: 0,
+      needsAttention: 0,
+      activeWarnings: 0,
+      trend: 0,
+      totalEmployees: 0,
+      departmentStats: [],
+      calculatedAt: new Date().toISOString(),
+    },
+    employees: [],
+    departments: [],
+    warnings: [],
+    trends: [],
+    distribution: [],
+  };
 }
