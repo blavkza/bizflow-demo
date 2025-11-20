@@ -19,6 +19,9 @@ export async function GET(
       where: {
         userId,
       },
+      include: {
+        employee: true,
+      },
     });
 
     if (!user) {
