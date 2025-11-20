@@ -1,6 +1,5 @@
-import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
 import db from "@/lib/db";
+import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
@@ -16,31 +15,9 @@ export async function GET(
       );
     }
 
-    const { userId: authenticatedUserId } = await auth();
-
-    if (!authenticatedUserId) {
-      return NextResponse.json(
-        { error: "Unauthorized - Please log in" },
-        { status: 401 }
-      );
-    }
-
-    if (authenticatedUserId !== userId) {
-      console.warn(
-        `User ${authenticatedUserId} attempted to access data for ${userId}`
-      );
-      return NextResponse.json(
-        { error: "Forbidden - You can only access your own data" },
-        { status: 403 }
-      );
-    }
-
     const user = await db.user.findUnique({
       where: {
         userId,
-      },
-      include: {
-        employee: true,
       },
     });
 

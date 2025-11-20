@@ -10,16 +10,30 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const includeCurrent = searchParams.get("includeCurrent") === "true";
+    const currentEmployeeId = searchParams.get("currentEmployeeId");
+
+    let whereClause: any = {
+      status: "ACTIVE",
+    };
+
+    if (!includeCurrent) {
+      whereClause.user = null;
+    }
+
     const employees = await db.employee.findMany({
-      where: {
-        status: "ACTIVE",
-        user: null,
-      },
+      where: whereClause,
       include: {
         department: {
           select: {
             id: true,
             name: true,
+          },
+        },
+        user: {
+          select: {
+            id: true,
           },
         },
       },
@@ -28,7 +42,6 @@ export async function GET(req: Request) {
       },
     });
 
-    // Return the raw employee data with department relation
     const availableEmployees = employees.map((employee) => ({
       id: employee.id,
       employeeNumber: employee.employeeNumber,
@@ -40,6 +53,7 @@ export async function GET(req: Request) {
       department: employee.department,
       status: employee.status,
       avatar: employee.avatar,
+      isLinked: employee.user !== null,
     }));
 
     return NextResponse.json(availableEmployees);

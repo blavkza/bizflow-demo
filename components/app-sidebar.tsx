@@ -70,6 +70,8 @@ export default function AppSidebar() {
     return <div>NOT AUTHENTICATED</div>;
   }
 
+  console.log(userData);
+
   return (
     <div>
       <SidebarItems

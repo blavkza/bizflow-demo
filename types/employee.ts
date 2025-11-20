@@ -62,6 +62,7 @@ export interface EmployeeForUserLinking {
   position: string;
   status: string;
   avatar: string | null;
+  isLinked?: boolean;
   department?: {
     id: string;
     name: string;

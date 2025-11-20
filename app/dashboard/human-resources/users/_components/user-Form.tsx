@@ -116,7 +116,13 @@ export default function UserForm({
     const fetchAvailableEmployees = async () => {
       setIsLoadingEmployees(true);
       try {
-        const response = await axios.get("/api/employees/available");
+        // For update, include currently linked employee
+        const url =
+          type === "update" && data?.employeeId
+            ? `/api/employees/available?includeCurrent=true&currentEmployeeId=${data.employeeId}`
+            : "/api/employees/available";
+
+        const response = await axios.get(url);
         setAvailableEmployees(response.data);
       } catch (error) {
         console.error("Error fetching employees:", error);
@@ -127,21 +133,36 @@ export default function UserForm({
     };
 
     fetchAvailableEmployees();
-  }, []);
+  }, [type, data?.employeeId]);
 
   // Get selected employee details
   const selectedEmployee = availableEmployees.find(
     (emp) => emp.id === selectedEmployeeId
   );
 
+  // Get currently linked employee for update
+  const currentLinkedEmployee =
+    type === "update" && data?.employeeId
+      ? availableEmployees.find((emp) => emp.id === data.employeeId)
+      : null;
+
   const onSubmit = async (values: FormValues) => {
     try {
+      console.log("Submitting form data:", values);
+
+      // Prepare data for API
+      const submitData = {
+        ...values,
+        // If employeeId is "no-employee", send null instead
+        employeeId:
+          values.employeeId === "no-employee" ? null : values.employeeId,
+      };
+
       if (type === "create") {
-        await axios.post("/api/users", values);
+        await axios.post("/api/users", submitData);
         toast.success("User created successfully");
       } else if (type === "update" && data?.id) {
-        const updateData = { ...values };
-        await axios.put(`/api/users/${data.id}`, updateData);
+        await axios.put(`/api/users/${data.id}`, submitData);
         toast.success("User updated successfully");
       }
 
@@ -150,10 +171,10 @@ export default function UserForm({
       onSubmitSuccess?.();
       onCancel?.();
     } catch (error: any) {
+      console.error("Form submission error:", error);
       const errorMessage =
         error.response?.data?.error || "Something went wrong!";
       toast.error(errorMessage);
-      console.error(error);
     }
   };
 
@@ -218,7 +239,6 @@ export default function UserForm({
             )}
           />
 
-          {/* Employee Selection (show for both ADMIN and EMPLOYEE, but required for EMPLOYEE) */}
           <FormField
             control={form.control}
             name="employeeId"
@@ -250,10 +270,19 @@ export default function UserForm({
                       No employee linked
                     </SelectItem>
                     {availableEmployees.map((employee) => (
-                      <SelectItem key={employee.id} value={employee.id}>
+                      <SelectItem
+                        key={employee.id}
+                        value={employee.id}
+                        disabled={
+                          employee.isLinked && employee.id !== data?.employeeId
+                        }
+                      >
                         {employee.firstName} {employee.lastName} (
                         {employee.employeeNumber})
                         {employee.email && ` - ${employee.email}`}
+                        {employee.isLinked &&
+                          employee.id !== data?.employeeId &&
+                          " (Already linked)"}
                       </SelectItem>
                     ))}
                     {availableEmployees.length === 0 && !isLoadingEmployees && (
@@ -273,8 +302,39 @@ export default function UserForm({
             )}
           />
 
+          {/* Show currently linked employee info for update */}
+          {type === "update" &&
+            currentLinkedEmployee &&
+            !selectedEmployeeId && (
+              <div className="md:col-span-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <h4 className="font-medium text-amber-900">
+                  Currently Linked Employee:
+                </h4>
+                <p className="text-sm text-amber-800">
+                  <strong>Name:</strong> {currentLinkedEmployee.firstName}{" "}
+                  {currentLinkedEmployee.lastName}
+                  <br />
+                  <strong>Employee #:</strong>{" "}
+                  {currentLinkedEmployee.employeeNumber}
+                  <br />
+                  <strong>Position:</strong> {currentLinkedEmployee.position}
+                  <br />
+                  {currentLinkedEmployee.department && (
+                    <>
+                      <strong>Department:</strong>{" "}
+                      {currentLinkedEmployee.department.name}
+                    </>
+                  )}
+                </p>
+                <p className="text-xs text-amber-700 mt-2">
+                  This employee is currently linked to this user. Select "No
+                  employee linked" to unlink.
+                </p>
+              </div>
+            )}
+
           {/* Show selected employee info */}
-          {selectedEmployee && (
+          {selectedEmployee && selectedEmployeeId !== "no-employee" && (
             <div className="md:col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-medium text-blue-900">Selected Employee:</h4>
               <p className="text-sm text-blue-800">
@@ -295,7 +355,6 @@ export default function UserForm({
             </div>
           )}
 
-          {/* Rest of your form fields remain the same */}
           <FormField
             control={form.control}
             name="name"
