@@ -28,12 +28,13 @@ import {
 } from "@/lib/formValidationSchemas";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { UserRole, UserStatus, UserPermission } from "@prisma/client";
+import { UserRole, UserStatus, UserPermission, UserType } from "@prisma/client";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PERMISSION_GROUPS } from "@/types/user";
+import { EmployeeForUserLinking } from "@/types/employee";
 
 interface UserFormProps {
   type: "create" | "update";
@@ -45,6 +46,8 @@ interface UserFormProps {
     userName?: string;
     phone?: string | null;
     status: UserStatus;
+    userType?: UserType;
+    employeeId?: string;
     permissions?: UserPermission[];
   };
   onCancel?: () => void;
@@ -67,6 +70,10 @@ export default function UserForm({
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [availableEmployees, setAvailableEmployees] = useState<
+    EmployeeForUserLinking[]
+  >([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
 
   const formSchema = type === "update" ? updateUserSchema : createUserSchema;
   type FormValues = z.infer<typeof formSchema>;
@@ -81,6 +88,8 @@ export default function UserForm({
             email: data?.email ?? "",
             role: data?.role ?? UserRole.VIEWER,
             status: data?.status ?? UserStatus.ACTIVE,
+            userType: data?.userType ?? UserType.ADMIN,
+            employeeId: data?.employeeId ?? "",
             permissions: data?.permissions ?? [],
           }
         : {
@@ -90,6 +99,8 @@ export default function UserForm({
             email: "",
             role: UserRole.VIEWER,
             status: UserStatus.ACTIVE,
+            userType: UserType.ADMIN,
+            employeeId: "",
             password: "",
             confirmPassword: "",
             permissions: [],
@@ -97,6 +108,31 @@ export default function UserForm({
   });
 
   const { isSubmitting } = form.formState;
+  const selectedUserType = form.watch("userType");
+  const selectedEmployeeId = form.watch("employeeId");
+
+  // Fetch available employees
+  useEffect(() => {
+    const fetchAvailableEmployees = async () => {
+      setIsLoadingEmployees(true);
+      try {
+        const response = await axios.get("/api/employees/available");
+        setAvailableEmployees(response.data);
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+        toast.error("Failed to load available employees");
+      } finally {
+        setIsLoadingEmployees(false);
+      }
+    };
+
+    fetchAvailableEmployees();
+  }, []);
+
+  // Get selected employee details
+  const selectedEmployee = availableEmployees.find(
+    (emp) => emp.id === selectedEmployeeId
+  );
 
   const onSubmit = async (values: FormValues) => {
     try {
@@ -105,7 +141,6 @@ export default function UserForm({
         toast.success("User created successfully");
       } else if (type === "update" && data?.id) {
         const updateData = { ...values };
-
         await axios.put(`/api/users/${data.id}`, updateData);
         toast.success("User updated successfully");
       }
@@ -153,12 +188,120 @@ export default function UserForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* User Type Field */}
+          <FormField
+            control={form.control}
+            name="userType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>User Type *</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select user type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {Object.values(UserType).map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type.charAt(0) + type.slice(1).toLowerCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Employee Selection (show for both ADMIN and EMPLOYEE, but required for EMPLOYEE) */}
+          <FormField
+            control={form.control}
+            name="employeeId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  Link to Employee{" "}
+                  {selectedUserType === UserType.EMPLOYEE && "*"}
+                </FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  defaultValue={field.value}
+                  disabled={isLoadingEmployees}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={
+                          isLoadingEmployees
+                            ? "Loading employees..."
+                            : "Select an employee (optional)"
+                        }
+                      />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="no-employee">
+                      No employee linked
+                    </SelectItem>
+                    {availableEmployees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.firstName} {employee.lastName} (
+                        {employee.employeeNumber})
+                        {employee.email && ` - ${employee.email}`}
+                      </SelectItem>
+                    ))}
+                    {availableEmployees.length === 0 && !isLoadingEmployees && (
+                      <SelectItem value="no-available-employees" disabled>
+                        No available employees found
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+                <p className="text-sm text-muted-foreground">
+                  {selectedUserType === UserType.EMPLOYEE
+                    ? "Employee users must be linked to an employee record"
+                    : "Optionally link this admin user to an employee record"}
+                </p>
+              </FormItem>
+            )}
+          />
+
+          {/* Show selected employee info */}
+          {selectedEmployee && (
+            <div className="md:col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 className="font-medium text-blue-900">Selected Employee:</h4>
+              <p className="text-sm text-blue-800">
+                <strong>Name:</strong> {selectedEmployee.firstName}{" "}
+                {selectedEmployee.lastName}
+                <br />
+                <strong>Employee #:</strong> {selectedEmployee.employeeNumber}
+                <br />
+                <strong>Position:</strong> {selectedEmployee.position}
+                <br />
+                {selectedEmployee.department && (
+                  <>
+                    <strong>Department:</strong>{" "}
+                    {selectedEmployee.department.name}
+                  </>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Rest of your form fields remain the same */}
           <FormField
             control={form.control}
             name="name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Full Name</FormLabel>
+                <FormLabel>Full Name *</FormLabel>
                 <FormControl>
                   <Input placeholder="Enter full name" {...field} />
                 </FormControl>
@@ -173,7 +316,7 @@ export default function UserForm({
               name="userName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Username</FormLabel>
+                  <FormLabel>Username *</FormLabel>
                   <FormControl>
                     <Input placeholder="Enter username" {...field} />
                   </FormControl>
@@ -188,7 +331,7 @@ export default function UserForm({
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Email *</FormLabel>
                 <FormControl>
                   <Input placeholder="Enter email" type="email" {...field} />
                 </FormControl>
@@ -197,21 +340,19 @@ export default function UserForm({
             )}
           />
 
-          {type === "update" && (
-            <FormField
-              control={form.control}
-              name="phone"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Phone</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter Phone" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter phone number" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           {type === "create" && (
             <>
@@ -220,7 +361,7 @@ export default function UserForm({
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>Password *</FormLabel>
                     <div className="relative">
                       <FormControl>
                         <Input
@@ -231,7 +372,7 @@ export default function UserForm({
                       </FormControl>
                       <button
                         type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                         onClick={() => setShowPassword(!showPassword)}
                       >
                         {showPassword ? (
@@ -251,7 +392,7 @@ export default function UserForm({
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
+                    <FormLabel>Confirm Password *</FormLabel>
                     <div className="relative">
                       <FormControl>
                         <Input
@@ -262,7 +403,7 @@ export default function UserForm({
                       </FormControl>
                       <button
                         type="button"
-                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
                         onClick={() =>
                           setShowConfirmPassword(!showConfirmPassword)
                         }
@@ -281,39 +422,37 @@ export default function UserForm({
             </>
           )}
 
-          {type === "update" && (
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Status</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a status" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.values(UserStatus).map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status
-                            .replace(/_/g, " ")
-                            .toLowerCase()
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select
+                  onValueChange={field.onChange}
+                  value={field.value}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {Object.values(UserStatus).map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status
+                          .replace(/_/g, " ")
+                          .toLowerCase()
+                          .replace(/\b\w/g, (l) => l.toUpperCase())}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <FormField
             control={form.control}
@@ -358,7 +497,6 @@ export default function UserForm({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  // Enable all permissions
                   const allPermissions = Object.values(UserPermission);
                   form.setValue("permissions", allPermissions);
                 }}
@@ -370,7 +508,6 @@ export default function UserForm({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  // Disable all permissions
                   form.setValue("permissions", []);
                 }}
               >
@@ -378,6 +515,25 @@ export default function UserForm({
               </Button>
             </div>
           </div>
+
+          {/* Info messages */}
+          {selectedUserType === UserType.EMPLOYEE && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-blue-800 text-sm">
+                <strong>Employee User:</strong> This user is linked to an
+                employee record but can still have system permissions.
+              </p>
+            </div>
+          )}
+
+          {selectedUserType === UserType.ADMIN && selectedEmployee && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <p className="text-amber-800 text-sm">
+                <strong>Admin with Employee Link:</strong> This admin user is
+                also linked to an employee record.
+              </p>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {PERMISSION_GROUPS.map((group) => (
@@ -418,7 +574,7 @@ export default function UserForm({
                                 }}
                               />
                             </FormControl>
-                            <FormLabel className="font-normal">
+                            <FormLabel className="font-normal text-sm cursor-pointer">
                               {formatPermissionName(permission)}
                             </FormLabel>
                           </FormItem>

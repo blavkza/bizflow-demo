@@ -35,13 +35,15 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Only this relation matters for being a manager
+  userType   UserType  @default(ADMIN)
+  employeeId String?   @unique
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+
   managedDepartments Department[]  @relation("DepartmentManager")
   projectTeams       ProjectTeam[]
 
   permissions UserPermission[]
 
-  // Everything else is unrelated
   createdTransactions Transaction[]
   createdInvoices     Invoice[]
   notifications       Notification[]
@@ -366,6 +368,7 @@ model Employee {
   Note             Note[]
   AttendanceRecord AttendanceRecord[]
   Warning          Warning[]
+  user             User?
 
   @@index([departmentId])
   @@index([status])
@@ -2572,6 +2575,7 @@ enum UserRole {
   GENERAL_MANAGER
   MANAGER
   VIEWER
+  EMPLOYEE
 }
 
 enum UserStatus {
@@ -2597,6 +2601,10 @@ enum UserPermission {
   EMPLOYEES_EDIT
   EMPLOYEES_DELETE
   EMPLOYEES_VIEW
+  Freelancer_CREATE
+  Freelancer_EDIT
+  Freelancer_DELETE
+  Freelancer_VIEW
   DEPARTMENT_CREATE
   DEPARTMENT_EDIT
   DEPARTMENT_DELETE
@@ -2625,6 +2633,43 @@ enum UserPermission {
   Attendence_CREATE
   Attendence_EDIT
   Attendence_DELETE
+  Perfomance_VIEW
+  Perfomance_CREATE
+  Perfomance_EDIT
+  Perfomance_DELETE
+  POS_VIEW
+  Order_VIEW
+  Order_CREATE
+  Order_EDIT
+  Order_DELETE
+  Sale_VIEW
+  Sale_CREATE
+  Sale_EDIT
+  Sale_DELETE
+  Product_VIEW
+  Product_CREATE
+  Product_EDIT
+  Product_DELETE
+  Tool_VIEW
+  Tool_CREATE
+  Tool_EDIT
+  Tool_DELETE
+  ToolRental_VIEW
+  ToolRental_CREATE
+  ToolRental_EDIT
+  ToolRental_DELETE
+  Refund_VIEW
+  Refund_CREATE
+  Refund_EDIT
+  Refund_DELETE
+  Vender_VIEW
+  Vender_CREATE
+  Vender_EDIT
+  Vender_DELETE
+  Leave_VIEW
+  Leave_CREATE
+  Leave_EDIT
+  Leave_DELETE
 }
 
 enum DepositType {
@@ -3154,4 +3199,9 @@ enum ExpensePriority {
 enum SalaryType {
   DAILY
   MONTHLY
+}
+
+enum UserType {
+  ADMIN
+  EMPLOYEE
 }

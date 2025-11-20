@@ -51,3 +51,19 @@ export interface CompanySettings {
   phone3?: string;
   email?: string;
 }
+
+export interface EmployeeForUserLinking {
+  id: string;
+  employeeNumber: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phone: string | null;
+  position: string;
+  status: string;
+  avatar: string | null;
+  department?: {
+    id: string;
+    name: string;
+  } | null;
+}

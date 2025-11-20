@@ -21,6 +21,7 @@ import {
   UserPermission,
   UserRole,
   UserStatus,
+  UserType,
 } from "@prisma/client";
 import { optional, z } from "zod";
 
@@ -32,6 +33,8 @@ export const createUserSchema = z
     email: z.string().email({ message: "Invalid email address!" }),
     role: z.nativeEnum(UserRole),
     status: z.nativeEnum(UserStatus),
+    userType: z.nativeEnum(UserType),
+    employeeId: z.string().optional(),
     password: z
       .string()
       .min(8, { message: "Password must be at least 8 characters long!" })
@@ -51,18 +54,41 @@ export const createUserSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
     path: ["confirmPassword"],
+  })
+  .superRefine((data, ctx) => {
+    // Employee users must be linked to an employee
+    if (data.userType === UserType.EMPLOYEE && !data.employeeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Employee must be selected when user type is Employee",
+        path: ["employeeId"],
+      });
+    }
   });
 
 export type createUserSchemaType = z.infer<typeof createUserSchema>;
 
-export const updateUserSchema = z.object({
-  name: z.string().min(1, { message: "Name is required!" }),
-  phone: z.string().optional(),
-  email: z.string().email({ message: "Invalid email address!" }),
-  role: z.nativeEnum(UserRole),
-  status: z.nativeEnum(UserStatus),
-  permissions: z.array(z.nativeEnum(UserPermission)).default([]),
-});
+export const updateUserSchema = z
+  .object({
+    name: z.string().min(1, { message: "Name is required!" }),
+    phone: z.string().optional(),
+    email: z.string().email({ message: "Invalid email address!" }),
+    role: z.nativeEnum(UserRole),
+    status: z.nativeEnum(UserStatus),
+    userType: z.nativeEnum(UserType),
+    employeeId: z.string().optional(),
+    permissions: z.array(z.nativeEnum(UserPermission)).default([]),
+  })
+  .superRefine((data, ctx) => {
+    // Employee users must be linked to an employee
+    if (data.userType === UserType.EMPLOYEE && !data.employeeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Employee must be selected when user type is Employee",
+        path: ["employeeId"],
+      });
+    }
+  });
 
 export type updateUserSchemaType = z.infer<typeof updateUserSchema>;
 

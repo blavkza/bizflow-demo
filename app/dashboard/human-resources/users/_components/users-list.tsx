@@ -36,11 +36,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import UserForm from "./user-Form";
-import { UserStatus } from "@prisma/client";
+import { UserStatus, UserRole, UserType, UserPermission } from "@prisma/client";
 import DeleteUserDialog from "./delete-user-dialog";
 import { getRoleColor, getStatusColor, User } from "@/types/user";
 
-interface UserslistProps {
+interface UsersListProps {
   users: User[];
   fetchUsers: () => void;
   canDeleteUsers: boolean;
@@ -48,13 +48,13 @@ interface UserslistProps {
   hasFullAccess: boolean;
 }
 
-export default function Userslist({
+export default function UsersList({
   users,
   fetchUsers,
   canDeleteUsers,
   canEditUsers,
   hasFullAccess,
-}: UserslistProps) {
+}: UsersListProps) {
   const router = useRouter();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,23 +71,23 @@ export default function Userslist({
 
     if (selectedTab === "all") return matchesSearch;
     if (selectedTab === "active")
-      return matchesSearch && user.status.toLowerCase() === "active";
+      return matchesSearch && user.status === UserStatus.ACTIVE;
     if (selectedTab === "inactive")
-      return matchesSearch && user.status.toLowerCase() === "inactive";
+      return matchesSearch && user.status === UserStatus.INACTIVE;
     if (selectedTab === "suspended")
-      return matchesSearch && user.status.toLowerCase() === "suspended";
+      return matchesSearch && user.status === UserStatus.SUSPENDED;
 
     return matchesSearch;
   });
 
   const activeUsers = users.filter(
-    (u) => u.status.toLowerCase() === "active"
+    (u) => u.status === UserStatus.ACTIVE
   ).length;
   const inactiveUsers = users.filter(
-    (u) => u.status.toLowerCase() === "inactive"
+    (u) => u.status === UserStatus.INACTIVE
   ).length;
   const suspendedUsers = users.filter(
-    (u) => u.status.toLowerCase() === "suspended"
+    (u) => u.status === UserStatus.SUSPENDED
   ).length;
   const totalUsers = users.length;
 
@@ -99,6 +99,20 @@ export default function Userslist({
   const handleDelete = (user: User) => {
     setCurrentUser(user);
     setIsDeleteDialogOpen(true);
+  };
+
+  const getDisplayRole = (role: UserRole) => {
+    return role
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
+  const getDisplayStatus = (status: UserStatus) => {
+    return status
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
   return (
@@ -140,21 +154,30 @@ export default function Userslist({
                         <div className="flex items-center space-x-3">
                           <h4 className="text-sm font-semibold">{user.name}</h4>
                           <Badge variant={getRoleColor(user.role)}>
-                            {user.role}
+                            {getDisplayRole(user.role)}
                           </Badge>
                           <Badge variant={getStatusColor(user.status)}>
-                            {user.status}
+                            {getDisplayStatus(user.status)}
                           </Badge>
+                          {user.userType && (
+                            <Badge variant="outline">
+                              {user.userType === UserType.ADMIN
+                                ? "Admin"
+                                : "Employee"}
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                           <div className="flex items-center space-x-1">
                             <Mail className="h-3 w-3" />
                             <span>{user.email}</span>
                           </div>
-                          <div className="flex items-center space-x-1">
-                            <Phone className="h-3 w-3" />
-                            <span>{user.phone}</span>
-                          </div>
+                          {user.phone && (
+                            <div className="flex items-center space-x-1">
+                              <Phone className="h-3 w-3" />
+                              <span>{user.phone}</span>
+                            </div>
+                          )}
                           <div className="flex items-center space-x-1">
                             <Calendar className="h-3 w-3" />
                             <span>
@@ -163,6 +186,13 @@ export default function Userslist({
                             </span>
                           </div>
                         </div>
+                        {user.employee && (
+                          <div className="text-xs text-muted-foreground">
+                            <strong>Linked Employee:</strong>{" "}
+                            {user.employee.firstName} {user.employee.lastName} (
+                            {user.employee.employeeNumber})
+                          </div>
+                        )}
                         <div className="text-xs text-muted-foreground">
                           {user.lastLogin ? (
                             <>
@@ -252,9 +282,16 @@ export default function Userslist({
             <UserForm
               type="update"
               data={{
-                ...currentUser,
-                phone: currentUser.phone ?? undefined,
-                status: currentUser.status as UserStatus,
+                id: currentUser.id,
+                name: currentUser.name,
+                email: currentUser.email,
+                role: currentUser.role,
+                userName: currentUser.userName,
+                phone: currentUser.phone,
+                status: currentUser.status,
+                userType: currentUser.userType,
+                employeeId: currentUser.employeeId,
+                permissions: currentUser.permissions,
               }}
               onCancel={() => setIsEditDialogOpen(false)}
               onSubmitSuccess={() => {

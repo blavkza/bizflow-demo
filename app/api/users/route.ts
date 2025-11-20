@@ -1,5 +1,6 @@
 import db from "@/lib/db";
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import { UserType } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -12,7 +13,18 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
-    const { name, password, email, role, userName, permissions } = body;
+    const {
+      name,
+      password,
+      email,
+      role,
+      userName,
+      userType,
+      employeeId,
+      permissions,
+      phone,
+      status,
+    } = body;
 
     if (permissions && !Array.isArray(permissions)) {
       return NextResponse.json(
@@ -21,44 +33,91 @@ export async function POST(req: Request) {
       );
     }
 
+    if (userType === UserType.EMPLOYEE && !employeeId) {
+      return NextResponse.json(
+        { error: "Employee must be selected for employee users" },
+        { status: 400 }
+      );
+    }
+
+    // Check if employee is already linked to a user (only if employeeId is provided)
+    if (employeeId) {
+      const existingEmployeeUser = await db.user.findFirst({
+        where: { employeeId },
+      });
+
+      if (existingEmployeeUser) {
+        return NextResponse.json(
+          { error: "This employee is already linked to another user" },
+          { status: 400 }
+        );
+      }
+    }
+
     const client = await clerkClient();
 
+    // Create user in Clerk
     const clerkUser = await client.users.createUser({
       username: userName,
       password: password,
+      emailAddress: [email],
+      firstName: name.split(" ")[0],
+      lastName: name.split(" ").slice(1).join(" ") || "",
     });
 
-    console.log("clerk user:", clerkUser);
+    const userData: any = {
+      userId: clerkUser.id,
+      name,
+      email,
+      role,
+      userName,
+      userType,
+      phone: phone || null,
+      status,
+      permissions: permissions || [], // All users can have permissions
+    };
+
+    // Link employee if provided (for both ADMIN and EMPLOYEE users)
+    if (employeeId) {
+      userData.employeeId = employeeId;
+    }
 
     const user = await db.user.create({
-      data: {
-        userId: clerkUser.id,
-        name,
-        email,
-        role,
-        userName,
-        permissions: permissions || [],
+      data: userData,
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            employeeNumber: true,
+            position: true,
+          },
+        },
       },
     });
 
     return NextResponse.json({ user });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[USER CREATION ERROR]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
+
+    if (error?.errors?.[0]?.code === "form_identifier_exists") {
+      return NextResponse.json(
+        { error: "A user with this email or username already exists" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
 
 export async function GET() {
   try {
     const user = await db.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        userName: true,
-        permissions: true,
-      },
       where: {
         status: "ACTIVE",
       },
