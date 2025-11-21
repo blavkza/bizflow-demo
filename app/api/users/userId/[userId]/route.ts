@@ -194,6 +194,7 @@ export async function GET(
           },
           include: {
             client: true,
+            manager: true,
             teamMembers: {
               include: {
                 user: true,
