@@ -1170,6 +1170,8 @@ model TimeEntry {
   timeOut     DateTime?
   date        DateTime
 
+  images String[] @default([])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
