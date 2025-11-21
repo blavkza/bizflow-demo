@@ -1,6 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const {
+      employeeId,
+      leaveType,
+      startDate,
+      endDate,
+      days,
+      reason,
+      contactInfo,
+    } = body;
+
+    // Find employee by employee number
+    const employee = await db.employee.findUnique({
+      where: { employeeNumber: employeeId },
+    });
+
+    if (!employee) {
+      return NextResponse.json(
+        { error: "Employee not found" },
+        { status: 404 }
+      );
+    }
+
+    const leaveRequest = await db.leaveRequest.create({
+      data: {
+        employeeId: employee.id,
+        leaveType,
+        startDate: new Date(startDate),
+        endDate: new Date(endDate),
+        days: parseInt(days),
+        reason,
+        contactInfo,
+        status: "PENDING",
+        requestedDate: new Date(),
+      },
+    });
+
+    return NextResponse.json(leaveRequest);
+  } catch (error) {
+    console.error("Error creating leave request:", error);
+    return NextResponse.json(
+      { error: "Failed to create leave request" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -60,55 +109,6 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching leave requests:", error);
     return NextResponse.json(
       { error: "Failed to fetch leave requests" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const {
-      employeeId,
-      leaveType,
-      startDate,
-      endDate,
-      days,
-      reason,
-      contactInfo,
-    } = body;
-
-    // Find employee by employee number
-    const employee = await db.employee.findUnique({
-      where: { employeeNumber: employeeId },
-    });
-
-    if (!employee) {
-      return NextResponse.json(
-        { error: "Employee not found" },
-        { status: 404 }
-      );
-    }
-
-    const leaveRequest = await db.leaveRequest.create({
-      data: {
-        employeeId: employee.id,
-        leaveType,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        days: parseInt(days),
-        reason,
-        contactInfo,
-        status: "PENDING",
-        requestedDate: new Date(),
-      },
-    });
-
-    return NextResponse.json(leaveRequest);
-  } catch (error) {
-    console.error("Error creating leave request:", error);
-    return NextResponse.json(
-      { error: "Failed to create leave request" },
       { status: 500 }
     );
   }

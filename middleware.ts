@@ -13,6 +13,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/subtasksMobile/(.*)",
   "/api/time-entries-mobile/(.*)",
   "/api/documents",
+  "/api/attendance/(.*)",
 ]);
 
 const allowedOrigins = [

@@ -171,14 +171,12 @@ export default function AttendancePage() {
               method: "MANUAL",
             };
 
-            // Add the appropriate ID based on what was provided
             if (data.employeeId) {
               payload.employeeId = data.employeeId;
             } else if (data.freelancerId) {
               payload.freelancerId = data.freelancerId;
             }
 
-            // Add coordinates if available
             if (data.lat && data.lng) {
               payload.lat = data.lat;
               payload.lng = data.lng;
@@ -227,18 +225,36 @@ export default function AttendancePage() {
         onOpenChange={setIsBarcodeCheckInOpen}
         checkInType={checkInType}
         setCheckInType={setCheckInType}
-        onScan={async (barcode) => {
+        onScan={async (scanData) => {
           try {
             const endpoint =
               checkInType === "in"
                 ? "/api/attendance/check-in"
                 : "/api/attendance/check-out";
 
-            // Determine if it's an employee or freelancer ID based on prefix
-            const isFreelancer = barcode.startsWith("FRL");
-            const payload = isFreelancer
-              ? { freelancerId: barcode, method: "BARCODE" }
-              : { employeeId: barcode, method: "BARCODE" };
+            // Extract data from the scanData object passed up from the dialog
+            const { id, address, location, coordinates } = scanData;
+
+            const isFreelancer = id.startsWith("FRL");
+
+            // Construct full payload including location data
+            const payload: any = {
+              method: "BARCODE",
+              address: address || "Scanned via QR",
+              location: location || "",
+            };
+
+            if (isFreelancer) {
+              payload.freelancerId = id;
+            } else {
+              payload.employeeId = id;
+            }
+
+            // Add coordinates if available from the QR code
+            if (coordinates) {
+              payload.lat = coordinates.latitude;
+              payload.lng = coordinates.longitude;
+            }
 
             const response = await fetch(endpoint, {
               method: "POST",
@@ -254,7 +270,7 @@ export default function AttendancePage() {
             const personType = isFreelancer ? "Freelancer" : "Employee";
             toast({
               title: "Success",
-              description: `${personType} ${barcode} has been checked ${checkInType === "in" ? "in" : "out"} via barcode`,
+              description: `${personType} ${id} has been checked ${checkInType === "in" ? "in" : "out"} via barcode`,
             });
 
             setIsBarcodeCheckInOpen(false);
