@@ -64,7 +64,11 @@ export async function GET(
                         commentReply: true,
                       },
                     },
-                    toolInterUses: true,
+                    toolInterUses: {
+                      include: {
+                        tool: true,
+                      },
+                    },
                     workLogs: {
                       orderBy: {
                         date: "desc",
