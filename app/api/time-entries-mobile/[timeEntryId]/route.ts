@@ -17,8 +17,17 @@ export async function PATCH(
       );
     }
 
+    // Get the time entry with its related task information
     const existingEntry = await db.timeEntry.findUnique({
       where: { id: timeEntryId },
+      include: {
+        task: {
+          select: {
+            id: true,
+            status: true,
+          },
+        },
+      },
     });
 
     if (!existingEntry) {
@@ -38,16 +47,33 @@ export async function PATCH(
       updatedImages.push(photoUrl);
     }
 
-    const updatedEntry = await db.timeEntry.update({
-      where: { id: timeEntryId },
-      data: {
-        timeOut: new Date(timeOut),
-        hours: Math.max(0, Number(hours.toFixed(2))),
-        images: updatedImages,
-      },
+    // Update time entry and potentially the task status in a transaction
+    const result = await db.$transaction(async (tx) => {
+      // Update the time entry
+      const updatedEntry = await tx.timeEntry.update({
+        where: { id: timeEntryId },
+        data: {
+          timeOut: new Date(timeOut),
+          hours: Math.max(0, Number(hours.toFixed(2))),
+          images: updatedImages,
+        },
+      });
+
+      // If the parent task status is "todo", update it to "inprogress"
+      if (existingEntry?.task?.status === "TODO") {
+        await tx.task.update({
+          where: { id: existingEntry.task.id },
+          data: { status: "IN_PROGRESS" },
+        });
+      }
+
+      return {
+        updatedEntry,
+        taskUpdated: existingEntry?.task?.status === "TODO",
+      };
     });
 
-    return NextResponse.json(updatedEntry);
+    return NextResponse.json(result.updatedEntry);
   } catch (error) {
     console.error("Error stopping timer:", error);
     return NextResponse.json(

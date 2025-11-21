@@ -23,20 +23,43 @@ export async function POST(req: Request) {
     const { taskId, projectId, timeIn, timeOut, hours, description, date } =
       body;
 
-    const timeEntry = await db.timeEntry.create({
-      data: {
-        taskId,
-        projectId,
-        timeIn: new Date(timeIn),
-        timeOut: timeOut ? new Date(timeOut) : null,
-        hours,
-        description,
-        date: new Date(date),
-        userId: user.id,
-      },
+    const task = await db.task.findUnique({
+      where: { id: taskId },
+      select: { id: true, status: true, title: true },
     });
 
-    return NextResponse.json(timeEntry);
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const result = await db.$transaction(async (tx) => {
+      const timeEntry = await tx.timeEntry.create({
+        data: {
+          taskId,
+          projectId,
+          timeIn: new Date(timeIn),
+          timeOut: timeOut ? new Date(timeOut) : null,
+          hours,
+          description,
+          date: new Date(date),
+          userId: user.id,
+        },
+      });
+
+      let taskUpdated = false;
+
+      if (task.status === "TODO") {
+        await tx.task.update({
+          where: { id: taskId },
+          data: { status: "IN_PROGRESS" },
+        });
+        taskUpdated = true;
+      }
+
+      return { timeEntry, taskUpdated };
+    });
+
+    return NextResponse.json(result.timeEntry);
   } catch (error) {
     console.error("[TIME_ENTRY_CREATE_ERROR]", error);
     return NextResponse.json(
