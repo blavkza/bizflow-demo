@@ -39,11 +39,6 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const { id } = await params;
 
     // Check if folder exists
@@ -157,7 +152,7 @@ export async function POST(
     // Add context for better organization
     cloudinaryFormData.append(
       "context",
-      `folder_id=${id}|uploaded_by=${userId}|document_type=${documentType}|resource_type=${resourceType}`
+      `folder_id=${id}|uploaded_by user|document_type=${documentType}|resource_type=${resourceType}`
     );
 
     console.log("Cloudinary upload details:", {
