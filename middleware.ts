@@ -9,6 +9,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/health",
   "/api/public/(.*)",
   "/api/users/userId/(.*)",
+  "/api/leaves",
 ]);
 
 const allowedOrigins = [
