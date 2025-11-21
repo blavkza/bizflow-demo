@@ -16,7 +16,6 @@ export async function GET(
     }
 
     // Fetch User Data with Deep Nested Includes
-    // No calculations performed here - just raw data retrieval
     const user = await db.user.findUnique({
       where: {
         userId,
@@ -53,17 +52,20 @@ export async function GET(
                         user: true,
                       },
                     },
+                    // FIX: Ensure Folder/Document/Note are included
                     Folder: {
                       include: {
                         Document: true,
                         Note: true,
                       },
                     },
+                    // FIX: Ensure Comment and Reply are included
                     comment: {
                       include: {
                         commentReply: true,
                       },
                     },
+                    // FIX: Explicitly include 'tool' relation on toolInterUses
                     toolInterUses: {
                       include: {
                         tool: true,
@@ -168,7 +170,6 @@ export async function GET(
           },
         },
 
-        // User's own time entries
         timeEntries: {
           include: {
             project: true,
@@ -180,7 +181,6 @@ export async function GET(
           take: 100,
         },
 
-        // User's work logs
         workLogs: {
           include: {
             project: true,
@@ -191,7 +191,6 @@ export async function GET(
           take: 100,
         },
 
-        // Projects where user is manager
         Project: {
           where: {
             archived: false,
@@ -202,6 +201,22 @@ export async function GET(
             teamMembers: {
               include: {
                 user: true,
+              },
+            },
+            Folder: {
+              include: {
+                Document: true,
+                Note: true,
+              },
+            },
+            comment: {
+              include: {
+                commentReply: true,
+              },
+            },
+            toolInterUses: {
+              include: {
+                tool: true,
               },
             },
             tasks: {
@@ -218,13 +233,28 @@ export async function GET(
           },
         },
 
-        // Projects where user is team member
         projectTeams: {
           include: {
             project: {
               include: {
                 client: true,
                 manager: true,
+                Folder: {
+                  include: {
+                    Document: true,
+                    Note: true,
+                  },
+                },
+                comment: {
+                  include: {
+                    commentReply: true,
+                  },
+                },
+                toolInterUses: {
+                  include: {
+                    tool: true,
+                  },
+                },
                 tasks: {
                   include: {
                     assignees: true,
@@ -293,7 +323,6 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Return raw user object. Calculations will be handled by the frontend.
     return NextResponse.json(user);
   } catch (error) {
     console.error("Error fetching user:", error);
