@@ -38,11 +38,6 @@ async function generateChecksum(buffer: Buffer): Promise<string> {
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const documentType = formData.get("documentType") as DocumentType;
@@ -161,7 +156,7 @@ export async function POST(request: Request) {
 
     cloudinaryFormData.append(
       "context",
-      `${entityType}_id=${entityId}|uploaded_by=${userId}|document_type=${documentType}|resource_type=${resourceType}`
+      `${entityType}_id=${entityId}|uploaded|document_type=${documentType}|resource_type=${resourceType}`
     );
 
     const cloudinaryResponse = await fetch(cloudinaryUrl, {
