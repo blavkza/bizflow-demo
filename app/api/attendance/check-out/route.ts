@@ -5,7 +5,6 @@ import {
   CheckInMethod,
   AttendanceStatus,
   EmployeeStatus,
-  FreeLancerStatus,
   LeaveStatus,
 } from "@prisma/client";
 
@@ -57,7 +56,7 @@ export async function POST(request: NextRequest) {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const currentTime = new Date();
+    const currentTime = new Date(); // Server Time (UTC)
 
     // Find today's attendance record
     const uniqueConstraint =
@@ -105,11 +104,11 @@ export async function POST(request: NextRequest) {
       if (finalStatus === AttendanceStatus.HALF_DAY) {
         statusNotes +=
           (statusNotes ? " | " : "") +
-          `Auto-status: Half Day (worked ${workedPercentage}% of schedule)`;
+          `Auto-status: Half Day (worked ${workedPercentage.toFixed(0)}% of schedule)`;
       } else if (finalStatus === AttendanceStatus.ABSENT) {
         statusNotes +=
           (statusNotes ? " | " : "") +
-          `Auto-status: Absent (worked only ${workedPercentage}% of schedule)`;
+          `Auto-status: Absent (worked only ${workedPercentage.toFixed(0)}% of schedule)`;
       }
     }
 
@@ -190,7 +189,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Calculate hours and determine new status based on worked percentage
+// ------------------------------------------------------------------
+// FIXED CALCULATE FUNCTION (Handles SAST Timezone)
+// ------------------------------------------------------------------
 async function calculateHoursAndStatus(
   person: any,
   checkInTime: Date,
@@ -207,12 +208,12 @@ async function calculateHoursAndStatus(
   let newStatus = currentStatus;
   let workedPercentage = 0;
 
-  // Calculate actual hours worked
+  // Calculate actual hours worked (Based on UTC timestamps, so this is always correct)
   const actualHoursWorked =
     (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
   if (person.scheduledKnockIn && person.scheduledKnockOut) {
-    // Parse time strings (e.g., "20:00" and "06:00")
+    // Parse time strings (e.g., "09:00" and "17:00")
     const [startHours, startMinutes] = person.scheduledKnockIn
       .split(":")
       .map(Number);
@@ -220,12 +221,17 @@ async function calculateHoursAndStatus(
       .split(":")
       .map(Number);
 
+    // --- FIX: ADJUST FOR SOUTH AFRICA TIMEZONE (UTC+2) ---
+    // If schedule is 09:00 SAST, Server sees 07:00 UTC.
+    // We must subtract 2 hours from the scheduled hours so it matches the DB timestamps.
+    const SAST_OFFSET = 2;
+
     // Create scheduled times based on check-in date
     const scheduledStartTime = new Date(checkInTime);
-    scheduledStartTime.setHours(startHours, startMinutes, 0, 0);
+    scheduledStartTime.setHours(startHours - SAST_OFFSET, startMinutes, 0, 0);
 
     const scheduledEndTime = new Date(checkInTime);
-    scheduledEndTime.setHours(endHours, endMinutes, 0, 0);
+    scheduledEndTime.setHours(endHours - SAST_OFFSET, endMinutes, 0, 0);
 
     // Handle overnight shifts (if end time is earlier than start time, add 1 day)
     if (scheduledEndTime <= scheduledStartTime) {
@@ -284,7 +290,7 @@ async function calculateHoursAndStatus(
     const defaultScheduledHours = 8;
     workedPercentage = (actualHoursWorked / defaultScheduledHours) * 100;
 
-    // NO OVERTIME in default calculation (since no specific schedule)
+    // NO OVERTIME in default calculation
     overtimeHours = 0;
 
     // Apply the same logic for default schedule
@@ -311,7 +317,10 @@ async function calculateHoursAndStatus(
   return { regularHours, overtimeHours, newStatus, workedPercentage };
 }
 
-// Check and create absent warnings (only for employees)
+// ------------------------------------------------------------------
+// HELPERS
+// ------------------------------------------------------------------
+
 async function checkAndCreateAbsentWarning(
   employeeId: string,
   currentTime: Date,
@@ -419,7 +428,6 @@ async function checkAndCreateAbsentWarning(
   }
 }
 
-// Check if we should create absent records and create them if needed (only for employees)
 async function checkAndCreateAbsentRecords(
   currentEmployeeWorkedPercentage: number
 ): Promise<boolean> {
@@ -433,7 +441,7 @@ async function checkAndCreateAbsentRecords(
         date: today,
         checkOut: { not: null },
         regularHours: { gt: 0 },
-        employeeId: { not: null }, // Only check employees, not freelancers
+        employeeId: { not: null },
       },
       include: {
         employee: {
@@ -460,11 +468,19 @@ async function checkAndCreateAbsentRecords(
           .split(":")
           .map(Number);
 
+        // --- FIX: ADJUST FOR SAST TIMEZONE HERE TOO ---
+        const SAST_OFFSET = 2;
+
         const scheduledStartTime = new Date(record.checkIn!);
-        scheduledStartTime.setHours(startHours, startMinutes, 0, 0);
+        scheduledStartTime.setHours(
+          startHours - SAST_OFFSET,
+          startMinutes,
+          0,
+          0
+        );
 
         const scheduledEndTime = new Date(record.checkIn!);
-        scheduledEndTime.setHours(endHours, endMinutes, 0, 0);
+        scheduledEndTime.setHours(endHours - SAST_OFFSET, endMinutes, 0, 0);
 
         if (scheduledEndTime <= scheduledStartTime) {
           scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
@@ -483,7 +499,6 @@ async function checkAndCreateAbsentRecords(
       }
     }
 
-    // If current employee worked over 50% OR someone else already worked over 50%, create absent records
     const shouldCreate =
       currentEmployeeWorkedPercentage >= 50 || someoneWorkedOver50;
 
@@ -504,7 +519,6 @@ async function checkAndCreateAbsentRecords(
   }
 }
 
-// Background function to create absent records for employees who didn't check in (NOT freelancers)
 async function createAbsentRecords() {
   try {
     const today = new Date();
@@ -514,7 +528,6 @@ async function createAbsentRecords() {
       "Auto-attendance: Creating absent records for EMPLOYEES who didn't check in..."
     );
 
-    // Get all active EMPLOYEES (not freelancers) who don't have attendance records for today
     const activeEmployeesWithoutRecords = await db.employee.findMany({
       where: {
         status: EmployeeStatus.ACTIVE,
@@ -543,14 +556,12 @@ async function createAbsentRecords() {
 
     for (const employee of activeEmployeesWithoutRecords) {
       try {
-        // Skip if employee has approved leave for today
         const hasApprovedLeave = employee.leaveRequests.length > 0;
         if (hasApprovedLeave) {
           console.log(`Skipping ${employee.firstName} - has approved leave`);
           continue;
         }
 
-        // Check if today is a working day for this employee
         const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
         const todayDay = dayNames[today.getDay()];
         const workingDays = Array.isArray(employee.workingDays)
@@ -568,7 +579,6 @@ async function createAbsentRecords() {
           continue;
         }
 
-        // Create absent record with clear auto-created note
         const attendanceRecord = await db.attendanceRecord.create({
           data: {
             employeeId: employee.id,
@@ -590,7 +600,6 @@ async function createAbsentRecords() {
           `Auto-attendance: Created absent record for EMPLOYEE ${employee.firstName} ${employee.lastName}`
         );
 
-        // CREATE WARNING FOR AUTO-CREATED ABSENT RECORD (only for employees)
         const warning = await checkAndCreateAbsentWarning(
           employee.id,
           today,

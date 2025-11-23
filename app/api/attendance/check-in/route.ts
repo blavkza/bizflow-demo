@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
-import {
-  CheckInMethod,
-  AttendanceStatus,
-  EmployeeStatus,
-  FreeLancerStatus,
-  LeaveStatus,
-} from "@prisma/client";
-import { auth } from "@clerk/nextjs/server";
+import { CheckInMethod, AttendanceStatus, LeaveStatus } from "@prisma/client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +16,13 @@ export async function POST(request: NextRequest) {
       address,
     } = body;
 
+    // ---------------------------------------------------------
+    // 1. GET SETTINGS (Grace Period)
+    // ---------------------------------------------------------
+    const hrSettings = await db.hRSettings.findFirst();
+    // Default to 15 minutes if no settings found
+    const gracePeriodMinutes = hrSettings?.lateThreshold || 15;
+
     if (!employeeId && !freelancerId) {
       return NextResponse.json(
         { error: "Employee ID or Freelancer ID is required" },
@@ -33,7 +33,9 @@ export async function POST(request: NextRequest) {
     let person: any = null;
     let personType: "employee" | "freelancer" = "employee";
 
-    // Find employee or freelancer
+    // ---------------------------------------------------------
+    // 2. FIND PERSON
+    // ---------------------------------------------------------
     if (employeeId) {
       person = await db.employee.findUnique({
         where: { employeeNumber: employeeId },
@@ -68,9 +70,13 @@ export async function POST(request: NextRequest) {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const currentTime = new Date();
+    const currentTime = new Date(); // Server Time (usually UTC)
 
-    // Check if employee is on leave today (only for employees, not freelancers)
+    // ---------------------------------------------------------
+    // 3. VALIDATION CHECKS (Leave, Working Days, Duplicates)
+    // ---------------------------------------------------------
+
+    // Check if employee is on leave today
     if (personType === "employee") {
       const isOnLeave = await checkIfEmployeeOnLeave(person, today);
 
@@ -88,6 +94,8 @@ export async function POST(request: NextRequest) {
 
     // Check if today is a working day
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    // Note: getDay() relies on server time. Ensure server date matches SA date.
+    // Usually fine unless checking in at 11:59PM UTC / 01:59AM SAST.
     const todayDay = dayNames[currentTime.getDay()];
 
     if (
@@ -122,7 +130,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine status based on scheduled knock-in time
+    // ---------------------------------------------------------
+    // 4. STATUS CALCULATION (FIXED FOR SAST TIMEZONE)
+    // ---------------------------------------------------------
     let status: AttendanceStatus = AttendanceStatus.PRESENT;
     let isLate = false;
 
@@ -131,10 +141,30 @@ export async function POST(request: NextRequest) {
         .split(":")
         .map(Number);
 
-      const scheduledDateTime = new Date();
-      scheduledDateTime.setHours(scheduledHours, scheduledMinutes, 0, 0);
+      // Create a date object based on current server time
+      const scheduledDateTime = new Date(currentTime);
 
-      const lateThreshold = new Date(scheduledDateTime.getTime() + 30 * 60000);
+      // FIX: South Africa is UTC+2. The server is UTC.
+      // If schedule is 09:00 SAST, that is 07:00 UTC.
+      // We subtract 2 hours from the scheduled time to match server time.
+      const SAST_OFFSET = 2;
+      scheduledDateTime.setHours(
+        scheduledHours - SAST_OFFSET,
+        scheduledMinutes,
+        0,
+        0
+      );
+
+      // Add dynamic grace period from HR Settings (converted to milliseconds)
+      const lateThreshold = new Date(
+        scheduledDateTime.getTime() + gracePeriodMinutes * 60000
+      );
+
+      // Debug logs (check your server console to verify)
+      console.log(`Time Check [${person.firstName}]:`);
+      console.log(`Server Time (UTC): ${currentTime.toISOString()}`);
+      console.log(`Scheduled (SAST): ${person.scheduledKnockIn}`);
+      console.log(`Threshold (UTC): ${lateThreshold.toISOString()}`);
 
       if (currentTime > lateThreshold) {
         status = AttendanceStatus.LATE;
@@ -142,13 +172,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check for late attendance warnings (only for employees)
+    // ---------------------------------------------------------
+    // 5. WARNINGS (For Employees Only)
+    // ---------------------------------------------------------
     let warningCreated = null;
     if (isLate && personType === "employee") {
       warningCreated = await checkAndCreateLateWarning(person.id, currentTime);
     }
 
-    // Prepare data for create/update
+    // ---------------------------------------------------------
+    // 6. SAVE RECORD
+    // ---------------------------------------------------------
     const attendanceData: any = {
       checkIn: currentTime,
       checkInMethod: method as CheckInMethod,
@@ -161,7 +195,6 @@ export async function POST(request: NextRequest) {
       scheduledKnockOut: person.scheduledKnockOut,
     };
 
-    // Set the correct relationship field
     if (personType === "employee") {
       attendanceData.employeeId = person.id;
     } else {
@@ -195,7 +228,7 @@ export async function POST(request: NextRequest) {
         },
       });
     } else {
-      // Update existing record with check-in
+      // Update existing record
       attendanceRecord = await db.attendanceRecord.update({
         where: { id: attendanceRecord.id },
         data: attendanceData,
@@ -220,8 +253,8 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Trigger auto-attendance for leave employees (only employees)
-    console.log("Triggering auto-attendance for leave employees...");
+    // Trigger auto-attendance for leave employees
+    // We don't await this so the UI response is fast
     triggerAutoAttendanceForLeave().catch((error) => {
       console.error("Auto-attendance background task failed:", error);
     });
@@ -243,17 +276,19 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// ---------------------------------------------------------
+// HELPER FUNCTIONS (UNCHANGED)
+// ---------------------------------------------------------
+
 async function checkIfEmployeeOnLeave(
   employee: any,
   today: Date
 ): Promise<{ leaveType: string; reason: string } | null> {
   try {
-    // Check if employee has approved leave for today
     for (const leaveRequest of employee.leaveRequests) {
       const startDate = new Date(leaveRequest.startDate);
       const endDate = new Date(leaveRequest.endDate);
 
-      // Normalize dates for comparison
       const normalizedStartDate = new Date(startDate);
       normalizedStartDate.setHours(0, 0, 0, 0);
 
@@ -267,7 +302,6 @@ async function checkIfEmployeeOnLeave(
         };
       }
     }
-
     return null;
   } catch (error) {
     console.error("Error checking leave status:", error);
@@ -275,18 +309,15 @@ async function checkIfEmployeeOnLeave(
   }
 }
 
-// Keep your existing checkAndCreateLateWarning function exactly as is
 async function checkAndCreateLateWarning(
   employeeId: string,
   currentTime: Date
 ): Promise<any> {
   try {
-    // Get start of week (Monday)
     const startOfWeek = new Date(currentTime);
     startOfWeek.setDate(currentTime.getDate() - currentTime.getDay() + 1);
     startOfWeek.setHours(0, 0, 0, 0);
 
-    // Get start of month
     const startOfMonth = new Date(
       currentTime.getFullYear(),
       currentTime.getMonth(),
@@ -294,32 +325,30 @@ async function checkAndCreateLateWarning(
     );
     startOfMonth.setHours(0, 0, 0, 0);
 
-    // Count late attendances for the week (EXCLUDING today's record)
     const weeklyLateCount = await db.attendanceRecord.count({
       where: {
         employeeId: employeeId,
         status: AttendanceStatus.LATE,
         date: {
           gte: startOfWeek,
-          lt: currentTime, // Use lt instead of lte to exclude today
+          lt: currentTime,
         },
       },
     });
 
-    // Count late attendances for the month (EXCLUDING today's record)
     const monthlyLateCount = await db.attendanceRecord.count({
       where: {
         employeeId: employeeId,
         status: AttendanceStatus.LATE,
         date: {
           gte: startOfMonth,
-          lt: currentTime, // Use lt instead of lte to exclude today
+          lt: currentTime,
         },
       },
     });
 
     console.log(
-      `Late counts for employee ${employeeId}: Week=${weeklyLateCount} (before today), Month=${monthlyLateCount} (before today)`
+      `Late counts for employee ${employeeId}: Week=${weeklyLateCount}, Month=${monthlyLateCount}`
     );
 
     let warningType = "";
@@ -327,25 +356,18 @@ async function checkAndCreateLateWarning(
     let reason = "";
     let actionPlan = "";
 
-    // Check warning conditions
-    // If employee was late once this week before today, and today is late = second time this week
     if (weeklyLateCount === 1) {
       warningType = "Attendance";
       severity = "MEDIUM";
-      reason = `Second late attendance this week. You were late ${weeklyLateCount + 1} times this week and ${monthlyLateCount + 1} times this month.`;
-      actionPlan =
-        "Please ensure punctuality. Further late arrivals may result in disciplinary action.";
-    }
-    // If employee was late twice this month before today, and today is late = third time this month
-    else if (monthlyLateCount === 2) {
+      reason = `Second late attendance this week. Total late this week: ${weeklyLateCount + 1}`;
+      actionPlan = "Please ensure punctuality.";
+    } else if (monthlyLateCount === 2) {
       warningType = "Attendance";
       severity = "HIGH";
-      reason = `Third late attendance this month. You were late ${weeklyLateCount + 1} times this week and ${monthlyLateCount + 1} times this month.`;
-      actionPlan =
-        "This is a formal warning regarding persistent late attendance. Immediate improvement is required.";
+      reason = `Third late attendance this month. Total late this month: ${monthlyLateCount + 1}`;
+      actionPlan = "Formal warning regarding persistent late attendance.";
     }
 
-    // Create warning if conditions met
     if (warningType) {
       const warning = await db.warning.create({
         data: {
@@ -367,13 +389,8 @@ async function checkAndCreateLateWarning(
           },
         },
       });
-
-      console.log(
-        `Created attendance warning for employee ${employeeId}: ${severity} severity - ${reason}`
-      );
       return warning;
     }
-
     return null;
   } catch (error) {
     console.error("Error creating late warning:", error);
@@ -381,16 +398,11 @@ async function checkAndCreateLateWarning(
   }
 }
 
-// Keep your existing triggerAutoAttendanceForLeave function exactly as is
 async function triggerAutoAttendanceForLeave() {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    console.log("Auto-attendance: Creating records for leave employees...");
-    console.log("Today's date:", today.toDateString());
-
-    // Get all employees who are on leave OR have approved leave requests
     const employees = await db.employee.findMany({
       where: {
         OR: [
@@ -418,21 +430,11 @@ async function triggerAutoAttendanceForLeave() {
       },
     });
 
-    console.log(
-      `Auto-attendance: Found ${employees.length} employees on leave or with approved leave`
-    );
-
     const createdRecords = [];
 
     for (const employee of employees) {
       try {
-        // Skip if record already exists for today
-        if (employee.AttendanceRecord.length > 0) {
-          console.log(
-            `Auto-attendance: Skipping ${employee.firstName} ${employee.lastName} - record already exists`
-          );
-          continue;
-        }
+        if (employee.AttendanceRecord.length > 0) continue;
 
         const shouldCreateRecord = await shouldCreateLeaveAttendanceRecord(
           employee,
@@ -450,41 +452,19 @@ async function triggerAutoAttendanceForLeave() {
               notes: shouldCreateRecord.notes,
             },
           });
-
-          createdRecords.push({
-            id: attendanceRecord.id,
-            employee: `${employee.firstName} ${employee.lastName}`,
-            status: attendanceRecord.status,
-            notes: attendanceRecord.notes,
-          });
-
-          console.log(
-            `Auto-attendance: Created leave record for ${employee.firstName} ${employee.lastName}: ${attendanceRecord.status}`
-          );
-        } else {
-          console.log(
-            `Auto-attendance: Skipping ${employee.firstName} ${employee.lastName} - shouldCreateRecord returned false`
-          );
+          createdRecords.push(attendanceRecord);
         }
       } catch (error) {
-        console.error(
-          `Auto-attendance: Error processing employee ${employee.id}:`,
-          error
-        );
+        console.error(`Auto-attendance error for ${employee.id}:`, error);
       }
     }
-
-    console.log(
-      `Auto-attendance: Completed. Created ${createdRecords.length} leave records.`
-    );
     return createdRecords;
   } catch (error) {
-    console.error("Auto-attendance for leave employees: Failed:", error);
+    console.error("Auto-attendance failed:", error);
     throw error;
   }
 }
 
-// Keep your existing shouldCreateLeaveAttendanceRecord function exactly as is
 async function shouldCreateLeaveAttendanceRecord(
   employee: any,
   targetDate: Date
@@ -493,46 +473,30 @@ async function shouldCreateLeaveAttendanceRecord(
   status?: AttendanceStatus;
   notes?: string;
 }> {
-  // Check if employee has approved leave for today
   const approvedLeaveToday = employee.leaveRequests.find((leave: any) => {
     const startDate = new Date(leave.startDate);
     const endDate = new Date(leave.endDate);
 
-    // Normalize dates for comparison
     const normalizedStartDate = new Date(startDate);
     normalizedStartDate.setHours(0, 0, 0, 0);
 
     const normalizedEndDate = new Date(endDate);
     normalizedEndDate.setHours(23, 59, 59, 999);
 
-    console.log(
-      `Checking leave: ${leave.leaveType} from ${normalizedStartDate.toDateString()} to ${normalizedEndDate.toDateString()} vs target: ${targetDate.toDateString()}`
-    );
-    console.log(`Is target >= start? ${targetDate >= normalizedStartDate}`);
-    console.log(`Is target <= end? ${targetDate <= normalizedEndDate}`);
-
     return targetDate >= normalizedStartDate && targetDate <= normalizedEndDate;
   });
 
-  // Employee has approved leave for today - create leave record
   if (approvedLeaveToday) {
-    console.log(
-      `Employee ${employee.firstName} ${employee.lastName} has approved leave for today: ${approvedLeaveToday.leaveType}`
-    );
     return {
       shouldCreate: true,
       status: getLeaveAttendanceStatus(approvedLeaveToday.leaveType),
-      notes: `Auto-created: ${getLeaveTypeDisplayName(approvedLeaveToday.leaveType)} - ${approvedLeaveToday.reason || "Approved Leave"}`,
+      notes: `Auto-created: ${getLeaveTypeDisplayName(approvedLeaveToday.leaveType)} - ${approvedLeaveToday.reason}`,
     };
   }
 
-  console.log(
-    `shouldCreateLeaveAttendanceRecord: No condition met for employee ${employee.firstName} ${employee.lastName}`
-  );
   return { shouldCreate: false };
 }
 
-// Keep your existing helper functions exactly as is
 function getLeaveAttendanceStatus(leaveType: string): AttendanceStatus {
   switch (leaveType) {
     case "SICK":
