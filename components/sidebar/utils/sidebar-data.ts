@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
 import { CgArrowsExchange } from "react-icons/cg";
+import { GrServices } from "react-icons/gr";
 
 import { SidebarData } from "../types/sidebar";
 import { UserPermission, UserRole } from "@prisma/client";
@@ -252,6 +253,17 @@ export const getSidebarData = (
       {
         title: "Business",
         items: [
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+            ? [
+                {
+                  title: "Services",
+                  url: "/dashboard/services",
+                  icon: GrServices,
+                  color: "text-green-500",
+                },
+              ]
+            : []),
           ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.SYSTEMS_AI)
             ? [

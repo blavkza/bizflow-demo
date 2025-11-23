@@ -90,6 +90,17 @@ export async function POST(request: Request) {
       },
     });
 
+    await db.notification.create({
+      data: {
+        title: "Settings Updated",
+        message: `Settings , has been Updated By ${creator.name}.`,
+        type: "SYSTEM",
+        isRead: false,
+        actionUrl: `/dashboard/settings`,
+        userId: creator.id,
+      },
+    });
+
     return NextResponse.json(updatedSettings);
   } catch (error) {
     console.error("Failed to save HR settings:", error);

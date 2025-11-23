@@ -3,6 +3,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Package } from "lucide-react";
 import { CartItem } from "@/types/pos";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@radix-ui/react-separator";
 
 interface POSHeaderProps {
   cart: CartItem[];
@@ -13,7 +15,11 @@ export function POSHeader({ cart }: POSHeaderProps) {
 
   return (
     <div className="flex items-center justify-between mb-6">
-      <h2 className="text-3xl font-bold tracking-tight">Point of Sale</h2>
+      <div className="flex items-center gap-2">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <h1 className="text-lg font-semibold">Point Of Sale</h1>
+      </div>
       <div className="flex items-center space-x-2">
         <Button variant="outline" asChild>
           <Link href="/dashboard/shop/sales">

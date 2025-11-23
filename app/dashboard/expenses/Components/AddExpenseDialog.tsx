@@ -37,13 +37,21 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Combobox } from "@/components/ui/combobox";
-import { Plus, Loader2, CalendarIcon } from "lucide-react";
+import {
+  Plus,
+  Loader2,
+  CalendarIcon,
+  UploadCloud,
+  X,
+  FileText,
+  ImageIcon,
+} from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ExpenseFormValues, expenseSchema } from "@/lib/formValidationSchemas";
 import { ComboboxOption } from "../types";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { VendorFormData } from "../../suppliers/type";
 import {
   NO_CATEGORY_VALUE,
@@ -51,7 +59,7 @@ import {
 } from "../../suppliers/utils";
 import { VendorForm } from "../../suppliers/components/VendorForm";
 
-// Add Vendor Dialog Component
+// --- Add Vendor Dialog Component ---
 function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -139,6 +147,8 @@ function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
   );
 }
 
+// --- Main Add Expense Dialog Component ---
+
 interface AddExpenseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -159,6 +169,10 @@ export default function AddExpenseDialog({
   const [isLoading, setIsLoading] = useState(false);
   const [vendors, setVendors] = useState<ComboboxOption[]>(vendorsOptions);
 
+  // Attachment State
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
@@ -174,15 +188,17 @@ export default function AddExpenseDialog({
       paymentMethod: "",
       invoiceId: "",
       projectId: "",
+      attachments: [], // Ensure your schema allows this array
     },
   });
 
-  // Watch the amount fields to calculate remaining balance
+  // Watchers
   const totalAmount = form.watch("totalAmount");
   const paidAmount = form.watch("paidAmount");
   const remainingAmount = totalAmount - paidAmount;
+  const attachments = form.watch("attachments") || [];
 
-  // Fetch invoices and projects when dialog opens
+  // Functions to fetch data
   const fetchInvoicesAndProjects = async () => {
     try {
       setIsLoading(true);
@@ -210,7 +226,6 @@ export default function AddExpenseDialog({
     }
   };
 
-  // Refresh vendors list
   const refreshVendors = async () => {
     try {
       const vendorsRes = await axios.get("/api/vendors");
@@ -228,13 +243,61 @@ export default function AddExpenseDialog({
   useEffect(() => {
     if (open) {
       fetchInvoicesAndProjects();
-      refreshVendors(); // Refresh vendors when dialog opens
+      refreshVendors();
     }
   }, [open]);
 
   const handleInvoiceChange = (invoiceId: string) => {
     form.setValue("invoiceId", invoiceId);
     form.setValue("projectId", "");
+  };
+
+  // --- File Upload Logic ---
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("expenseId", "temp"); // Temp ID until expense is created
+
+    try {
+      const uploadResponse = await axios.post(
+        "/api/expenses/upload",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      const attachmentData = uploadResponse.data;
+
+      // Update form value
+      const currentAttachments = form.getValues("attachments") || [];
+      form.setValue("attachments", [...currentAttachments, attachmentData]);
+
+      toast.success("File attached successfully");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload file");
+    } finally {
+      setIsUploading(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
+  const removeAttachment = (indexToRemove: number) => {
+    const currentAttachments = form.getValues("attachments") || [];
+    const newAttachments = currentAttachments.filter(
+      (_, index) => index !== indexToRemove
+    );
+    form.setValue("attachments", newAttachments);
   };
 
   const onSubmit = async (data: ExpenseFormValues) => {
@@ -527,6 +590,73 @@ export default function AddExpenseDialog({
                 )}
               />
 
+              {/* === ATTACHMENT SECTION === */}
+              <div className="space-y-2">
+                <FormLabel>Receipt / Attachment</FormLabel>
+                <div className="flex flex-col gap-3">
+                  {/* Hidden Input */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileSelect}
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  />
+
+                  {/* Upload Button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-20 border-dashed border-2 flex flex-col gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    ) : (
+                      <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {isUploading
+                        ? "Uploading..."
+                        : "Click to upload receipt or document"}
+                    </span>
+                  </Button>
+
+                  {/* Attachments List */}
+                  {attachments.length > 0 && (
+                    <div className="grid grid-cols-1 gap-2">
+                      {attachments.map((file: any, index: number) => (
+                        <div
+                          key={file.id || index}
+                          className="flex items-center justify-between p-2 border rounded-md bg-muted/20"
+                        >
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            {file.type === "IMAGE" ? (
+                              <ImageIcon className="h-4 w-4 text-blue-500 shrink-0" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-orange-500 shrink-0" />
+                            )}
+                            <span className="text-sm truncate max-w-[200px]">
+                              {file.filename}
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
+                            onClick={() => removeAttachment(index)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <FormField
                 control={form.control}
                 name="notes"
@@ -549,7 +679,10 @@ export default function AddExpenseDialog({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button
+                type="submit"
+                disabled={form.formState.isSubmitting || isUploading}
+              >
                 {form.formState.isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 
 export async function PATCH(
@@ -45,10 +45,40 @@ export async function PATCH(
       updateData.approvedDate = null;
     }
 
+    // Update the leave request
     const leaveRequest = await db.leaveRequest.update({
       where: { id },
       data: updateData,
     });
+
+    if (status === "APPROVED" || status === "REJECTED") {
+      const title = `Leave Request ${
+        status === "APPROVED" ? "Approved" : "Rejected"
+      }`;
+
+      let message = `Your leave request has been ${status.toLowerCase()} by ${
+        creator.name
+      }.`;
+
+      if (comments) {
+        message += ` Comment: "${comments}"`;
+      }
+
+      await db.employeeNotification.create({
+        data: {
+          employeeId: leaveRequest.employeeId,
+          title: title,
+          message: message,
+          type: "LEAVE",
+          isRead: false,
+          actionUrl: "/dashboard/leave",
+        },
+      });
+
+      console.log(
+        `Notification sent to employee ${leaveRequest.employeeId} regarding leave status: ${status}`
+      );
+    }
 
     return NextResponse.json(leaveRequest);
   } catch (error) {

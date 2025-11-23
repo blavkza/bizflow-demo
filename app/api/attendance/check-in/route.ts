@@ -368,7 +368,9 @@ async function checkAndCreateLateWarning(
       actionPlan = "Formal warning regarding persistent late attendance.";
     }
 
+    // --- LOGIC FIXED HERE ---
     if (warningType) {
+      // 1. Create the Warning
       const warning = await db.warning.create({
         data: {
           employeeId: employeeId,
@@ -389,8 +391,22 @@ async function checkAndCreateLateWarning(
           },
         },
       });
+
+      // 2. Create the Notification (NOW IT WILL RUN)
+      await db.employeeNotification.create({
+        data: {
+          employeeId: employeeId,
+          title: "New Warning Created",
+          message: `${reason} (Severity: ${severity})`,
+          type: "WARNING",
+          isRead: false,
+        },
+      });
+
+      // 3. Return the warning
       return warning;
     }
+
     return null;
   } catch (error) {
     console.error("Error creating late warning:", error);

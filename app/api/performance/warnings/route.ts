@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create warning in database
     const warning = await db.warning.create({
       data: {
         employeeId,
@@ -23,6 +22,17 @@ export async function POST(request: NextRequest) {
         actionPlan: actionPlan || "",
         status: "ACTIVE",
         date: new Date(),
+      },
+    });
+
+    await db.employeeNotification.create({
+      data: {
+        employeeId: employeeId,
+        title: "New Warning Issued",
+        message: `You have received a ${severity} severity warning regarding ${type}. Reason: ${reason}`,
+        type: "WARNING",
+        isRead: false,
+        actionUrl: `/dashboard/warnings/${warning.id}`,
       },
     });
 
@@ -106,6 +116,19 @@ export async function PUT(request: NextRequest) {
         status: status || "RESOLVED",
         resolvedAt: new Date(),
         resolutionNotes: resolutionNotes || "Warning resolved by manager",
+      },
+    });
+
+    await db.employeeNotification.create({
+      data: {
+        employeeId: updatedWarning.employeeId,
+        title: "Warning Resolved",
+        message: `Your warning status has been updated to ${
+          status || "RESOLVED"
+        }. Resolution: ${resolutionNotes || "Warning resolved by manager"}`,
+        type: "WARNING",
+        isRead: false,
+        actionUrl: `/dashboard/warnings/${updatedWarning.id}`,
       },
     });
 

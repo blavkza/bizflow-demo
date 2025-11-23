@@ -2,6 +2,7 @@ import db from "@/lib/db";
 import { projectSchema } from "@/lib/formValidationSchemas";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { sendPushNotification } from "@/lib/expo";
 
 export async function POST(req: Request) {
   try {
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
         projectType,
         billingType,
         clientId: clientId || null,
-        managerId: managerId || creater.id, // Fallback to creator if no manager specified
+        managerId: managerId || creater.id,
         priority,
         startDate,
         endDate,
@@ -101,7 +102,7 @@ export async function POST(req: Request) {
         status: "PLANNING",
       },
       include: {
-        manager: true,
+        manager: { select: { employeeId: true, name: true } },
         client: true,
       },
     });
@@ -116,6 +117,34 @@ export async function POST(req: Request) {
         userId: creater.id,
       },
     });
+
+    if (project.manager?.employeeId) {
+      const managerMessage = `You have been appointed as a team leader for project ${project.title} : ${project.projectNumber} by ${creater.name}.`;
+
+      await db.employeeNotification.create({
+        data: {
+          employeeId: project.manager.employeeId,
+          title: "Project Team-Leader",
+          message: managerMessage,
+          type: "EMPLOYEE",
+          isRead: false,
+          actionUrl: `/dashboard/projects/${project.id}`,
+        },
+      });
+
+      await sendPushNotification({
+        employeeId: project.manager.employeeId,
+        title: "New Team Leader Role",
+        body: managerMessage,
+        data: {
+          projectId: project.id,
+          url: `/dashboard/projects/${project.id}`,
+        },
+      });
+      console.log(
+        `Push notification sent to new project manager: ${project.manager.employeeId}`
+      );
+    }
 
     return NextResponse.json({ project, notification });
   } catch (error) {

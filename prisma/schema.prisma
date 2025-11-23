@@ -300,6 +300,10 @@ model Employee {
   terminationDate DateTime?
   status          EmployeeStatus @default(ACTIVE)
 
+  expoPushToken String?
+
+  canCheckByGPS Boolean @default(false)
+
   // Personal Information
   idNumber      String?
   taxNumber     String?
@@ -358,17 +362,18 @@ model Employee {
   //
 
   // Relations
-  department       Department?        @relation("DepartmentEmployees", fields: [departmentId], references: [id])
-  assignedTasks    Task[]             @relation(name: "TaskAssignments")
-  payments         Payment[]
-  documents        Document[]
-  targets          Target[]
-  kpiResults       KpiResult[]
-  leaveRequests    LeaveRequest[]
-  Note             Note[]
-  AttendanceRecord AttendanceRecord[]
-  Warning          Warning[]
-  user             User?
+  department           Department?            @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  assignedTasks        Task[]                 @relation(name: "TaskAssignments")
+  payments             Payment[]
+  documents            Document[]
+  targets              Target[]
+  kpiResults           KpiResult[]
+  leaveRequests        LeaveRequest[]
+  Note                 Note[]
+  AttendanceRecord     AttendanceRecord[]
+  Warning              Warning[]
+  user                 User?
+  employeeNotification EmployeeNotification[]
 
   @@index([departmentId])
   @@index([status])
@@ -2402,6 +2407,32 @@ model Notification {
   @@map("notifications")
 }
 
+model EmployeeNotification {
+  id        String               @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  priority  NotificationPriority @default(MEDIUM)
+  isRead    Boolean              @default(false)
+  actionUrl String?
+  metadata  Json?
+
+  // Delivery
+  channels NotificationChannel[]
+  sentAt   DateTime?
+  readAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employee   Employee? @relation(fields: [employeeId], references: [id])
+  employeeId String?
+
+  @@index([isRead])
+  @@index([type])
+  @@map("employee_notifications")
+}
+
 model NotificationTemplate {
   id        String           @id @default(cuid())
   name      String           @unique
@@ -3067,6 +3098,7 @@ enum NotificationType {
   TARGET
   PROJECT
   SERVICE
+  Task
 }
 
 enum NotificationPriority {

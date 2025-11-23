@@ -796,6 +796,7 @@ export const expenseSchema = z.object({
   projectId: z.string().optional().nullable(),
   accountCode: z.string().optional(),
   projectCode: z.string().optional(),
+  attachments: z.array(z.any()).optional(),
 });
 
 export type ExpenseFormValues = z.infer<typeof expenseSchema>;

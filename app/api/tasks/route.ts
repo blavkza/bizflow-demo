@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
 import { taskSchema } from "@/lib/formValidationSchemas";
+import { NotificationType } from "@prisma/client";
+import { sendPushNotification } from "@/lib/expo";
 
 export async function POST(req: Request) {
   try {
@@ -80,9 +82,8 @@ async function createSingleTask(data: any, creator: any) {
       where: { id: project.id },
       data: { status: "ACTIVE" },
     });
-  }
+  } // Validate employees exist
 
-  // Validate employees exist
   if (validatedData?.assigneeIds?.length || 0 > 0) {
     const existingAssignees = await db.employee.findMany({
       where: { id: { in: validatedData.assigneeIds } },
@@ -97,9 +98,8 @@ async function createSingleTask(data: any, creator: any) {
         { status: 404 }
       );
     }
-  }
+  } // Validate freelancers exist
 
-  // Validate freelancers exist
   if (validatedData?.freelancerIds?.length || 0 > 0) {
     const existingFreelancers = await db.freeLancer.findMany({
       where: { id: { in: validatedData.freelancerIds } },
@@ -174,9 +174,8 @@ async function createSingleTask(data: any, creator: any) {
     {
       timeout: 10000,
     }
-  );
+  ); // Create notification for CREATOR
 
-  // Create notification outside transaction
   await db.notification.create({
     data: {
       title: "New Task Created",
@@ -187,6 +186,41 @@ async function createSingleTask(data: any, creator: any) {
       userId: creator.id,
     },
   });
+
+  if (validatedData.assigneeIds && validatedData.assigneeIds.length > 0) {
+    const employeeNotifications = validatedData.assigneeIds.map(
+      (employeeId: string) => ({
+        employeeId: employeeId,
+        title: "New Task Assigned",
+        message: `You have been assigned to task "${result.title}" in project "${result.project.title}" by ${creator.name}.`,
+        type: NotificationType.Task,
+        isRead: false,
+        actionUrl: `/dashboard/projects/${result.projectId}/tasks/${result.id}`,
+      })
+    );
+
+    // 1. Send Push Notifications
+    await Promise.all(
+      validatedData.assigneeIds.map((employeeId: string) =>
+        sendPushNotification({
+          employeeId: employeeId,
+          title: "New Task Assigned",
+          body: `You have been assigned task "${result.title}" in project "${result.project.title}"!`,
+          data: {
+            taskId: result.id,
+            url: `/dashboard/projects/${result.projectId}/tasks/${result.id}`,
+          },
+        })
+      )
+    ); // 2. Create Database Notifications (History)
+
+    await db.employeeNotification.createMany({
+      data: employeeNotifications,
+    });
+    console.log(
+      `Notifications sent to ${employeeNotifications.length} employees.`
+    );
+  }
 
   return NextResponse.json(result, { status: 201 });
 }
@@ -220,9 +254,8 @@ async function createAITasks(tasks: any[], creator: any) {
       { error: "Specified project does not exist" },
       { status: 404 }
     );
-  }
+  } // If project was completed, change it back to active when adding new tasks
 
-  // If project was completed, change it back to active when adding new tasks
   if (project.status === "COMPLETED") {
     await db.project.update({
       where: { id: project.id },
@@ -243,9 +276,8 @@ async function createAITasks(tasks: any[], creator: any) {
       where: { id: project.id },
       data: { status: "ACTIVE" },
     });
-  }
+  } // Process tasks individually to avoid transaction timeouts
 
-  // Process tasks individually to avoid transaction timeouts
   const allResults = [];
 
   for (const taskData of tasks) {
@@ -257,8 +289,7 @@ async function createAITasks(tasks: any[], creator: any) {
       );
       allResults.push(result);
     } catch (error) {
-      console.error("Failed to create task:", error);
-      // Continue with other tasks even if one fails
+      console.error("Failed to create task:", error); // Continue with other tasks even if one fails
       continue;
     }
   }
@@ -321,9 +352,8 @@ async function createSingleTaskInBatch(
             status: subtask.status || "TODO",
           })),
         });
-      }
+      } // Create notification for CREATOR
 
-      // Create notification
       await prisma.notification.create({
         data: {
           title: "Task Created",
@@ -334,6 +364,44 @@ async function createSingleTaskInBatch(
           userId: creator.id,
         },
       });
+
+      // ---------------------------------------------------------
+      // START: PUSH NOTIFICATION INTEGRATION (createSingleTaskInBatch)
+      // ---------------------------------------------------------
+      if (taskData.assigneeIds && taskData.assigneeIds.length > 0) {
+        const employeeNotifications = taskData.assigneeIds.map(
+          (employeeId: string) => ({
+            employeeId: employeeId,
+            title: "New Task Assigned",
+            message: `You have been assigned to task "${task.title}" in project "${task.project.title}".`,
+            type: NotificationType.Task,
+            isRead: false,
+            actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
+          })
+        );
+
+        // 1. Send Push Notifications
+        await Promise.all(
+          taskData.assigneeIds.map((employeeId: string) =>
+            sendPushNotification({
+              employeeId: employeeId,
+              title: "New Task Assigned",
+              body: `You have been assigned task "${task.title}" in project "${task.project.title}"!`,
+              data: {
+                taskId: task.id,
+                url: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
+              },
+            })
+          )
+        ); // 2. Create Database Notifications (History)
+
+        await prisma.employeeNotification.createMany({
+          data: employeeNotifications,
+        });
+      }
+      // ---------------------------------------------------------
+      // END: PUSH NOTIFICATION INTEGRATION (createSingleTaskInBatch)
+      // ---------------------------------------------------------
 
       return task;
     },

@@ -1,6 +1,7 @@
 import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { sendPushNotification } from "@/lib/expo";
 
 export async function PATCH(
   request: Request,
@@ -21,6 +22,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const body = await request.json();
   const {
     canCreateTask,
     canEditTask,
@@ -28,22 +30,28 @@ export async function PATCH(
     canUploadFiles,
     canDeleteFiles,
     canViewFinancial,
-  } = await request.json();
+  } = body;
 
   try {
-    const currentUserMembership = await db.project.findFirst({
+    const project = await db.project.findFirst({
       where: {
         id: params.id,
         managerId: creator.id,
       },
+      select: { title: true, id: true },
     });
 
-    if (!currentUserMembership) {
+    if (!project) {
       return NextResponse.json(
         { error: "You do not have permission to update permissions" },
         { status: 403 }
       );
     }
+
+    const memberUser = await db.user.findUnique({
+      where: { id: params.userId },
+      select: { employeeId: true, name: true },
+    });
 
     const updatedMember = await db.projectTeam.update({
       where: {
@@ -65,63 +73,36 @@ export async function PATCH(
       },
     });
 
+    if (memberUser?.employeeId) {
+      const message = `Your permissions for project "${project.title}" have been updated by ${creator.name}.`;
+
+      await sendPushNotification({
+        employeeId: memberUser.employeeId,
+        title: "Permissions Updated",
+        body: message,
+        data: {
+          projectId: project.id,
+          url: `/dashboard/projects/${project.id}`,
+        },
+      });
+
+      await db.employeeNotification.create({
+        data: {
+          employeeId: memberUser.employeeId,
+          title: "Permissions Updated",
+          message: message,
+          type: "PROJECT",
+          isRead: false,
+          actionUrl: `/dashboard/projects/${project.id}`,
+        },
+      });
+    }
+
     return NextResponse.json(updatedMember);
   } catch (error) {
+    console.error("[PROJECT_MEMBER_PATCH]", error);
     return NextResponse.json(
       { error: "Failed to update member permissions" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string; userId: string } }
-) {
-  try {
-    const { userId: currentUserId } = await auth();
-
-    if (!currentUserId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const currentUser = await db.user.findUnique({
-      where: { userId: currentUserId },
-      select: { id: true },
-    });
-
-    if (!currentUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const isManager = await db.project.findFirst({
-      where: {
-        id: params.id,
-        managerId: currentUser.id,
-      },
-    });
-
-    if (!isManager) {
-      return NextResponse.json(
-        { error: "You don't have permission to remove members" },
-        { status: 403 }
-      );
-    }
-
-    await db.projectTeam.delete({
-      where: {
-        projectId_userId: {
-          projectId: params.id,
-          userId: params.userId,
-        },
-      },
-    });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("[PROJECT_MEMBER_DELETE]", error);
-    return NextResponse.json(
-      { error: "Failed to remove member" },
       { status: 500 }
     );
   }

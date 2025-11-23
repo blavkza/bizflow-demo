@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
+import { ProjectStatus } from "@prisma/client";
 
 export async function GET(
   request: NextRequest,
@@ -70,6 +71,7 @@ export async function GET(
       return NextResponse.json({ error: "Service not found" }, { status: 404 });
     }
 
+    // 1. Extract Unique Clients
     const clients = service.projects
       .map((project) => project.client)
       .filter(
@@ -77,12 +79,23 @@ export async function GET(
           client && array.findIndex((c) => c?.id === client.id) === index
       );
 
-    const clientsCount = clients.length;
+    // 2. Calculate Active Projects (IN_PROGRESS)
+    const activeProjects = service.projects.filter(
+      (p) => p.status === ProjectStatus.ACTIVE || ProjectStatus.PLANNING
+    ).length;
 
+    // 3. Calculate Completed Projects (COMPLETED)
+    const completedProjects = service.projects.filter(
+      (p) => p.status === "COMPLETED"
+    ).length;
+
+    // 4. Return combined data
     return NextResponse.json({
       ...service,
       clients,
-      clientsCount,
+      clientsCount: clients.length,
+      activeProjects,
+      completedProjects,
     });
   } catch (error) {
     console.error("Failed to fetch service:", error);

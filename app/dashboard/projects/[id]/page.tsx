@@ -208,7 +208,7 @@ export default function ProjectsDetailsPage({
 
   const isManager =
     currentUserId === managerId ||
-    user.role === UserRole.CHIEF_EXECUTIVE_OFFICER;
+    user?.role === UserRole.CHIEF_EXECUTIVE_OFFICER;
 
   const currentMember = project.teamMembers?.find(
     (member) => member.userId === currentUserId

@@ -2,8 +2,8 @@ import db from "@/lib/db";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { sendPushNotification } from "@/lib/expo";
 
-// Validation schema matching frontend and database
 const ProjectTeamCreateSchema = z.array(
   z.object({
     userId: z.string().min(1, "User ID is required"),
@@ -77,6 +77,17 @@ export async function POST(
       });
     }
 
+    const usersToAdd = await db.user.findMany({
+      where: {
+        id: { in: newMembers.map((m) => m.userId) },
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        name: true,
+      },
+    });
+
     const createdMembers = await db.$transaction(
       newMembers.map((member) =>
         db.projectTeam.create({
@@ -91,10 +102,51 @@ export async function POST(
             canDeleteFiles: member.canDeleteFiles,
             canViewFinancial: member.canViewFinancial,
           },
-          include: { user: { select: { id: true, name: true, email: true } } },
+          include: {
+            user: { select: { id: true, name: true, email: true } },
+          },
         })
       )
     );
+
+    const notificationPromises = usersToAdd
+      .filter((user) => user.employeeId)
+      .map((user) =>
+        db.employeeNotification.create({
+          data: {
+            employeeId: user.employeeId!,
+            title: "Added to Project",
+            message: `You have been added to the project "${project.title}" by ${creator.name}. Role: ${
+              newMembers.find((m) => m.userId === user.id)?.role || "Member"
+            }`,
+            type: "PROJECT",
+            isRead: false,
+            actionUrl: `/dashboard/projects/${project.id}`,
+          },
+        })
+      );
+
+    await Promise.all(notificationPromises);
+
+    const pushPromises = usersToAdd
+      .filter((user) => user.employeeId)
+      .map((user) => {
+        const role =
+          newMembers.find((m) => m.userId === user.id)?.role || "Member";
+
+        return sendPushNotification({
+          employeeId: user.employeeId!,
+          title: "New Project Assignment",
+          body: `You are now a ${role} on project "${project.title}".`,
+          data: {
+            projectId: project.id,
+            url: `/dashboard/projects/${project.id}`,
+          },
+        });
+      });
+
+    await Promise.all(pushPromises);
+    console.log(`Push notifications sent to ${pushPromises.length} employees.`);
 
     await db.notification.create({
       data: {

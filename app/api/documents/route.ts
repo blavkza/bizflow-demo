@@ -1,3 +1,5 @@
+// app/api/documents/route.ts
+
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
@@ -34,34 +36,47 @@ async function generateChecksum(buffer: Buffer): Promise<string> {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request) {
   try {
-    const { id } = await params;
-
-    // Check if folder exists
-    const folder = await db.folder.findUnique({
-      where: { id },
-    });
-
-    if (!folder) {
-      return NextResponse.json({ error: "Folder not found" }, { status: 404 });
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const documentType = formData.get("documentType") as DocumentType;
+    // Get ID and Type from form data, NOT params
+    const entityId = formData.get("entityId") as string;
+    const entityType = formData.get("entityType") as "folder" | "project";
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
-    if (!documentType) {
+    if (!documentType || !entityId) {
       return NextResponse.json(
-        { error: "Document type is required" },
+        { error: "Document type and Entity ID are required" },
         { status: 400 }
       );
+    }
+
+    // Validate existence based on entity type
+    if (entityType === "folder") {
+      const folder = await db.folder.findUnique({ where: { id: entityId } });
+      if (!folder) {
+        return NextResponse.json(
+          { error: "Folder not found" },
+          { status: 404 }
+        );
+      }
+    } else if (entityType === "project") {
+      const project = await db.project.findUnique({ where: { id: entityId } });
+      if (!project) {
+        return NextResponse.json(
+          { error: "Project not found" },
+          { status: 404 }
+        );
+      }
     }
 
     // File type detection
@@ -107,8 +122,6 @@ export async function POST(
     );
     const isImage = file.type.startsWith("image/");
 
-    // Use "raw" resource type for PDFs and documents to preserve file format
-    // Use "image" for images, "auto" for others
     let resourceType = "auto";
     if (isPDF || isDocument) {
       resourceType = "raw";
@@ -120,11 +133,9 @@ export async function POST(
     const cloudinaryFormData = new FormData();
 
     if (resourceType === "raw") {
-      // For raw files, send the file as-is without base64 encoding
       const blob = new Blob([buffer], { type: file.type });
       cloudinaryFormData.append("file", blob, file.name);
     } else {
-      // For images and other files, use base64 encoding
       cloudinaryFormData.append(
         "file",
         `data:${file.type};base64,${buffer.toString("base64")}`
@@ -135,35 +146,23 @@ export async function POST(
     cloudinaryFormData.append("folder", "financeFlow/folders");
     cloudinaryFormData.append("resource_type", resourceType);
 
-    // For raw files, include the original filename in public_id
     const fileExtension = file.name.split(".").pop() || "bin";
     if (resourceType === "raw") {
       cloudinaryFormData.append(
         "public_id",
-        `folder_${id}_${safeFileName}_${timestamp}.${fileExtension}`
+        `${entityType}_${entityId}_${safeFileName}_${timestamp}.${fileExtension}`
       );
     } else {
       cloudinaryFormData.append(
         "public_id",
-        `folder_${id}_${safeFileName}_${timestamp}`
+        `${entityType}_${entityId}_${safeFileName}_${timestamp}`
       );
     }
 
-    // Add context for better organization
     cloudinaryFormData.append(
       "context",
-      `folder_id=${id}|uploaded_by user|document_type=${documentType}|resource_type=${resourceType}`
+      `${entityType}_id=${entityId}|uploaded_by=${userId}|document_type=${documentType}|resource_type=${resourceType}`
     );
-
-    console.log("Cloudinary upload details:", {
-      resourceType,
-      fileType: file.type,
-      fileName: file.name,
-      public_id:
-        resourceType === "raw"
-          ? `folder_${id}_${safeFileName}_${timestamp}.${fileExtension}`
-          : `folder_${id}_${safeFileName}_${timestamp}`,
-    });
 
     const cloudinaryResponse = await fetch(cloudinaryUrl, {
       method: "POST",
@@ -177,32 +176,33 @@ export async function POST(
         {
           error: "Cloudinary upload failed",
           details: errorData.error?.message,
-          resourceType,
-          fileType: file.type,
         },
         { status: cloudinaryResponse.status }
       );
     }
 
     const cloudinaryData = await cloudinaryResponse.json();
-    console.log("Cloudinary upload success:", {
-      resource_type: cloudinaryData.resource_type,
-      url: cloudinaryData.secure_url,
-      format: cloudinaryData.format,
-    });
 
     // Create database record
+    // We conditionally set folderId or projectId based on entityType
+    const documentData: any = {
+      name: file.name,
+      originalName: file.name,
+      type: documentType,
+      url: cloudinaryData.secure_url,
+      size: file.size,
+      mimeType: file.type,
+      checksum,
+    };
+
+    if (entityType === "folder") {
+      documentData.folderId = entityId;
+    } else {
+      documentData.projectId = entityId;
+    }
+
     const document = await db.document.create({
-      data: {
-        name: file.name, // Use original file name
-        originalName: file.name,
-        type: documentType,
-        url: cloudinaryData.secure_url,
-        size: file.size,
-        mimeType: file.type,
-        checksum,
-        folderId: id,
-      },
+      data: documentData,
     });
 
     // Transform response for frontend
@@ -221,48 +221,6 @@ export async function POST(
     console.error("Upload error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Upload failed" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id } = await params;
-
-    const documents = await db.document.findMany({
-      where: { folderId: id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        employee: { select: { firstName: true, lastName: true } },
-        client: { select: { name: true } },
-      },
-    });
-
-    // Transform the data
-    const transformedDocuments = documents.map((doc) => ({
-      ...doc,
-      uploadedAt: doc.createdAt,
-      lastModified: doc.updatedAt,
-      starred: false,
-      shared: false,
-      tags: [],
-      type: doc.mimeType || "application/octet-stream",
-    }));
-
-    return NextResponse.json(transformedDocuments);
-  } catch (error) {
-    console.error("Error fetching documents:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
       { status: 500 }
     );
   }

@@ -321,6 +321,7 @@ async function calculateHoursAndStatus(
 // HELPERS
 // ------------------------------------------------------------------
 
+// Add this helper function to your file (updating the existing one)
 async function checkAndCreateAbsentWarning(
   employeeId: string,
   currentTime: Date,
@@ -354,7 +355,7 @@ async function checkAndCreateAbsentWarning(
     });
 
     console.log(
-      `Absent counts for employee ${employeeId}: Month=${monthlyAbsentCount} (including auto-created records)`
+      `Absent counts for employee ${employeeId}: Month=${monthlyAbsentCount}`
     );
 
     let warningType = "";
@@ -392,7 +393,7 @@ async function checkAndCreateAbsentWarning(
         "Formal warning for persistent absenteeism. Immediate improvement required.";
     }
 
-    // Create warning if conditions met
+    // Create warning AND Notification if conditions met
     if (warningType) {
       const warning = await db.warning.create({
         data: {
@@ -415,8 +416,20 @@ async function checkAndCreateAbsentWarning(
         },
       });
 
+      // --- ADDED NOTIFICATION HERE ---
+      await db.employeeNotification.create({
+        data: {
+          employeeId: employeeId,
+          title: "Absence Warning Issued",
+          message: `${reason} (Severity: ${severity})`,
+          type: "WARNING",
+          isRead: false,
+          actionUrl: `/dashboard/warnings/${warning.id}`,
+        },
+      });
+
       console.log(
-        `Created absent warning for employee ${employeeId}: ${severity} severity (auto-created: ${isAutoCreated})`
+        `Created absent warning and notification for employee ${employeeId}: ${severity}`
       );
       return warning;
     }

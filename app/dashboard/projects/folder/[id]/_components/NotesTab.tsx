@@ -11,6 +11,7 @@ import { Note, NoteColor } from "./types";
 import NoteCard from "./NoteCard";
 import NoteDialog from "./NoteDialog";
 import { toast } from "sonner";
+import { Editor } from "@/components/ui/editor";
 
 interface NotesTabProps {
   notes: Note[];
@@ -233,15 +234,14 @@ export default function NotesTab({
             </div>
             <div>
               <Label htmlFor="note-content">Content</Label>
-              <Textarea
-                id="note-content"
+              <Editor
                 placeholder="Enter note content..."
-                rows={4}
                 value={newNote.content}
-                onChange={(e) =>
+                // FIX: Handled value directly instead of event object
+                onChange={(value: string) =>
                   setNewNote((prev) => ({
                     ...prev,
-                    content: e.target.value,
+                    content: value,
                   }))
                 }
               />

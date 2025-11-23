@@ -6,11 +6,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Check } from "lucide-react";
 import { Note, NoteColor } from "./types";
 import { useState, useEffect } from "react";
+import { Editor } from "@/components/ui/editor";
 
 interface NoteDialogProps {
   note: Note | null;
@@ -18,18 +18,33 @@ interface NoteDialogProps {
   onSave: (note: Note) => void;
 }
 
+const colorClasses: Record<NoteColor, string> = {
+  blue: "bg-blue-500",
+  green: "bg-green-500",
+  yellow: "bg-yellow-500",
+  purple: "bg-purple-500",
+  pink: "bg-pink-500",
+};
+
 export default function NoteDialog({ note, onClose, onSave }: NoteDialogProps) {
   const [editedNote, setEditedNote] = useState<Note | null>(null);
+  const [tagsString, setTagsString] = useState("");
 
   useEffect(() => {
     if (note) {
       setEditedNote(note);
+      setTagsString(note.tags.join(", "));
     }
   }, [note]);
 
   const handleSave = () => {
     if (editedNote) {
-      onSave(editedNote);
+      const finalTags = tagsString
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean);
+
+      onSave({ ...editedNote, tags: finalTags });
     }
   };
 
@@ -58,8 +73,9 @@ export default function NoteDialog({ note, onClose, onSave }: NoteDialogProps) {
             <Label htmlFor="edit-tags">Tags (comma separated)</Label>
             <Input
               id="edit-tags"
-              value={editedNote.tags.join(", ")}
-              onChange={(e) =>
+              value={tagsString}
+              onChange={(e) => {
+                setTagsString(e.target.value);
                 setEditedNote((prev) =>
                   prev
                     ? {
@@ -70,19 +86,18 @@ export default function NoteDialog({ note, onClose, onSave }: NoteDialogProps) {
                           .filter(Boolean),
                       }
                     : null
-                )
-              }
+                );
+              }}
             />
           </div>
           <div>
             <Label htmlFor="edit-content">Content</Label>
-            <Textarea
-              id="edit-content"
-              rows={8}
+            <Editor
+              placeholder="Enter note content..."
               value={editedNote.content}
-              onChange={(e) =>
+              onChange={(value: string) =>
                 setEditedNote((prev) =>
-                  prev ? { ...prev, content: e.target.value } : null
+                  prev ? { ...prev, content: value } : null
                 )
               }
             />
@@ -102,11 +117,12 @@ export default function NoteDialog({ note, onClose, onSave }: NoteDialogProps) {
                         prev ? { ...prev, color } : null
                       )
                     }
-                    className={`w-6 h-6 rounded-full border-2 ${
+                    className={`w-6 h-6 rounded-full border-2 transition-all ${
                       editedNote.color === color
-                        ? "border-gray-400"
-                        : "border-gray-200"
-                    } bg-${color}-500`}
+                        ? "border-gray-800 scale-110"
+                        : "border-gray-200 hover:border-gray-300"
+                    } ${colorClasses[color]}`}
+                    title={color.charAt(0).toUpperCase() + color.slice(1)}
                   />
                 ))}
               </div>

@@ -39,7 +39,10 @@ export async function PUT(request: Request) {
 
     const invoice = await db.invoice.findUnique({
       where: { id: invoiceId },
-      include: { client: true },
+      include: {
+        client: true,
+        items: true,
+      },
     });
 
     if (!invoice) {
@@ -52,6 +55,8 @@ export async function PUT(request: Request) {
       });
     }
 
+    const serviceItem = invoice.items.find((item) => item.serviceId);
+
     const projectInvoice = await db.invoice.update({
       where: { id: invoiceId },
       data: {
@@ -62,10 +67,19 @@ export async function PUT(request: Request) {
       },
     });
 
+    if (serviceItem && serviceItem.serviceId) {
+      await db.project.update({
+        where: { id: projectId },
+        data: {
+          serviceId: serviceItem.serviceId,
+        },
+      });
+    }
+
     await db.notification.create({
       data: {
-        title: `New Invoice Add To Project ${project.title}`,
-        message: `Invoice ${invoice.invoiceNumber}  , has been add to project : ${project.title} By ${creater.name}.`,
+        title: `New Invoice Added To Project ${project.title}`,
+        message: `Invoice ${invoice.invoiceNumber}, has been added to project: ${project.title} By ${creater.name}.`,
         type: "PROJECT",
         isRead: false,
         actionUrl: `/dashboard/projects/${project.id}`,

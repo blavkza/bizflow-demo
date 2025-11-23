@@ -104,19 +104,14 @@ const FileTypeBadge = ({ type }: { type: string }) => {
 
 const parseSizeToBytes = (sizeString: string | undefined | null): number => {
   if (!sizeString) return 0;
-
   const sizeStr = String(sizeString).trim();
-
   if (/^\d+$/.test(sizeStr)) {
     return parseInt(sizeStr, 10);
   }
-
   const sizeMatch = sizeStr.match(/(\d+\.?\d*)\s*(KB|MB|GB|B)/i);
   if (!sizeMatch) return 0;
-
   const size = parseFloat(sizeMatch[1]);
   const unit = sizeMatch[2].toUpperCase();
-
   switch (unit) {
     case "KB":
       return size * 1024;
@@ -148,10 +143,9 @@ export function ProjectFiles({
 }: ProjectFilesProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [previewFile, setPreviewFile] = useState<{
-    url: string;
-    type: string;
-  } | null>(null);
+
+  // CHANGED: Store the whole file object, not just url/type
+  const [previewFile, setPreviewFile] = useState<any | null>(null);
 
   if (!project) {
     return (
@@ -217,16 +211,15 @@ export function ProjectFiles({
 
   const handleDownload = (fileUrl: string, fileName: string) => {
     if (!fileUrl) return;
-
     window.open(fileUrl, "_blank");
   };
 
   return (
     <div className="space-y-4">
+      {/* CHANGED: Pass the file object directly */}
       {previewFile && (
         <FilePreviewDialog
-          fileUrl={previewFile.url}
-          fileType={previewFile.type}
+          file={previewFile}
           isOpen={!!previewFile}
           onClose={() => setPreviewFile(null)}
         />
@@ -333,8 +326,6 @@ export function ProjectFiles({
                         fetchProject={fetchProject}
                       />
                     )}
-
-                    <ShareDialog itemId={folder.id} itemType="folder" />
                     {showDeleteButton && (
                       <DeleteDialog
                         id={folder.id}
@@ -397,11 +388,8 @@ export function ProjectFiles({
                         >
                           Download
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() =>
-                            setPreviewFile({ url: file.url, type: fileType })
-                          }
-                        >
+                        {/* CHANGED: Pass the file object */}
+                        <DropdownMenuItem onClick={() => setPreviewFile(file)}>
                           Preview
                         </DropdownMenuItem>
                         <ShareDialog

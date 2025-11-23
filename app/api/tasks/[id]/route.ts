@@ -1,5 +1,7 @@
 import db from "@/lib/db";
+import { sendPushNotification } from "@/lib/expo";
 import { auth } from "@clerk/nextjs/server";
+import { NotificationType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(
@@ -108,9 +110,9 @@ export async function PUT(
       updateData.completedAt = null;
     }
 
-    const result = await db.$transaction(
+    await db.$transaction(
       async (tx) => {
-        const updatedTask = await tx.task.update({
+        await tx.task.update({
           where: { id },
           data: updateData,
         });
@@ -157,8 +159,6 @@ export async function PUT(
             },
           });
         }
-
-        return updatedTask;
       },
       {
         timeout: 30000,
@@ -166,6 +166,7 @@ export async function PUT(
       }
     );
 
+    // Fetch updated task for response and notifications
     const fullUpdatedTask = await db.task.findUnique({
       where: { id },
       include: {
@@ -196,6 +197,7 @@ export async function PUT(
     });
 
     if (fullUpdatedTask) {
+      // Notify Admin/Updater
       await db.notification.create({
         data: {
           title: "Task Updated",
@@ -206,6 +208,30 @@ export async function PUT(
           userId: updater.id,
         },
       });
+
+      if (fullUpdatedTask.assignees && fullUpdatedTask.assignees.length > 0) {
+        const employeeNotifications = fullUpdatedTask.assignees.map((emp) => ({
+          employeeId: emp.id,
+          title: "Task Updated",
+          message: `Task "${fullUpdatedTask.title}" details have been updated by ${updater.name}.`,
+          type: NotificationType.Task,
+          isRead: false,
+          actionUrl: `/dashboard/projects/${fullUpdatedTask.projectId}/tasks/${fullUpdatedTask.id}`,
+        }));
+
+        for (const employee of fullUpdatedTask.assignees) {
+          await sendPushNotification({
+            employeeId: employee.id,
+            title: "Task Updated",
+            body: `Task "${fullUpdatedTask.title}" has been updated.`,
+            data: { taskId: fullUpdatedTask.id },
+          });
+        }
+
+        await db.employeeNotification.createMany({
+          data: employeeNotifications,
+        });
+      }
     }
 
     return NextResponse.json(fullUpdatedTask);
@@ -220,9 +246,9 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await params;
 
   const { userId } = await auth();
 
@@ -245,6 +271,7 @@ export async function DELETE(
   const task = await db.task.findUnique({
     where: { id },
     include: {
+      assignees: true,
       project: {
         select: {
           id: true,
@@ -274,6 +301,25 @@ export async function DELETE(
         userId: user.id,
       },
     });
+
+    if (task.assignees && task.assignees.length > 0) {
+      const employeeNotifications = task.assignees.map((emp) => ({
+        employeeId: emp.id,
+        title: "Task Deleted",
+        message: `Task "${task.title}" has been deleted by ${user.name}.`,
+        type: NotificationType.Task,
+        isRead: false,
+        actionUrl: `/dashboard/projects/${task.project.id}`,
+      }));
+
+      await db.employeeNotification.createMany({
+        data: employeeNotifications,
+      });
+
+      console.log(
+        `Deletion notifications sent to ${employeeNotifications.length} employees.`
+      );
+    }
 
     return NextResponse.json(
       { message: "Task deleted successfully" },

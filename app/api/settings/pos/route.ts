@@ -45,7 +45,19 @@ export async function PUT(request: NextRequest) {
     const { userId } = await auth();
 
     if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const creator = await db.user.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (!creator) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const body = await request.json();
@@ -89,6 +101,17 @@ export async function PUT(request: NextRequest) {
         },
       });
     }
+
+    await db.notification.create({
+      data: {
+        title: "Settings Updated",
+        message: `Settings , has been Updated By ${creator.name}.`,
+        type: "SYSTEM",
+        isRead: false,
+        actionUrl: `/dashboard/settings`,
+        userId: creator.id,
+      },
+    });
 
     return NextResponse.json(posSettings);
   } catch (error) {

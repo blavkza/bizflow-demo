@@ -120,6 +120,19 @@ export async function PUT(
       },
     });
 
+    if (project.manager?.employeeId) {
+      await db.employeeNotification.create({
+        data: {
+          employeeId: project.manager?.employeeId,
+          title: "Project Updated",
+          message: `Project ${project.title} : ${project.projectNumber} have be Updated b by ${currentUser.name}. `,
+          type: "EMPLOYEE",
+          isRead: false,
+          actionUrl: `/dashboard/profile`,
+        },
+      });
+    }
+
     return NextResponse.json({ project, notification });
   } catch (error) {
     console.error("[PROJECT_UPDATE_ERROR]", error);

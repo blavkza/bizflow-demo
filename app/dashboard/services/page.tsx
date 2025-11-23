@@ -204,7 +204,7 @@ export default function ServicesPage() {
       if (response.ok) {
         const data = await response.json();
         setAllServices(data);
-        setServices(data); // Initialize filtered services with all services
+        setServices(data);
       }
     } catch (error) {
       console.error("Failed to fetch services:", error);
@@ -345,9 +345,7 @@ export default function ServicesPage() {
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">
-          Services & Offerings
-        </h2>
+        <h2 className="text-3xl font-bold tracking-tight">Services</h2>
         <div className="flex items-center space-x-2">
           <Dialog
             open={isCreateDialogOpen}

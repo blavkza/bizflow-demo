@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
+import { ProjectStatus } from "@prisma/client";
 
 export async function GET() {
   try {
@@ -14,7 +15,9 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
       include: {
         projects: {
-          include: {
+          select: {
+            id: true,
+            status: true,
             client: {
               select: {
                 id: true,
@@ -25,19 +28,30 @@ export async function GET() {
       },
     });
 
-    const servicesWithClientCount = services.map((service) => {
+    const servicesWithStats = services.map((service) => {
       const uniqueClients = new Set(
         service.projects.map((project) => project.client?.id).filter(Boolean)
       );
 
+      const activeProjectsCount = service.projects.filter(
+        (project) =>
+          project.status === ProjectStatus.ACTIVE || ProjectStatus.PLANNING
+      ).length;
+
+      const completedProjectsCount = service.projects.filter(
+        (project) => project.status === "COMPLETED"
+      ).length;
+
       return {
         ...service,
         clientsCount: uniqueClients.size,
+        activeProjects: activeProjectsCount,
+        completedProjects: completedProjectsCount,
         projects: undefined,
       };
     });
 
-    return NextResponse.json(servicesWithClientCount);
+    return NextResponse.json(servicesWithStats);
   } catch (error) {
     console.error("Failed to fetch services:", error);
     return NextResponse.json(

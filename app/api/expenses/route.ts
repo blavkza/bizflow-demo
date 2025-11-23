@@ -179,6 +179,7 @@ export async function POST(request: NextRequest) {
             accountCode: data.accountCode || null,
             projectCode: data.projectCode || null,
             userId: user.id,
+            attachments: data.attachments || [],
           },
         });
 

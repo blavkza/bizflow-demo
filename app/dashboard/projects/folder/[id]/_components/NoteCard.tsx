@@ -19,12 +19,6 @@ import {
   Lock,
 } from "lucide-react";
 import { Note } from "./types";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 interface NoteCardProps {
   note: Note;
@@ -102,7 +96,7 @@ export default function NoteCard({
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
@@ -130,9 +124,12 @@ export default function NoteCard({
         </div>
       </CardHeader>
       <CardContent>
-        <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap mb-4">
-          {note.content}
-        </p>
+        {/* Updated to render HTML content from the Editor */}
+        <div
+          className="text-gray-700 dark:text-gray-300 mb-4 text-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4"
+          dangerouslySetInnerHTML={{ __html: note.content }}
+        />
+
         {note.tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {note.tags.map((tag) => (

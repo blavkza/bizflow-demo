@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
+import { sendPushNotification } from "@/lib/expo";
 
 export async function PUT(
   req: NextRequest,
@@ -67,6 +68,27 @@ export async function PUT(
         isRead: false,
         actionUrl: `/dashboard/human-resources/employees/${updatedEmployee.id}`,
         userId: updater.id,
+      },
+    });
+
+    const employeeMessage = `Your profile contact info have been updated by ${updater.name}. Please verify your information.`;
+
+    await db.employeeNotification.create({
+      data: {
+        employeeId: updatedEmployee.id,
+        title: "Profile Updated",
+        message: employeeMessage,
+        type: "EMPLOYEE",
+        isRead: false,
+      },
+    });
+
+    await sendPushNotification({
+      employeeId: updatedEmployee.id,
+      title: "Profile Updated",
+      body: employeeMessage,
+      data: {
+        url: `/dashboard/profile`,
       },
     });
 
