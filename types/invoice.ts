@@ -74,6 +74,10 @@ export interface InvoiceProps {
     phone?: string;
     email?: string;
     taxNumber?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    province?: string;
   };
   id: string;
   totalAmount: number;
@@ -83,7 +87,7 @@ export interface InvoiceProps {
   issueDate: Date | string;
   dueDate: Date | string;
   paymentTerms?: string;
-  note?: string;
+  notes?: string;
   terms?: string;
   items: Array<{
     id: string;
@@ -94,6 +98,9 @@ export interface InvoiceProps {
     taxRate?: string | null;
     taxAmount?: string | null;
     shopProductId?: string | null;
+    // --- ADDED THESE MISSING FIELDS ---
+    itemDiscountType?: "AMOUNT" | "PERCENTAGE" | null;
+    itemDiscountAmount?: string | number | null;
   }>;
   payments?: Array<{
     id: string;
@@ -115,6 +122,7 @@ export interface InvoiceProps {
   depositType?: "AMOUNT" | "PERCENTAGE";
   depositAmount?: number | Decimal | null;
 }
+
 export type InvoiceStatus =
   | "PAID"
   | "SENT"

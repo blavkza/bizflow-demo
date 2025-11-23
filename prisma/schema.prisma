@@ -927,6 +927,8 @@ model Project {
   comment       comment[]
   toolInterUses ToolInterUse[]
   Expense       Expense[]
+  service       Service?       @relation(fields: [serviceId], references: [id])
+  serviceId     String?
 
   @@index([clientId])
   @@index([status])
@@ -1329,6 +1331,12 @@ model InvoiceItem {
   taxRate     Decimal? @db.Decimal(5, 2)
   taxAmount   Decimal? @db.Decimal(15, 2)
 
+  itemDiscountType   DiscountType?
+  itemDiscountAmount Decimal?
+
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id])
+
   shopProductId String?
   shopProduct   ShopProduct? @relation(fields: [shopProductId], references: [id])
 
@@ -1476,6 +1484,12 @@ model QuotationItem {
   taxAmount   Decimal? @db.Decimal(15, 2)
   notes       String?
   sortOrder   Int      @default(0)
+
+  itemDiscountType   DiscountType?
+  itemDiscountAmount Decimal?
+
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id])
 
   shopProductId String?
   shopProduct   ShopProduct? @relation(fields: [shopProductId], references: [id])
@@ -2127,6 +2141,42 @@ model ToolMaintenanceLog {
   createdAt DateTime @default(now())
 
   @@map("tool_maintenance_logs")
+}
+
+model Service {
+  id          String        @id @default(cuid())
+  name        String
+  description String
+  category    String
+  categoryId  String
+  amount      Float
+  currency    String?       @default("ZAR")
+  duration    String?
+  status      ServiceStatus @default(ACTIVE)
+  features    String[]
+
+  // Stats
+  clients           Int   @default(0)
+  revenue           Float @default(0)
+  completedProjects Int   @default(0)
+  activeProjects    Int   @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  projects       Project[]
+  quotationItems QuotationItem[]
+  invoiceItems   InvoiceItem[]
+
+  @@map("services")
+}
+
+enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+  COMING_SOON
 }
 
 model RentalRequest {
@@ -3016,6 +3066,7 @@ enum NotificationType {
   BUDGET
   TARGET
   PROJECT
+  SERVICE
 }
 
 enum NotificationPriority {

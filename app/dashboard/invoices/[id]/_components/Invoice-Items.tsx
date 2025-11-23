@@ -18,46 +18,91 @@ interface InvoiceItemsProps {
 }
 
 export default function InvoiceItems({ invoice }: InvoiceItemsProps) {
-  const calculateDiscountAmount = () => {
-    if (!invoice.discountAmount) return 0;
-
-    if (invoice.discountType === DiscountType.PERCENTAGE) {
-      return (invoice.amount * invoice.discountAmount) / 100;
-    } else {
-      return invoice.discountAmount;
-    }
+  // Helper to format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+    }).format(amount);
   };
 
-  const discountAmount = calculateDiscountAmount();
+  // --- 1. Calculate Item Level Logic ---
+  let subtotalGross = 0;
+  let totalItemDiscountMoney = 0;
 
-  // Calculate the actual tax rate percentage from taxAmount and subtotal
-  const getActualTaxRate = () => {
-    if (!invoice.taxAmount || !invoice.amount || invoice.amount === 0) {
-      return 0;
+  const itemsWithCalculations = invoice.items.map((item) => {
+    const quantity = Number(item.quantity);
+    const unitPrice = Number(item.unitPrice);
+    const grossAmount = quantity * unitPrice;
+
+    // Determine item discount
+    let itemDiscountVal = 0;
+    const discountInput = Number(item.itemDiscountAmount || 0);
+
+    if (item.itemDiscountType === "PERCENTAGE") {
+      itemDiscountVal = grossAmount * (discountInput / 100);
+    } else if (item.itemDiscountType === "AMOUNT") {
+      itemDiscountVal = discountInput;
     }
 
-    // Calculate tax rate: (taxAmount / subtotal) * 100
-    const calculatedRate = (invoice.taxAmount / invoice.amount) * 100;
-    return Math.round(calculatedRate * 10) / 10; // Round to 1 decimal place
-  };
+    // Cap discount
+    itemDiscountVal = Math.min(itemDiscountVal, grossAmount);
+    const netAmount = grossAmount - itemDiscountVal;
 
-  const actualTaxRate = getActualTaxRate();
+    // Accumulate
+    subtotalGross += grossAmount;
+    totalItemDiscountMoney += itemDiscountVal;
 
-  // Safe function to display item tax rate
-  const getItemTaxRateDisplay = (taxRate: any) => {
-    if (!taxRate) return "0%";
+    return {
+      ...item,
+      quantity,
+      unitPrice,
+      grossAmount,
+      itemDiscountVal,
+      discountInput,
+      netAmount,
+    };
+  });
 
-    const rate = Number(taxRate);
-    if (isNaN(rate)) return "0%";
+  // --- 2. Global Discount Logic ---
+  const subtotalAfterItemDiscounts = subtotalGross - totalItemDiscountMoney;
+  const globalDiscountInput = Number(invoice.discountAmount || 0);
+  let globalDiscountMoney = 0;
 
-    // If tax rate is less than 1, it's likely stored as decimal (0.15 = 15%)
-    if (rate < 1 && rate > 0) {
-      return `${(rate * 100).toFixed(1)}%`;
+  if (invoice.discountType === "PERCENTAGE") {
+    globalDiscountMoney =
+      subtotalAfterItemDiscounts * (globalDiscountInput / 100);
+  } else if (invoice.discountType === "AMOUNT") {
+    globalDiscountMoney = globalDiscountInput;
+  }
+  globalDiscountMoney = Math.min(
+    globalDiscountMoney,
+    subtotalAfterItemDiscounts
+  );
+
+  // --- 3. Totals ---
+  // Taxable amount is the value AFTER all discounts but BEFORE tax
+  const taxableAmount = subtotalAfterItemDiscounts - globalDiscountMoney;
+
+  // Use stored total values for final display to ensure matching DB
+  const totalAmount = Number(invoice.totalAmount);
+  const taxAmount = Number(invoice.taxAmount);
+
+  // Calculate effective tax rate for display
+  const effectiveTaxRate =
+    taxableAmount > 0 ? (taxAmount / taxableAmount) * 100 : 0;
+
+  // Deposit
+  let depositMoney = 0;
+  if (invoice.depositRequired) {
+    if (invoice.depositAmount) {
+      depositMoney = Number(invoice.depositAmount);
+    } else if (invoice.depositType === "PERCENTAGE" && invoice.depositRate) {
+      depositMoney = totalAmount * (Number(invoice.depositRate) / 100);
     }
+  }
 
-    // If tax rate is 1 or greater, it's likely stored as percentage
-    return `${rate.toFixed(1)}%`;
-  };
+  const amountDue = totalAmount - depositMoney;
 
   return (
     <div>
@@ -69,30 +114,46 @@ export default function InvoiceItems({ invoice }: InvoiceItemsProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
+                <TableHead className="w-[40%]">Description</TableHead>
+                <TableHead className="text-center">Qty</TableHead>
                 <TableHead className="text-right">Rate</TableHead>
-                <TableHead className="text-right">Tax Rate</TableHead>
+                <TableHead className="text-right">Discount</TableHead>
+                <TableHead className="text-center">Tax Rate</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoice?.items.map((item) => (
+              {itemsWithCalculations.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">
-                    {item.description}
+                    <div>{item.description}</div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {item.quantity.toLocaleString("en-ZA")}
                   </TableCell>
                   <TableCell className="text-right">
-                    {parseFloat(item.quantity.toString())}
+                    {formatCurrency(item.unitPrice)}
+                  </TableCell>
+                  <TableCell className="text-right text-red-600">
+                    {item.itemDiscountVal > 0 ? (
+                      <>
+                        -{formatCurrency(item.itemDiscountVal)}
+                        {item.itemDiscountType === "PERCENTAGE" && (
+                          <span className="text-xs ml-1 text-muted-foreground">
+                            ({item.discountInput}%)
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "-"
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {Number(item.taxRate) || 0}%
                   </TableCell>
                   <TableCell className="text-right">
-                    R{parseFloat(item.unitPrice.toString()).toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {getItemTaxRateDisplay(item.taxRate)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    R{parseFloat(item.amount.toString()).toLocaleString()}
+                    {/* Show Net Amount here (Gross - Item Discount) */}
+                    {formatCurrency(item.netAmount)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -102,39 +163,75 @@ export default function InvoiceItems({ invoice }: InvoiceItemsProps) {
           <Separator className="my-4" />
 
           <div className="flex justify-end">
-            <div className="w-64 space-y-2">
+            <div className="w-72 space-y-2">
+              {/* Gross Subtotal */}
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Subtotal:</span>
-                <span>R{invoice.amount.toLocaleString()}</span>
+                <span className="text-muted-foreground">Subtotal (Gross):</span>
+                <span>{formatCurrency(subtotalGross)}</span>
               </div>
 
-              {/* Tax Row with calculated percentage */}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  Tax {actualTaxRate > 0 && `(${actualTaxRate}%)`}:
-                </span>
-                <span>R{invoice.taxAmount.toLocaleString()}</span>
-              </div>
-
-              {/* Discount Row */}
-              {invoice.discountAmount && invoice.discountAmount > 0 && (
-                <div className="flex justify-between text-red-600">
-                  <span className="text-muted-foreground">
-                    Discount
-                    {invoice.discountType === DiscountType.PERCENTAGE &&
-                      invoice.discountAmount &&
-                      ` (${invoice.discountAmount}%)`}
-                    :
-                  </span>
-                  <span>-R{discountAmount.toLocaleString()}</span>
+              {/* Item Discounts */}
+              {totalItemDiscountMoney > 0 && (
+                <div className="flex justify-between text-red-600 text-sm">
+                  <span>Item Discounts:</span>
+                  <span>-{formatCurrency(totalItemDiscountMoney)}</span>
                 </div>
               )}
 
+              {/* Global Discount */}
+              {globalDiscountMoney > 0 && (
+                <div className="flex justify-between text-red-600 text-sm">
+                  <span>
+                    Global Discount
+                    {invoice.discountType === "PERCENTAGE" && (
+                      <span className="text-xs ml-1">
+                        ({Number(invoice.discountAmount)}%)
+                      </span>
+                    )}
+                    :
+                  </span>
+                  <span>-{formatCurrency(globalDiscountMoney)}</span>
+                </div>
+              )}
+
+              {/* Taxable Amount (Helpful intermediate step) */}
+              <div className="flex justify-between text-muted-foreground text-xs uppercase border-t pt-2 mt-2">
+                <span>Taxable Amount:</span>
+                <span>{formatCurrency(taxableAmount)}</span>
+              </div>
+
+              {/* Tax */}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  Tax{" "}
+                  {effectiveTaxRate > 0 && `(${effectiveTaxRate.toFixed(1)}%)`}:
+                </span>
+                <span>{formatCurrency(taxAmount)}</span>
+              </div>
+
               <Separator />
+
+              {/* Grand Total */}
               <div className="flex justify-between text-lg font-semibold">
                 <span>Total:</span>
-                <span>R{invoice.totalAmount.toLocaleString()}</span>
+                <span className="text-primary">
+                  {formatCurrency(totalAmount)}
+                </span>
               </div>
+
+              {/* Deposit & Due */}
+              {invoice.depositRequired && depositMoney > 0 && (
+                <>
+                  <div className="flex justify-between text-sm text-green-600 pt-1">
+                    <span>Deposit Paid:</span>
+                    <span>-{formatCurrency(depositMoney)}</span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold border-t pt-2 text-blue-600">
+                    <span>Amount Due:</span>
+                    <span>{formatCurrency(amountDue)}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </CardContent>

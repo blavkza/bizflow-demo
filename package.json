@@ -85,7 +85,7 @@
     "react-icons": "^5.5.0",
     "react-markdown": "^10.1.0",
     "react-pdf": "^10.1.0",
-    "react-quill": "^2.0.0",
+    "react-quill-new": "^3.6.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "latest",
     "rehype-raw": "^7.0.0",

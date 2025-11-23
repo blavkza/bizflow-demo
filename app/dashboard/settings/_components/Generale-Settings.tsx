@@ -31,6 +31,7 @@ import {
   GeneralSettingsSchema,
   GeneralSettingsSchemaType,
 } from "@/lib/formValidationSchemas";
+import { Editor } from "@/components/ui/editor";
 
 interface GeneralSettingsFormProps {
   canManageSettings: boolean;
@@ -391,11 +392,12 @@ export default function GeneralSettingsForm({
                   <FormItem className="space-y-2">
                     <FormLabel>Payment Terms (Optional)</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Enter Invoice Payment Terms"
-                        {...field}
-                        className="w-full"
-                        disabled={!hasFullAccess && !canManageSettings}
+                      <Editor
+                        placeholder="Enter Invoice / Quotation Payment Terms"
+                        value={form.watch("paymentTerms") || ""}
+                        onChange={(value) =>
+                          form.setValue("paymentTerms", value)
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -410,11 +412,10 @@ export default function GeneralSettingsForm({
                   <FormItem className="space-y-2">
                     <FormLabel>Invoice / Quotation Note (Optional)</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Enter Invoice / Quotation Note"
-                        {...field}
-                        className="w-full"
-                        disabled={!hasFullAccess && !canManageSettings}
+                      <Editor
+                        placeholder="Enter Invoice / Quotation Note or instructions..."
+                        value={form.watch("note") || ""}
+                        onChange={(value) => form.setValue("note", value)}
                       />
                     </FormControl>
                     <FormMessage />

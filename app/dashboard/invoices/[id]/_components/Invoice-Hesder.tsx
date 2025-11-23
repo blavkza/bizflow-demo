@@ -288,7 +288,7 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
           )}
 
           {/* Payment Terms */}
-          {invoice.paymentTerms && (
+          {/* {invoice.paymentTerms && (
             <>
               <Separator className="my-4" />
               <div>
@@ -298,7 +298,7 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
                 <div className="text-sm mt-1">{invoice.paymentTerms}</div>
               </div>
             </>
-          )}
+          )} */}
         </CardContent>
       </Card>
     </div>

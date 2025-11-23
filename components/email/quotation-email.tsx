@@ -8,8 +8,8 @@ import {
   Row,
   Text,
   Img,
-  Hr,
-  Heading,
+  Link,
+  Preview,
 } from "@react-email/components";
 import { QuotationWithRelations } from "@/types/quotation";
 
@@ -18,658 +18,452 @@ interface QuotationEmailProps {
 }
 
 export function QuotationEmail({ quotation }: QuotationEmailProps) {
-  const primaryColor = "#1F2937";
-  const secondaryColor = "#F3F4F6";
-  const accentColor = "#3B82F6";
+  // --- BRAND COLORS ---
+  const colorRed = "#990000";
+  const colorGold = "#C5A005";
+  const headerGreenBg = "#D1FAE5";
+  const headerGreenText = "#065F46";
+  const colorText = "#000000";
 
-  // Helper function to safely convert Decimal to number
-  const decimalToNumber = (decimalValue: any): number => {
-    if (decimalValue === null || decimalValue === undefined) return 0;
-    if (typeof decimalValue === "number") return decimalValue;
-    if (typeof decimalValue === "string") return parseFloat(decimalValue) || 0;
-    // Handle Prisma Decimal type
-    if (decimalValue && typeof decimalValue === "object") {
-      return parseFloat(decimalValue.toString()) || 0;
+  // --- DATA ---
+  const settingsArray = quotation.creator?.GeneralSetting;
+  const company = Array.isArray(settingsArray)
+    ? settingsArray[0]
+    : settingsArray;
+
+  const issueDate = new Date(quotation.issueDate).toLocaleDateString("en-GB");
+  const validUntil = new Date(quotation.validUntil).toLocaleDateString("en-GB");
+
+  // --- HELPERS ---
+  const formatMoney = (amount: number) =>
+    amount.toLocaleString("en-ZA", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  const safeNumber = (val: any) => {
+    if (!val) return 0;
+    return Number(val);
+  };
+
+  // --- CALCULATIONS ---
+  let subtotalGross = 0;
+  let totalItemDiscount = 0;
+
+  const items = quotation.items.map((item) => {
+    const qty = safeNumber(item.quantity);
+    const price = safeNumber(item.unitPrice);
+    const gross = qty * price;
+
+    let discountVal = 0;
+    const discountInput = safeNumber(item.itemDiscountAmount);
+
+    if (item.itemDiscountType === "PERCENTAGE") {
+      discountVal = gross * (discountInput / 100);
+    } else if (item.itemDiscountType === "AMOUNT") {
+      discountVal = discountInput;
     }
-    return 0;
-  };
+    discountVal = Math.min(discountVal, gross);
 
-  // Calculate amounts safely
-  const subtotal = quotation.items.reduce(
-    (sum, item) =>
-      sum + decimalToNumber(item.quantity) * decimalToNumber(item.unitPrice),
-    0
-  );
-  const taxAmount = decimalToNumber(quotation.taxAmount);
-  const discount = decimalToNumber(quotation.discountAmount);
-  const total = subtotal + taxAmount - discount;
+    const net = gross - discountVal;
 
-  const creatorSettings = quotation.creator?.GeneralSetting?.[0] || {};
+    const taxRate = safeNumber(item.taxRate);
+    const taxVal = net * (taxRate / 100);
 
-  // Calculate days until expiry
-  const validUntil = new Date(quotation.validUntil);
-  const today = new Date();
-  const daysUntilExpiry = Math.ceil(
-    (validUntil.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
+    const totalLine = net + taxVal;
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return `R${amount.toFixed(2)}`;
-  };
+    subtotalGross += net;
+    totalItemDiscount += discountVal;
+
+    return {
+      desc: item.description,
+      qty,
+      price,
+      disc:
+        item.itemDiscountType === "PERCENTAGE"
+          ? `${discountInput}%`
+          : discountVal > 0
+            ? "Yes"
+            : "-",
+      vat: taxVal,
+      total: totalLine,
+    };
+  });
+
+  // Global Discount
+  let globalDiscVal = 0;
+  const globalDiscInput = safeNumber(quotation.discountAmount);
+  if (quotation.discountType === "PERCENTAGE") {
+    globalDiscVal = subtotalGross * (globalDiscInput / 100);
+  } else if (quotation.discountType === "AMOUNT") {
+    globalDiscVal = globalDiscInput;
+  }
+
+  const finalSubtotalNet = subtotalGross - globalDiscVal;
+  const finalTax = safeNumber(quotation.taxAmount);
+  const finalTotal = safeNumber(quotation.totalAmount);
+  const depositAmount = safeNumber(quotation.depositAmount);
 
   return (
     <Html>
       <Head>
-        <title>Quotation #{quotation.quotationNumber}</title>
         <style>{`
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
-            body {
-              font-family: 'Inter', sans-serif;
-              color: ${primaryColor};
-              font-size: 12px;
-              margin: 0;
-              padding: 0;
-              background-color: #ffffff;
-            }
-            .watermark {
-              position: absolute;
-              inset: 0;
-              opacity: 0.05;
-              z-index: 0;
-              pointer-events: none;
-              background-repeat: no-repeat;
-              background-position: center;
-              background-size: 50%;
-              filter: grayscale(100%);
-              transform: rotate(-10deg);
-            }
-            .status-badge {
-              display: inline-block;
-              padding: 0.25rem 0.5rem;
-              border-radius: 9999px;
-              font-size: 0.75rem;
-              font-weight: 600;
-            }
-            .compact-table {
-              width: 100%;
-              border-collapse: collapse;
-              border: 1px solid #E5E7EB;
-              border-radius: 0.25rem;
-              overflow: hidden;
-            }
-            .compact-table td, .compact-table th {
-              padding: 0.5rem !important;
-              border-bottom: 1px solid #E5E7EB;
-            }
-            .compact-table th {
-              background-color: ${secondaryColor};
-              font-weight: 600;
-              text-align: left;
-            }
-            .compact-table tr:last-child td {
-              border-bottom: none;
-            }
-            @media (max-width: 600px) {
-              .mobile-column {
-                width: 100% !important;
-                display: block !important;
-              }
-            }
-          `}</style>
+          body { font-family: Arial, sans-serif; color: ${colorText}; }
+          .header-gold { color: ${colorGold}; font-weight: bold; font-size: 20px; }
+          .header-red { color: ${colorRed}; font-weight: bold; font-size: 20px; }
+          
+          /* TABLE STYLES - REMOVED BORDERS */
+          .details-table td { border: none; padding: 4px; font-size: 11px; font-weight: bold; }
+          
+          .items-table th { 
+            background-color: ${headerGreenBg}; 
+            color: ${headerGreenText}; 
+            padding: 6px; 
+            font-size: 10px; 
+            font-weight: bold; 
+            border: none; /* Removed border */
+            text-align: center;
+          }
+          
+          .items-table td { 
+            border: none; /* Removed border */
+            border-bottom: 1px solid #f5f5f5; /* Very subtle divider */
+            padding: 6px; 
+            font-size: 10px; 
+          }
+          
+          .totals-table td { border: none; padding: 6px; font-size: 11px; font-weight: bold; }
+          
+          /* HTML CONTENT STYLES */
+          .rich-text p { margin: 0 0 8px 0; }
+          .rich-text ul { margin: 0 0 8px 0; padding-left: 20px; }
+          .rich-text li { margin-bottom: 4px; }
+          .rich-text h2 { font-size: 14px; margin: 10px 0 5px 0; text-transform: uppercase; color: ${headerGreenText}; }
+          .rich-text strong { font-weight: bold; }
+        `}</style>
       </Head>
-      <Body
-        style={{
-          backgroundColor: "#ffffff",
-          position: "relative",
-          margin: 0,
-          padding: 0,
-        }}
-      >
-        {creatorSettings.logo && (
-          <div
-            className="watermark"
-            style={{ backgroundImage: `url(${creatorSettings.logo})` }}
-          />
-        )}
-
-        <Container
-          style={{
-            maxWidth: "800px",
-            margin: "0 auto",
-            padding: "1.5rem",
-            position: "relative",
-            zIndex: 10,
-          }}
-        >
-          {/* Header */}
-          <Section style={{ marginBottom: "1.5rem" }}>
+      <Preview>
+        Quotation #{quotation.quotationNumber} from {company?.companyName!}
+      </Preview>
+      <Body style={{ backgroundColor: "#ffffff", padding: "20px" }}>
+        <Container style={{ maxWidth: "800px", margin: "0 auto" }}>
+          {/* --- HEADER SECTION --- */}
+          <Section style={{ marginBottom: "20px" }}>
             <Row>
-              <Column style={{ width: "60%" }} className="mobile-column">
-                {creatorSettings.logo && (
+              {/* LEFT: Company Info */}
+              <Column
+                style={{
+                  width: "60%",
+                  paddingRight: "20px",
+                  verticalAlign: "top",
+                }}
+              >
+                {company?.logo && (
                   <Img
-                    src={creatorSettings.logo}
-                    alt="Company Logo"
-                    style={{
-                      height: "60px",
-                      marginBottom: "0.5rem",
-                      objectFit: "contain",
-                    }}
+                    src={company.logo}
+                    width="150"
+                    alt="Logo"
+                    style={{ marginBottom: "10px", objectFit: "contain" }}
                   />
                 )}
+                {!company?.logo && (
+                  <Text style={{ margin: "0 0 5px 0" }}>
+                    <span className="header-gold">MINECS</span>{" "}
+                    <span className="header-red">ENGINEERS</span>
+                  </Text>
+                )}
+
                 <Text
-                  style={{
-                    fontSize: "1rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    marginBottom: "0.25rem",
-                    color: "#374151",
-                    lineHeight: "1.2",
-                  }}
+                  style={{ fontSize: "11px", lineHeight: "1.4", margin: "0" }}
                 >
-                  {creatorSettings.companyName || "Your Company"}
+                  <strong>{company?.companyName}</strong>
+                  <br />
+                  {company?.Address}
+                  <br />
+                  {company?.city} {company?.postCode}
+                  <br />
+                  {company?.province}
                 </Text>
+
                 <Text
                   style={{
-                    color: "#4B5563",
-                    lineHeight: "1.4",
                     fontSize: "11px",
+                    lineHeight: "1.4",
+                    margin: "10px 0 0 0",
                   }}
                 >
-                  {creatorSettings.Address && (
-                    <>
-                      {creatorSettings.Address}
-                      <br />
-                    </>
-                  )}
-                  {creatorSettings.city && creatorSettings.province && (
-                    <>
-                      {creatorSettings.city}, {creatorSettings.province}{" "}
-                      {creatorSettings.postCode}
-                      <br />
-                    </>
-                  )}
-                  {creatorSettings.email && (
-                    <>
-                      {creatorSettings.email}
-                      <br />
-                    </>
-                  )}
-                  {[
-                    creatorSettings.phone,
-                    creatorSettings.phone2,
-                    creatorSettings.phone3,
-                  ]
-                    .filter(Boolean)
-                    .join(" | ")}
-                  {creatorSettings.taxId && (
-                    <>
-                      <br />
-                      VAT Number: {creatorSettings.taxId}
-                    </>
-                  )}
+                  <strong>Reg No.:</strong> 2020/472506/07
+                  <br />
+                  <strong>VAT No.:</strong> {company?.taxId}
+                </Text>
+
+                <Text
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: "1.4",
+                    margin: "10px 0 0 0",
+                  }}
+                >
+                  {company?.phone}
+                  <br />
+                  {company?.phone2}
+                  <br />
+                  <Link
+                    href={`mailto:${company?.email}`}
+                    style={{ color: "#000", textDecoration: "none" }}
+                  >
+                    {company?.email}
+                  </Link>
                 </Text>
               </Column>
-              <Column
-                style={{ width: "40%", textAlign: "right" }}
-                className="mobile-column"
-              >
-                <Heading
+
+              {/* RIGHT: Quote Details */}
+              <Column style={{ width: "40%", verticalAlign: "top" }}>
+                <Text
                   style={{
-                    fontSize: "1.5rem",
-                    color: accentColor,
-                    marginBottom: "0.5rem",
+                    fontSize: "22px",
+                    color: colorRed,
                     fontWeight: "bold",
+                    textAlign: "right",
+                    margin: "0 0 10px 0",
+                    textDecoration: "underline",
                   }}
                 >
                   QUOTATION
-                </Heading>
-                <div
-                  style={{
-                    backgroundColor: secondaryColor,
-                    padding: "0.75rem",
-                    borderRadius: "0.375rem",
-                    display: "inline-block",
-                    textAlign: "left",
-                    border: "1px solid #E5E7EB",
-                  }}
-                >
-                  <Text style={{ fontWeight: 700, margin: "0 0 0.25rem 0" }}>
-                    #{quotation.quotationNumber}
-                  </Text>
-                  <Text style={{ margin: "0.125rem 0", fontSize: "11px" }}>
-                    <strong>Issued:</strong>{" "}
-                    {new Date(quotation.issueDate).toLocaleDateString()}
-                  </Text>
-                  <Text style={{ margin: "0.125rem 0", fontSize: "11px" }}>
-                    <strong>Valid Until:</strong>{" "}
-                    {new Date(quotation.validUntil).toLocaleDateString()}
-                    {daysUntilExpiry <= 7 && (
-                      <span
-                        style={{
-                          color: daysUntilExpiry <= 0 ? "#DC2626" : "#D97706",
-                          fontWeight: "600",
-                          marginLeft: "0.25rem",
-                        }}
-                      >
-                        (
-                        {daysUntilExpiry <= 0
-                          ? "EXPIRED"
-                          : `${daysUntilExpiry} days left`}
-                        )
-                      </span>
-                    )}
-                  </Text>
-                </div>
-              </Column>
-            </Row>
-          </Section>
+                </Text>
 
-          {/* Client Info + Status */}
-          <Section style={{ marginBottom: "1.5rem" }}>
-            <Row>
-              <Column
-                style={{
-                  width: "50%",
-                  backgroundColor: secondaryColor,
-                  padding: "1rem",
-                  borderRadius: "0.375rem",
-                  border: "1px solid #E5E7EB",
-                }}
-                className="mobile-column"
-              >
+                {/* Details Table */}
+                <Section style={{ marginBottom: "15px" }}>
+                  <table
+                    style={{ width: "100%", borderCollapse: "collapse" }}
+                    className="details-table"
+                  >
+                    <tr>
+                      <td style={{ width: "40%" }}>Quote No.:</td>
+                      <td style={{ width: "60%", textAlign: "right" }}>
+                        {quotation.quotationNumber}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Date:</td>
+                      <td style={{ textAlign: "right" }}>{issueDate}</td>
+                    </tr>
+                    <tr>
+                      <td>Valid Until:</td>
+                      <td style={{ textAlign: "right" }}>{validUntil}</td>
+                    </tr>
+                  </table>
+                </Section>
+
                 <Text
                   style={{
-                    fontWeight: 700,
-                    marginBottom: "0.5rem",
-                    color: "#374151",
                     fontSize: "11px",
-                    textTransform: "uppercase",
+                    fontWeight: "bold",
+                    margin: "0 0 2px 0",
                   }}
                 >
-                  QUOTATION FOR
+                  FOR
                 </Text>
-                {quotation.client.company && (
-                  <Text style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
+                <div
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    padding: "8px",
+                    backgroundColor: "#fdfdfd",
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                      margin: "0 0 4px 0",
+                    }}
+                  >
+                    {quotation.client.name}
+                  </Text>
+                  <Text
+                    style={{ fontSize: "11px", margin: "0", lineHeight: "1.3" }}
+                  >
                     {quotation.client.company}
-                  </Text>
-                )}
-                <Text style={{ fontWeight: 600, marginBottom: "0.25rem" }}>
-                  {quotation.client.name}
-                </Text>
-                <Text
-                  style={{
-                    color: "#4B5563",
-                    fontSize: "11px",
-                    margin: "0.125rem 0",
-                  }}
-                >
-                  {quotation.client.email}
-                </Text>
-                <Text
-                  style={{
-                    color: "#4B5563",
-                    fontSize: "11px",
-                    margin: "0.125rem 0",
-                  }}
-                >
-                  {quotation.client.phone}
-                </Text>
-                {quotation.client.taxNumber && (
-                  <Text
-                    style={{
-                      color: "#4B5563",
-                      fontSize: "11px",
-                      margin: "0.125rem 0",
-                    }}
-                  >
-                    VAT Number: {quotation.client.taxNumber}
-                  </Text>
-                )}
-                {quotation.client.address && (
-                  <Text
-                    style={{
-                      color: "#4B5563",
-                      fontSize: "11px",
-                      margin: "0.125rem 0",
-                    }}
-                  >
+                    <br />
                     {quotation.client.address}
+                    <br />
+                    {quotation.client.town}
+                    <br />
+                    {quotation.client.village}
                   </Text>
-                )}
-              </Column>
-              <Column
-                style={{
-                  width: "50%",
-                  backgroundColor: secondaryColor,
-                  padding: "1rem",
-                  borderRadius: "0.375rem",
-                  border: "1px solid #E5E7EB",
-                }}
-                className="mobile-column"
-              >
-                <Text
-                  style={{
-                    fontWeight: 700,
-                    marginBottom: "0.5rem",
-                    color: "#374151",
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  STATUS
-                </Text>
-                <span
-                  className="status-badge"
-                  style={{
-                    backgroundColor:
-                      quotation.status === "ACCEPTED"
-                        ? "#D1FAE5"
-                        : quotation.status === "EXPIRED" ||
-                            quotation.status === "CANCELLED"
-                          ? "#FEE2E2"
-                          : quotation.status === "CONVERTED"
-                            ? "#DBEAFE"
-                            : "#FEF3C7",
-                    color:
-                      quotation.status === "ACCEPTED"
-                        ? "#065F46"
-                        : quotation.status === "EXPIRED" ||
-                            quotation.status === "CANCELLED"
-                          ? "#B91C1C"
-                          : quotation.status === "CONVERTED"
-                            ? "#1E40AF"
-                            : "#92400E",
-                  }}
-                >
-                  {quotation.status}
-                </span>
-
-                {quotation.status === "CONVERTED" && quotation.invoiceId && (
-                  <Text
-                    style={{
-                      fontSize: "11px",
-                      color: "#4B5563",
-                      marginTop: "0.5rem",
-                    }}
-                  >
-                    Converted to Invoice #{quotation.invoiceId}
-                  </Text>
-                )}
-
-                <div
-                  style={{
-                    marginTop: "1rem",
-                    borderTop: "1px solid #E5E7EB",
-                    paddingTop: "0.75rem",
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontWeight: 700,
-                      color: "#374151",
-                      fontSize: "11px",
-                      marginBottom: "0.25rem",
-                    }}
-                  >
-                    Payment Terms
-                  </Text>
-                  <Text
-                    style={{
-                      color: "#4B5563",
-                      fontSize: "11px",
-                      marginBottom: "0.75rem",
-                    }}
-                  >
-                    {quotation.paymentTerms || "Standard payment terms apply"}
-                  </Text>
-
-                  {(creatorSettings.bankName || creatorSettings.bankName2) && (
-                    <>
-                      <Text
-                        style={{
-                          fontWeight: 700,
-                          color: "#374151",
-                          fontSize: "11px",
-                          marginBottom: "0.25rem",
-                        }}
-                      >
-                        Banking Details
-                      </Text>
-                      {creatorSettings.bankName &&
-                        creatorSettings.bankAccount && (
-                          <div style={{ marginBottom: "0.5rem" }}>
-                            <Text style={{ fontWeight: 600, fontSize: "11px" }}>
-                              {creatorSettings.bankName}
-                            </Text>
-                            <Text
-                              style={{ fontSize: "11px", color: "#4B5563" }}
-                            >
-                              Account: {creatorSettings.bankAccount}
-                            </Text>
-                          </div>
-                        )}
-                      {creatorSettings.bankName2 &&
-                        creatorSettings.bankAccount2 && (
-                          <div>
-                            <Text style={{ fontWeight: 600, fontSize: "11px" }}>
-                              {creatorSettings.bankName2}
-                            </Text>
-                            <Text
-                              style={{ fontSize: "11px", color: "#4B5563" }}
-                            >
-                              Account: {creatorSettings.bankAccount2}
-                            </Text>
-                          </div>
-                        )}
-                    </>
-                  )}
                 </div>
               </Column>
             </Row>
           </Section>
 
-          {/* Items Table */}
-          <Section style={{ marginBottom: "1.5rem" }}>
-            <table className="compact-table">
+          {/* --- ITEMS TABLE --- */}
+          <Section>
+            <table
+              style={{ width: "100%", borderCollapse: "collapse" }}
+              className="items-table"
+            >
               <thead>
                 <tr>
-                  <th style={{ textAlign: "left" }}>Description</th>
-                  <th style={{ textAlign: "center" }}>Qty</th>
-                  <th style={{ textAlign: "right" }}>Unit Price</th>
-                  <th style={{ textAlign: "right" }}>Amount</th>
+                  <th style={{ width: "10%" }}>CODE</th>
+                  <th style={{ width: "35%", textAlign: "left" }}>
+                    DESCRIPTION
+                  </th>
+                  <th style={{ width: "10%" }}>QTY</th>
+                  <th style={{ width: "15%", textAlign: "right" }}>PRICE</th>
+                  <th style={{ width: "10%" }}>DISC</th>
+                  <th style={{ width: "10%", textAlign: "right" }}>VAT</th>
+                  <th style={{ width: "10%", textAlign: "right" }}>TOTAL</th>
                 </tr>
               </thead>
               <tbody>
-                {quotation.items.map((item, index) => {
-                  const quantity = decimalToNumber(item.quantity);
-                  const unitPrice = decimalToNumber(item.unitPrice);
-                  const amount = quantity * unitPrice;
-
-                  return (
-                    <tr
-                      key={index}
-                      style={{
-                        backgroundColor:
-                          index % 2 === 0 ? "#FFFFFF" : "#F9FAFB",
-                      }}
-                    >
-                      <td>{item.description}</td>
-                      <td style={{ textAlign: "center" }}>
-                        {quantity.toLocaleString()}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        {formatCurrency(unitPrice)}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        {formatCurrency(amount)}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {items.map((item, index) => (
+                  <tr key={index}>
+                    <td style={{ textAlign: "center" }}></td>
+                    <td>{item.desc}</td>
+                    <td style={{ textAlign: "center" }}>{item.qty}</td>
+                    <td style={{ textAlign: "right" }}>
+                      R{formatMoney(item.price)}
+                    </td>
+                    <td style={{ textAlign: "center" }}>{item.disc}</td>
+                    <td style={{ textAlign: "right" }}>
+                      {formatMoney(item.vat)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {formatMoney(item.total)}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </Section>
 
-          {/* Totals */}
-          <Section style={{ marginBottom: "1.5rem" }}>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <div style={{ width: "300px" }}>
-                {/* Subtotal */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    padding: "0.25rem 0",
-                    borderBottom: "1px solid #E5E7EB",
-                  }}
+          {/* --- TOTALS SECTION --- */}
+          <Section style={{ marginTop: "15px" }}>
+            <Row>
+              <Column style={{ width: "60%" }} />
+              <Column style={{ width: "40%" }}>
+                <table
+                  style={{ width: "100%", borderCollapse: "collapse" }}
+                  className="totals-table"
                 >
-                  <Text style={{ fontWeight: 500 }}>Subtotal:</Text>
-                  <Text style={{ fontWeight: 500 }}>
-                    {formatCurrency(subtotal)}
-                  </Text>
-                </div>
-
-                {/* Tax */}
-                {taxAmount > 0 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "0.25rem 0",
-                      borderBottom: "1px solid #E5E7EB",
-                    }}
-                  >
-                    <Text>
-                      Tax{" "}
-                      {subtotal > 0
-                        ? `(${((taxAmount / subtotal) * 100).toFixed(2)}%)`
-                        : ""}
-                      :
-                    </Text>
-                    <Text>{formatCurrency(taxAmount)}</Text>
-                  </div>
-                )}
-
-                {/* Discount */}
-                {discount > 0 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      padding: "0.25rem 0",
-                      borderBottom: "1px solid #E5E7EB",
-                    }}
-                  >
-                    <Text>Discount:</Text>
-                    <Text>-{formatCurrency(discount)}</Text>
-                  </div>
-                )}
-
-                {/* Total */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontWeight: "bold",
-                    fontSize: "0.875rem",
-                    padding: "0.5rem 0",
-                    borderTop: "2px solid #3B82F6",
-                    marginTop: "0.25rem",
-                  }}
-                >
-                  <Text>Total Amount:</Text>
-                  <Text style={{ color: accentColor }}>
-                    {formatCurrency(total)}
-                  </Text>
-                </div>
-              </div>
-            </div>
+                  <tr>
+                    <td>SUBTOTAL:</td>
+                    <td style={{ textAlign: "right" }}>
+                      R{formatMoney(finalSubtotalNet)}
+                    </td>
+                  </tr>
+                  {globalDiscVal > 0 && (
+                    <tr>
+                      <td>DISCOUNT:</td>
+                      <td style={{ textAlign: "right" }}>
+                        R{formatMoney(globalDiscVal)}
+                      </td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td>VAT 15%:</td>
+                    <td style={{ textAlign: "right" }}>
+                      R{formatMoney(finalTax)}
+                    </td>
+                  </tr>
+                  <tr style={{ color: headerGreenText }}>
+                    <td>TOTAL (ZAR):</td>
+                    <td style={{ textAlign: "right" }}>
+                      R{formatMoney(finalTotal)}
+                    </td>
+                  </tr>
+                  {quotation.depositRequired && (
+                    <tr>
+                      <td style={{ color: colorRed }}>DEPOSIT REQ:</td>
+                      <td style={{ textAlign: "right", color: colorRed }}>
+                        R{formatMoney(depositAmount)}
+                      </td>
+                    </tr>
+                  )}
+                </table>
+              </Column>
+            </Row>
           </Section>
 
-          {/* Notes & Terms */}
-          {(quotation.notes || quotation.terms) && (
-            <Section style={{ marginBottom: "1.5rem" }}>
-              <div
-                style={{
-                  backgroundColor: secondaryColor,
-                  padding: "1rem",
-                  borderRadius: "0.375rem",
-                  border: "1px solid #E5E7EB",
-                }}
-              >
-                <Row>
-                  {quotation.notes && (
-                    <Column style={{ width: "50%" }} className="mobile-column">
-                      <Text
-                        style={{
-                          fontWeight: 700,
-                          marginBottom: "0.5rem",
-                          fontSize: "11px",
-                        }}
-                      >
-                        Notes
-                      </Text>
-                      <Text style={{ fontSize: "11px", lineHeight: "1.4" }}>
-                        {quotation.notes}
-                      </Text>
-                    </Column>
-                  )}
-                  {quotation.terms && (
-                    <Column style={{ width: "50%" }} className="mobile-column">
-                      <Text
-                        style={{
-                          fontWeight: 700,
-                          marginBottom: "0.5rem",
-                          fontSize: "11px",
-                        }}
-                      >
-                        Terms & Conditions
-                      </Text>
-                      <Text style={{ fontSize: "11px", lineHeight: "1.4" }}>
-                        {quotation.terms}
-                      </Text>
-                    </Column>
-                  )}
-                </Row>
+          {/* --- TERMS & CONDITIONS (HTML RENDERED) --- */}
+          <Section style={{ marginTop: "20px" }}>
+            {/* Terms Section */}
+            {quotation.paymentTerms && (
+              <div className="rich-text" style={{ fontSize: "10px" }}>
+                <div
+                  dangerouslySetInnerHTML={{ __html: quotation.paymentTerms }}
+                />
               </div>
-            </Section>
-          )}
+            )}
+            {/* Notes Section */}
+            {quotation.notes && (
+              <div
+                className="rich-text"
+                style={{ fontSize: "10px", marginBottom: "15px" }}
+              >
+                <div dangerouslySetInnerHTML={{ __html: quotation.notes }} />
+              </div>
+            )}
 
-          {/* Footer */}
-          <Section>
-            <Hr
+            {/* Fallback if no formatted text provided */}
+            {!quotation.notes && !quotation.terms && (
+              <Text style={{ fontSize: "10px", color: "#555" }}>
+                Standard terms and conditions apply. Warranty for repairs only.
+              </Text>
+            )}
+          </Section>
+
+          {/* --- VIEW LINK --- */}
+          <Section
+            style={{
+              textAlign: "center",
+              marginTop: "30px",
+              marginBottom: "20px",
+            }}
+          >
+            {/*    <Link
+              href={`${process.env.NEXT_PUBLIC_APP_URL}/quotations/${quotation.id}/view`}
               style={{
-                borderColor: "#E5E7EB",
-                marginTop: "1rem",
-                marginBottom: "1rem",
-              }}
-            />
-            <Text
-              style={{
-                color: "#9CA3AF",
-                textAlign: "center",
-                fontSize: "11px",
-                margin: "0.25rem 0",
+                backgroundColor: colorRed,
+                color: "#ffffff",
+                padding: "10px 20px",
+                textDecoration: "none",
+                fontWeight: "bold",
+                fontSize: "12px",
+                borderRadius: "4px",
               }}
             >
-              {creatorSettings.website && (
-                <>
-                  {creatorSettings.website}
-                  <br />
-                </>
-              )}
-              This quotation is valid until{" "}
-              {new Date(quotation.validUntil).toLocaleDateString()}
-              {daysUntilExpiry <= 0 && (
-                <span style={{ color: "#DC2626", fontWeight: "600" }}>
-                  {" "}
-                  - EXPIRED
-                </span>
-              )}
-              <br />
-              {creatorSettings.companyName || "Company Name"} • Thank you for
-              your consideration!
+              View Quotation Online
+            </Link> */}
+          </Section>
+
+          {/* --- BANK STRIP --- */}
+          <Section
+            style={{
+              borderTop: `2px solid ${colorRed}`,
+              borderBottom: `2px solid ${colorRed}`,
+              padding: "10px",
+              backgroundColor: "#f9f9f9",
+              textAlign: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: "10px",
+                fontWeight: "bold",
+                margin: "0 0 5px 0",
+              }}
+            >
+              Account holder:{" "}
+              {company?.companyName || "NDOU ELECTRICAL CONSTRUCTION"}
+            </Text>
+            <Text style={{ fontSize: "10px", margin: "0" }}>
+              <strong>{company?.bankName || "FNB/RMB"}:</strong>{" "}
+              {company?.bankAccount || "62884849351"}
+              &nbsp;&nbsp;|&nbsp;&nbsp;
+              <strong>{company?.bankName2 || "CAPITEC"}:</strong>{" "}
+              {company?.bankAccount2 || "1052413331"}
             </Text>
           </Section>
         </Container>

@@ -10,6 +10,13 @@ export const KeyMetrics = ({
 }: {
   quotation: QuotationWithRelations;
 }) => {
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+    }).format(amount);
+  };
+
   const daysUntilExpiry = Math.ceil(
     (new Date(quotation.validUntil).getTime() - new Date().getTime()) /
       (1000 * 60 * 60 * 24)
@@ -19,16 +26,12 @@ export const KeyMetrics = ({
     <div className="grid gap-4 md:grid-cols-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <h3 className="text-sm font-medium">Subtotal </h3>
+          <h3 className="text-sm font-medium">Subtotal (Gross)</h3>
           <DollarSign className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-600">
-            R
-            {Number(quotation.amount).toLocaleString("en-ZA", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
+            {formatCurrency(Number(quotation.amount))}
           </div>
         </CardContent>
       </Card>
@@ -40,32 +43,27 @@ export const KeyMetrics = ({
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            R{Number(quotation.taxAmount).toLocaleString("en-ZA")}
+            {formatCurrency(Number(quotation.taxAmount))}
           </div>
           <p className="text-xs text-muted-foreground">
-            {(() => {
-              const baseAmount =
-                Number(quotation.amount) - Number(quotation.discountAmount);
-              const taxRate =
-                baseAmount > 0
-                  ? (Number(quotation.taxAmount) / baseAmount) * 100
-                  : 0;
-              return `${taxRate.toFixed(2)}%`;
-            })()}
+            {/* Use the effective tax rate calculated by the backend */}
+            {Number(quotation.taxRate || 0).toFixed(2)}% Effective Rate
           </p>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <h3 className="text-sm font-medium">Total Amount Include Discount</h3>
+          <h3 className="text-sm font-medium">Total Amount </h3>
           <DollarSign className="h-4 w-4 text-green-600" />
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-green-600">
-            R{Number(quotation.totalAmount).toLocaleString("en-ZA")}
+            {formatCurrency(Number(quotation.totalAmount))}
           </div>
         </CardContent>
       </Card>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <h3 className="text-sm font-medium">Valid Until</h3>

@@ -12,17 +12,18 @@ import {
   X,
   Calculator,
   FileText,
+  Search,
 } from "lucide-react";
 import {
   Form,
   FormControl,
-  FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+// Replaced Textarea with Editor
+import { Editor } from "@/components/ui/editor";
 import {
   Popover,
   PopoverContent,
@@ -41,7 +42,7 @@ import { cn } from "@/lib/utils";
 import { Combobox } from "@/components/ui/combobox";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import ClientForm from "../../human-resources/clients/_components/client-Form";
 import { QuotationSchema } from "@/lib/formValidationSchemas";
@@ -54,11 +55,18 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { QuotationWithRelations } from "@/types/quotation";
-import { Client, ShopProduct } from "@prisma/client";
+import { Client, ShopProduct, Service } from "@prisma/client";
 
-type ComboboxOption = {
-  label: string;
-  value: string;
+// --- Types & Helpers ---
+
+type SearchableItem = {
+  id: string;
+  name: string;
+  type: "product" | "service";
+  price: number;
+  category?: string;
+  duration?: string;
+  features?: string[];
 };
 
 interface QuotationFormProps {
@@ -72,11 +80,112 @@ interface QuotationFormProps {
 interface CalculationSummary {
   subtotal: number;
   totalTax: number;
+  taxableAmount: number;
   discountAmount: number;
   depositAmount: number;
   totalAmount: number;
   amountDue: number;
+  itemDiscounts: number[];
 }
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("en-ZA", {
+    style: "currency",
+    currency: "ZAR",
+  }).format(amount);
+};
+
+const safeNumber = (val: any) => (val ? Number(val) : 0);
+
+interface SearchableItemInputProps {
+  index: number;
+  searchTerm: string;
+  searchableItems: SearchableItem[];
+  showDropdown: number | null;
+  onSearchChange: (index: number, value: string) => void;
+  onFocus: (index: number) => void;
+  onBlur: () => void;
+  onSelect: (index: number, item: SearchableItem) => void;
+}
+
+const SearchableItemInput = ({
+  index,
+  searchTerm,
+  searchableItems,
+  showDropdown,
+  onSearchChange,
+  onFocus,
+  onBlur,
+  onSelect,
+}: SearchableItemInputProps) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filteredItems = searchableItems.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <input
+          ref={inputRef}
+          placeholder="Search products or services..."
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10"
+          value={searchTerm}
+          onChange={(e) => onSearchChange(index, e.target.value)}
+          onFocus={() => onFocus(index)}
+          onBlur={onBlur}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && searchTerm && filteredItems.length > 0) {
+              onSelect(index, filteredItems[0]);
+              e.preventDefault();
+            }
+          }}
+        />
+      </div>
+
+      {showDropdown === index && filteredItems.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-60 overflow-auto">
+          <div className="p-1">
+            {filteredItems.slice(0, 5).map((item) => (
+              <div
+                key={`${item.type}-${item.id}`}
+                className="flex flex-col p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0"
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent input blur
+                  onSelect(index, item);
+                }}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-sm">{item.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatCurrency(item.price)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
+                  <span>
+                    {item.type === "product" ? "Product" : "Service"}
+                    {item.category && ` • ${item.category}`}
+                  </span>
+                  {item.duration && <span>{item.duration} </span>}
+                </div>
+                {item.features && item.features.length > 0 && (
+                  <div className="text-[10px] text-muted-foreground mt-1 italic truncate">
+                    {" "}
+                    • Includes: {item.features.join(", ")}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Main Component ---
 
 export function QuotationForm({
   type,
@@ -87,26 +196,36 @@ export function QuotationForm({
 }: QuotationFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [clientsOptions, setClientsOptions] = useState<ComboboxOption[]>([]);
-  const [productsOptions, setProductsOptions] = useState<ComboboxOption[]>([]);
-  const [productsData, setProductsData] = useState<ShopProduct[]>([]);
+  const [clientsOptions, setClientsOptions] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [searchableItems, setSearchableItems] = useState<SearchableItem[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
+
   const [calculations, setCalculations] = useState<CalculationSummary>({
     subtotal: 0,
     totalTax: 0,
+    taxableAmount: 0,
     discountAmount: 0,
     depositAmount: 0,
     totalAmount: 0,
     amountDue: 0,
+    itemDiscounts: [],
   });
 
+  const [searchInputs, setSearchInputs] = useState<{ [key: number]: string }>(
+    {}
+  );
+  const [showDropdown, setShowDropdown] = useState<number | null>(null);
+
+  // Initial deposit calculation for Edit Mode
   let depositAmount = 0;
   if (data?.depositType === "PERCENTAGE" && data?.depositAmount) {
-    depositAmount = Number(data?.depositRate);
+    depositAmount = Number(data?.depositRate || 0);
   } else {
-    depositAmount = Number(data?.depositAmount);
+    depositAmount = Number(data?.depositAmount || 0);
   }
 
   const form = useForm<z.infer<typeof QuotationSchema>>({
@@ -128,6 +247,11 @@ export function QuotationForm({
               unitPrice: Number(item.unitPrice),
               taxRate: Number(item.taxRate),
               shopProductId: item.shopProductId || undefined,
+              serviceId: item.serviceId || undefined,
+              itemDiscountType: (item as any).itemDiscountType || undefined,
+              itemDiscountAmount: (item as any).itemDiscountAmount
+                ? Number((item as any).itemDiscountAmount)
+                : 0,
             }))
           : [
               {
@@ -136,6 +260,9 @@ export function QuotationForm({
                 unitPrice: 0,
                 taxRate: 0,
                 shopProductId: undefined,
+                serviceId: undefined,
+                itemDiscountType: undefined,
+                itemDiscountAmount: 0,
               },
             ],
       discountType: data?.discountType || undefined,
@@ -151,70 +278,121 @@ export function QuotationForm({
     },
   });
 
+  // Initialize search inputs
+  useEffect(() => {
+    const initialSearchInputs: { [key: number]: string } = {};
+    form.getValues("items").forEach((item, index) => {
+      initialSearchInputs[index] = item.description || "";
+    });
+    setSearchInputs(initialSearchInputs);
+  }, [form]);
+
+  // --- CALCULATION LOGIC ---
   const calculateTotals = () => {
     const items = form.getValues("items");
     const discountType = form.getValues("discountType");
-    const discountAmount = form.getValues("discountAmount") || 0;
+    const discountAmountInput = safeNumber(form.getValues("discountAmount"));
     const depositRequired = form.getValues("depositRequired");
     const depositType = form.getValues("depositType");
-    const depositAmount = form.getValues("depositAmount") || 0;
+    const depositAmountInput = safeNumber(form.getValues("depositAmount"));
 
-    // 1. Calculate subtotal
-    const subtotal = items.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0
-    );
+    // PASS 1: Calculate Net Amounts per Item
+    let subtotalGross = 0;
+    let totalItemDiscountMoney = 0;
 
-    // 2. Calculate discount
-    let calculatedDiscount = 0;
-    if (discountType === "PERCENTAGE" && discountAmount) {
-      calculatedDiscount = subtotal * (discountAmount / 100);
-    } else if (discountType === "AMOUNT" && discountAmount) {
-      calculatedDiscount = discountAmount;
+    const itemData = items.map((item) => {
+      const quantity = safeNumber(item.quantity);
+      const unitPrice = safeNumber(item.unitPrice);
+      const taxRate = safeNumber(item.taxRate);
+      const itemDiscountInput = safeNumber(item.itemDiscountAmount);
+
+      const baseAmount = quantity * unitPrice;
+
+      let itemDiscountMoney = 0;
+      if (item.itemDiscountType === "PERCENTAGE") {
+        itemDiscountMoney = baseAmount * (itemDiscountInput / 100);
+      } else if (item.itemDiscountType === "AMOUNT") {
+        itemDiscountMoney = itemDiscountInput;
+      }
+
+      itemDiscountMoney = Math.min(itemDiscountMoney, baseAmount);
+      const netAmount = baseAmount - itemDiscountMoney;
+
+      subtotalGross += baseAmount;
+      totalItemDiscountMoney += itemDiscountMoney;
+
+      return {
+        baseAmount,
+        itemDiscountMoney,
+        netAmount,
+        taxRate,
+      };
+    });
+
+    // PASS 2: Calculate Global Discount Money
+    const subtotalAfterItemDiscounts = subtotalGross - totalItemDiscountMoney;
+
+    let globalDiscountMoney = 0;
+    if (discountType === "PERCENTAGE") {
+      globalDiscountMoney =
+        subtotalAfterItemDiscounts * (discountAmountInput / 100);
+    } else if (discountType === "AMOUNT") {
+      globalDiscountMoney = discountAmountInput;
     }
 
-    // Prevent discount from exceeding subtotal
-    calculatedDiscount = Math.min(calculatedDiscount, subtotal);
+    globalDiscountMoney = Math.min(
+      globalDiscountMoney,
+      subtotalAfterItemDiscounts
+    );
 
-    // 3. Calculate discounted subtotal
-    const discountedSubtotal = subtotal - calculatedDiscount;
+    // PASS 3: Calculate Taxable Amount and Total Tax
+    let totalTax = 0;
 
-    // 4. Calculate tax on DISCOUNTED amount (proportionally per item)
-    const discountRatio = subtotal > 0 ? calculatedDiscount / subtotal : 0;
+    itemData.forEach((item) => {
+      const ratio =
+        subtotalAfterItemDiscounts > 0
+          ? item.netAmount / subtotalAfterItemDiscounts
+          : 0;
 
-    const totalTax = items.reduce((sum, item) => {
-      const itemAmount = item.quantity * item.unitPrice;
-      const discountedItemAmount = itemAmount - itemAmount * discountRatio;
-      const itemTax = (discountedItemAmount * (item.taxRate || 0)) / 100;
-      return sum + itemTax;
-    }, 0);
+      const allocatedGlobalDiscount = globalDiscountMoney * ratio;
 
-    // 5. Total amount is discounted subtotal + tax
-    const totalAmount = discountedSubtotal + totalTax;
+      // Final Taxable Amount for this item
+      const finalTaxableAmount = item.netAmount - allocatedGlobalDiscount;
 
-    // 6. Calculate deposit
+      const taxAmount = (finalTaxableAmount * item.taxRate) / 100;
+
+      totalTax += taxAmount;
+    });
+
+    // Final Totals
+    const finalSubtotal = subtotalAfterItemDiscounts - globalDiscountMoney;
+    const totalAmount = finalSubtotal + totalTax;
+
+    // PASS 4: Deposit
     let calculatedDeposit = 0;
     if (depositRequired) {
-      if (depositType === "PERCENTAGE" && depositAmount) {
-        calculatedDeposit = totalAmount * (depositAmount / 100);
-      } else if (depositType === "AMOUNT" && depositAmount) {
-        calculatedDeposit = depositAmount;
+      if (depositType === "PERCENTAGE") {
+        calculatedDeposit = totalAmount * (depositAmountInput / 100);
+      } else if (depositType === "AMOUNT") {
+        calculatedDeposit = depositAmountInput;
       }
+      calculatedDeposit = Math.min(calculatedDeposit, totalAmount);
     }
 
     const amountDue = totalAmount - calculatedDeposit;
 
     setCalculations({
-      subtotal,
+      subtotal: subtotalGross,
       totalTax,
-      discountAmount: calculatedDiscount,
+      taxableAmount: finalSubtotal,
+      discountAmount: globalDiscountMoney + totalItemDiscountMoney,
       depositAmount: calculatedDeposit,
       totalAmount,
       amountDue,
+      itemDiscounts: itemData.map((i) => i.itemDiscountMoney),
     });
   };
 
-  // Calculate totals whenever form values change
   useEffect(() => {
     calculateTotals();
   }, [
@@ -263,48 +441,133 @@ export function QuotationForm({
     }
   };
 
-  const fetchProducts = async () => {
-    setIsLoadingProducts(true);
+  const fetchItems = async () => {
+    setIsLoadingItems(true);
     try {
-      const response = await axios.get("/api/shop/products");
-      const products: ShopProduct[] = response?.data || [];
-      setProductsData(products);
-      const options = products
-        .filter((product) => product.id && product.name)
-        .map((product) => ({
-          label: `${product.name} - R${Number(product.price || 0).toFixed(2)}`,
-          value: product.id,
-        }));
-      setProductsOptions(options);
+      const [productsResponse, servicesResponse] = await Promise.all([
+        axios.get("/api/shop/products"),
+        axios.get("/api/services"),
+      ]);
+
+      const products: ShopProduct[] = productsResponse?.data || [];
+      const services: Service[] = servicesResponse?.data || [];
+
+      const combinedItems: SearchableItem[] = [
+        ...products.map((product) => ({
+          id: product.id,
+          name: product.name,
+          type: "product" as const,
+          price: Number(product.price || 0),
+          category: product.category,
+        })),
+        ...services.map((service) => ({
+          id: service.id,
+          name: service.name,
+          type: "service" as const,
+          price: Number(service.amount || 0),
+          category: service.category,
+          duration: service.duration || undefined,
+          features: service.features || [], // Map features
+        })),
+      ];
+
+      setSearchableItems(combinedItems);
     } catch (err) {
-      console.error("Error fetching products:", err);
-      toast.error("Failed to load products");
+      console.error("Error fetching items:", err);
+      toast.error("Failed to load products and services");
     } finally {
-      setIsLoadingProducts(false);
+      setIsLoadingItems(false);
     }
   };
 
   useEffect(() => {
     fetchClients();
-    fetchProducts();
+    fetchItems();
     fetchSettings();
   }, []);
+
+  const handleSearchInputChange = (index: number, value: string) => {
+    setSearchInputs((prev) => ({ ...prev, [index]: value }));
+    form.setValue(`items.${index}.description`, value);
+
+    if (value === "") {
+      form.setValue(`items.${index}.shopProductId`, undefined);
+      form.setValue(`items.${index}.serviceId`, undefined);
+      form.setValue(`items.${index}.itemDiscountType`, undefined);
+      form.setValue(`items.${index}.itemDiscountAmount`, 0);
+    }
+
+    if (value.length > 0) {
+      setShowDropdown(index);
+    } else {
+      setShowDropdown(null);
+    }
+  };
+
+  const handleItemSelect = (index: number, item: SearchableItem) => {
+    let description = `${item.name}`;
+    if (item.category) {
+      description += ` - ${item.category}`;
+    }
+    if (item.duration) {
+      description += ` (${item.duration})`;
+    }
+
+    // APPEND FEATURES
+    if (item.type === "service" && item.features && item.features.length > 0) {
+      description += `\nIncludes: ${item.features.join(", ")}`;
+    }
+
+    setSearchInputs((prev) => ({ ...prev, [index]: description }));
+    form.setValue(`items.${index}.description`, description);
+    form.setValue(`items.${index}.unitPrice`, item.price);
+    form.setValue(`items.${index}.taxRate`, 15);
+    form.setValue(`items.${index}.itemDiscountType`, undefined);
+    form.setValue(`items.${index}.itemDiscountAmount`, 0);
+
+    if (item.type === "product") {
+      form.setValue(`items.${index}.shopProductId`, item.id);
+      form.setValue(`items.${index}.serviceId`, undefined);
+    } else {
+      form.setValue(`items.${index}.serviceId`, item.id);
+      form.setValue(`items.${index}.shopProductId`, undefined);
+    }
+
+    setShowDropdown(null);
+    setTimeout(calculateTotals, 0);
+  };
+
+  const handleSearchFocus = (index: number) => {
+    const currentValue = searchInputs[index] || "";
+    if (currentValue.length > 0) {
+      setShowDropdown(index);
+    }
+  };
+
+  const handleSearchBlur = () => {
+    setTimeout(() => {
+      setShowDropdown(null);
+    }, 200);
+  };
 
   const onSubmit = async (values: z.infer<typeof QuotationSchema>) => {
     setIsLoading(true);
     try {
-      // Prepare items with shop product IDs
       const itemsWithProductIds = values.items.map((item) => ({
         description: item.description,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         taxRate: item.taxRate,
-        shopProductId: item.shopProductId || null,
+        // Handle optional fields correctly
+        shopProductId: item.shopProductId || undefined,
+        serviceId: item.serviceId || undefined,
+        itemDiscountType: item.itemDiscountType || undefined,
+        itemDiscountAmount: item.itemDiscountAmount || 0,
       }));
 
       const quotationData = {
         ...values,
-        // REMOVED calculated fields - backend will handle these
+        discountType: values.discountType || undefined,
         items: itemsWithProductIds,
       };
 
@@ -338,6 +601,8 @@ export function QuotationForm({
 
   const addItem = () => {
     const currentItems = form.getValues("items");
+    const newIndex = currentItems.length;
+
     form.setValue("items", [
       ...currentItems,
       {
@@ -346,9 +611,13 @@ export function QuotationForm({
         unitPrice: 0,
         taxRate: 0,
         shopProductId: undefined,
+        serviceId: undefined,
+        itemDiscountType: undefined,
+        itemDiscountAmount: 0,
       },
     ]);
-    // Recalculate totals after adding item
+
+    setSearchInputs((prev) => ({ ...prev, [newIndex]: "" }));
     setTimeout(calculateTotals, 0);
   };
 
@@ -359,45 +628,17 @@ export function QuotationForm({
         "items",
         items.filter((_, i) => i !== index)
       );
-      // Recalculate totals after removing item
+      setSearchInputs((prev) => {
+        const newInputs = { ...prev };
+        delete newInputs[index];
+        return newInputs;
+      });
       setTimeout(calculateTotals, 0);
     }
   };
 
-  const handleProductSelect = (index: number, productId: string) => {
-    const selectedProduct = productsData.find((p) => p.id === productId);
-    if (selectedProduct) {
-      form.setValue(
-        `items.${index}.description`,
-        `${selectedProduct.name} - ${selectedProduct.category}`
-      );
-      form.setValue(`items.${index}.unitPrice`, Number(selectedProduct.price));
-      form.setValue(`items.${index}.shopProductId`, selectedProduct.id);
-      form.setValue(`items.${index}.taxRate`, 15);
-      // Recalculate totals after product selection
-      setTimeout(calculateTotals, 0);
-    }
-  };
+  // --- Input Handlers ---
 
-  const handleManualItemChange = (index: number) => {
-    const rawDescription = form.getValues(`items.${index}.description`);
-    const cleanedDescription = String(rawDescription)
-      .split(/[\s\-]+/)
-      .filter(
-        (part) =>
-          part &&
-          part.toLowerCase() !== "null" &&
-          part.toLowerCase() !== "undefined"
-      )
-      .join(" ");
-
-    const unitPrice = form.getValues(`items.${index}.unitPrice`);
-
-    form.setValue(`items.${index}.description`, cleanedDescription.trim());
-    form.setValue(`items.${index}.unitPrice`, unitPrice);
-  };
-
-  // Real-time handlers for quantity, unit price, and tax rate changes
   const handleQuantityChange = (index: number, value: number) => {
     form.setValue(`items.${index}.quantity`, value);
     calculateTotals();
@@ -410,6 +651,16 @@ export function QuotationForm({
 
   const handleTaxRateChange = (index: number, value: number) => {
     form.setValue(`items.${index}.taxRate`, value);
+    calculateTotals();
+  };
+
+  const handleItemDiscountChange = (
+    index: number,
+    type: "AMOUNT" | "PERCENTAGE" | undefined,
+    amount: number
+  ) => {
+    form.setValue(`items.${index}.itemDiscountType`, type);
+    form.setValue(`items.${index}.itemDiscountAmount`, amount);
     calculateTotals();
   };
 
@@ -446,11 +697,24 @@ export function QuotationForm({
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: "ZAR",
-    }).format(amount);
+  const getRowNetTotal = (index: number) => {
+    const item = form.getValues(`items.${index}`);
+    const qty = safeNumber(item.quantity);
+    const price = safeNumber(item.unitPrice);
+    const taxRate = safeNumber(item.taxRate);
+    const discInput = safeNumber(item.itemDiscountAmount);
+
+    const base = qty * price;
+    let disc = 0;
+    if (item.itemDiscountType === "PERCENTAGE") {
+      disc = base * (discInput / 100);
+    } else if (item.itemDiscountType === "AMOUNT") {
+      disc = discInput;
+    }
+    const net = Math.max(0, base - disc);
+
+    const tax = net * (taxRate / 100);
+    return net + tax;
   };
 
   return (
@@ -473,170 +737,155 @@ export function QuotationForm({
 
           {/* Client and Title */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Client *</FormLabel>
-                  <div className="flex gap-2">
-                    <FormControl className="flex-1">
-                      <Combobox
-                        options={clientsOptions}
-                        value={field.value}
-                        onChange={field.onChange}
-                        isLoading={isLoadingClients}
-                        placeholder="Select a client"
-                      />
-                    </FormControl>
-                    <Dialog
-                      open={isAddDialogOpen}
-                      onOpenChange={setIsAddDialogOpen}
+            <FormItem>
+              <FormLabel>Client *</FormLabel>
+              <div className="flex gap-2">
+                <Combobox
+                  options={clientsOptions}
+                  value={form.watch("clientId")}
+                  onChange={(value) => form.setValue("clientId", value)}
+                  isLoading={isLoadingClients}
+                  placeholder="Select a client"
+                />
+                <Dialog
+                  open={isAddDialogOpen}
+                  onOpenChange={setIsAddDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="shrink-0"
+                      disabled={isLoadingClients}
                     >
-                      <DialogTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="shrink-0"
-                          disabled={isLoadingClients}
-                        >
-                          <Plus className="h-4 w-4" />
-                          <span className="sr-only md:not-sr-only md:ml-2">
-                            Add
-                          </span>
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                          <DialogTitle>Add New Client</DialogTitle>
-                          <DialogDescription>
-                            Create a new client profile. This client will be
-                            immediately available for selection.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <ClientForm
-                          type="create"
-                          onCancel={() => setIsAddDialogOpen(false)}
-                          onSubmitSuccess={() => {
-                            setIsAddDialogOpen(false);
-                            fetchClients();
-                            toast.success("Client added successfully");
-                          }}
-                        />
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Quotation Title *</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., Website Development Services"
-                      {...field}
+                      <Plus className="h-4 w-4" />
+                      <span className="sr-only md:not-sr-only md:ml-2">
+                        Add
+                      </span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px] md:min-w-[800px] max-h-[95vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Add New Client</DialogTitle>
+                      <DialogDescription>
+                        Create a new client profile. This client will be
+                        immediately available for selection.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <ClientForm
+                      type="create"
+                      onCancel={() => setIsAddDialogOpen(false)}
+                      onSubmitSuccess={() => {
+                        setIsAddDialogOpen(false);
+                        fetchClients();
+                        toast.success("Client added successfully");
+                      }}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                  </DialogContent>
+                </Dialog>
+              </div>
+              <FormMessage>
+                {form.formState.errors.clientId?.message}
+              </FormMessage>
+            </FormItem>
+
+            <FormItem>
+              <FormLabel>Quotation Title *</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="e.g., Website Development Services"
+                  value={form.watch("title")}
+                  onChange={(e) => form.setValue("title", e.target.value)}
+                />
+              </FormControl>
+              <FormMessage>{form.formState.errors.title?.message}</FormMessage>
+            </FormItem>
           </div>
 
           {/* Dates */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <FormField
-              control={form.control}
-              name="issueDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Issue Date *</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(new Date(field.value), "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={
-                          field.value ? new Date(field.value) : undefined
-                        }
-                        onSelect={(date) => handleDateSelect("issueDate", date)}
-                        disabled={(date) => date < new Date("1900-01-01")}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="validUntil"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Valid Until *</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(new Date(field.value), "PPP")
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={
-                          field.value ? new Date(field.value) : undefined
-                        }
-                        onSelect={(date) =>
-                          handleDateSelect("validUntil", date)
-                        }
-                        disabled={(date) => {
-                          const issueDate = form.getValues("issueDate");
-                          return issueDate ? date < new Date(issueDate) : false;
-                        }}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormItem className="flex flex-col">
+              <FormLabel>Issue Date *</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !form.watch("issueDate") && "text-muted-foreground"
+                      )}
+                    >
+                      {form.watch("issueDate") ? (
+                        format(new Date(form.watch("issueDate")), "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      form.watch("issueDate")
+                        ? new Date(form.watch("issueDate"))
+                        : undefined
+                    }
+                    onSelect={(date) => handleDateSelect("issueDate", date)}
+                    disabled={(date) => date < new Date("1900-01-01")}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormMessage>
+                {form.formState.errors.issueDate?.message}
+              </FormMessage>
+            </FormItem>
+
+            <FormItem className="flex flex-col">
+              <FormLabel>Valid Until *</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !form.watch("validUntil") && "text-muted-foreground"
+                      )}
+                    >
+                      {form.watch("validUntil") ? (
+                        format(new Date(form.watch("validUntil")), "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      form.watch("validUntil")
+                        ? new Date(form.watch("validUntil"))
+                        : undefined
+                    }
+                    onSelect={(date) => handleDateSelect("validUntil", date)}
+                    disabled={(date) => {
+                      const issueDate = form.getValues("issueDate");
+                      return issueDate ? date < new Date(issueDate) : false;
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormMessage>
+                {form.formState.errors.validUntil?.message}
+              </FormMessage>
+            </FormItem>
           </div>
         </div>
 
@@ -646,17 +895,19 @@ export function QuotationForm({
             <div>
               <h3 className="text-lg font-semibold">Quotation Items</h3>
               <p className="text-sm text-muted-foreground">
-                Add products or services to your quotation
+                Search for products or services, or type custom descriptions
               </p>
             </div>
           </div>
 
           {/* Items Header */}
           <div className="grid grid-cols-12 gap-3 mb-3 px-4 py-2 bg-muted/50 rounded-lg text-sm font-medium">
-            <div className="col-span-5">Item Description</div>
-            <div className="col-span-2 text-center">Qty</div>
-            <div className="col-span-2 text-right">Unit Price</div>
-            <div className="col-span-2 text-right">Tax %</div>
+            <div className="col-span-4">Description</div>
+            <div className="col-span-1 text-center">Qty</div>
+            <div className="col-span-1 text-right">Price</div>
+            <div className="col-span-2 text-center">Discount</div>
+            <div className="col-span-1 text-center">Tax %</div>
+            <div className="col-span-2 text-right">Total</div>
             <div className="col-span-1"></div>
           </div>
 
@@ -667,130 +918,170 @@ export function QuotationForm({
                 key={index}
                 className="grid grid-cols-12 gap-3 items-center p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
               >
-                {/* Product Selection & Description */}
-                <div className="col-span-5 space-y-2">
-                  <Combobox
-                    options={productsOptions}
-                    value={item.shopProductId || ""}
-                    onChange={(value) => handleProductSelect(index, value)}
-                    isLoading={isLoadingProducts}
-                    placeholder="Select product"
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`items.${index}.description`}
-                    render={({ field }) => (
-                      <FormItem className="mb-0">
-                        <FormControl>
-                          <Input
-                            placeholder="Or enter custom description"
-                            {...field}
-                            onBlur={(e) => {
-                              field.onBlur();
-                              handleManualItemChange(index);
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                {/* Searchable Item Input */}
+                <div className="col-span-4">
+                  <SearchableItemInput
+                    index={index}
+                    searchTerm={searchInputs[index] || ""}
+                    searchableItems={searchableItems}
+                    showDropdown={showDropdown}
+                    onSearchChange={handleSearchInputChange}
+                    onFocus={handleSearchFocus}
+                    onBlur={handleSearchBlur}
+                    onSelect={handleItemSelect}
                   />
                 </div>
 
                 {/* Quantity */}
-                <FormField
-                  control={form.control}
-                  name={`items.${index}.quantity`}
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="1"
-                          step="1"
-                          className="text-center"
-                          value={field.value}
-                          onChange={(e) => {
-                            const value = parseFloat(e.target.value);
-                            const finalValue = isNaN(value) ? 1 : value;
-                            field.onChange(finalValue);
-                            handleQuantityChange(index, finalValue);
-                          }}
-                          onBlur={field.onBlur}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="col-span-1">
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      className="text-center"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        const finalValue = isNaN(value) ? 1 : value;
+                        handleQuantityChange(index, finalValue);
+                      }}
+                    />
+                  </FormControl>
+                </div>
 
                 {/* Unit Price */}
-                <FormField
-                  control={form.control}
-                  name={`items.${index}.unitPrice`}
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="text-right"
-                          value={field.value}
-                          onChange={(e) => {
-                            const value =
-                              e.target.valueAsNumber ||
-                              parseFloat(e.target.value) ||
-                              0;
-                            field.onChange(value);
-                            handleUnitPriceChange(index, value);
-                          }}
-                          onBlur={field.onBlur}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                <div className="col-span-1">
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      className="text-right"
+                      value={item.unitPrice}
+                      onChange={(e) => {
+                        const value =
+                          e.target.valueAsNumber ||
+                          parseFloat(e.target.value) ||
+                          0;
+                        handleUnitPriceChange(index, value);
+                      }}
+                    />
+                  </FormControl>
+                </div>
+
+                {/* Item Discount */}
+                <div className="col-span-2 space-y-1">
+                  <Select
+                    value={item.itemDiscountType || ""}
+                    onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                      handleItemDiscountChange(
+                        index,
+                        value,
+                        item.itemDiscountAmount || 0
+                      );
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AMOUNT">R</SelectItem>
+                      <SelectItem value="PERCENTAGE">%</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {item.itemDiscountType && (
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        step={
+                          item.itemDiscountType === "PERCENTAGE"
+                            ? "0.1"
+                            : "0.01"
+                        }
+                        placeholder="0.00"
+                        className="h-8 text-center text-xs"
+                        value={item.itemDiscountAmount || ""}
+                        onChange={(e) => {
+                          const input = e.target.value;
+                          if (input === "") {
+                            handleItemDiscountChange(
+                              index,
+                              item.itemDiscountType,
+                              0
+                            );
+                            return;
+                          }
+                          let value = parseFloat(input);
+                          if (isNaN(value)) {
+                            handleItemDiscountChange(
+                              index,
+                              item.itemDiscountType,
+                              0
+                            );
+                            return;
+                          }
+                          if (
+                            item.itemDiscountType === "PERCENTAGE" &&
+                            value > 100
+                          ) {
+                            value = 100;
+                          }
+                          handleItemDiscountChange(
+                            index,
+                            item.itemDiscountType,
+                            value
+                          );
+                        }}
+                      />
+                    </FormControl>
                   )}
-                />
+                </div>
 
                 {/* Tax Rate */}
-                <FormField
-                  control={form.control}
-                  name={`items.${index}.taxRate`}
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          className="text-right"
-                          value={field.value || ""}
-                          onChange={(e) => {
-                            const value =
-                              e.target.value === ""
-                                ? 0
-                                : parseFloat(e.target.value);
-                            field.onChange(value);
-                            handleTaxRateChange(index, value);
-                          }}
-                          onBlur={field.onBlur}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                <div className="col-span-1">
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      className="text-center"
+                      value={item.taxRate || ""}
+                      onChange={(e) => {
+                        const value =
+                          e.target.value === ""
+                            ? 0
+                            : parseFloat(e.target.value);
+                        handleTaxRateChange(index, value);
+                      }}
+                    />
+                  </FormControl>
+                </div>
+
+                {/* Item Total (Display Only) */}
+                <div className="col-span-2 text-right">
+                  <div className="text-sm font-medium">
+                    {formatCurrency(getRowNetTotal(index))}
+                  </div>
+                  {calculations.itemDiscounts[index] > 0 && (
+                    <div className="text-xs text-red-600">
+                      -{formatCurrency(calculations.itemDiscounts[index])}
+                    </div>
                   )}
-                />
+                </div>
 
                 {/* Remove Button */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="col-span-1"
-                  onClick={() => removeItem(index)}
-                  disabled={form.watch("items").length <= 1}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="col-span-1 flex justify-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeItem(index)}
+                    disabled={form.watch("items").length <= 1}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
@@ -809,107 +1100,84 @@ export function QuotationForm({
           </div>
         </div>
 
-        {/* Discount, Deposit & Calculation Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Discount Section */}
+          {/* Global Discount Section */}
           <div className="bg-card border rounded-lg p-6">
-            <h4 className="font-semibold mb-4">Discount</h4>
+            <h4 className="font-semibold mb-4">Global Discount</h4>
             <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="discountType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Discount Type</FormLabel>
-                    <Select
-                      onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
-                        field.onChange(value);
+              <FormItem>
+                <FormLabel>Discount Type</FormLabel>
+                <Select
+                  value={form.watch("discountType") || ""}
+                  onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                    handleDiscountChange(
+                      value,
+                      form.getValues("discountAmount") || 0
+                    );
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select discount type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AMOUNT">Fixed Amount</SelectItem>
+                    <SelectItem value="PERCENTAGE">Percentage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormItem>
+
+              {form.watch("discountType") && (
+                <FormItem>
+                  <FormLabel>
+                    Discount Amount{" "}
+                    {form.watch("discountType") === "PERCENTAGE" ? "(%)" : ""}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      step={
+                        form.watch("discountType") === "PERCENTAGE"
+                          ? "0.1"
+                          : "1.00"
+                      }
+                      placeholder={
+                        form.watch("discountType") === "PERCENTAGE"
+                          ? "0.00%"
+                          : "0.00"
+                      }
+                      value={form.watch("discountAmount") || ""}
+                      onChange={(e) => {
+                        const input = e.target.value;
+                        if (input === "") {
+                          handleDiscountChange(
+                            form.getValues("discountType"),
+                            0
+                          );
+                          return;
+                        }
+                        let value = parseFloat(input);
+                        if (isNaN(value)) {
+                          handleDiscountChange(
+                            form.getValues("discountType"),
+                            0
+                          );
+                          return;
+                        }
+                        if (
+                          form.watch("discountType") === "PERCENTAGE" &&
+                          value > 100
+                        ) {
+                          value = 100;
+                        }
                         handleDiscountChange(
-                          value,
-                          form.getValues("discountAmount") || 0
+                          form.getValues("discountType"),
+                          value
                         );
                       }}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select discount type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="AMOUNT">Fixed Amount</SelectItem>
-                        <SelectItem value="PERCENTAGE">Percentage</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {form.watch("discountType") && (
-                <FormField
-                  control={form.control}
-                  name="discountAmount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Discount Amount{" "}
-                        {form.watch("discountType") === "PERCENTAGE"
-                          ? "(%)"
-                          : ""}
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          step={
-                            form.watch("discountType") === "PERCENTAGE"
-                              ? "0.1"
-                              : "1.00"
-                          }
-                          placeholder={
-                            form.watch("discountType") === "PERCENTAGE"
-                              ? "0.00%"
-                              : "0.00"
-                          }
-                          value={field.value === undefined ? "" : field.value}
-                          onChange={(e) => {
-                            const input = e.target.value;
-                            if (input === "") {
-                              field.onChange(undefined);
-                              handleDiscountChange(
-                                form.getValues("discountType"),
-                                0
-                              );
-                              return;
-                            }
-                            let value = parseFloat(input);
-                            if (isNaN(value)) {
-                              field.onChange(undefined);
-                              handleDiscountChange(
-                                form.getValues("discountType"),
-                                0
-                              );
-                              return;
-                            }
-                            if (
-                              form.watch("discountType") === "PERCENTAGE" &&
-                              value > 100
-                            ) {
-                              value = 100;
-                            }
-                            field.onChange(value);
-                            handleDiscountChange(
-                              form.getValues("discountType"),
-                              value
-                            );
-                          }}
-                          onBlur={field.onBlur}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    />
+                  </FormControl>
+                </FormItem>
               )}
             </div>
           </div>
@@ -918,139 +1186,105 @@ export function QuotationForm({
           <div className="bg-card border rounded-lg p-6">
             <h4 className="font-semibold mb-4">Deposit</h4>
             <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="depositRequired"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        Require Deposit
-                      </FormLabel>
-                      <div className="text-sm text-muted-foreground">
-                        Request a deposit payment from the client
-                      </div>
-                    </div>
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Require Deposit</FormLabel>
+                  <div className="text-sm text-muted-foreground">
+                    Request a deposit payment from the client
+                  </div>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={form.watch("depositRequired")}
+                    onCheckedChange={(checked) => {
+                      handleDepositChange(
+                        checked,
+                        form.getValues("depositType") || "PERCENTAGE",
+                        form.getValues("depositAmount") || 50
+                      );
+                    }}
+                  />
+                </FormControl>
+              </FormItem>
+
+              {form.watch("depositRequired") && (
+                <>
+                  <FormItem>
+                    <FormLabel>Deposit Type</FormLabel>
+                    <Select
+                      value={form.watch("depositType") || ""}
+                      onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                        handleDepositChange(
+                          true,
+                          value,
+                          form.getValues("depositAmount") || 50
+                        );
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select deposit type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="AMOUNT">Fixed Amount</SelectItem>
+                        <SelectItem value="PERCENTAGE">Percentage</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
+
+                  <FormItem>
+                    <FormLabel>
+                      Deposit Amount{" "}
+                      {form.watch("depositType") === "PERCENTAGE" ? "(%)" : ""}
+                    </FormLabel>
                     <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={(checked) => {
-                          field.onChange(checked);
+                      <Input
+                        type="number"
+                        min="0"
+                        step={
+                          form.watch("depositType") === "PERCENTAGE"
+                            ? "1"
+                            : "0.01"
+                        }
+                        placeholder={
+                          form.watch("depositType") === "PERCENTAGE"
+                            ? "50"
+                            : "0.00"
+                        }
+                        value={form.watch("depositAmount") || ""}
+                        onChange={(e) => {
+                          const input = e.target.value;
+                          if (input === "") {
+                            handleDepositChange(
+                              true,
+                              form.getValues("depositType") || "PERCENTAGE",
+                              0
+                            );
+                            return;
+                          }
+                          let value = parseFloat(input);
+                          if (isNaN(value)) {
+                            handleDepositChange(
+                              true,
+                              form.getValues("depositType") || "PERCENTAGE",
+                              0
+                            );
+                            return;
+                          }
+                          if (
+                            form.watch("depositType") === "PERCENTAGE" &&
+                            value > 100
+                          ) {
+                            value = 100;
+                          }
                           handleDepositChange(
-                            checked,
+                            true,
                             form.getValues("depositType") || "PERCENTAGE",
-                            form.getValues("depositAmount") || 50
+                            value
                           );
                         }}
                       />
                     </FormControl>
                   </FormItem>
-                )}
-              />
-
-              {form.watch("depositRequired") && (
-                <>
-                  <FormField
-                    control={form.control}
-                    name="depositType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Deposit Type</FormLabel>
-                        <Select
-                          onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
-                            field.onChange(value);
-                            handleDepositChange(
-                              true,
-                              value,
-                              form.getValues("depositAmount") || 50
-                            );
-                          }}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select deposit type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="AMOUNT">Fixed Amount</SelectItem>
-                            <SelectItem value="PERCENTAGE">
-                              Percentage
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="depositAmount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          Deposit Amount{" "}
-                          {form.watch("depositType") === "PERCENTAGE"
-                            ? "(%)"
-                            : ""}
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            step={
-                              form.watch("depositType") === "PERCENTAGE"
-                                ? "1"
-                                : "0.01"
-                            }
-                            placeholder={
-                              form.watch("depositType") === "PERCENTAGE"
-                                ? "50"
-                                : "0.00"
-                            }
-                            value={field.value === undefined ? "" : field.value}
-                            onChange={(e) => {
-                              const input = e.target.value;
-                              if (input === "") {
-                                field.onChange(undefined);
-                                handleDepositChange(
-                                  true,
-                                  form.getValues("depositType") || "PERCENTAGE",
-                                  0
-                                );
-                                return;
-                              }
-                              let value = parseFloat(input);
-                              if (isNaN(value)) {
-                                field.onChange(undefined);
-                                handleDepositChange(
-                                  true,
-                                  form.getValues("depositType") || "PERCENTAGE",
-                                  0
-                                );
-                                return;
-                              }
-                              if (
-                                form.watch("depositType") === "PERCENTAGE" &&
-                                value > 100
-                              ) {
-                                value = 100;
-                              }
-                              field.onChange(value);
-                              handleDepositChange(
-                                true,
-                                form.getValues("depositType") || "PERCENTAGE",
-                                value
-                              );
-                            }}
-                            onBlur={field.onBlur}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                 </>
               )}
             </div>
@@ -1064,25 +1298,36 @@ export function QuotationForm({
             </h4>
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
+                <span>Subtotal (Gross):</span>
                 <span className="font-medium">
                   {formatCurrency(calculations.subtotal)}
                 </span>
               </div>
+
+              {calculations.discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-red-600">
+                  <span>Total Discount:</span>
+                  <span className="font-medium">
+                    - {formatCurrency(calculations.discountAmount)}
+                  </span>
+                </div>
+              )}
+
+              {/* Added Taxable Amount Display */}
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Taxable Amount:</span>
+                <span className="font-medium">
+                  {formatCurrency(calculations.taxableAmount)}
+                </span>
+              </div>
+
               <div className="flex justify-between text-sm">
                 <span>Tax:</span>
                 <span className="font-medium">
                   {formatCurrency(calculations.totalTax)}
                 </span>
               </div>
-              {calculations.discountAmount > 0 && (
-                <div className="flex justify-between text-sm text-red-600">
-                  <span>Discount:</span>
-                  <span className="font-medium">
-                    -{formatCurrency(calculations.discountAmount)}
-                  </span>
-                </div>
-              )}
+
               <div className="flex justify-between border-t pt-3 text-base font-semibold">
                 <span>Total Amount:</span>
                 <span className="text-primary">
@@ -1090,7 +1335,6 @@ export function QuotationForm({
                 </span>
               </div>
 
-              {/* Deposit Section */}
               {form.watch("depositRequired") &&
                 calculations.depositAmount > 0 && (
                   <>
@@ -1114,63 +1358,44 @@ export function QuotationForm({
           </div>
         </div>
 
-        {/* Description & Terms */}
+        {/* Additional Information (Using Editor) */}
         <div className="bg-card border rounded-lg p-6">
           <h4 className="font-semibold mb-4">Additional Information</h4>
-          <div className="space-y-4">
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Detailed description of the quotation..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <div className="space-y-6">
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Editor
+                  placeholder="Detailed description of the quotation..."
+                  value={form.watch("description") || ""}
+                  onChange={(value) => form.setValue("description", value)}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="paymentTerms"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Payment Terms</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Payment terms and conditions..."
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Additional notes or instructions..."
-                        className="resize-none"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+              <FormItem>
+                <FormLabel>Payment Terms</FormLabel>
+                <FormControl>
+                  <Editor
+                    placeholder="Payment terms and conditions..."
+                    value={form.watch("paymentTerms") || ""}
+                    onChange={(value) => form.setValue("paymentTerms", value)}
+                  />
+                </FormControl>
+              </FormItem>
+
+              <FormItem>
+                <FormLabel>Notes</FormLabel>
+                <FormControl>
+                  <Editor
+                    placeholder="Additional notes or instructions..."
+                    value={form.watch("notes") || ""}
+                    onChange={(value) => form.setValue("notes", value)}
+                  />
+                </FormControl>
+              </FormItem>
             </div>
           </div>
         </div>

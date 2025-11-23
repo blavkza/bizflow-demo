@@ -6,8 +6,11 @@ import NoteTermsCard from "./_components/NoteTerms-Card";
 import InvoiceItems from "./_components/Invoice-Items";
 import InvoiceSummary from "./_components/Invoice-Summury";
 import InvoicePayments from "./_components/Invoice-Payments";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InvoicePreview } from "./_components/InvoicePreview";
+
 import { UserPermission, UserRole } from "@prisma/client";
-import { useEffect, useState, use } from "react"; // Added 'use' import
+import { useEffect, useState, use } from "react";
 import { InvoiceProps } from "@/types/invoice";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
@@ -29,14 +32,13 @@ const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
 export default function InvoiceDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>; // params is now a Promise
+  params: Promise<{ id: string }>;
 }) {
   const router = useRouter();
   const { userId } = useAuth();
   const [invoice, setInvoice] = useState<InvoiceProps | null>(null);
   const [loadingInvoice, setLoadingInvoice] = useState(true);
 
-  // Unwrap the params promise using React.use()
   const unwrappedParams = use(params);
   const invoiceId = unwrappedParams.id;
 
@@ -48,19 +50,15 @@ export default function InvoiceDetailPage({
   });
 
   const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
-
   const hasFullAccess = data?.role
     ? hasRole(data?.role, fullAccessRoles)
     : false;
-
   const canViewInvoices = data?.permissions?.includes(
     UserPermission.INVOICES_VIEW
   );
-
   const canEditInvoice = data?.permissions?.includes(
     UserPermission.INVOICES_EDIT
   );
-
   const canDeleteInvoice = data?.permissions?.includes(
     UserPermission.INVOICES_DELETE
   );
@@ -76,11 +74,7 @@ export default function InvoiceDetailPage({
       setLoadingInvoice(true);
       try {
         const response = await fetch(`/api/invoices/${invoiceId}`);
-
-        if (!response.ok) {
-          throw new Error("Failed to fetch invoice");
-        }
-
+        if (!response.ok) throw new Error("Failed to fetch invoice");
         const data = await response.json();
         setInvoice(data);
       } catch (err) {
@@ -89,23 +83,12 @@ export default function InvoiceDetailPage({
         setLoadingInvoice(false);
       }
     };
+    if (invoiceId) fetchInvoice();
+  }, [invoiceId]);
 
-    if (invoiceId) {
-      fetchInvoice();
-    }
-  }, [invoiceId]); // Changed from params.id to invoiceId
-
-  if (isLoading || loadingInvoice) {
-    return <Loader />;
-  }
-
-  if (!canViewInvoices && !hasFullAccess) {
-    return null;
-  }
-
-  if (!invoice) {
-    return <div>Invoice not found</div>;
-  }
+  if (isLoading || loadingInvoice) return <Loader />;
+  if (!canViewInvoices && !hasFullAccess) return null;
+  if (!invoice) return <div>Invoice not found</div>;
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -116,22 +99,30 @@ export default function InvoiceDetailPage({
         hasFullAccess={hasFullAccess}
       />
 
-      <div className="grid gap-6">
-        <InvoiceHeader invoice={invoice} />
+      <Tabs defaultValue="details" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="details">Details & Items</TabsTrigger>
+          <TabsTrigger value="preview">Preview PDF</TabsTrigger>
+        </TabsList>
 
-        <InvoiceItems invoice={invoice} />
+        <TabsContent value="details" className="space-y-6">
+          <div className="grid gap-6">
+            <InvoiceHeader invoice={invoice} />
+            <InvoiceItems invoice={invoice} />
+            <InvoicePayments invoice={invoice} />
+            <NoteTermsCard
+              notes={invoice.note}
+              terms={invoice.terms}
+              paymentTerms={invoice.paymentTerms}
+            />
+            <InvoiceSummary invoice={invoice} />
+          </div>
+        </TabsContent>
 
-        {/* Add Payments Section */}
-        <InvoicePayments invoice={invoice} />
-
-        <NoteTermsCard
-          notes={invoice.note}
-          terms={invoice.terms}
-          paymentTerms={invoice.paymentTerms}
-        />
-
-        <InvoiceSummary invoice={invoice} />
-      </div>
+        <TabsContent value="preview">
+          <InvoicePreview invoice={invoice} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

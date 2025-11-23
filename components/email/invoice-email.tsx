@@ -1,4 +1,3 @@
-// components/email/invoice-email.tsx
 import {
   Html,
   Head,
@@ -9,8 +8,8 @@ import {
   Row,
   Text,
   Img,
-  Hr,
-  Heading,
+  Link,
+  Preview,
 } from "@react-email/components";
 import { InvoiceProps } from "@/types/invoice";
 
@@ -19,452 +18,364 @@ interface InvoiceEmailProps {
 }
 
 export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
-  const primaryColor = "#1F2937"; // Gray-800
-  const secondaryColor = "#F3F4F6"; // Gray-100
-  const accentColor = "#10B981"; // Emerald-500
+  // --- BRAND COLORS ---
+  const colorRed = "#990000";
+  const colorGold = "#C5A005";
+  const colorBlack = "#000000";
+  const headerGreenBg = "#D1FAE5";
+  const headerGreenText = "#065F46";
+  const borderGray = "#E5E7EB";
 
-  const subtotal = invoice.items.reduce(
-    (sum, item) => sum + Number(item.quantity) * Number(item.unitPrice),
-    0
-  );
-  const taxAmount = Number(invoice.taxAmount) || 0;
-  const discount = Number(invoice.discountAmount) || 0;
-  const total = subtotal + taxAmount - discount;
+  // --- DATA ---
+  const company = invoice.creator.GeneralSetting[0];
+  const issueDate = new Date(invoice.issueDate).toLocaleDateString("en-GB");
+  const dueDate = new Date(invoice.dueDate).toLocaleDateString("en-GB");
 
-  // Calculate payment statistics
+  // --- CALCULATIONS ---
+  const formatMoney = (amount: number) =>
+    amount.toLocaleString("en-ZA", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  let subtotalGross = 0;
+  let totalItemDiscount = 0;
+
+  // Re-calculate item level data for display
+  const items = invoice.items.map((item) => {
+    const qty = Number(item.quantity);
+    const price = Number(item.unitPrice);
+    const gross = qty * price;
+
+    let discountVal = 0;
+    const discountInput = Number(item.itemDiscountAmount || 0);
+
+    if (item.itemDiscountType === "PERCENTAGE") {
+      discountVal = gross * (discountInput / 100);
+    } else if (item.itemDiscountType === "AMOUNT") {
+      discountVal = discountInput;
+    }
+    discountVal = Math.min(discountVal, gross);
+
+    const net = gross - discountVal;
+
+    // Tax for this line
+    const taxRate = Number(item.taxRate || 0);
+    const taxVal = net * (taxRate / 100);
+
+    // Total (Net + Tax)
+    const totalLine = net + taxVal;
+
+    subtotalGross += net; // Net amount accumulator
+    totalItemDiscount += discountVal;
+
+    return {
+      desc: item.description,
+      qty,
+      price,
+      disc:
+        item.itemDiscountType === "PERCENTAGE"
+          ? `${discountInput}%`
+          : discountVal > 0
+            ? "Yes"
+            : "-",
+      vat: taxVal,
+      total: totalLine,
+    };
+  });
+
+  // Global Discount
+  let globalDiscVal = 0;
+  const globalDiscInput = Number(invoice.discountAmount || 0);
+  if (invoice.discountType === "PERCENTAGE") {
+    globalDiscVal = subtotalGross * (globalDiscInput / 100);
+  } else if (invoice.discountType === "AMOUNT") {
+    globalDiscVal = globalDiscInput;
+  }
+
+  // Final Totals
+  const finalSubtotalNet = subtotalGross - globalDiscVal;
+  const finalTax = Number(invoice.taxAmount);
+  const finalTotal = Number(invoice.totalAmount);
+
+  // Payment status
   const totalPaid =
-    invoice.payments?.reduce((sum, payment) => {
-      return sum + Number(payment.amount);
-    }, 0) || 0;
-
-  const remainingBalance = total - totalPaid;
-  const paymentProgress = total > 0 ? (totalPaid / total) * 100 : 0;
+    (invoice.payments || []).reduce((acc, p) => acc + Number(p.amount), 0) +
+    Number(invoice.depositAmount || 0);
+  const balanceDue = finalTotal - totalPaid;
 
   return (
     <Html>
       <Head>
-        <title>Invoice #{invoice.invoiceNumber}</title>
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
-          body {
-            font-family: 'Inter', sans-serif;
-            color: ${primaryColor};
-            font-size: 12px;
-            line-height: 1.4;
-          }
-          .watermark {
-            position: absolute;
-            inset: 0;
-            opacity: 0.05;
-            z-index: 0;
-            pointer-events: none;
-            background-repeat: no-repeat;
-            background-position: center;
-            background-size: 100%;
-            filter: grayscale(100%);
-            transform: rotate(-10deg);
-          }
-          .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.5rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-          }
-          .compact-table td, .compact-table th {
-            padding: 0.25rem 0.5rem !important;
-          }
-          .border-gray-200 {
-            border-color: #E5E7EB;
-          }
-          .payment-stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-          }
-          .stat-card {
-            background: white;
-            border: 1px solid #E5E7EB;
-            border-radius: 0.375rem;
-            padding: 0.75rem;
-            text-align: center;
-          }
-          .stat-value {
-            font-size: 1rem;
-            font-weight: bold;
-            margin-bottom: 0.25rem;
-          }
-          .stat-label {
-            font-size: 0.625rem;
-            color: #6B7280;
-          }
-          .amount-paid { color: #065F46; }
-          .amount-remaining { color: #DC2626; }
-          .amount-total { color: #1E40AF; }
-          .progress-bar {
-            width: 100%;
-            height: 1rem;
-            background-color: #E5E7EB;
-            border-radius: 0.5rem;
-            margin: 0.5rem 0;
-            overflow: hidden;
-          }
-          .progress-fill {
-            height: 100%;
-            background-color: ${accentColor};
-            border-radius: 0.5rem;
-          }
+          body { font-family: Arial, sans-serif; }
+          .table-header { background-color: ${headerGreenBg}; color: ${headerGreenText}; font-weight: bold; text-align: center; font-size: 10px; padding: 8px 4px; }
+          .table-cell { border-bottom: 1px solid #f0f0f0; padding: 8px 4px; font-size: 11px; vertical-align: top; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
         `}</style>
       </Head>
-      <Body style={{ backgroundColor: "#ffffff", position: "relative" }}>
-        {/* Watermark */}
-        {invoice.creator.GeneralSetting[0]?.logo && (
-          <div
-            className="watermark"
-            style={{
-              backgroundImage: `url(${invoice.creator.GeneralSetting[0].logo})`,
-            }}
-          />
-        )}
-
-        <Container
-          style={{
-            maxWidth: "800px",
-            margin: "0 auto",
-            padding: "1rem",
-            position: "relative",
-            zIndex: 10,
-          }}
-        >
-          {/* Header */}
-          <Section style={{ marginBottom: "0.5rem" }}>
+      <Preview>
+        Invoice {invoice.invoiceNumber} from {company?.companyName!}
+      </Preview>
+      <Body
+        style={{ backgroundColor: "#ffffff", margin: "0", padding: "20px" }}
+      >
+        <Container style={{ maxWidth: "800px", margin: "0 auto" }}>
+          {/* --- HEADER SECTION --- */}
+          <Section style={{ marginBottom: "30px" }}>
             <Row>
-              <Column style={{ width: "60%" }}>
-                {invoice.creator.GeneralSetting[0]?.logo && (
+              {/* LEFT: Company Info */}
+              <Column
+                style={{
+                  width: "60%",
+                  paddingRight: "20px",
+                  verticalAlign: "top",
+                }}
+              >
+                {company?.logo && (
                   <Img
-                    src={invoice.creator.GeneralSetting[0].logo}
-                    alt="Company Logo"
-                    style={{ height: "40px", marginBottom: "0.5rem" }}
+                    src={company.logo}
+                    width="150"
+                    alt="Logo"
+                    style={{ marginBottom: "10px", objectFit: "contain" }}
                   />
                 )}
+
                 <Text
                   style={{
-                    fontSize: "1rem",
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                    marginBottom: "0.25rem",
-                    color: "#374151",
+                    fontSize: "11px",
+                    lineHeight: "1.4",
+                    margin: "0",
+                    color: "#000",
                   }}
                 >
-                  {invoice.creator.GeneralSetting[0]?.companyName}
+                  <strong>{company?.companyName}</strong>
+                  <br />
+                  {company?.Address}
+                  <br />
+                  {company?.city} {company?.postCode}
+                  <br />
+                  {company?.province}
                 </Text>
-                <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                  {invoice.creator.GeneralSetting[0]?.Address}
+
+                <Text
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: "1.4",
+                    marginTop: "10px",
+                    color: "#000",
+                  }}
+                >
+                  <strong>Reg No.:</strong> 2020/472506/07
                   <br />
-                  {invoice.creator.GeneralSetting[0]?.city},{" "}
-                  {invoice.creator.GeneralSetting[0]?.province}{" "}
-                  {invoice.creator.GeneralSetting[0]?.postCode}
+                  <strong>VAT No.:</strong> {company?.taxId}
+                </Text>
+
+                <Text
+                  style={{
+                    fontSize: "11px",
+                    lineHeight: "1.4",
+                    marginTop: "10px",
+                    color: "#000",
+                  }}
+                >
+                  {company?.phone}
                   <br />
-                  {invoice.creator.GeneralSetting[0]?.email}
+                  {company?.phone2}
                   <br />
-                  {[
-                    invoice.creator.GeneralSetting[0]?.phone,
-                    invoice.creator.GeneralSetting[0]?.phone2,
-                    invoice.creator.GeneralSetting[0]?.phone3,
-                  ]
-                    .filter(Boolean)
-                    .join(" | ")}
-                  {invoice.creator.GeneralSetting[0]?.taxId && (
-                    <>
-                      <br />
-                      VAT Number: {invoice.creator.GeneralSetting[0]?.taxId}
-                    </>
-                  )}
+                  {company?.email}
                 </Text>
               </Column>
-              <Column style={{ width: "40%", textAlign: "right" }}>
-                <Heading
+
+              {/* RIGHT: Invoice Details & Client */}
+              <Column style={{ width: "40%", verticalAlign: "top" }}>
+                <Text
                   style={{
-                    fontSize: "1.5rem",
-                    color: accentColor,
-                    marginBottom: "0.5rem",
-                    fontWeight: 700,
+                    fontSize: "24px",
+                    color: colorRed,
+                    fontWeight: "bold",
+                    textAlign: "right",
+                    margin: "0 0 15px 0",
+                    textDecoration: "underline",
                   }}
                 >
                   INVOICE
-                </Heading>
-                <div
+                </Text>
+
+                {/* Details Table */}
+                <table
                   style={{
-                    backgroundColor: secondaryColor,
-                    padding: "0.5rem",
-                    borderRadius: "0.25rem",
-                    display: "inline-block",
-                    textAlign: "left",
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    marginBottom: "15px",
                   }}
                 >
-                  <Text style={{ fontWeight: 700, fontSize: "0.75rem" }}>
-                    #{invoice.invoiceNumber}
-                  </Text>
-                  <Text style={{ fontSize: "0.75rem" }}>
-                    <strong>Issued:</strong>{" "}
-                    {new Date(invoice.issueDate).toLocaleDateString()}
-                  </Text>
-                  <Text style={{ fontSize: "0.75rem" }}>
-                    <strong>Due:</strong>{" "}
-                    {new Date(invoice.dueDate).toLocaleDateString()}
-                  </Text>
-                </div>
-              </Column>
-            </Row>
-          </Section>
+                  <tr>
+                    <td
+                      style={{
+                        width: "40%",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        padding: "4px",
+                        color: "#555",
+                      }}
+                    >
+                      Invoice No.:
+                    </td>
+                    <td
+                      style={{
+                        width: "60%",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        textAlign: "right",
+                        padding: "4px",
+                      }}
+                    >
+                      {invoice.invoiceNumber}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        padding: "4px",
+                        color: "#555",
+                      }}
+                    >
+                      Date:
+                    </td>
+                    <td
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        textAlign: "right",
+                        padding: "4px",
+                      }}
+                    >
+                      {issueDate}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        padding: "4px",
+                        color: "#555",
+                      }}
+                    >
+                      Due Date:
+                    </td>
+                    <td
+                      style={{
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        textAlign: "right",
+                        padding: "4px",
+                      }}
+                    >
+                      {dueDate}
+                    </td>
+                  </tr>
+                </table>
 
-          {/* BILL TO + STATUS */}
-          <Section style={{ marginBottom: "0.5rem" }}>
-            <Row>
-              <Column
-                style={{
-                  width: "50%",
-                  backgroundColor: secondaryColor,
-                  padding: "0.5rem",
-                  borderRadius: "0.25rem",
-                }}
-              >
                 <Text
                   style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    marginBottom: "0.25rem",
-                    color: "#374151",
+                    fontSize: "11px",
+                    fontWeight: "bold",
+                    margin: "0 0 2px 0",
+                    color: "#555",
                   }}
                 >
                   BILL TO
                 </Text>
-                {invoice.client.company && (
-                  <Text style={{ fontWeight: 500, fontSize: "0.75rem" }}>
-                    {invoice.client.company}
-                  </Text>
-                )}
-                <Text style={{ fontWeight: 500, fontSize: "0.75rem" }}>
-                  {invoice.client.name}
-                </Text>
-                <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                  {invoice.client.email}
-                </Text>
-                <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                  {invoice.client.phone}
-                </Text>
-                {invoice.client.taxNumber && (
-                  <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                    VAT Number: {invoice.client.taxNumber}
-                  </Text>
-                )}
-                {invoice.client.address && (
-                  <Text style={{ fontSize: "0.75rem", color: "#4B5563" }}>
-                    {invoice.client.address}
-                  </Text>
-                )}
-              </Column>
-              <Column
-                style={{
-                  width: "50%",
-                  backgroundColor: secondaryColor,
-                  padding: "0.5rem",
-                  borderRadius: "0.25rem",
-                  textAlign: "right",
-                }}
-              >
-                <Text
+                <div
                   style={{
-                    fontSize: "0.75rem",
-                    fontWeight: 700,
-                    marginBottom: "0.25rem",
-                    color: "#374151",
+                    border: "1px solid #ddd",
+                    padding: "10px",
+                    backgroundColor: "#fdfdfd",
                   }}
                 >
-                  STATUS
-                </Text>
-                <span
-                  className="status-badge"
-                  style={{
-                    backgroundColor:
-                      invoice.status === "PAID" ? "#D1FAE5" : "#FEE2E2",
-                    color: invoice.status === "PAID" ? "#065F46" : "#B91C1C",
-                  }}
-                >
-                  {invoice.status}
-                </span>
-                {invoice.status === "PAID" && (
                   <Text
                     style={{
-                      fontSize: "0.75rem",
-                      marginTop: "0.25rem",
-                      color: "#4B5563",
+                      fontSize: "12px",
+                      fontWeight: "bold",
+                      margin: "0 0 5px 0",
                     }}
                   >
-                    Paid on {new Date(invoice.issueDate).toLocaleDateString()}
+                    {invoice.client.name}
                   </Text>
-                )}
+                  <Text
+                    style={{ fontSize: "11px", margin: "0", lineHeight: "1.3" }}
+                  >
+                    {invoice.client.company}
+                    <br />
+                    {invoice.client.address}
+                    <br />
+                    {invoice.client.phone}
+                  </Text>
+                </div>
               </Column>
             </Row>
           </Section>
 
-          {/* Payment Statistics */}
-          <Section style={{ marginBottom: "0.5rem" }}>
-            <div className="payment-stats">
-              <div className="stat-card">
-                <div className="stat-value amount-total">
-                  R{total.toLocaleString()}
-                </div>
-                <div className="stat-label">Total Amount</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-value amount-paid">
-                  R{totalPaid.toLocaleString()}
-                </div>
-                <div className="stat-label">Amount Paid</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-value amount-remaining">
-                  R{remainingBalance.toLocaleString()}
-                </div>
-                <div className="stat-label">Amount Remaining</div>
-              </div>
-            </div>
-
-            {/* Payment Progress */}
-            <div style={{ marginBottom: "1rem" }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  marginBottom: "0.25rem",
-                  fontSize: "0.75rem",
-                }}
-              >
-                <span>Payment Progress</span>
-                <span>
-                  <strong>
-                    ${total > 0 ? paymentProgress.toFixed(1) : "0.0"}% Complete
-                  </strong>
-                </span>
-              </div>
-              <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${total > 0 ? paymentProgress : 0}%` }}
-                ></div>
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: "0.625rem",
-                  color: "#6B7280",
-                }}
-              >
-                <span>R${totalPaid.toLocaleString()} Paid</span>
-                <span>R${remainingBalance.toLocaleString()} Remaining</span>
-              </div>
-            </div>
-          </Section>
-
-          {/* Items Table */}
-          <Section style={{ marginBottom: "0.5rem" }}>
-            <table
-              className="compact-table"
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "0.75rem",
-                border: `1px solid #E5E7EB`,
-                borderRadius: "0.25rem",
-                overflow: "hidden",
-              }}
-            >
-              <thead style={{ backgroundColor: secondaryColor }}>
+          {/* --- ITEMS TABLE --- */}
+          <Section>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
                 <tr>
-                  <th
-                    style={{
-                      textAlign: "left",
-                      padding: "0.25rem 0.5rem",
-                      fontWeight: 600,
-                      color: "#374151",
-                    }}
-                  >
-                    Description
+                  <th className="table-header" style={{ width: "10%" }}>
+                    CODE
                   </th>
                   <th
-                    style={{
-                      textAlign: "center",
-                      padding: "0.25rem 0.5rem",
-                      fontWeight: 600,
-                      color: "#374151",
-                    }}
+                    className="table-header"
+                    style={{ width: "35%", textAlign: "left" }}
                   >
-                    Qty
+                    DESCRIPTION
+                  </th>
+                  <th className="table-header" style={{ width: "10%" }}>
+                    QTY
                   </th>
                   <th
-                    style={{
-                      textAlign: "right",
-                      padding: "0.25rem 0.5rem",
-                      fontWeight: 600,
-                      color: "#374151",
-                    }}
+                    className="table-header"
+                    style={{ width: "15%", textAlign: "right" }}
                   >
-                    Unit Price
+                    PRICE
+                  </th>
+                  <th className="table-header" style={{ width: "10%" }}>
+                    DISC
                   </th>
                   <th
-                    style={{
-                      textAlign: "right",
-                      padding: "0.25rem 0.5rem",
-                      fontWeight: 600,
-                      color: "#374151",
-                    }}
+                    className="table-header"
+                    style={{ width: "10%", textAlign: "right" }}
                   >
-                    Amount
+                    VAT
+                  </th>
+                  <th
+                    className="table-header"
+                    style={{ width: "10%", textAlign: "right" }}
+                  >
+                    TOTAL
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {invoice.items.map((item, index) => (
-                  <tr
-                    key={index}
-                    style={{
-                      backgroundColor:
-                        index % 2 === 0 ? "#FFFFFF" : secondaryColor,
-                      borderTop: `1px solid #E5E7EB`,
-                    }}
-                  >
-                    <td style={{ padding: "0.25rem 0.5rem" }}>
-                      {item.description}
+                {items.map((item, index) => (
+                  <tr key={index}>
+                    <td className="table-cell text-center"></td>
+                    <td className="table-cell">{item.desc}</td>
+                    <td className="table-cell text-center">{item.qty}</td>
+                    <td className="table-cell text-right">
+                      R{formatMoney(item.price)}
                     </td>
-                    <td
-                      style={{
-                        padding: "0.25rem 0.5rem",
-                        textAlign: "center",
-                      }}
-                    >
-                      {item.quantity}
+                    <td className="table-cell text-center">{item.disc}</td>
+                    <td className="table-cell text-right">
+                      {formatMoney(item.vat)}
                     </td>
-                    <td
-                      style={{
-                        padding: "0.25rem 0.5rem",
-                        textAlign: "right",
-                      }}
-                    >
-                      R{Number(item.unitPrice).toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        padding: "0.25rem 0.5rem",
-                        textAlign: "right",
-                      }}
-                    >
-                      R
-                      {(Number(item.quantity) * Number(item.unitPrice)).toFixed(
-                        2
-                      )}
+                    <td className="table-cell text-right">
+                      {formatMoney(item.total)}
                     </td>
                   </tr>
                 ))}
@@ -472,171 +383,233 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
             </table>
           </Section>
 
-          {/* Totals */}
-          <Section>
-            <div style={{ display: "flex" }}>
-              <div
-                style={{
-                  marginLeft: "auto",
-                  width: "33%",
-                  fontSize: "0.75rem",
-                }}
-              >
-                {/* Subtotal */}
-                <div
-                  style={{ display: "flex", justifyContent: "space-between" }}
-                >
-                  <Text>Subtotal:</Text>
-                  <Text>
-                    R
-                    {subtotal.toLocaleString("en-ZA", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </Text>
-                </div>
-
-                {/* Tax */}
-                {taxAmount > 0 && (
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between" }}
+          {/* --- TOTALS SECTION --- */}
+          <Section style={{ marginTop: "20px" }}>
+            <Row>
+              <Column style={{ width: "60%" }} />
+              <Column style={{ width: "40%" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <tr>
+                    <td
+                      style={{
+                        padding: "6px 8px",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      SUBTOTAL:
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 8px",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        textAlign: "right",
+                      }}
+                    >
+                      R{formatMoney(finalSubtotalNet)}
+                    </td>
+                  </tr>
+                  {globalDiscVal > 0 && (
+                    <tr>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        DISCOUNT:
+                      </td>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          textAlign: "right",
+                        }}
+                      >
+                        R{formatMoney(globalDiscVal)}
+                      </td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td
+                      style={{
+                        padding: "6px 8px",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      VAT:
+                    </td>
+                    <td
+                      style={{
+                        padding: "6px 8px",
+                        fontSize: "11px",
+                        fontWeight: "bold",
+                        textAlign: "right",
+                      }}
+                    >
+                      R{formatMoney(finalTax)}
+                    </td>
+                  </tr>
+                  <tr
+                    style={{
+                      borderTop: `2px solid ${headerGreenText}`,
+                      color: headerGreenText,
+                    }}
                   >
-                    <Text>
-                      Tax ({((taxAmount / subtotal) * 100).toFixed(2)}%):
-                    </Text>
-                    <Text>
-                      R
-                      {taxAmount.toLocaleString("en-ZA", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </Text>
-                  </div>
-                )}
-
-                {/* Discount */}
-                {discount > 0 && (
-                  <div
-                    style={{ display: "flex", justifyContent: "space-between" }}
-                  >
-                    <Text>Discount:</Text>
-                    <Text>
-                      R
-                      {discount.toLocaleString("en-ZA", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </Text>
-                  </div>
-                )}
-
-                {/* Total */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    fontWeight: "bold",
-                    fontSize: "1rem",
-                  }}
-                >
-                  <Text>Total Due:</Text>
-                  <Text style={{ color: accentColor }}>
-                    R
-                    {total.toLocaleString("en-ZA", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </Text>
-                </div>
-              </div>
-            </div>
+                    <td
+                      style={{
+                        padding: "8px",
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                      }}
+                    >
+                      TOTAL:
+                    </td>
+                    <td
+                      style={{
+                        padding: "8px",
+                        fontSize: "14px",
+                        fontWeight: "bold",
+                        textAlign: "right",
+                      }}
+                    >
+                      R{formatMoney(finalTotal)}
+                    </td>
+                  </tr>
+                  {totalPaid > 0 && (
+                    <tr>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          color: colorGold,
+                        }}
+                      >
+                        PAID:
+                      </td>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          textAlign: "right",
+                          color: colorGold,
+                        }}
+                      >
+                        R{formatMoney(totalPaid)}
+                      </td>
+                    </tr>
+                  )}
+                  {totalPaid > 0 && (
+                    <tr>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          color: colorRed,
+                        }}
+                      >
+                        DUE:
+                      </td>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          textAlign: "right",
+                          color: colorRed,
+                        }}
+                      >
+                        R{formatMoney(balanceDue)}
+                      </td>
+                    </tr>
+                  )}
+                </table>
+              </Column>
+            </Row>
           </Section>
 
-          {/* Payment Instructions */}
-          <Section
-            style={{
-              marginTop: "1rem",
-              padding: "0.75rem",
-              backgroundColor: secondaryColor,
-              borderRadius: "0.25rem",
-            }}
-          >
-            <Text
-              style={{
-                fontSize: "0.75rem",
-                fontWeight: 700,
-                marginBottom: "0.5rem",
-              }}
-            >
-              PAYMENT INSTRUCTIONS
-            </Text>
+          {/* --- TERMS & CONDITIONS (HTML RENDERED) --- */}
+          <Section style={{ marginTop: "20px" }}>
+            {/* Notes Section */}
             {invoice.paymentTerms && (
-              <Text style={{ fontSize: "0.75rem", marginBottom: "0.5rem" }}>
-                <strong>Terms:</strong> {invoice.paymentTerms}
-              </Text>
-            )}
-            {invoice.creator.GeneralSetting[0]?.bankName && (
-              <Text style={{ fontSize: "0.75rem" }}>
-                <strong>{invoice.creator.GeneralSetting[0]?.bankName}:</strong>{" "}
-                {invoice.creator.GeneralSetting[0]?.bankAccount}
-              </Text>
-            )}
-            {invoice.creator.GeneralSetting[0]?.bankName2 && (
-              <Text style={{ fontSize: "0.75rem" }}>
-                <strong>{invoice.creator.GeneralSetting[0]?.bankName2}:</strong>{" "}
-                {invoice.creator.GeneralSetting[0]?.bankAccount2}
-              </Text>
-            )}
-          </Section>
-
-          {/* Footer */}
-          <Section style={{ marginTop: "1rem" }}>
-            {invoice.note && (
-              <Text
-                style={{
-                  fontSize: "0.75rem",
-                  color: "#4B5563",
-                  textAlign: "center",
-                }}
+              <div
+                className="rich-text"
+                style={{ fontSize: "10px", marginBottom: "15px" }}
               >
-                {invoice.note}
+                <div
+                  dangerouslySetInnerHTML={{ __html: invoice.paymentTerms }}
+                />
+              </div>
+            )}
+
+            {/* Terms Section */}
+            {invoice.notes && (
+              <div className="rich-text" style={{ fontSize: "10px" }}>
+                <div dangerouslySetInnerHTML={{ __html: invoice.notes }} />
+              </div>
+            )}
+
+            {/* Fallback if no formatted text provided */}
+            {!invoice.notes && !invoice.terms && (
+              <Text style={{ fontSize: "10px", color: "#555" }}>
+                Standard terms and conditions apply. Warranty for repairs only.
               </Text>
             )}
-            <Text
-              style={{
-                fontSize: "0.75rem",
-                color: "#9CA3AF",
-                textAlign: "center",
-                marginTop: "0.5rem",
-              }}
-            >
-              {invoice.creator.GeneralSetting[0]?.website}
-            </Text>
-            <Text
-              style={{
-                fontSize: "0.75rem",
-                color: "#9CA3AF",
-                textAlign: "center",
-              }}
-            >
-              Thank you for your business!
-            </Text>
           </Section>
 
-          {/* Attachment Notice */}
+          {/* --- BANK FOOTER STRIP --- */}
           <Section
             style={{
-              marginTop: "1rem",
-              padding: "0.75rem",
-              backgroundColor: "#EFF6FF",
-              borderRadius: "0.25rem",
+              marginTop: "40px",
+              borderTop: "1px solid #eee",
+              padding: "15px",
+              backgroundColor: "#f9f9f9",
+              textAlign: "center",
             }}
           >
             <Text
               style={{
-                fontSize: "0.75rem",
-                color: "#1E40AF",
-                textAlign: "center",
+                fontSize: "10px",
+                fontWeight: "bold",
+                color: "#555",
+                margin: "0 0 5px 0",
               }}
             >
-              📎 A detailed invoice PDF is attached to this email
+              Account holder:{" "}
+              {company?.companyName || "NDOU ELECTRICAL CONSTRUCTION"}
             </Text>
+            <Text style={{ fontSize: "10px", margin: "0", color: "#555" }}>
+              <strong>{company?.bankName || "FNB/RMB"}:</strong>{" "}
+              {company?.bankAccount || "62884849351"}
+              &nbsp;&nbsp;|&nbsp;&nbsp;
+              <strong>{company?.bankName2 || "CAPITEC"}:</strong>{" "}
+              {company?.bankAccount2 || "1052413331"}
+            </Text>
+          </Section>
+
+          {/* --- VIEW ONLINE LINK --- */}
+          <Section style={{ textAlign: "center", marginTop: "20px" }}>
+            {/*   <Link
+              href={`${process.env.NEXT_PUBLIC_APP_URL}/invoices/${invoice.id}/view`}
+              style={{
+                backgroundColor: colorRed,
+                color: "#ffffff",
+                padding: "10px 20px",
+                textDecoration: "none",
+                fontWeight: "bold",
+                fontSize: "12px",
+                borderRadius: "4px",
+              }}
+            >
+              View Invoice Online
+            </Link> */}
           </Section>
         </Container>
       </Body>

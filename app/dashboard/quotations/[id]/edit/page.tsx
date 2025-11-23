@@ -55,8 +55,8 @@ export default function EditQuotationPage({
   }
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="flex items-center gap-4 mb-6">
+    <div className="container mx-auto p-8">
+      <div className="flex items-center gap-4 mb-6 ">
         <Button
           variant="outline"
           size="icon"

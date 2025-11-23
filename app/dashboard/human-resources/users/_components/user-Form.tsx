@@ -74,6 +74,7 @@ export default function UserForm({
     EmployeeForUserLinking[]
   >([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [hasAutoFilled, setHasAutoFilled] = useState(false);
 
   const formSchema = type === "update" ? updateUserSchema : createUserSchema;
   type FormValues = z.infer<typeof formSchema>;
@@ -110,6 +111,10 @@ export default function UserForm({
   const { isSubmitting } = form.formState;
   const selectedUserType = form.watch("userType");
   const selectedEmployeeId = form.watch("employeeId");
+  const currentName = form.watch("name");
+  const currentEmail = form.watch("email");
+  const currentPhone = form.watch("phone");
+  const currentUserName = form.watch("userName");
 
   // Fetch available employees
   useEffect(() => {
@@ -145,6 +150,77 @@ export default function UserForm({
     type === "update" && data?.employeeId
       ? availableEmployees.find((emp) => emp.id === data.employeeId)
       : null;
+
+  // Auto-fill user details from employee when employee is selected
+  useEffect(() => {
+    if (
+      selectedEmployee &&
+      selectedEmployeeId !== "no-employee" &&
+      !hasAutoFilled
+    ) {
+      const shouldAutoFill = () => {
+        // Only auto-fill if all fields are empty
+        const isNameEmpty = !currentName || currentName.trim() === "";
+        const isEmailEmpty = !currentEmail || currentEmail.trim() === "";
+        const isPhoneEmpty = !currentPhone || currentPhone.trim() === "";
+        const isUserNameEmpty =
+          type === "create" &&
+          (!currentUserName || currentUserName.trim() === "");
+
+        return (
+          isNameEmpty &&
+          isEmailEmpty &&
+          isPhoneEmpty &&
+          (type === "update" || isUserNameEmpty)
+        );
+      };
+
+      if (shouldAutoFill()) {
+        const employeeFullName = `${selectedEmployee.firstName} ${selectedEmployee.lastName}`;
+
+        // Auto-fill only empty fields
+        if (!currentName || currentName.trim() === "") {
+          form.setValue("name", employeeFullName);
+        }
+
+        if (!currentEmail || currentEmail.trim() === "") {
+          form.setValue("email", selectedEmployee.email || "");
+        }
+
+        if (!currentPhone || currentPhone.trim() === "") {
+          form.setValue("phone", selectedEmployee.phone || "");
+        }
+
+        // Only auto-fill username for new users
+        if (
+          type === "create" &&
+          (!currentUserName || currentUserName.trim() === "")
+        ) {
+          form.setValue("userName", selectedEmployee.employeeNumber);
+        }
+
+        setHasAutoFilled(true);
+        toast.info("User details auto-filled from employee information");
+      }
+    }
+  }, [
+    selectedEmployee,
+    selectedEmployeeId,
+    currentName,
+    currentEmail,
+    currentPhone,
+    currentUserName,
+    type,
+    form,
+    hasAutoFilled,
+  ]);
+
+  // Reset auto-fill flag when employee is deselected
+  useEffect(() => {
+    if (selectedEmployeeId === "no-employee" || !selectedEmployeeId) {
+      setHasAutoFilled(false);
+    }
+  }, [selectedEmployeeId]);
 
   const onSubmit = async (values: FormValues) => {
     try {
@@ -203,6 +279,32 @@ export default function UserForm({
     return categoryPermissions.every((permission) =>
       currentPermissions.includes(permission)
     );
+  };
+
+  // Manual fill function
+  const fillFromEmployee = () => {
+    if (selectedEmployee && selectedEmployeeId !== "no-employee") {
+      const employeeFullName = `${selectedEmployee.firstName} ${selectedEmployee.lastName}`;
+
+      form.setValue("name", employeeFullName);
+
+      if (selectedEmployee.email) {
+        form.setValue("email", selectedEmployee.email);
+      }
+
+      if (selectedEmployee.phone) {
+        form.setValue("phone", selectedEmployee.phone);
+      }
+
+      if (type === "create") {
+        const username =
+          selectedEmployee.email?.split("@")[0] ||
+          `${selectedEmployee.firstName.toLowerCase()}.${selectedEmployee.lastName.toLowerCase()}`;
+        form.setValue("userName", username);
+      }
+
+      toast.success("User details filled from employee information");
+    }
   };
 
   return (
@@ -336,21 +438,41 @@ export default function UserForm({
           {/* Show selected employee info */}
           {selectedEmployee && selectedEmployeeId !== "no-employee" && (
             <div className="md:col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-medium text-blue-900">Selected Employee:</h4>
-              <p className="text-sm text-blue-800">
-                <strong>Name:</strong> {selectedEmployee.firstName}{" "}
-                {selectedEmployee.lastName}
-                <br />
-                <strong>Employee #:</strong> {selectedEmployee.employeeNumber}
-                <br />
-                <strong>Position:</strong> {selectedEmployee.position}
-                <br />
-                {selectedEmployee.department && (
-                  <>
-                    <strong>Department:</strong>{" "}
-                    {selectedEmployee.department.name}
-                  </>
-                )}
+              <div className="flex justify-between items-start">
+                <div>
+                  <h4 className="font-medium text-blue-900">
+                    Selected Employee:
+                  </h4>
+                  <p className="text-sm text-blue-800">
+                    <strong>Name:</strong> {selectedEmployee.firstName}{" "}
+                    {selectedEmployee.lastName}
+                    <br />
+                    <strong>Employee #:</strong>{" "}
+                    {selectedEmployee.employeeNumber}
+                    <br />
+                    <strong>Position:</strong> {selectedEmployee.position}
+                    <br />
+                    {selectedEmployee.department && (
+                      <>
+                        <strong>Department:</strong>{" "}
+                        {selectedEmployee.department.name}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={fillFromEmployee}
+                  className="bg-white hover:bg-blue-100"
+                >
+                  Fill User Details
+                </Button>
+              </div>
+              <p className="text-xs text-blue-700 mt-2">
+                User details will be automatically filled when fields are empty,
+                or click "Fill User Details" to manually fill all fields.
               </p>
             </div>
           )}

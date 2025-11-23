@@ -13,28 +13,56 @@ export const TermsCard = ({
       <CardHeader>
         <h2 className="text-xl font-semibold">Terms & Conditions</h2>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2 pt-2 border-t">
-          <span className="text-muted-foreground">Description:</span>
-          <p className="text-sm">
-            {quotation.description || "No description provided"}
-          </p>
-        </div>
+      <CardContent className="space-y-6">
+        {/* Description Section */}
         <div className="space-y-2">
-          <span className="text-muted-foreground">Payment Terms:</span>
-          <p className="text-sm">
-            {quotation.paymentTerms || "No payment terms specified"}
-          </p>
+          <span className="text-sm font-medium text-muted-foreground">
+            Description:
+          </span>
+          {quotation.description ? (
+            <div
+              className="text-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4"
+              dangerouslySetInnerHTML={{ __html: quotation.description }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              No description provided
+            </p>
+          )}
         </div>
-        {/*   <div className="space-y-2">
-          <span className="text-muted-foreground">Delivery Terms:</span>
-          <p className="text-sm">
-            {quotation.deliveryTerms || "No delivery terms specified"}
-          </p>
-        </div> */}
-        <div className="space-y-2">
-          <span className="text-muted-foreground">Notes:</span>
-          <p className="text-sm">{quotation.notes || "No notes provided"}</p>
+
+        {/* Payment Terms Section */}
+        <div className="space-y-2 pt-4 border-t">
+          <span className="text-sm font-medium text-muted-foreground">
+            Payment Terms:
+          </span>
+          {quotation.paymentTerms ? (
+            <div
+              className="text-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4"
+              dangerouslySetInnerHTML={{ __html: quotation.paymentTerms }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              No payment terms specified
+            </p>
+          )}
+        </div>
+
+        {/* Notes Section */}
+        <div className="space-y-2 pt-4 border-t">
+          <span className="text-sm font-medium text-muted-foreground">
+            Notes:
+          </span>
+          {quotation.notes ? (
+            <div
+              className="text-sm [&>p]:mb-2 [&>ul]:list-disc [&>ul]:pl-4 [&>ol]:list-decimal [&>ol]:pl-4"
+              dangerouslySetInnerHTML={{ __html: quotation.notes }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground italic">
+              No notes provided
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -12,6 +12,8 @@ import { QuotationInfoCard } from "./_components/QuotationInfoCard";
 import { TermsCard } from "./_components/TermsCard";
 import { ItemsTable } from "./_components/ItemsTable";
 import { ClientInfoCard } from "./_components/ClientInfoCard";
+// Import the new component
+import { QuotationPreview } from "./_components/QuotationPreview";
 import QuotationDetailLoading from "./_components/loading";
 import { UserPermission, UserRole } from "@prisma/client";
 import { useAuth } from "@clerk/nextjs";
@@ -45,7 +47,7 @@ export default function QuotationDetailPage({
   const router = useRouter();
   const { userId } = useAuth();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading: isUserLoading } = useQuery({
     queryKey: ["user", userId],
     queryFn: () => fetchUserData(userId!),
     enabled: !!userId,
@@ -75,16 +77,21 @@ export default function QuotationDetailPage({
   );
 
   useEffect(() => {
-    if (!isLoading && canViewQuotations === false && hasFullAccess === false) {
+    if (
+      !isUserLoading &&
+      canViewQuotations === false &&
+      hasFullAccess === false
+    ) {
       router.push("/dashboard");
     }
-  }, [isLoading, canViewQuotations, hasFullAccess]);
+  }, [isUserLoading, canViewQuotations, hasFullAccess, router]);
 
   const fetchQuotation = async () => {
     try {
       setLoading(true);
       const response = await axios.get(`/api/quotations/${id}`);
       setQuotation(response.data);
+      setError(null);
     } catch (err) {
       console.error("Failed to fetch quotation:", err);
       setError("Failed to load quotation");
@@ -105,7 +112,7 @@ export default function QuotationDetailPage({
   if (error) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-red-500">{error}</div>
+        <div className="text-red-500 font-medium">{error}</div>
       </div>
     );
   }
@@ -113,7 +120,7 @@ export default function QuotationDetailPage({
   if (!quotation) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div>Quotation not found</div>
+        <div className="text-muted-foreground">Quotation not found</div>
       </div>
     );
   }
@@ -131,12 +138,17 @@ export default function QuotationDetailPage({
 
       <KeyMetrics quotation={quotation} />
 
-      <Tabs defaultValue="details" className="space-y-4">
+      <Tabs defaultValue="items" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="items">Items</TabsTrigger>
+          <TabsTrigger value="items">Items & Totals</TabsTrigger>
+          <TabsTrigger value="details">Details & Terms</TabsTrigger>
           <TabsTrigger value="client">Client Info</TabsTrigger>
+          <TabsTrigger value="preview">Preview PDF</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="items" className="space-y-4">
+          <ItemsTable quotation={quotation} />
+        </TabsContent>
 
         <TabsContent value="details" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
@@ -145,14 +157,12 @@ export default function QuotationDetailPage({
           </div>
         </TabsContent>
 
-        <TabsContent value="items" className="space-y-4">
-          <div className="border rounded-lg">
-            <ItemsTable quotation={quotation} />
-          </div>
-        </TabsContent>
-
         <TabsContent value="client" className="space-y-4">
           <ClientInfoCard quotation={quotation} />
+        </TabsContent>
+
+        <TabsContent value="preview" className="space-y-4">
+          <QuotationPreview quotation={quotation} />
         </TabsContent>
       </Tabs>
     </div>

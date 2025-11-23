@@ -5,6 +5,21 @@ import { InvoiceStatus, DiscountType, StockMovementType } from "@prisma/client";
 import { z } from "zod";
 import { InvoiceSchema } from "@/lib/formValidationSchemas";
 
+// --- HELPER: Safe Number Conversion ---
+// Handles Prisma Decimals, strings, and nulls safely
+const safeFloat = (val: any): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === "number") return val;
+  if (typeof val === "object" && typeof val.toNumber === "function") {
+    return val.toNumber();
+  }
+  if (typeof val === "object" && typeof val.toString === "function") {
+    return parseFloat(val.toString());
+  }
+  const parsed = parseFloat(String(val));
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 export async function POST(req: Request) {
   try {
     const { userId } = await auth();
@@ -15,10 +30,7 @@ export async function POST(req: Request) {
 
     const creator = await db.user.findUnique({
       where: { userId },
-      select: {
-        id: true,
-        name: true,
-      },
+      select: { id: true, name: true },
     });
 
     if (!creator) {
@@ -28,6 +40,7 @@ export async function POST(req: Request) {
     const json = await req.json();
     const data = InvoiceSchema.parse(json);
 
+    // --- GENERATE INVOICE NUMBER ---
     const lastInvoice = await db.invoice.findFirst({
       orderBy: { createdAt: "desc" },
       select: { invoiceNumber: true },
@@ -39,54 +52,110 @@ export async function POST(req: Request) {
           .padStart(4, "0")}`
       : "INV-0001";
 
-    // 1. Calculate subtotal (original amount before discount)
-    const subtotal = data.items.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0
-    );
+    // --- CALCULATION LOGIC (Matches QuotationForm) ---
 
-    // 2. Calculate discount
-    let discountAmount = 0;
-    if (data.discountType === DiscountType.PERCENTAGE && data.discountAmount) {
-      discountAmount = subtotal * (data.discountAmount / 100);
-    } else if (
-      data.discountType === DiscountType.AMOUNT &&
-      data.discountAmount
-    ) {
-      discountAmount = data.discountAmount;
-    }
+    // 1. PASS 1: Calculate Gross, Item Discounts, and Net Amounts
+    let subtotalGross = 0;
+    let totalItemDiscountMoney = 0;
 
-    // Prevent discount from exceeding subtotal
-    discountAmount = Math.min(discountAmount, subtotal);
+    const itemsWithCalculations = data.items.map((item) => {
+      const quantity = safeFloat(item.quantity);
+      const unitPrice = safeFloat(item.unitPrice);
+      const taxRate = safeFloat(item.taxRate);
+      const inputDiscountVal = safeFloat(item.itemDiscountAmount);
 
-    // 3. Calculate discounted subtotal
-    const discountedSubtotal = subtotal - discountAmount;
+      // Gross Base Amount
+      const baseAmount = quantity * unitPrice;
 
-    // 4. Calculate tax on DISCOUNTED amount (proportionally per item)
-    const discountRatio = subtotal > 0 ? discountAmount / subtotal : 0;
+      // Calculate Item Discount Money
+      let itemDiscountMoney = 0;
+      if (item.itemDiscountType === "PERCENTAGE") {
+        itemDiscountMoney = baseAmount * (inputDiscountVal / 100);
+      } else if (item.itemDiscountType === "AMOUNT") {
+        itemDiscountMoney = inputDiscountVal;
+      }
 
-    const itemsWithAmounts = data.items.map((item) => {
-      const itemAmount = item.quantity * item.unitPrice;
-      const discountedItemAmount = itemAmount - itemAmount * discountRatio;
-      const taxAmount = item.taxRate
-        ? (discountedItemAmount * item.taxRate) / 100
-        : 0;
+      // Cap discount
+      itemDiscountMoney = Math.min(itemDiscountMoney, baseAmount);
+
+      // Net Amount (Pre-Tax, Pre-Global Discount)
+      const netAmount = baseAmount - itemDiscountMoney;
+
+      // Accumulate
+      subtotalGross += baseAmount;
+      totalItemDiscountMoney += itemDiscountMoney;
 
       return {
         ...item,
-        amount: itemAmount,
-        taxAmount,
+        quantity,
+        unitPrice,
+        amount: baseAmount, // Store GROSS amount in DB 'amount' column
+        itemDiscountMoney,
+        netAmount,
+        taxRate,
+        inputDiscountVal,
+        shopProductId: item.shopProductId || null,
+        serviceId: item.serviceId || null,
+        itemDiscountType: item.itemDiscountType || null,
+        itemDiscountAmount: inputDiscountVal,
       };
     });
 
-    const totalTax = itemsWithAmounts.reduce(
-      (sum, item) => sum + (item.taxAmount || 0),
-      0
+    // 2. PASS 2: Calculate Global Discount
+    const subtotalAfterItemDiscounts = subtotalGross - totalItemDiscountMoney;
+    const inputGlobalDiscountVal = safeFloat(data.discountAmount);
+
+    let globalDiscountMoney = 0;
+    if (data.discountType === "PERCENTAGE") {
+      globalDiscountMoney =
+        subtotalAfterItemDiscounts * (inputGlobalDiscountVal / 100);
+    } else if (data.discountType === "AMOUNT") {
+      globalDiscountMoney = inputGlobalDiscountVal;
+    }
+
+    // Cap global discount
+    globalDiscountMoney = Math.min(
+      globalDiscountMoney,
+      subtotalAfterItemDiscounts
     );
 
-    // 5. Total amount is discounted subtotal + tax
-    const totalAmount = discountedSubtotal + totalTax;
+    // 3. PASS 3: Distribute Global Discount & Calculate Tax
+    let totalTax = 0;
 
+    const finalItems = itemsWithCalculations.map((item) => {
+      // Determine this item's share of the total net value
+      const ratio =
+        subtotalAfterItemDiscounts > 0
+          ? item.netAmount / subtotalAfterItemDiscounts
+          : 0;
+
+      // Allocate portion of global discount
+      const allocatedGlobalDiscount = globalDiscountMoney * ratio;
+
+      // Final Taxable Amount
+      const finalTaxableAmount = item.netAmount - allocatedGlobalDiscount;
+
+      // Calculate Tax
+      const taxAmount = (finalTaxableAmount * item.taxRate) / 100;
+
+      totalTax += taxAmount;
+
+      return {
+        ...item,
+        taxAmount, // Calculated tax per line
+        finalTaxableAmount, // Useful for revenue tracking if needed
+      };
+    });
+
+    // 4. Final Totals
+    const finalSubtotal = subtotalAfterItemDiscounts - globalDiscountMoney;
+    const totalAmount = finalSubtotal + totalTax;
+
+    // Effective Tax Rate (for display)
+    const effectiveTaxRate =
+      finalSubtotal > 0 ? (totalTax / finalSubtotal) * 100 : 0;
+
+    // 5. Deposit Calculation
     let calculatedDepositAmount = 0;
     if (data.depositRequired) {
       if (data.depositType === "PERCENTAGE" && data.depositAmount) {
@@ -94,20 +163,13 @@ export async function POST(req: Request) {
       } else if (data.depositType === "AMOUNT" && data.depositAmount) {
         calculatedDepositAmount = data.depositAmount;
       }
-
-      // Ensure deposit cannot exceed total amount
+      // Cap deposit
       calculatedDepositAmount = Math.min(calculatedDepositAmount, totalAmount);
     }
 
-    // 6. Calculate effective tax rate based on discounted subtotal
-    const taxRate =
-      discountedSubtotal > 0 ? (totalTax / discountedSubtotal) * 100 : 0;
-
+    // Payment Category Setup
     let paymentCategory = await db.category.findFirst({
-      where: {
-        name: "Invoice Payments",
-        type: "INCOME",
-      },
+      where: { name: "Invoice Payments", type: "INCOME" },
     });
 
     if (!paymentCategory) {
@@ -121,62 +183,272 @@ export async function POST(req: Request) {
       });
     }
 
+    // --- DATABASE TRANSACTION ---
     const result = await db.$transaction(
       async (prisma) => {
-        // Create the invoice
+        // A. Create Invoice Header
         const invoice = await prisma.invoice.create({
           data: {
             invoiceNumber,
             clientId: data.clientId,
             project: data.project,
-            amount: subtotal,
+
+            // Financials
+            amount: subtotalGross, // Gross
             currency: data.currency,
-            status: data.status,
+            status:
+              calculatedDepositAmount > 0 ? "PARTIALLY_PAID" : data.status,
+
             issueDate: new Date(data.issueDate),
             dueDate: new Date(data.dueDate),
+
             description: data.description,
-            taxAmount: totalTax,
-            taxRate: taxRate,
-            discountAmount: data.discountAmount,
-            discountType: data.discountType,
-            totalAmount,
             paymentTerms: data.paymentTerms,
             notes: data.notes,
-            createdBy: creator.id,
+
+            // Calculated Totals
+            taxAmount: totalTax,
+            taxRate: effectiveTaxRate,
+            discountAmount: inputGlobalDiscountVal, // Store the input value (e.g. 10 for 10%)
+            discountType: data.discountType,
+            totalAmount,
+
+            // Deposit
             depositRequired: data.depositRequired || false,
             depositType: data.depositType,
-            depositAmount: calculatedDepositAmount,
+            depositAmount:
+              calculatedDepositAmount > 0 ? calculatedDepositAmount : null,
             depositRate:
               data.depositType === "PERCENTAGE" ? data.depositAmount : 0,
+
+            createdBy: creator.id,
           },
         });
 
-        // Create invoice items
+        // B. Create Invoice Items
         await prisma.invoiceItem.createMany({
-          data: itemsWithAmounts.map((item) => ({
+          data: finalItems.map((item) => ({
             invoiceId: invoice.id,
             description: item.description,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            amount: item.amount, // Original amount (quantity * unitPrice)
+            amount: item.amount, // Gross
             currency: data.currency,
             taxRate: item.taxRate,
-            taxAmount: item.taxAmount, // Tax calculated on discounted item amount
-            shopProductId: item.shopProductId || null,
+            taxAmount: item.taxAmount,
+
+            // IDs
+            shopProductId: item.shopProductId,
+            serviceId: item.serviceId,
+
+            // Item Discounts
+            itemDiscountType: item.itemDiscountType,
+            itemDiscountAmount: item.itemDiscountAmount,
           })),
         });
 
-        // Handle deposit payment if required
+        // C. Update Service Revenue
+        const itemsWithServices = finalItems.filter((item) => item.serviceId);
+
+        if (itemsWithServices.length > 0) {
+          const serviceUpdates = new Map<string, number>();
+
+          for (const item of itemsWithServices) {
+            if (!item.serviceId) continue;
+
+            // Revenue = Net Amount (Gross - Item Discount)
+            // This represents the actual revenue earned from the service
+            const revenue = item.netAmount;
+
+            const currentTotal = serviceUpdates.get(item.serviceId) || 0;
+            serviceUpdates.set(item.serviceId, currentTotal + revenue);
+          }
+
+          for (const [serviceId, totalRevenue] of serviceUpdates.entries()) {
+            await prisma.service.update({
+              where: { id: serviceId },
+              data: {
+                revenue: { increment: totalRevenue },
+                clients: { increment: 1 },
+                activeProjects: { increment: 1 },
+              },
+            });
+          }
+        }
+
+        // D. Handle Deposit Payment
         if (data.depositRequired && calculatedDepositAmount > 0) {
-          await handleDepositPayment(prisma, {
-            invoice,
-            invoiceNumber,
-            depositAmount: calculatedDepositAmount,
-            totalAmount,
-            data,
-            creator,
-            paymentCategory,
+          const payment = await prisma.invoicePayment.create({
+            data: {
+              invoiceId: invoice.id,
+              amount: calculatedDepositAmount,
+              method: "INVOICE",
+              reference: `DEPOSIT-${invoiceNumber}`,
+              notes: `Initial deposit payment for invoice ${invoiceNumber}`,
+              paidAt: new Date(data.issueDate),
+              status: "COMPLETED",
+            },
           });
+
+          await prisma.transaction.create({
+            data: {
+              amount: calculatedDepositAmount,
+              currency: "ZAR",
+              type: "INCOME",
+              status: "COMPLETED",
+              description: `Deposit payment for invoice ${invoiceNumber} from ${data.clientId}`,
+              reference: payment.id,
+              date: new Date(data.issueDate),
+              method: "INVOICE",
+              invoiceId: invoice.id,
+              clientId: data.clientId,
+              categoryId: paymentCategory.id,
+              createdBy: creator.id,
+              taxAmount: 0,
+              netAmount: calculatedDepositAmount,
+              invoiceNumber: invoice.invoiceNumber,
+            },
+          });
+
+          // Update status if fully paid by deposit (unlikely but possible)
+          if (calculatedDepositAmount >= totalAmount) {
+            await prisma.invoice.update({
+              where: { id: invoice.id },
+              data: { status: InvoiceStatus.PAID },
+            });
+          }
+        }
+
+        // E. Handle Shop Products (Stock & Sale Creation)
+        const itemsWithProducts = finalItems.filter(
+          (item) => item.shopProductId
+        );
+
+        if (itemsWithProducts.length > 0) {
+          // 1. Calculate Sale Totals
+          // We re-sum specific values for the Sale record based on the product items only
+          let saleGross = 0;
+          let saleDiscount = 0;
+          let saleTax = 0;
+
+          const saleItemsPayload = itemsWithProducts.map((item) => {
+            saleGross += item.amount; // Gross
+            saleDiscount += item.itemDiscountMoney; // Item Discount
+            saleTax += item.taxAmount; // Tax
+
+            // Sale Item Total is the NET amount (Gross - Discount)
+            return {
+              shopProductId: item.shopProductId!,
+              quantity: item.quantity,
+              price: item.unitPrice,
+              total: item.netAmount,
+            };
+          });
+
+          // Note: This does not currently apportion Global Discount to the Sale record.
+          // It only counts item-level discounts for the Shop Sales tracking.
+          const saleTotal = saleGross - saleDiscount + saleTax;
+
+          // 2. Generate Sale Number
+          const lastSale = await prisma.sale.findFirst({
+            orderBy: { createdAt: "desc" },
+            select: { saleNumber: true },
+          });
+          const saleNumber = lastSale
+            ? `SALE-${(parseInt(lastSale.saleNumber.split("-")[1]) + 1).toString().padStart(4, "0")}`
+            : "SALE-0001";
+
+          // 3. Get Client/Customer
+          const client = await prisma.client.findUnique({
+            where: { id: data.clientId },
+          });
+
+          let customerId: string | undefined;
+          if (client?.email) {
+            const existingCustomer = await prisma.customer.findFirst({
+              where: { email: client.email },
+            });
+            if (existingCustomer) customerId = existingCustomer.id;
+          }
+
+          if (!customerId && client) {
+            const newCustomer = await prisma.customer.create({
+              data: {
+                firstName: client.name.split(" ")[0] || "Invoice",
+                lastName:
+                  client.name.split(" ").slice(1).join(" ") || "Customer",
+                email: client.email || `invoice-${invoiceNumber}@temp.com`,
+                phone: client.phone || "",
+                address: client.address || "",
+                createdBy: creator.id,
+              },
+            });
+            customerId = newCustomer.id;
+          }
+
+          // 4. Create Sale
+          const sale = await prisma.sale.create({
+            data: {
+              saleNumber,
+              customerId: customerId,
+              customerName: client?.name || "Invoice Customer",
+              customerEmail: client?.email,
+              customerPhone: client?.phone,
+              customerAddress: client?.address,
+              status: "COMPLETED",
+
+              subtotal: saleGross,
+              discount: saleDiscount,
+              tax: saleTax,
+              total: saleTotal,
+
+              paymentStatus: "COMPLETED",
+              paymentMethod: "INVOICE",
+              amountReceived: saleTotal,
+              saleDate: new Date(data.issueDate),
+              createdBy: creator.id,
+              orderId: invoice.id,
+            },
+          });
+
+          // 5. Create Sale Items & Update Stock
+          for (const payload of saleItemsPayload) {
+            await prisma.saleItem.create({
+              data: {
+                saleId: sale.id,
+                shopProductId: payload.shopProductId,
+                quantity: payload.quantity,
+                price: payload.price,
+                total: payload.total,
+              },
+            });
+
+            const product = await prisma.shopProduct.findUnique({
+              where: { id: payload.shopProductId },
+            });
+
+            if (product) {
+              const newStock = Math.max(0, product.stock - payload.quantity);
+
+              await prisma.shopProduct.update({
+                where: { id: payload.shopProductId },
+                data: { stock: newStock },
+              });
+
+              await prisma.stockMovement.create({
+                data: {
+                  shopProductId: payload.shopProductId,
+                  type: StockMovementType.OUT,
+                  quantity: payload.quantity,
+                  previousStock: product.stock,
+                  newStock: newStock,
+                  reason: `Sale from invoice ${invoiceNumber}`,
+                  reference: sale.saleNumber,
+                  creater: creator.name,
+                },
+              });
+            }
+          }
         }
 
         return invoice;
@@ -187,18 +459,7 @@ export async function POST(req: Request) {
       }
     );
 
-    // Handle shop products and sales outside the main transaction
-    await handleShopProductsAndSales({
-      itemsWithAmounts,
-      data,
-      creator,
-      result,
-      totalAmount,
-      depositAmount: calculatedDepositAmount,
-      invoiceNumber,
-    });
-
-    // Create notification
+    // --- NOTIFICATION ---
     await db.notification.create({
       data: {
         title: "New Invoice Created",
@@ -220,289 +481,6 @@ export async function POST(req: Request) {
 
     return new NextResponse("Internal Server Error", { status: 500 });
   }
-}
-
-// Helper function to handle deposit payment
-async function handleDepositPayment(
-  prisma: any,
-  params: {
-    invoice: any;
-    invoiceNumber: string;
-    depositAmount: number;
-    totalAmount: number;
-    data: any;
-    creator: any;
-    paymentCategory: any;
-  }
-) {
-  const {
-    invoice,
-    invoiceNumber,
-    depositAmount,
-    totalAmount,
-    data,
-    creator,
-    paymentCategory,
-  } = params;
-
-  // Create invoice payment for deposit
-  const payment = await prisma.invoicePayment.create({
-    data: {
-      invoiceId: invoice.id,
-      amount: depositAmount,
-      method: "INVOICE",
-      reference: `DEPOSIT-${invoiceNumber}`,
-      notes: `Initial deposit payment for invoice ${invoiceNumber}`,
-      paidAt: new Date(data.issueDate),
-      status: "COMPLETED",
-    },
-  });
-
-  // Create transaction record for deposit
-  await prisma.transaction.create({
-    data: {
-      amount: depositAmount,
-      currency: "ZAR",
-      type: "INCOME",
-      status: "COMPLETED",
-      description: `Deposit payment for invoice ${invoiceNumber} from ${data.clientId}`,
-      reference: payment.id,
-      date: new Date(data.issueDate),
-      method: "INVOICE",
-      invoiceId: invoice.id,
-      clientId: data.clientId,
-      categoryId: paymentCategory.id,
-      createdBy: creator.id,
-      taxAmount: 0,
-      netAmount: depositAmount,
-      invoiceNumber: invoice.invoiceNumber,
-    },
-  });
-
-  await db.notification.create({
-    data: {
-      title: "Transaction Created",
-      message: `Transaction , has been Created By ${creator.name}.`,
-      type: "PAYMENT",
-      isRead: false,
-      actionUrl: `/dashboard/transations`,
-      userId: creator.id,
-    },
-  });
-
-  // Update invoice status based on deposit
-  let newStatus: InvoiceStatus = InvoiceStatus.PARTIALLY_PAID;
-  if (depositAmount >= totalAmount) {
-    newStatus = InvoiceStatus.PAID;
-  }
-
-  await prisma.invoice.update({
-    where: { id: invoice.id },
-    data: { status: newStatus },
-  });
-}
-
-// Helper function to handle shop products and sales
-async function handleShopProductsAndSales(params: {
-  itemsWithAmounts: any[];
-  data: any;
-  creator: any;
-  result: any;
-  totalAmount: number;
-  depositAmount: number;
-  invoiceNumber: string;
-}) {
-  const {
-    itemsWithAmounts,
-    data,
-    creator,
-    result,
-    totalAmount,
-    depositAmount,
-    invoiceNumber,
-  } = params;
-
-  const itemsWithProducts = itemsWithAmounts.filter(
-    (item) => (item as any).shopProductId
-  );
-
-  if (itemsWithProducts.length === 0) return;
-
-  try {
-    // Generate sale number
-    const lastSale = await db.sale.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { saleNumber: true },
-    });
-
-    const saleNumber = lastSale
-      ? `SALE-${(parseInt(lastSale.saleNumber.split("-")[1]) + 1)
-          .toString()
-          .padStart(4, "0")}`
-      : "SALE-0001";
-
-    // Get client information for the sale
-    const client = await db.client.findUnique({
-      where: { id: data.clientId },
-      select: {
-        name: true,
-        email: true,
-        phone: true,
-        address: true,
-      },
-    });
-
-    // Create or find a customer record from the client
-    let customerId: string | undefined;
-
-    if (client?.email) {
-      const existingCustomer = await db.customer.findFirst({
-        where: { email: client.email },
-      });
-      if (existingCustomer) {
-        customerId = existingCustomer.id;
-      }
-    }
-
-    if (!customerId) {
-      const customerEmail =
-        client?.email || `invoice-${invoiceNumber}@temp.com`;
-      const newCustomer = await db.customer.create({
-        data: {
-          firstName: client?.name?.split(" ")[0] || "Invoice",
-          lastName: client?.name?.split(" ").slice(1).join(" ") || "Customer",
-          email: customerEmail,
-          phone: client?.phone || "",
-          address: client?.address || "",
-          createdBy: creator.id,
-        },
-      });
-      customerId = newCustomer.id;
-    }
-
-    const productsTotal = itemsWithProducts.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
-
-    const productsSubTotal = itemsWithProducts.reduce(
-      (sum, item) => sum + item.unitPrice,
-      0
-    );
-
-    // Create the sale
-    const sale = await db.sale.create({
-      data: {
-        saleNumber,
-        customerId: customerId,
-        customerName: client?.name || "Invoice Customer",
-        customerEmail: client?.email,
-        customerPhone: client?.phone,
-        customerAddress: client?.address,
-        status: "COMPLETED",
-        subtotal: Number(productsSubTotal),
-        total: Number(productsTotal),
-        paymentStatus: "COMPLETED",
-        paymentMethod: "INVOICE",
-        amountReceived: Number(totalAmount),
-        saleDate: new Date(data.issueDate),
-        createdBy: creator.id,
-        orderId: result.id,
-      },
-    });
-
-    // Process sale items and update stock in batches
-    for (const item of itemsWithProducts) {
-      const shopProductId = (item as any).shopProductId;
-      const quantity = Math.floor(item.quantity);
-
-      // Create sale item
-      await db.saleItem.create({
-        data: {
-          saleId: sale.id,
-          shopProductId: shopProductId,
-          quantity: quantity,
-          price: item.unitPrice,
-          total: item.amount,
-        },
-      });
-
-      // Update product stock and create stock movement
-      await updateProductStock(
-        shopProductId,
-        quantity,
-        sale.saleNumber,
-        creator.name,
-        invoiceNumber
-      );
-
-      if (result.sale) {
-        await db.notification.create({
-          data: {
-            title: "New Sale Created",
-            message: `Sale for ${result.invoice.invoiceNumber} has been created by ${creator.name} `,
-            type: "SALE",
-            isRead: false,
-            actionUrl: `/dashboard/shop/sales/${result.sale.id}`,
-            userId: creator.id,
-          },
-        });
-
-        // Create stock movement notification
-        await db.notification.create({
-          data: {
-            title: "Stock Updated",
-            message: `Stock levels have been updated for sale ${result.sale.saleNumber}`,
-            type: "SALE",
-            isRead: false,
-            actionUrl: `/dashboard/shop/inventory`,
-            userId: creator.id,
-          },
-        });
-      }
-    }
-  } catch (error) {
-    console.error("[SHOP_PRODUCTS_ERROR]", error);
-  }
-}
-
-// Helper function to update product stock
-async function updateProductStock(
-  shopProductId: string,
-  quantity: number,
-  saleNumber: string,
-  creatorName: string,
-  invoiceNumber: string
-) {
-  const product = await db.shopProduct.findUnique({
-    where: { id: shopProductId },
-  });
-
-  if (!product) return;
-
-  const newStock = product.stock - quantity;
-
-  // Update product stock
-  await db.shopProduct.update({
-    where: { id: shopProductId },
-    data: {
-      stock: Math.max(0, newStock),
-    },
-  });
-
-  // Create stock movement record
-  await db.stockMovement.create({
-    data: {
-      shopProductId: shopProductId,
-      type: StockMovementType.OUT,
-      quantity: quantity,
-      previousStock: product.stock,
-      newStock: Math.max(0, newStock),
-      reason: `Sale from invoice ${invoiceNumber}`,
-      reference: saleNumber,
-      creater: creatorName,
-    },
-  });
 }
 
 export async function GET(req: Request) {

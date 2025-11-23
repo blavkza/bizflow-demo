@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import * as z from "zod";
 import axios from "axios";
 import { toast } from "sonner";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +17,7 @@ import {
   Calculator,
   FileText,
   Repeat,
+  Search,
 } from "lucide-react";
 import {
   Form,
@@ -34,7 +35,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+// Rich Text Editor
+import { Editor } from "@/components/ui/editor";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -48,14 +50,10 @@ import {
   Invoice,
   InvoiceItem,
   GeneralSetting,
-  ShopProduct,
   RecurringFrequency,
 } from "@prisma/client";
 import { Combobox } from "@/components/ui/combobox";
-import {
-  InvoiceSchema,
-  RecurringInvoiceSchema,
-} from "@/lib/formValidationSchemas";
+import { InvoiceSchema } from "@/lib/formValidationSchemas";
 import {
   Dialog,
   DialogContent,
@@ -67,6 +65,18 @@ import {
 import ClientForm from "@/app/dashboard/human-resources/clients/_components/client-Form";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+
+// --- TYPES ---
+
+type SearchableItem = {
+  id: string;
+  name: string;
+  type: "product" | "service";
+  price: number;
+  category?: string;
+  duration?: string;
+  features?: string[];
+};
 
 type ComboboxOption = {
   label: string;
@@ -87,24 +97,145 @@ interface invoicePrompt {
 interface CalculationSummary {
   subtotal: number;
   totalTax: number;
+  taxableAmount: number;
   discountAmount: number;
   depositAmount: number;
   totalAmount: number;
   amountDue: number;
+  itemDiscounts: number[];
 }
 
-// Extended form schema to include recurring options and deposit
+// Extended form schema
 const InvoiceFormSchema = InvoiceSchema.extend({
   isRecurring: z.boolean().default(false),
   frequency: z.nativeEnum(RecurringFrequency).optional(),
   interval: z.number().min(1).max(365).default(1).optional(),
   endDate: z.date().optional(),
+
+  // Ensure items allow the new fields
+  items: z
+    .array(
+      z.object({
+        description: z.string().min(1, "Description is required"),
+        quantity: z.number().min(1, "Quantity must be at least 1"),
+        unitPrice: z.number().min(0, "Price must be positive"),
+        taxRate: z.number().optional(),
+        shopProductId: z.string().optional().nullable(),
+        serviceId: z.string().optional().nullable(),
+        itemDiscountType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
+        itemDiscountAmount: z.number().optional(),
+      })
+    )
+    .min(1, "Add at least one item"),
+
   depositRequired: z.boolean().default(false),
   depositType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
   depositAmount: z.number().min(0).optional(),
 });
 
 type InvoiceFormData = z.infer<typeof InvoiceFormSchema>;
+
+// --- HELPERS ---
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("en-ZA", {
+    style: "currency",
+    currency: "ZAR",
+  }).format(amount);
+};
+
+const safeNumber = (val: any) => (val ? Number(val) : 0);
+
+// --- SUB-COMPONENT (Defined Outside to fix focus issues) ---
+
+interface SearchableItemInputProps {
+  index: number;
+  searchTerm: string;
+  searchableItems: SearchableItem[];
+  showDropdown: number | null;
+  onSearchChange: (index: number, value: string) => void;
+  onFocus: (index: number) => void;
+  onBlur: () => void;
+  onSelect: (index: number, item: SearchableItem) => void;
+}
+
+const SearchableItemInput = ({
+  index,
+  searchTerm,
+  searchableItems,
+  showDropdown,
+  onSearchChange,
+  onFocus,
+  onBlur,
+  onSelect,
+}: SearchableItemInputProps) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filteredItems = searchableItems.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <input
+          ref={inputRef}
+          placeholder="Search products or services..."
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10"
+          value={searchTerm}
+          onChange={(e) => onSearchChange(index, e.target.value)}
+          onFocus={() => onFocus(index)}
+          onBlur={onBlur}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && searchTerm && filteredItems.length > 0) {
+              onSelect(index, filteredItems[0]);
+              e.preventDefault();
+            }
+          }}
+        />
+      </div>
+
+      {showDropdown === index && filteredItems.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-60 overflow-auto">
+          <div className="p-1">
+            {filteredItems.slice(0, 5).map((item) => (
+              <div
+                key={`${item.type}-${item.id}`}
+                className="flex flex-col p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onSelect(index, item);
+                }}
+              >
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-sm">{item.name}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {formatCurrency(item.price)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
+                  <span>
+                    {item.type === "product" ? "Product" : "Service"}
+                    {item.category && ` • ${item.category}`}
+                  </span>
+                  {item.duration && <span>{item.duration}</span>}
+                </div>
+                {item.features && item.features.length > 0 && (
+                  <div className="text-[10px] text-muted-foreground mt-1 italic truncate">
+                    Includes: {item.features.join(", ")}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- MAIN COMPONENT ---
 
 export default function InvoiceForm({
   type,
@@ -118,31 +249,43 @@ export default function InvoiceForm({
   onSubmitSuccess: () => void;
 }) {
   const [clientsOptions, setClientsOptions] = useState<ComboboxOption[]>([]);
-  const [productsOptions, setProductsOptions] = useState<ComboboxOption[]>([]);
-  const [productsData, setProductsData] = useState<ShopProduct[]>([]);
+  const [searchableItems, setSearchableItems] = useState<SearchableItem[]>([]);
+
   const [isLoadingClients, setIsLoadingClients] = useState(false);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(false);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
   const [calculations, setCalculations] = useState<CalculationSummary>({
     subtotal: 0,
     totalTax: 0,
+    taxableAmount: 0,
     discountAmount: 0,
     depositAmount: 0,
     totalAmount: 0,
     amountDue: 0,
+    itemDiscounts: [],
   });
+
+  const [searchInputs, setSearchInputs] = useState<{ [key: number]: string }>(
+    {}
+  );
+  const [showDropdown, setShowDropdown] = useState<number | null>(null);
+
   const [isRecurring, setIsRecurring] = useState(
     data?.invoice?.isRecurring || false
   );
 
-  let depositAmount = 0;
+  // Deposit Logic for Edit Mode
+  let initialDepositAmount = 0;
   if (
     data?.invoice?.depositType === "PERCENTAGE" &&
-    data?.invoice?.depositAmount
+    data?.invoice?.depositRate
   ) {
-    depositAmount = Number(data?.invoice?.depositRate);
+    initialDepositAmount = Number(data?.invoice?.depositRate);
+  } else if (data?.invoice?.depositAmount) {
+    initialDepositAmount = Number(data?.invoice?.depositAmount);
   } else {
-    depositAmount = Number(data?.invoice?.depositAmount);
+    initialDepositAmount = 30;
   }
 
   const form = useForm<InvoiceFormData>({
@@ -166,6 +309,11 @@ export default function InvoiceForm({
               unitPrice: Number(item.unitPrice),
               taxRate: item.taxRate ? Number(item.taxRate) : 0,
               shopProductId: (item as any).shopProductId || null,
+              serviceId: (item as any).serviceId || null,
+              itemDiscountType: (item as any).itemDiscountType || undefined,
+              itemDiscountAmount: (item as any).itemDiscountAmount
+                ? Number((item as any).itemDiscountAmount)
+                : 0,
             }))
           : [
               {
@@ -174,6 +322,9 @@ export default function InvoiceForm({
                 unitPrice: 0,
                 taxRate: 0,
                 shopProductId: null,
+                serviceId: null,
+                itemDiscountType: undefined,
+                itemDiscountAmount: 0,
               },
             ],
       discountType: data?.invoice?.discountType || undefined,
@@ -182,7 +333,7 @@ export default function InvoiceForm({
         : undefined,
       depositRequired: (data?.invoice as any)?.depositRequired || false,
       depositType: (data?.invoice as any)?.depositType || "PERCENTAGE",
-      depositAmount: (data?.invoice as any)?.depositAmount ? depositAmount : 30,
+      depositAmount: initialDepositAmount,
       paymentTerms: data?.invoice?.paymentTerms || "",
       notes: data?.invoice?.notes || "",
       isRecurring: data?.invoice?.isRecurring || false,
@@ -194,84 +345,109 @@ export default function InvoiceForm({
 
   const { isSubmitting } = form.formState;
 
-  // Calculate totals function
+  // Initialize search inputs for edit mode
+  useEffect(() => {
+    const initialSearchInputs: { [key: number]: string } = {};
+    form.getValues("items").forEach((item, index) => {
+      initialSearchInputs[index] = item.description || "";
+    });
+    setSearchInputs(initialSearchInputs);
+  }, [form]);
+
+  // --- CALCULATION LOGIC ---
   const calculateTotals = useCallback(() => {
     const items = form.getValues("items");
     const discountType = form.getValues("discountType");
-    const discountAmount = form.getValues("discountAmount") || 0;
+    const discountAmountInput = safeNumber(form.getValues("discountAmount"));
     const depositRequired = form.getValues("depositRequired");
     const depositType = form.getValues("depositType");
-    const depositAmount = form.getValues("depositAmount") || 0;
+    const depositAmountInput = safeNumber(form.getValues("depositAmount"));
 
-    // 1. Calculate amounts
-    const itemsWithAmounts = items.map((item) => {
-      const amount = item.quantity * item.unitPrice;
-      return {
-        ...item,
-        amount,
-      };
-    });
+    // 1. Item Level
+    let subtotalGross = 0;
+    let totalItemDiscountMoney = 0;
 
-    // 2. Subtotal
-    const subtotal = itemsWithAmounts.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
+    const itemData = items.map((item) => {
+      const quantity = safeNumber(item.quantity);
+      const unitPrice = safeNumber(item.unitPrice);
+      const taxRate = safeNumber(item.taxRate);
+      const itemDiscountInput = safeNumber(item.itemDiscountAmount);
 
-    // 3. Discount
-    let calculatedDiscount = 0;
+      const baseAmount = quantity * unitPrice;
 
-    if (discountType === "PERCENTAGE" && discountAmount > 0) {
-      calculatedDiscount = subtotal * (discountAmount / 100);
-    } else if (discountType === "AMOUNT" && discountAmount > 0) {
-      calculatedDiscount = discountAmount;
-    }
-
-    // Prevent discount from exceeding subtotal
-    calculatedDiscount = Math.min(calculatedDiscount, subtotal);
-
-    // 4. Proportional discount ratio
-    const discountRatio = subtotal > 0 ? calculatedDiscount / subtotal : 0;
-
-    // 5. Tax (after discount)
-    const totalTax = itemsWithAmounts.reduce((sum, item) => {
-      const discountedItemAmount = item.amount - item.amount * discountRatio;
-      const itemTaxRate = item.taxRate || 0;
-      const itemTax = (discountedItemAmount * itemTaxRate) / 100;
-      return sum + itemTax;
-    }, 0);
-
-    // 6. Total
-    const totalAmount = subtotal - calculatedDiscount + totalTax;
-
-    // 7. Deposit
-    let calculatedDeposit = 0;
-
-    if (depositRequired) {
-      if (depositType === "PERCENTAGE" && depositAmount) {
-        calculatedDeposit = totalAmount * (depositAmount / 100);
-      } else if (depositType === "AMOUNT" && depositAmount) {
-        calculatedDeposit = depositAmount;
+      let itemDiscountMoney = 0;
+      if (item.itemDiscountType === "PERCENTAGE") {
+        itemDiscountMoney = baseAmount * (itemDiscountInput / 100);
+      } else if (item.itemDiscountType === "AMOUNT") {
+        itemDiscountMoney = itemDiscountInput;
       }
 
-      // Ensure deposit cannot exceed total
+      itemDiscountMoney = Math.min(itemDiscountMoney, baseAmount);
+      const netAmount = baseAmount - itemDiscountMoney;
+
+      subtotalGross += baseAmount;
+      totalItemDiscountMoney += itemDiscountMoney;
+
+      return { baseAmount, itemDiscountMoney, netAmount, taxRate };
+    });
+
+    // 2. Global Discount
+    const subtotalAfterItemDiscounts = subtotalGross - totalItemDiscountMoney;
+    let globalDiscountMoney = 0;
+
+    if (discountType === "PERCENTAGE") {
+      globalDiscountMoney =
+        subtotalAfterItemDiscounts * (discountAmountInput / 100);
+    } else if (discountType === "AMOUNT") {
+      globalDiscountMoney = discountAmountInput;
+    }
+    globalDiscountMoney = Math.min(
+      globalDiscountMoney,
+      subtotalAfterItemDiscounts
+    );
+
+    // 3. Tax
+    let totalTax = 0;
+    itemData.forEach((item) => {
+      const ratio =
+        subtotalAfterItemDiscounts > 0
+          ? item.netAmount / subtotalAfterItemDiscounts
+          : 0;
+      const allocatedGlobalDiscount = globalDiscountMoney * ratio;
+      const finalTaxableAmount = item.netAmount - allocatedGlobalDiscount;
+      const taxAmount = (finalTaxableAmount * item.taxRate) / 100;
+      totalTax += taxAmount;
+    });
+
+    // 4. Totals
+    const finalSubtotal = subtotalAfterItemDiscounts - globalDiscountMoney; // Taxable Amount
+    const totalAmount = finalSubtotal + totalTax;
+
+    // 5. Deposit
+    let calculatedDeposit = 0;
+    if (depositRequired) {
+      if (depositType === "PERCENTAGE") {
+        calculatedDeposit = totalAmount * (depositAmountInput / 100);
+      } else if (depositType === "AMOUNT") {
+        calculatedDeposit = depositAmountInput;
+      }
       calculatedDeposit = Math.min(calculatedDeposit, totalAmount);
     }
 
     const amountDue = totalAmount - calculatedDeposit;
 
-    // 8. Save results
     setCalculations({
-      subtotal,
+      subtotal: subtotalGross,
       totalTax,
-      discountAmount: calculatedDiscount,
+      taxableAmount: finalSubtotal,
+      discountAmount: globalDiscountMoney + totalItemDiscountMoney,
       depositAmount: calculatedDeposit,
       totalAmount,
       amountDue,
+      itemDiscounts: itemData.map((i) => i.itemDiscountMoney),
     });
   }, [form]);
 
-  // Calculate totals whenever items, discount, or deposit change
   useEffect(() => {
     calculateTotals();
   }, [
@@ -283,6 +459,8 @@ export default function InvoiceForm({
     form.watch("depositAmount"),
   ]);
 
+  // --- DATA FETCHING ---
+
   const fetchClients = async () => {
     setIsLoadingClients(true);
     try {
@@ -290,37 +468,46 @@ export default function InvoiceForm({
       const clients: Client[] = response?.data || [];
       const options = clients
         .filter((client) => client.id && client.name)
-        .map((client) => ({
-          label: client.name || "",
-          value: client.id,
-        }));
+        .map((client) => ({ label: client.name || "", value: client.id }));
       setClientsOptions(options);
     } catch (err) {
-      console.error("Error fetching clients:", err);
       toast.error("Failed to load clients");
     } finally {
       setIsLoadingClients(false);
     }
   };
 
-  const fetchProducts = async () => {
-    setIsLoadingProducts(true);
+  const fetchItems = async () => {
+    setIsLoadingItems(true);
     try {
-      const response = await axios.get("/api/shop/products");
-      const products: ShopProduct[] = response?.data || [];
-      setProductsData(products);
-      const options = products
-        .filter((product) => product.id && product.name)
-        .map((product) => ({
-          label: `${product.name} - R${Number(product.price || 0).toFixed(2)}`,
-          value: product.id,
-        }));
-      setProductsOptions(options);
+      const [productsResponse, servicesResponse] = await Promise.all([
+        axios.get("/api/shop/products"),
+        axios.get("/api/services"),
+      ]);
+
+      const combinedItems: SearchableItem[] = [
+        ...(productsResponse?.data || []).map((product: any) => ({
+          id: product.id,
+          name: product.name,
+          type: "product" as const,
+          price: Number(product.price || 0),
+          category: product.category,
+        })),
+        ...(servicesResponse?.data || []).map((service: any) => ({
+          id: service.id,
+          name: service.name,
+          type: "service" as const,
+          price: Number(service.amount || 0),
+          category: service.category,
+          duration: service.duration || undefined,
+          features: service.features || [],
+        })),
+      ];
+      setSearchableItems(combinedItems);
     } catch (err) {
-      console.error("Error fetching products:", err);
-      toast.error("Failed to load products");
+      toast.error("Failed to load items");
     } finally {
-      setIsLoadingProducts(false);
+      setIsLoadingItems(false);
     }
   };
 
@@ -328,24 +515,116 @@ export default function InvoiceForm({
     try {
       const response = await fetch("/api/settings/general");
       const { data } = await response.json();
-
-      const defaultSetting = data;
-      if (type === "create" && defaultSetting) {
-        form.setValue("paymentTerms", defaultSetting.paymentTerms || "");
-        form.setValue("notes", defaultSetting.note || "");
+      if (type === "create" && data) {
+        form.setValue("paymentTerms", data.paymentTerms || "");
+        form.setValue("notes", data.note || "");
       }
-      return data;
     } catch (error) {
       console.error("Failed to fetch settings", error);
-      return null;
     }
   };
 
   useEffect(() => {
     fetchSettings();
     fetchClients();
-    fetchProducts();
+    fetchItems();
   }, []);
+
+  // --- HANDLERS ---
+
+  const handleSearchInputChange = (index: number, value: string) => {
+    setSearchInputs((prev) => ({ ...prev, [index]: value }));
+    form.setValue(`items.${index}.description`, value);
+
+    // FIX: Only clear IDs if explicitly empty to prevent losing relation during edit
+    if (value === "") {
+      form.setValue(`items.${index}.shopProductId`, null);
+      form.setValue(`items.${index}.serviceId`, null);
+      form.setValue(`items.${index}.itemDiscountType`, undefined);
+      form.setValue(`items.${index}.itemDiscountAmount`, 0);
+    }
+
+    if (value.length > 0) {
+      setShowDropdown(index);
+    } else {
+      setShowDropdown(null);
+    }
+  };
+
+  const handleItemSelect = (index: number, item: SearchableItem) => {
+    let description = `${item.name}`;
+    if (item.category) description += ` - ${item.category}`;
+    if (item.duration) description += ` (${item.duration})`;
+    if (item.type === "service" && item.features && item.features.length > 0) {
+      description += `\nIncludes: ${item.features.join(", ")}`;
+    }
+
+    setSearchInputs((prev) => ({ ...prev, [index]: description }));
+    form.setValue(`items.${index}.description`, description);
+    form.setValue(`items.${index}.unitPrice`, item.price);
+    form.setValue(`items.${index}.taxRate`, 15);
+    form.setValue(`items.${index}.itemDiscountType`, undefined);
+    form.setValue(`items.${index}.itemDiscountAmount`, 0);
+
+    if (item.type === "product") {
+      form.setValue(`items.${index}.shopProductId`, item.id);
+      form.setValue(`items.${index}.serviceId`, null);
+    } else {
+      form.setValue(`items.${index}.serviceId`, item.id);
+      form.setValue(`items.${index}.shopProductId`, null);
+    }
+
+    setShowDropdown(null);
+    setTimeout(calculateTotals, 0);
+  };
+
+  const handleQuantityChange = (index: number, value: number) => {
+    form.setValue(`items.${index}.quantity`, value);
+    calculateTotals();
+  };
+
+  const handleUnitPriceChange = (index: number, value: number) => {
+    form.setValue(`items.${index}.unitPrice`, value);
+    calculateTotals();
+  };
+
+  const handleTaxRateChange = (index: number, value: number) => {
+    form.setValue(`items.${index}.taxRate`, value);
+    calculateTotals();
+  };
+
+  const addItem = () => {
+    const currentItems = form.getValues("items");
+    form.setValue("items", [
+      ...currentItems,
+      {
+        description: "",
+        quantity: 1,
+        unitPrice: 0,
+        taxRate: 0,
+        shopProductId: null,
+        serviceId: null,
+      },
+    ]);
+    setTimeout(calculateTotals, 0);
+  };
+
+  const removeItem = (index: number) => {
+    const items = form.getValues("items");
+    if (items.length > 1) {
+      form.setValue(
+        "items",
+        items.filter((_, i) => i !== index)
+      );
+      // Remove search input key
+      setSearchInputs((prev) => {
+        const newInputs = { ...prev };
+        delete newInputs[index];
+        return newInputs;
+      });
+      setTimeout(calculateTotals, 0);
+    }
+  };
 
   const getNextInvoiceDate = (
     startDate: Date,
@@ -353,7 +632,6 @@ export default function InvoiceForm({
     interval: number
   ): Date => {
     const date = new Date(startDate);
-
     switch (frequency) {
       case "DAILY":
         date.setDate(date.getDate() + interval);
@@ -371,7 +649,6 @@ export default function InvoiceForm({
         date.setFullYear(date.getFullYear() + interval);
         break;
     }
-
     return date;
   };
 
@@ -380,7 +657,6 @@ export default function InvoiceForm({
     interval: number
   ): string => {
     const intervalText = interval > 1 ? `${interval} ` : "";
-
     switch (frequency) {
       case "DAILY":
         return `${intervalText}day${interval > 1 ? "s" : ""}`;
@@ -397,6 +673,25 @@ export default function InvoiceForm({
     }
   };
 
+  const getRowNetTotal = (index: number) => {
+    const item = form.getValues(`items.${index}`);
+    const qty = safeNumber(item.quantity);
+    const price = safeNumber(item.unitPrice);
+    const taxRate = safeNumber(item.taxRate);
+    const discInput = safeNumber(item.itemDiscountAmount);
+
+    const base = qty * price;
+    let disc = 0;
+    if (item.itemDiscountType === "PERCENTAGE") {
+      disc = base * (discInput / 100);
+    } else if (item.itemDiscountType === "AMOUNT") {
+      disc = discInput;
+    }
+    const net = Math.max(0, base - disc);
+    const tax = net * (taxRate / 100);
+    return net + tax;
+  };
+
   const onSubmit = async (values: InvoiceFormData) => {
     try {
       const itemsWithProductIds = values.items.map((item) => ({
@@ -404,7 +699,10 @@ export default function InvoiceForm({
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         taxRate: item.taxRate,
-        shopProductId: (item as any).shopProductId || null,
+        shopProductId: item.shopProductId || undefined,
+        serviceId: item.serviceId || undefined,
+        itemDiscountType: item.itemDiscountType || undefined,
+        itemDiscountAmount: item.itemDiscountAmount || 0,
       }));
 
       const invoiceData = {
@@ -412,6 +710,7 @@ export default function InvoiceForm({
         items: itemsWithProductIds,
         issueDate: values.issueDate.toISOString(),
         dueDate: values.dueDate.toISOString(),
+        discountType: values.discountType || undefined,
       };
 
       if (values.isRecurring) {
@@ -432,7 +731,6 @@ export default function InvoiceForm({
           paymentTerms: values.paymentTerms,
           notes: values.notes,
         };
-
         await axios.post("/api/invoices/recurring", recurringData);
         toast.success("Recurring invoice created successfully");
       } else {
@@ -444,155 +742,19 @@ export default function InvoiceForm({
           toast.success("Invoice updated successfully");
         }
       }
-
       onSubmitSuccess();
     } catch (error: any) {
       console.error("Invoice error:", error);
-
-      if (error.response?.data) {
-        if (typeof error.response.data === "string") {
-          toast.error(error.response.data);
-        } else if (Array.isArray(error.response.data)) {
-          const errorMessages = error.response.data.map(
-            (err: any) => `${err.path.join(".")}: ${err.message}`
-          );
-          toast.error(`Validation failed: ${errorMessages.join(", ")}`);
-        } else {
-          toast.error("An error occurred");
-        }
-      } else {
-        toast.error(
-          `Something went wrong while ${
-            type === "create" ? "creating" : "updating"
-          } the invoice`
-        );
-      }
+      toast.error(error.response?.data?.message || "An error occurred");
     }
   };
 
-  const addItem = () => {
-    const currentItems = form.getValues("items");
-    form.setValue("items", [
-      ...currentItems,
-      {
-        description: "",
-        quantity: 1,
-        unitPrice: 0,
-        taxRate: 0,
-        shopProductId: null,
-      },
-    ]);
-    // Recalculate totals after adding item
-    setTimeout(calculateTotals, 0);
-  };
+  // --- JSX ---
 
-  const removeItem = (index: number) => {
-    const items = form.getValues("items");
-    if (items.length > 1) {
-      form.setValue(
-        "items",
-        items.filter((_, i) => i !== index)
-      );
-      // Recalculate totals after removing item
-      setTimeout(calculateTotals, 0);
-    }
-  };
-
-  const handleProductSelect = (index: number, productId: string) => {
-    if (!productsData || !Array.isArray(productsData)) {
-      console.error("Products data not loaded yet");
-      toast.error("Products not loaded. Please try again.");
-      return;
-    }
-
-    const selectedProduct = productsData.find((p) => p.id === productId);
-    if (selectedProduct) {
-      form.setValue(
-        `items.${index}.description`,
-        `${selectedProduct.name} - ${selectedProduct.category || "No Category"}`
-      );
-      form.setValue(`items.${index}.unitPrice`, Number(selectedProduct.price));
-      form.setValue(`items.${index}.shopProductId`, selectedProduct.id);
-      form.setValue(`items.${index}.taxRate`, 15);
-      // Recalculate totals after product selection
-      setTimeout(calculateTotals, 0);
-    } else {
-      console.error("Product not found with ID:", productId);
-      toast.error("Selected product not found");
-    }
-  };
-
-  const handleManualItemChange = (index: number) => {
-    const rawDescription = form.getValues(`items.${index}.description`);
-    const cleanedDescription = String(rawDescription)
-      .split(/[\s\-]+/)
-      .filter(
-        (part) =>
-          part &&
-          part.toLowerCase() !== "null" &&
-          part.toLowerCase() !== "undefined"
-      )
-      .join(" ");
-
-    const unitPrice = form.getValues(`items.${index}.unitPrice`);
-
-    form.setValue(`items.${index}.description`, cleanedDescription.trim());
-    form.setValue(`items.${index}.unitPrice`, unitPrice);
-  };
-
-  // Real-time handlers for quantity, unit price, and tax rate changes
-  const handleQuantityChange = (index: number, value: number) => {
-    form.setValue(`items.${index}.quantity`, value);
-    calculateTotals();
-  };
-
-  const handleUnitPriceChange = (index: number, value: number) => {
-    form.setValue(`items.${index}.unitPrice`, value);
-    calculateTotals();
-  };
-
-  const handleTaxRateChange = (index: number, value: number) => {
-    form.setValue(`items.${index}.taxRate`, value);
-    calculateTotals();
-  };
-
-  const handleDiscountChange = (
-    type: "AMOUNT" | "PERCENTAGE" | undefined,
-    amount: number
-  ) => {
-    form.setValue("discountType", type);
-    if (amount !== undefined) {
-      form.setValue("discountAmount", amount);
-    }
-    calculateTotals();
-  };
-
-  const handleDepositChange = (
-    required: boolean,
-    type: "AMOUNT" | "PERCENTAGE" | undefined,
-    amount: number
-  ) => {
-    form.setValue("depositRequired", required);
-    form.setValue("depositType", type);
-    if (amount !== undefined) {
-      form.setValue("depositAmount", amount);
-    }
-    calculateTotals();
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: "ZAR",
-    }).format(amount);
-  };
-
-  // Watch recurring fields for real-time updates
   const watchedFrequency = form.watch("frequency");
   const watchedInterval = form.watch("interval");
   const watchedIssueDate = form.watch("issueDate");
   const watchedEndDate = form.watch("endDate");
-
   const nextInvoiceDate =
     isRecurring && watchedFrequency && watchedIssueDate
       ? getNextInvoiceDate(
@@ -615,12 +777,11 @@ export default function InvoiceForm({
               <div>
                 <p className="text-muted-foreground">
                   {type === "create"
-                    ? "Create a new invoice for your client"
-                    : "Update the invoice details"}
+                    ? "Create a new invoice"
+                    : "Update invoice"}
                 </p>
               </div>
             </div>
-
             {/* Recurring Toggle */}
             <div className="flex items-center space-x-3">
               {data?.invoice?.isRecurring ? null : (
@@ -641,24 +802,22 @@ export default function InvoiceForm({
                           />
                         </FormControl>
                         <FormLabel className="cursor-pointer">
-                          Recurring Invoice
+                          Recurring
                         </FormLabel>
                       </FormItem>
                     )}
                   />
                 </div>
               )}
-
               {isRecurring && (
                 <Badge variant="secondary" className="bg-blue-50 text-blue-700">
-                  <Repeat className="h-3 w-3 mr-1" />
-                  Recurring
+                  <Repeat className="h-3 w-3 mr-1" /> Recurring
                 </Badge>
               )}
             </div>
           </div>
 
-          {/* Client and Description */}
+          {/* Client + Description */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -685,20 +844,15 @@ export default function InvoiceForm({
                           type="button"
                           variant="outline"
                           className="shrink-0"
-                          disabled={isLoadingClients}
                         >
                           <Plus className="h-4 w-4" />
-                          <span className="sr-only md:not-sr-only md:ml-2">
-                            Add
-                          </span>
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-[425px]">
+                      <DialogContent>
                         <DialogHeader>
-                          <DialogTitle>Add New Client</DialogTitle>
+                          <DialogTitle>Add Client</DialogTitle>
                           <DialogDescription>
-                            Create a new client profile. This client will be
-                            immediately available for selection.
+                            Create new client profile.
                           </DialogDescription>
                         </DialogHeader>
                         <ClientForm
@@ -707,7 +861,7 @@ export default function InvoiceForm({
                           onSubmitSuccess={() => {
                             setIsAddDialogOpen(false);
                             fetchClients();
-                            toast.success("Client added successfully");
+                            toast.success("Client added");
                           }}
                         />
                       </DialogContent>
@@ -717,7 +871,6 @@ export default function InvoiceForm({
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name="description"
@@ -725,7 +878,10 @@ export default function InvoiceForm({
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Input placeholder="Invoice description" {...field} />
+                    <Input
+                      placeholder="Project or invoice description"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -733,7 +889,7 @@ export default function InvoiceForm({
             />
           </div>
 
-          {/* Dates and Status */}
+          {/* Dates */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
             <FormField
               control={form.control}
@@ -774,7 +930,6 @@ export default function InvoiceForm({
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name="dueDate"
@@ -805,10 +960,7 @@ export default function InvoiceForm({
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
-                        disabled={(date) => {
-                          const issueDate = form.getValues("issueDate");
-                          return issueDate ? date < issueDate : false;
-                        }}
+                        disabled={(date) => date < form.getValues("issueDate")}
                         initialFocus
                       />
                     </PopoverContent>
@@ -817,7 +969,6 @@ export default function InvoiceForm({
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name="status"
@@ -830,7 +981,7 @@ export default function InvoiceForm({
                   >
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
+                        <SelectValue placeholder="Status" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -845,7 +996,6 @@ export default function InvoiceForm({
                 </FormItem>
               )}
             />
-
             <FormField
               control={form.control}
               name="currency"
@@ -861,12 +1011,11 @@ export default function InvoiceForm({
             />
           </div>
 
-          {/* Recurring Settings */}
+          {/* Recurring Block */}
           {isRecurring && (
             <div className="mt-6 p-4 border rounded-lg bg-blue-50/50">
               <h4 className="font-semibold mb-3 flex items-center gap-2 text-blue-700">
-                <Repeat className="h-4 w-4" />
-                Recurring Settings
+                <Repeat className="h-4 w-4" /> Recurring Settings
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
@@ -874,14 +1023,14 @@ export default function InvoiceForm({
                   name="frequency"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Frequency *</FormLabel>
+                      <FormLabel>Frequency</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select frequency" />
+                            <SelectValue />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -892,34 +1041,28 @@ export default function InvoiceForm({
                           <SelectItem value="YEARLY">Yearly</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="interval"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Interval *</FormLabel>
+                      <FormLabel>Interval</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
                           min="1"
-                          max="365"
-                          placeholder="1"
-                          value={field.value === undefined ? 1 : field.value}
+                          {...field}
                           onChange={(e) =>
                             field.onChange(parseInt(e.target.value) || 1)
                           }
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
                   name="endDate"
@@ -928,22 +1071,20 @@ export default function InvoiceForm({
                       <FormLabel>End Date (Optional)</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full pl-3 text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>No end date</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full pl-3 text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            {field.value ? (
+                              format(field.value, "PPP")
+                            ) : (
+                              <span>No end date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
@@ -957,42 +1098,20 @@ export default function InvoiceForm({
                           />
                         </PopoverContent>
                       </Popover>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-
-              {/* Recurring Summary */}
               {watchedFrequency && (
-                <div className="mt-3 p-3 bg-white rounded border text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Schedule:</span>
-                    <span className="font-medium">
-                      Every{" "}
-                      {getFrequencyLabel(
-                        watchedFrequency,
-                        watchedInterval || 1
-                      )}
-                    </span>
-                  </div>
+                <div className="mt-3 p-3 bg-white rounded border text-sm flex justify-between">
+                  <span>
+                    Every{" "}
+                    {getFrequencyLabel(watchedFrequency, watchedInterval || 1)}
+                  </span>
                   {nextInvoiceDate && (
-                    <div className="flex justify-between items-center mt-1">
-                      <span className="text-muted-foreground">
-                        Next invoice:
-                      </span>
-                      <span className="font-medium text-green-600">
-                        {format(nextInvoiceDate, "PPP")}
-                      </span>
-                    </div>
-                  )}
-                  {watchedEndDate && (
-                    <div className="flex justify-between items-center mt-1">
-                      <span className="text-muted-foreground">Ends:</span>
-                      <span className="font-medium text-orange-600">
-                        {format(watchedEndDate, "PPP")}
-                      </span>
-                    </div>
+                    <span className="text-green-600">
+                      Next: {format(nextInvoiceDate, "PPP")}
+                    </span>
                   )}
                 </div>
               )}
@@ -1000,162 +1119,153 @@ export default function InvoiceForm({
           )}
         </div>
 
-        {/* Items Section */}
+        {/* ITEMS SECTION */}
         <div className="bg-card border rounded-lg p-6">
           <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-lg font-semibold">Invoice Items</h3>
-              <p className="text-sm text-muted-foreground">
-                Add products or services to your invoice
-              </p>
-            </div>
+            <h3 className="text-lg font-semibold">Invoice Items</h3>
           </div>
 
-          {/* Items Header */}
           <div className="grid grid-cols-12 gap-3 mb-3 px-4 py-2 bg-muted/50 rounded-lg text-sm font-medium">
-            <div className="col-span-5">Item Description</div>
-            <div className="col-span-2 text-center">Qty</div>
-            <div className="col-span-2 text-right">Unit Price</div>
-            <div className="col-span-2 text-right">Tax %</div>
+            <div className="col-span-4">Description</div>
+            <div className="col-span-1 text-center">Qty</div>
+            <div className="col-span-1 text-right">Price</div>
+            <div className="col-span-2 text-center">Discount</div>
+            <div className="col-span-1 text-center">Tax %</div>
+            <div className="col-span-2 text-right">Total</div>
             <div className="col-span-1"></div>
           </div>
 
-          {/* Items List */}
           <div className="space-y-3">
             {form.watch("items").map((item, index) => (
               <div
                 key={index}
                 className="grid grid-cols-12 gap-3 items-center p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
               >
-                {/* Product Selection & Description */}
-                <div className="col-span-5 space-y-2">
-                  <Combobox
-                    options={productsOptions}
-                    value={(item as any).shopProductId || ""}
-                    onChange={(value) => handleProductSelect(index, value)}
-                    isLoading={isLoadingProducts}
-                    placeholder="Select product"
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`items.${index}.description`}
-                    render={({ field }) => (
-                      <FormItem className="mb-0">
-                        <FormControl>
-                          <Input
-                            placeholder="Or enter custom description"
-                            {...field}
-                            onBlur={(e) => {
-                              field.onBlur();
-                              handleManualItemChange(index);
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                {/* Description Search */}
+                <div className="col-span-4">
+                  <SearchableItemInput
+                    index={index}
+                    searchTerm={searchInputs[index] || ""}
+                    searchableItems={searchableItems}
+                    showDropdown={showDropdown}
+                    onSearchChange={handleSearchInputChange}
+                    onFocus={(idx) => setShowDropdown(idx)}
+                    onBlur={() => setTimeout(() => setShowDropdown(null), 200)}
+                    onSelect={handleItemSelect}
                   />
                 </div>
 
                 {/* Quantity */}
-                <FormField
-                  control={form.control}
-                  name={`items.${index}.quantity`}
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="1"
-                          step="1"
-                          className="text-center"
-                          value={field.value}
-                          onChange={(e) => {
-                            const value = parseFloat(e.target.value);
-                            const finalValue = isNaN(value) ? 1 : value;
-                            field.onChange(finalValue);
-                            handleQuantityChange(index, finalValue);
-                          }}
-                          onBlur={field.onBlur}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="col-span-1">
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="1"
+                      className="text-center"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 1;
+                        handleQuantityChange(index, val);
+                      }}
+                    />
+                  </FormControl>
+                </div>
 
-                {/* Unit Price */}
-                <FormField
-                  control={form.control}
-                  name={`items.${index}.unitPrice`}
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          className="text-right"
-                          value={field.value}
-                          onChange={(e) => {
-                            const value =
-                              e.target.valueAsNumber ||
-                              parseFloat(e.target.value) ||
-                              0;
-                            field.onChange(value);
-                            handleUnitPriceChange(index, value);
-                          }}
-                          onBlur={field.onBlur}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                {/* Price */}
+                <div className="col-span-1">
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      className="text-right"
+                      value={item.unitPrice}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        handleUnitPriceChange(index, val);
+                      }}
+                    />
+                  </FormControl>
+                </div>
+
+                {/* Discount */}
+                <div className="col-span-2 space-y-1">
+                  <Select
+                    value={item.itemDiscountType || ""}
+                    onValueChange={(val: "AMOUNT" | "PERCENTAGE") => {
+                      form.setValue(`items.${index}.itemDiscountType`, val);
+                      calculateTotals();
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="AMOUNT">R</SelectItem>
+                      <SelectItem value="PERCENTAGE">%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {item.itemDiscountType && (
+                    <Input
+                      type="number"
+                      min="0"
+                      placeholder="0.00"
+                      className="h-8 text-center text-xs"
+                      value={item.itemDiscountAmount || ""}
+                      onChange={(e) => {
+                        form.setValue(
+                          `items.${index}.itemDiscountAmount`,
+                          parseFloat(e.target.value) || 0
+                        );
+                        calculateTotals();
+                      }}
+                    />
                   )}
-                />
+                </div>
 
                 {/* Tax Rate */}
-                <FormField
-                  control={form.control}
-                  name={`items.${index}.taxRate`}
-                  render={({ field }) => (
-                    <FormItem className="col-span-2">
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          className="text-right"
-                          value={field.value || ""}
-                          onChange={(e) => {
-                            const value =
-                              e.target.value === ""
-                                ? 0
-                                : parseFloat(e.target.value);
-                            field.onChange(value);
-                            handleTaxRateChange(index, value);
-                          }}
-                          onBlur={field.onBlur}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="col-span-1">
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.1"
+                      className="text-center"
+                      value={item.taxRate}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        handleTaxRateChange(index, val);
+                      }}
+                    />
+                  </FormControl>
+                </div>
 
-                {/* Remove Button */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="col-span-1"
-                  onClick={() => removeItem(index)}
-                  disabled={form.watch("items").length <= 1}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                {/* Row Total */}
+                <div className="col-span-2 text-right">
+                  <div className="text-sm font-medium">
+                    {formatCurrency(getRowNetTotal(index))}
+                  </div>
+                  {calculations.itemDiscounts[index] > 0 && (
+                    <div className="text-xs text-red-600">
+                      -{formatCurrency(calculations.itemDiscounts[index])}
+                    </div>
+                  )}
+                </div>
+
+                {/* Remove */}
+                <div className="col-span-1 flex justify-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeItem(index)}
+                    disabled={form.watch("items").length <= 1}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
 
-          {/* Add Item Button */}
           <div className="mt-4 flex justify-center">
             <Button
               type="button"
@@ -1163,20 +1273,18 @@ export default function InvoiceForm({
               onClick={addItem}
               className="border-dashed"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Item
+              <Plus className="h-4 w-4 mr-2" /> Add Item
             </Button>
           </div>
         </div>
 
-        {/* Discount, Deposit & Calculation Section */}
+        {/* Global Financials */}
         <div
           className={cn(
-            `grid grid-cols-1 lg:grid-cols-3 gap-6 `,
+            "grid grid-cols-1 gap-6",
             isRecurring ? "lg:grid-cols-2" : "lg:grid-cols-3"
           )}
         >
-          {/* Discount Section */}
           <div className="bg-card border rounded-lg p-6">
             <h4 className="font-semibold mb-4">Discount</h4>
             <div className="space-y-4">
@@ -1185,28 +1293,24 @@ export default function InvoiceForm({
                 name="discountType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Discount Type</FormLabel>
+                    <FormLabel>Type</FormLabel>
                     <Select
-                      onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
-                        field.onChange(value);
-                        handleDiscountChange(
-                          value,
-                          form.getValues("discountAmount") || 0
-                        );
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        calculateTotals();
                       }}
                       value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select discount type" />
+                          <SelectValue placeholder="Select" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="AMOUNT">Fixed Amount</SelectItem>
-                        <SelectItem value="PERCENTAGE">Percentage</SelectItem>
+                        <SelectItem value="AMOUNT">Fixed</SelectItem>
+                        <SelectItem value="PERCENTAGE">%</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -1216,62 +1320,18 @@ export default function InvoiceForm({
                   name="discountAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>
-                        Discount Amount{" "}
-                        {form.watch("discountType") === "PERCENTAGE"
-                          ? "(%)"
-                          : ""}
-                      </FormLabel>
+                      <FormLabel>Amount</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
                           min="0"
-                          step={
-                            form.watch("discountType") === "PERCENTAGE"
-                              ? "0.1"
-                              : "1.00"
-                          }
-                          placeholder={
-                            form.watch("discountType") === "PERCENTAGE"
-                              ? "0.00%"
-                              : "0.00"
-                          }
-                          value={field.value === undefined ? "" : field.value}
+                          {...field}
                           onChange={(e) => {
-                            const input = e.target.value;
-                            if (input === "") {
-                              field.onChange(undefined);
-                              handleDiscountChange(
-                                form.getValues("discountType"),
-                                0
-                              );
-                              return;
-                            }
-                            let value = parseFloat(input);
-                            if (isNaN(value)) {
-                              field.onChange(undefined);
-                              handleDiscountChange(
-                                form.getValues("discountType"),
-                                0
-                              );
-                              return;
-                            }
-                            if (
-                              form.watch("discountType") === "PERCENTAGE" &&
-                              value > 100
-                            ) {
-                              value = 100;
-                            }
-                            field.onChange(value);
-                            handleDiscountChange(
-                              form.getValues("discountType"),
-                              value
-                            );
+                            field.onChange(parseFloat(e.target.value));
+                            calculateTotals();
                           }}
-                          onBlur={field.onBlur}
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -1279,7 +1339,6 @@ export default function InvoiceForm({
             </div>
           </div>
 
-          {/* Deposit Section */}
           {!isRecurring && (
             <div className="bg-card border rounded-lg p-6">
               <h4 className="font-semibold mb-4">Deposit</h4>
@@ -1290,30 +1349,20 @@ export default function InvoiceForm({
                   render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                       <div className="space-y-0.5">
-                        <FormLabel className="text-base">
-                          Require Deposit
-                        </FormLabel>
-                        <div className="text-sm text-muted-foreground">
-                          Request a deposit payment from the client
-                        </div>
+                        <FormLabel>Require Deposit</FormLabel>
                       </div>
                       <FormControl>
                         <Switch
                           checked={field.value}
-                          onCheckedChange={(checked) => {
-                            field.onChange(checked);
-                            handleDepositChange(
-                              checked,
-                              form.getValues("depositType") || "PERCENTAGE",
-                              form.getValues("depositAmount") || 50
-                            );
+                          onCheckedChange={(val) => {
+                            field.onChange(val);
+                            calculateTotals();
                           }}
                         />
                       </FormControl>
                     </FormItem>
                   )}
                 />
-
                 {form.watch("depositRequired") && (
                   <>
                     <FormField
@@ -1321,105 +1370,44 @@ export default function InvoiceForm({
                       name="depositType"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Deposit Type</FormLabel>
+                          <FormLabel>Type</FormLabel>
                           <Select
-                            onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
-                              field.onChange(value);
-                              handleDepositChange(
-                                true,
-                                value,
-                                form.getValues("depositAmount") || 50
-                              );
+                            onValueChange={(val) => {
+                              field.onChange(val);
+                              calculateTotals();
                             }}
                             value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder="Select deposit type" />
+                                <SelectValue />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="AMOUNT">
-                                Fixed Amount
-                              </SelectItem>
-                              <SelectItem value="PERCENTAGE">
-                                Percentage
-                              </SelectItem>
+                              <SelectItem value="AMOUNT">Fixed</SelectItem>
+                              <SelectItem value="PERCENTAGE">%</SelectItem>
                             </SelectContent>
                           </Select>
-                          <FormMessage />
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name="depositAmount"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>
-                            Deposit Amount{" "}
-                            {form.watch("depositType") === "PERCENTAGE"
-                              ? "(%)"
-                              : ""}
-                          </FormLabel>
+                          <FormLabel>Amount</FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               min="0"
-                              step={
-                                form.watch("depositType") === "PERCENTAGE"
-                                  ? "1"
-                                  : "0.01"
-                              }
-                              placeholder={
-                                form.watch("depositType") === "PERCENTAGE"
-                                  ? "50"
-                                  : "0.00"
-                              }
-                              value={
-                                field.value === undefined ? "" : field.value
-                              }
+                              {...field}
                               onChange={(e) => {
-                                const input = e.target.value;
-                                if (input === "") {
-                                  field.onChange(undefined);
-                                  handleDepositChange(
-                                    true,
-                                    form.getValues("depositType") ||
-                                      "PERCENTAGE",
-                                    0
-                                  );
-                                  return;
-                                }
-                                let value = parseFloat(input);
-                                if (isNaN(value)) {
-                                  field.onChange(undefined);
-                                  handleDepositChange(
-                                    true,
-                                    form.getValues("depositType") ||
-                                      "PERCENTAGE",
-                                    0
-                                  );
-                                  return;
-                                }
-                                if (
-                                  form.watch("depositType") === "PERCENTAGE" &&
-                                  value > 100
-                                ) {
-                                  value = 100;
-                                }
-                                field.onChange(value);
-                                handleDepositChange(
-                                  true,
-                                  form.getValues("depositType") || "PERCENTAGE",
-                                  value
-                                );
+                                field.onChange(parseFloat(e.target.value));
+                                calculateTotals();
                               }}
-                              onBlur={field.onBlur}
                             />
                           </FormControl>
-                          <FormMessage />
                         </FormItem>
                       )}
                     />
@@ -1429,11 +1417,9 @@ export default function InvoiceForm({
             </div>
           )}
 
-          {/* Calculation Summary */}
           <div className="bg-card border rounded-lg p-6">
             <h4 className="font-semibold mb-4 flex items-center gap-2">
-              <Calculator className="h-4 w-4" />
-              Calculation Summary
+              <Calculator className="h-4 w-4" /> Summary
             </h4>
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
@@ -1442,111 +1428,77 @@ export default function InvoiceForm({
                   {formatCurrency(calculations.subtotal)}
                 </span>
               </div>
+              {calculations.discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-red-600">
+                  <span>Discount:</span>
+                  <span>-{formatCurrency(calculations.discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Taxable:</span>
+                <span>{formatCurrency(calculations.taxableAmount)}</span>
+              </div>
               <div className="flex justify-between text-sm">
                 <span>Tax:</span>
                 <span className="font-medium">
                   {formatCurrency(calculations.totalTax)}
                 </span>
               </div>
-              {calculations.discountAmount > 0 && (
-                <div className="flex justify-between text-sm text-red-600">
-                  <span>Discount:</span>
-                  <span className="font-medium">
-                    -{formatCurrency(calculations.discountAmount)}
-                  </span>
-                </div>
-              )}
               <div className="flex justify-between border-t pt-3 text-base font-semibold">
-                <span>Total Amount:</span>
+                <span>Total:</span>
                 <span className="text-primary">
                   {formatCurrency(calculations.totalAmount)}
                 </span>
               </div>
-
-              {/* Deposit Section */}
               {form.watch("depositRequired") &&
                 calculations.depositAmount > 0 && (
                   <>
                     <div className="flex justify-between text-sm text-green-600 border-t pt-3">
                       <span>Deposit:</span>
-                      <span className="font-medium">
-                        {formatCurrency(calculations.depositAmount)}
-                        {form.watch("depositType") === "PERCENTAGE" &&
-                          ` (${form.getValues("depositAmount")}%)`}
-                      </span>
+                      <span>{formatCurrency(calculations.depositAmount)}</span>
                     </div>
                     <div className="flex justify-between text-base font-semibold border-t pt-3">
-                      <span>Amount Due:</span>
+                      <span>Due:</span>
                       <span className="text-blue-600">
                         {formatCurrency(calculations.amountDue)}
                       </span>
                     </div>
                   </>
                 )}
-
-              {isRecurring && (
-                <div className="flex justify-between text-sm text-blue-600 border-t pt-2">
-                  <span>Recurring total:</span>
-                  <span className="font-medium">
-                    {formatCurrency(
-                      form.watch("depositRequired")
-                        ? calculations.amountDue
-                        : calculations.totalAmount
-                    )}{" "}
-                    /{" "}
-                    {getFrequencyLabel(
-                      watchedFrequency || "MONTHLY",
-                      watchedInterval || 1
-                    )}
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </div>
 
-        {/* Terms and Notes */}
+        {/* Rich Text Editors */}
         <div className="bg-card border rounded-lg p-6">
           <h4 className="font-semibold mb-4">Additional Information</h4>
-          <div className="space-y-4">
-            <FormField
-              control={form.control}
-              name="paymentTerms"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Terms</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Payment terms and conditions..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Additional notes or instructions..."
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+              <FormItem>
+                <FormLabel>Payment Terms</FormLabel>
+                <FormControl>
+                  <Editor
+                    placeholder="Terms..."
+                    value={form.watch("paymentTerms") || ""}
+                    onChange={(val) => form.setValue("paymentTerms", val)}
+                  />
+                </FormControl>
+              </FormItem>
+              <FormItem>
+                <FormLabel>Notes</FormLabel>
+                <FormControl>
+                  <Editor
+                    placeholder="Notes..."
+                    value={form.watch("notes") || ""}
+                    onChange={(val) => form.setValue("notes", val)}
+                  />
+                </FormControl>
+              </FormItem>
+            </div>
           </div>
         </div>
 
-        {/* Form Actions */}
+        {/* Actions */}
         <div className="flex justify-end gap-4 pt-6 border-t">
           <Button
             type="button"
@@ -1559,13 +1511,9 @@ export default function InvoiceForm({
           </Button>
           <Button type="submit" disabled={isSubmitting} className="min-w-32">
             {isSubmitting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                {type === "create" ? "Creating..." : "Updating..."}
-                {isRecurring && " Recurring..."}
-              </>
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              `${type === "create" ? "Create" : "Update"} Invoice${isRecurring ? " (Recurring)" : ""}`
+              `${type === "create" ? "Create" : "Update"} Invoice`
             )}
           </Button>
         </div>

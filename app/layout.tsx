@@ -28,7 +28,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className} suppressHydrationWarning>
-        <ClerkProvider>
+        <ClerkProvider
+          appearance={{
+            baseTheme: undefined,
+          }}
+        >
           <NextThemesProvider
             attribute="class"
             defaultTheme="system"

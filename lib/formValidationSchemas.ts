@@ -4,6 +4,7 @@ import {
   CategoryType,
   ClientStatus,
   ClientType,
+  DepositType,
   DiscountType,
   EmployeeStatus,
   InvoicePaymentStatus,
@@ -447,6 +448,12 @@ const payrollSchema = z.object({
 
 export type PayrollSchemaType = z.infer<typeof payrollSchema>;
 
+const dateStringSchema = z
+  .string()
+  .datetime()
+  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}/))
+  .transform((str) => new Date(str));
+
 export const InvoiceSchema = z.object({
   clientId: z.string().min(1, "Client is required"),
   project: z.string().optional(),
@@ -455,22 +462,30 @@ export const InvoiceSchema = z.object({
   status: z.nativeEnum(InvoiceStatus),
   description: z.string().optional(),
   currency: z.string().default("ZAR"),
-  items: z.array(
-    z.object({
-      description: z.string().min(1, "Description is required"),
-      quantity: z
-        .union([z.number(), z.string()])
-        .transform((val) => Number(val)),
-      unitPrice: z
-        .union([z.number(), z.string()])
-        .transform((val) => Number(val)),
-      taxRate: z
-        .union([z.number(), z.string()])
-        .transform((val) => Number(val))
-        .optional(),
-      shopProductId: z.string().nullable().optional(),
-    })
-  ),
+
+  items: z
+    .array(
+      z.object({
+        description: z.string().min(1, "Description is required"),
+        quantity: z
+          .union([z.number(), z.string()])
+          .transform((val) => Number(val)),
+        unitPrice: z
+          .union([z.number(), z.string()])
+          .transform((val) => Number(val)),
+        taxRate: z
+          .union([z.number(), z.string()])
+          .transform((val) => Number(val))
+          .optional(),
+        shopProductId: z.string().optional().nullable(),
+        serviceId: z.string().optional().nullable(),
+        itemDiscountType: z.nativeEnum(DiscountType).optional().nullable(),
+        itemDiscountAmount: z.number().optional().nullable(),
+      })
+    )
+    .min(1, "At least one item is required"),
+
+  // Financials
   discountType: z.nativeEnum(DiscountType).optional(),
   discountAmount: z
     .union([z.number(), z.string()])
@@ -480,16 +495,64 @@ export const InvoiceSchema = z.object({
     .union([z.number(), z.string()])
     .transform((val) => Number(val))
     .optional(),
+
+  // Deposit (FIXED: Added missing fields)
+  depositRequired: z.boolean().default(false),
+  depositType: z.nativeEnum(DepositType).optional(),
+  depositAmount: z
+    .union([z.number(), z.string()])
+    .transform((val) => Number(val))
+    .optional(),
+
+  // Meta
   paymentTerms: z.string().optional(),
   notes: z.string().optional(),
+
+  // Recurring Options (for the toggle in the main form)
   isRecurring: z.boolean().default(false),
   frequency: z.nativeEnum(RecurringFrequency).optional(),
   interval: z.number().min(1).max(365).default(1).optional(),
   endDate: z.date().optional().nullable(),
-  depositRequired: z.boolean().default(false),
-  depositType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
-  depositAmount: z.number().min(0).optional(),
 });
+
+export const RecurringInvoiceSchema = z.object({
+  clientId: z.string().min(1, "Client is required"),
+  description: z.string().optional(),
+  frequency: z.nativeEnum(RecurringFrequency),
+  interval: z.number().min(1).max(365).default(1),
+  startDate: dateStringSchema,
+  endDate: dateStringSchema.optional().nullable(),
+
+  items: z
+    .array(
+      z.object({
+        description: z.string().min(1, "Description is required"),
+        quantity: z.number().min(0.01, "Quantity must be greater than 0"),
+        unitPrice: z.number().min(0, "Unit price must be positive"),
+        taxRate: z.number().min(0).max(100).default(0),
+        shopProductId: z.string().optional().nullable(),
+        serviceId: z.string().optional().nullable(),
+        itemDiscountType: z.nativeEnum(DiscountType).optional().nullable(),
+        itemDiscountAmount: z.number().optional().nullable(),
+      })
+    )
+    .min(1, "At least one item is required"),
+
+  currency: z.string().default("ZAR"),
+
+  discountType: z.nativeEnum(DiscountType).optional(),
+  discountAmount: z.number().min(0).optional(),
+
+  // Deposit (FIXED: Added missing fields to Recurring Schema)
+  depositRequired: z.boolean().default(false),
+  depositType: z.nativeEnum(DepositType).optional(),
+  depositAmount: z.number().optional(),
+
+  paymentTerms: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export type RecurringInvoiceFormData = z.infer<typeof RecurringInvoiceSchema>;
 
 export const invoicePaymentSchema = z.object({
   invoiceId: z.string().min(1, "Invoice is required"),
@@ -515,46 +578,15 @@ export const invoicePaymentSchema = z.object({
 
 export type InvoicePaymentSchemaType = z.infer<typeof invoicePaymentSchema>;
 
-// Helper function to handle date strings
-const dateStringSchema = z
-  .string()
-  .datetime()
-  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}/))
-  .transform((str) => new Date(str));
-
-export const RecurringInvoiceSchema = z.object({
-  clientId: z.string().min(1, "Client is required"),
-  description: z.string().optional(),
-  frequency: z.enum(["DAILY", "WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY"]),
-  interval: z.number().min(1).max(365).default(1),
-  startDate: dateStringSchema,
-  endDate: dateStringSchema.optional().nullable(),
-  items: z
-    .array(
-      z.object({
-        description: z.string().min(1, "Description is required"),
-        quantity: z.number().min(0.01, "Quantity must be greater than 0"),
-        unitPrice: z.number().min(0, "Unit price must be positive"),
-        taxRate: z.number().min(0).max(100).default(0),
-        shopProductId: z.string().optional().nullable(),
-      })
-    )
-    .min(1, "At least one item is required"),
-  currency: z.string().default("ZAR"),
-  discountType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
-  discountAmount: z.number().min(0).optional(),
-  paymentTerms: z.string().optional(),
-  notes: z.string().optional(),
-});
-
-export type RecurringInvoiceFormData = z.infer<typeof RecurringInvoiceSchema>;
-
 export const QuotationItemSchema = z.object({
   description: z.string().min(1, "Description is required"),
   quantity: z.number().min(0.01, "Quantity must be at least 0.01"),
   unitPrice: z.number().min(0, "Price must be positive"),
   taxRate: z.number().min(0).max(100).default(0),
   shopProductId: z.string().nullable().optional(),
+  serviceId: z.string().nullable().optional(),
+  itemDiscountType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
+  itemDiscountAmount: z.number().min(0).optional(),
 });
 
 export const QuotationSchema = z.object({

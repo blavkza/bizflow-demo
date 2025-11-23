@@ -94,8 +94,7 @@ body {
   }
 }
 
-@import "react-quill/dist/quill.snow.css";
-
+@import 'react-quill-new/dist/quill.snow.css';
 
 /* Custom scrollbar styling */
 .sidebar-content::-webkit-scrollbar {
