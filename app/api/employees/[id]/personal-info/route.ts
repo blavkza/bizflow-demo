@@ -84,15 +84,12 @@ export async function PUT(
       },
     });
 
-    // ---------------------------------------------------------
-    // 4. FIX & EXECUTE PUSH NOTIFICATION
-    // ---------------------------------------------------------
     await sendPushNotification({
       employeeId: updatedEmployee.id,
       title: "Profile Updated",
-      body: employeeMessage, // Use the concise message defined above
+      body: employeeMessage,
       data: {
-        url: `/dashboard/profile`, // Link to employee's profile
+        url: `/dashboard/profile`,
       },
     });
 
