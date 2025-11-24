@@ -40,6 +40,13 @@ export async function GET(
               take: 60,
             },
 
+            employeeNotification: {
+              orderBy: {
+                createdAt: "desc",
+              },
+              take: 60,
+            },
+
             // Tasks with full project and assignment details
             assignedTasks: {
               include: {
@@ -77,6 +84,7 @@ export async function GET(
                       },
                       take: 50,
                     },
+                    Expense: true,
                     tasks: {
                       include: {
                         assignees: true,
@@ -225,6 +233,7 @@ export async function GET(
                 timeEntries: true,
               },
             },
+            Expense: true,
             timeEntries: true,
             workLogs: true,
           },
@@ -255,6 +264,7 @@ export async function GET(
                     tool: true,
                   },
                 },
+                Expense: true,
                 tasks: {
                   include: {
                     assignees: true,
