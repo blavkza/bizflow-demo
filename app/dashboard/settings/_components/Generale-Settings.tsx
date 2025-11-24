@@ -103,7 +103,7 @@ export default function GeneralSettingsForm({
             city: settings.city,
             website: settings.website,
             paymentTerms: settings.paymentTerms,
-            note: settings.wenotebsite,
+            note: settings.note,
             bankAccount: settings.bankAccount,
             bankAccount2: settings.bankAccount2,
             bankName: settings.bankName,

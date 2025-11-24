@@ -36,6 +36,8 @@ export default function SettingsPage() {
   );
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  console.log(generalSettings);
+
   const router = useRouter();
   const { userId } = useAuth();
 
