@@ -222,7 +222,7 @@ export default function TabsSection({
                             </Badge>
                           </TableCell>
                           <TableCell>
-                            <Button
+                            {/*   <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleDownloadPayslip(payment.id)}
@@ -238,8 +238,8 @@ export default function TabsSection({
                                 : !companySettings
                                   ? "Unavailable"
                                   : "Download"}
-                            </Button>
-                            {companySettings && (
+                            </Button> */}
+                            {/*    {companySettings && (
                               <PayslipPDF
                                 ref={(el) =>
                                   (payslipRefs.current[payment.id] = el)
@@ -248,7 +248,7 @@ export default function TabsSection({
                                 payment={payment}
                                 companySettings={companySettings}
                               />
-                            )}
+                            )} */}
                           </TableCell>
                         </TableRow>
                       ))}

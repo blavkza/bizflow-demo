@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import EmployeeForm from "../../../employees/_components/employee-Form";
 import { useState } from "react";
-import { Employee } from "@prisma/client";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface EmployeesSectionProps {
   department: Department;
@@ -52,15 +52,19 @@ export default function EmployeesSection({
 }: EmployeesSectionProps) {
   const router = useRouter();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("employees");
+
+  const totalTeamMembers =
+    department.employees.length + department.freelancers.length;
 
   return (
     <TabsContent value="employees" className="space-y-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Department Employees</CardTitle>
+            <CardTitle>Team Members ({totalTeamMembers})</CardTitle>
             <CardDescription>
-              Manage employees in this department
+              Manage employees and freelancers in this department
             </CardDescription>
           </div>
           {(canCreateEmployees || hasFullAccess) && (
@@ -68,14 +72,15 @@ export default function EmployeesSection({
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Employee
+                  Add Team Member
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Add New Employee</DialogTitle>
+                  <DialogTitle>Add New Team Member</DialogTitle>
                   <DialogDescription>
-                    Enter the employee's information to add them to your team.
+                    Enter the team member's information to add them to your
+                    department.
                   </DialogDescription>
                 </DialogHeader>
                 <EmployeeForm
@@ -85,7 +90,7 @@ export default function EmployeesSection({
                   onSubmitSuccess={() => {
                     setIsAddDialogOpen(false);
                     router.refresh();
-                    fetchDepartment;
+                    fetchDepartment();
                   }}
                 />
               </DialogContent>
@@ -93,54 +98,155 @@ export default function EmployeesSection({
           )}
         </CardHeader>
         <CardContent>
-          {department.employees.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              No employees in this department.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Position</TableHead>
-                  <TableHead>Daily Rate</TableHead>
-                  <TableHead>Email</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {department.employees.map((employee) => (
-                  <TableRow
-                    key={employee.id}
-                    className="cursor-pointer "
-                    onClick={() =>
-                      (canViewEmployees || hasFullAccess) &&
-                      router.push(
-                        `/dashboard/human-resources/employees/${employee.id}`
-                      )
-                    }
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage
-                            src={employee.avatar || "/placeholder.svg"}
-                            alt={`${employee.firstName} ${employee.lastName}`}
-                          />
-                          <AvatarFallback>
-                            {`${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>{`${employee.firstName} ${employee.lastName}`}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{employee.position}</TableCell>
-                    <TableCell>R {employee.salary.toLocaleString()}</TableCell>
-                    <TableCell>{employee.email}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="employees">
+                Employees ({department.employees.length})
+              </TabsTrigger>
+              <TabsTrigger value="freelancers">
+                Freelancers ({department.freelancers.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Employees Tab */}
+            <TabsContent value="employees" className="space-y-4">
+              {department.employees.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  No employees in this department.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Salary</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Type</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {department.employees.map((employee) => (
+                      <TableRow
+                        key={employee.id}
+                        className="cursor-pointer"
+                        onClick={() =>
+                          (canViewEmployees || hasFullAccess) &&
+                          router.push(
+                            `/dashboard/human-resources/employees/${employee.id}`
+                          )
+                        }
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage
+                                src={employee.avatar || "/placeholder.svg"}
+                                alt={`${employee.firstName} ${employee.lastName}`}
+                              />
+                              <AvatarFallback>
+                                {`${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>{`${employee.firstName} ${employee.lastName}`}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{employee.position}</TableCell>
+                        <TableCell>
+                          R{" "}
+                          {employee.salaryType === "DAILY"
+                            ? employee.dailySalary.toLocaleString()
+                            : employee.monthlySalary.toLocaleString()}
+                        </TableCell>
+                        <TableCell>{employee.email}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Employee
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+
+            {/* Freelancers Tab */}
+            <TabsContent value="freelancers" className="space-y-4">
+              {department.freelancers.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  No freelancers in this department.
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Freelancer</TableHead>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Salary</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Type</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {department.freelancers.map((freelancer) => (
+                      <TableRow
+                        key={freelancer.id}
+                        className="cursor-pointer"
+                        onClick={() =>
+                          (canViewEmployees || hasFullAccess) &&
+                          router.push(
+                            `/dashboard/human-resources/freelancers/${freelancer.id}`
+                          )
+                        }
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar>
+                              <AvatarImage
+                                src={freelancer.avatar || "/placeholder.svg"}
+                                alt={`${freelancer.firstName} ${freelancer.lastName}`}
+                              />
+                              <AvatarFallback>
+                                {`${freelancer.firstName.charAt(0)}${freelancer.lastName.charAt(0)}`}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>{`${freelancer.firstName} ${freelancer.lastName}`}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{freelancer.position}</TableCell>
+                        <TableCell>
+                          R {freelancer.salary.toLocaleString()}
+                        </TableCell>
+                        <TableCell>{freelancer.email}</TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              freelancer.status === "ACTIVE"
+                                ? "bg-green-100 text-green-800"
+                                : "bg-gray-100 text-gray-800"
+                            }`}
+                          >
+                            {freelancer.status}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            Freelancer
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -163,25 +269,34 @@ export default function EmployeesSection({
             </div>
             <div className="h-6 w-px bg-border"></div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-              {department.employees
+              {[...department.employees, ...department.freelancers]
                 .filter(
-                  (emp) =>
+                  (member) =>
                     !department.manager ||
-                    `${emp.firstName} ${emp.lastName}` !==
+                    `${member.firstName} ${member.lastName}` !==
                       department.manager.name
                 )
                 .slice(0, 3)
-                .map((employee) => (
+                .map((member) => (
                   <div
-                    key={employee.id}
+                    key={member.id}
                     className="p-4 border rounded-lg text-center"
                   >
                     <p className="font-medium">
-                      {`${employee.firstName} ${employee.lastName}`}
+                      {`${member.firstName} ${member.lastName}`}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {employee.position}
+                      {member.position}
                     </p>
+                    <span
+                      className={`inline-block mt-1 px-2 py-1 rounded-full text-xs ${
+                        "salaryType" in member
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-purple-100 text-purple-800"
+                      }`}
+                    >
+                      {"salaryType" in member ? "Employee" : "Freelancer"}
+                    </span>
                   </div>
                 ))}
             </div>

@@ -39,7 +39,7 @@ export default function TabsSection({
             Overview
           </TabsTrigger>
           <TabsTrigger value="employees" className="flex items-center gap-2">
-            Employees
+            Workers
           </TabsTrigger>
           {/* <TabsTrigger value="budget" className="flex items-center gap-2">
             Budget
@@ -54,8 +54,6 @@ export default function TabsSection({
           fetchDepartment={fetchDepartment}
           departmentId={departmentId}
         />
-        {/*         <BudgetSection department={department} />
-         */}{" "}
       </Tabs>
     </div>
   );

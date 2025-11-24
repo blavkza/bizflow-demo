@@ -1,11 +1,4 @@
-// components/department/types.ts
-export interface BudgetItem {
-  id: string;
-  name: string;
-  allocated: number;
-  spent: number;
-}
-
+// types/department.ts
 export interface Department {
   id: string;
   name: string;
@@ -26,8 +19,20 @@ export interface Department {
     avatar: string | null;
     firstName: string;
     lastName: string;
+    dailySalary: number;
+    monthlySalary: number;
+    salaryType: string;
+    email: string;
+    position: string;
+  }[];
+  freelancers: {
+    id: string;
+    avatar: string | null;
+    firstName: string;
+    lastName: string;
     salary: number;
     email: string;
     position: string;
+    status: string;
   }[];
 }
