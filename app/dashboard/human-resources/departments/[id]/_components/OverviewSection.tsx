@@ -70,12 +70,12 @@ export default function OverviewSection({ department }: OverviewSectionProps) {
       ...department.employees.map((emp) => ({
         ...emp,
         type: "employee",
-        date: emp.createdAt,
+        date: emp.hireDate,
       })),
       ...department.freelancers.map((freelancer) => ({
         ...freelancer,
         type: "freelancer",
-        date: freelancer.createdAt,
+        date: freelancer.hireDate,
       })),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 

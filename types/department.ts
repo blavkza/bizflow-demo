@@ -24,6 +24,7 @@ export interface Department {
     salaryType: string;
     email: string;
     position: string;
+    hireDate: Date;
   }[];
   freelancers: {
     id: string;
@@ -34,5 +35,6 @@ export interface Department {
     email: string;
     position: string;
     status: string;
+    hireDate: Date;
   }[];
 }

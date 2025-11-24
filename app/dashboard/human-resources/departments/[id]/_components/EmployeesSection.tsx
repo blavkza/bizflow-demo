@@ -125,6 +125,7 @@ export default function EmployeesSection({
                       <TableHead>Employee</TableHead>
                       <TableHead>Position</TableHead>
                       <TableHead>Salary</TableHead>
+                      <TableHead>Salary Type</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Type</TableHead>
                     </TableRow>
@@ -159,8 +160,21 @@ export default function EmployeesSection({
                         <TableCell>
                           R{" "}
                           {employee.salaryType === "DAILY"
-                            ? employee.dailySalary.toLocaleString()
-                            : employee.monthlySalary.toLocaleString()}
+                            ? employee.dailySalary?.toLocaleString() || "0"
+                            : employee.monthlySalary?.toLocaleString() || "0"}
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              employee.salaryType === "DAILY"
+                                ? "bg-orange-100 text-orange-800"
+                                : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {employee.salaryType === "DAILY"
+                              ? "Daily"
+                              : "Monthly"}
+                          </span>
                         </TableCell>
                         <TableCell>{employee.email}</TableCell>
                         <TableCell>
@@ -188,6 +202,7 @@ export default function EmployeesSection({
                       <TableHead>Freelancer</TableHead>
                       <TableHead>Position</TableHead>
                       <TableHead>Salary</TableHead>
+                      <TableHead>Salary Type</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Type</TableHead>
@@ -221,7 +236,12 @@ export default function EmployeesSection({
                         </TableCell>
                         <TableCell>{freelancer.position}</TableCell>
                         <TableCell>
-                          R {freelancer.salary.toLocaleString()}
+                          R {freelancer.salary?.toLocaleString() || "0"}
+                        </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            Monthly
+                          </span>
                         </TableCell>
                         <TableCell>{freelancer.email}</TableCell>
                         <TableCell>
@@ -288,15 +308,28 @@ export default function EmployeesSection({
                     <p className="text-sm text-muted-foreground">
                       {member.position}
                     </p>
-                    <span
-                      className={`inline-block mt-1 px-2 py-1 rounded-full text-xs ${
-                        "salaryType" in member
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-purple-100 text-purple-800"
-                      }`}
-                    >
-                      {"salaryType" in member ? "Employee" : "Freelancer"}
-                    </span>
+                    <div className="flex flex-col gap-1 mt-2">
+                      <span
+                        className={`inline-block px-2 py-1 rounded-full text-xs ${
+                          "salaryType" in member
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-purple-100 text-purple-800"
+                        }`}
+                      >
+                        {"salaryType" in member ? "Employee" : "Freelancer"}
+                      </span>
+                      {"salaryType" in member && (
+                        <span
+                          className={`inline-block px-2 py-1 rounded-full text-xs ${
+                            member.salaryType === "DAILY"
+                              ? "bg-orange-100 text-orange-800"
+                              : "bg-green-100 text-green-800"
+                          }`}
+                        >
+                          {member.salaryType === "DAILY" ? "Daily" : "Monthly"}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
             </div>

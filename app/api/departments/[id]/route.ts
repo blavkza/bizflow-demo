@@ -40,6 +40,7 @@ export async function GET(
             dailySalary: true,
             monthlySalary: true,
             salaryType: true,
+            hireDate: true,
           },
         },
         freelancers: {
