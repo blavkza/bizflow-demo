@@ -1,58 +1,79 @@
 import { NextResponse } from "next/server";
 import db from "@/lib/db";
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ timeEntryId: string }> }
-) {
+export async function POST(req: Request) {
   try {
-    const { timeEntryId } = await params;
     const body = await req.json();
-    const { timeOut, image } = body;
+    const {
+      taskId,
+      projectId,
+      timeIn,
+      timeOut,
+      hours,
+      description,
+      date,
+      images,
+      userId,
+    } = body;
 
-    if (!timeEntryId) {
+    if (!userId) {
       return NextResponse.json(
-        { error: "Time Entry ID is required" },
+        { error: "User ID is required" },
         { status: 400 }
       );
     }
 
-    // 1. Fetch the existing entry to get the 'timeIn'
-    const existingEntry = await db.timeEntry.findUnique({
-      where: { id: timeEntryId },
-      select: { id: true, timeIn: true },
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
     });
 
-    if (!existingEntry) {
-      return NextResponse.json(
-        { error: "Time Entry not found" },
-        { status: 404 }
-      );
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // 2. Calculate Hours
-    const startTime = new Date(existingEntry.timeIn).getTime();
-    const endTime = new Date(timeOut).getTime();
-
-    // Prevent negative time if system clocks are out of sync
-    const durationMs = Math.max(0, endTime - startTime);
-    const hours = durationMs / (1000 * 60 * 60);
-
-    // 3. Update the entry
-    const updatedEntry = await db.timeEntry.update({
-      where: { id: timeEntryId },
-      data: {
-        timeOut: new Date(timeOut),
-        hours: Number(hours.toFixed(2)),
-        images: image ? { push: image } : undefined,
-      },
+    const task = await db.task.findUnique({
+      where: { id: taskId },
+      select: { id: true, status: true, title: true },
     });
 
-    return NextResponse.json(updatedEntry);
+    if (!task) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
+
+    const result = await db.$transaction(async (tx) => {
+      const timeEntry = await tx.timeEntry.create({
+        data: {
+          taskId,
+          projectId,
+          timeIn: new Date(timeIn),
+          timeOut: timeOut ? new Date(timeOut) : null,
+          hours,
+          description,
+          date: new Date(date),
+          userId: user.id,
+          images: images || [],
+        },
+      });
+
+      let taskUpdated = false;
+
+      if (task.status === "TODO") {
+        await tx.task.update({
+          where: { id: taskId },
+          data: { status: "IN_PROGRESS" },
+        });
+        taskUpdated = true;
+      }
+
+      return { timeEntry, taskUpdated };
+    });
+
+    return NextResponse.json(result.timeEntry);
   } catch (error) {
-    console.error("[TIME_ENTRY_STOP_ERROR]", error);
+    console.error("[TIME_ENTRY_CREATE_ERROR]", error);
     return NextResponse.json(
-      { error: "Failed to stop timer" },
+      { error: "Failed to create time entry" },
       { status: 500 }
     );
   }
