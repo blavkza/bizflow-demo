@@ -99,7 +99,7 @@ export function QuotationTable({
                   <div className="flex gap-1 justify-end">
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/dashboard/quotations/${quotation.id}`}>
-                        <Eye className="h-4 w-4" />
+                        view
                       </Link>
                     </Button>
                   </div>
