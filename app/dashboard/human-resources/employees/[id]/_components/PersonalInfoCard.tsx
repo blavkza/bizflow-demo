@@ -92,19 +92,18 @@ export function PersonalInfoCard({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Personal Information</CardTitle>
-        {hasFullAccess ||
-          (canEditEmployees && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsEditing(!isEditing)}
-              type="button"
-              disabled={isLoading}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              {isEditing ? "Cancel" : "Edit"}
-            </Button>
-          ))}
+        {(hasFullAccess || canEditEmployees) && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsEditing(!isEditing)}
+            type="button"
+            disabled={isLoading}
+          >
+            <Pencil className="mr-2 h-4 w-4" />
+            {isEditing ? "Cancel" : "Edit"}
+          </Button>
+        )}
       </CardHeader>
 
       <Form {...form}>

@@ -194,7 +194,7 @@ export class InvoiceReportGenerator {
               <div class="contact-info">${cContact}<br>${cPhone}<br>${cPhone2}<br>${cEmail}</div>
             </div>
             <div class="col-right">
-              <div class="quote-title-main">TAX INVOICE</div>
+              <div class="quote-title-main">INVOICE</div>
               <table class="details-table">
                 <tr><td class="label-cell">Invoice No.:</td><td class="value-cell">${invoice.invoiceNumber}</td></tr>
                 <tr><td class="label-cell">Date:</td><td class="value-cell">${issueDate}</td></tr>
