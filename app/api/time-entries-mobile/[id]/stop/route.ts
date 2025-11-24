@@ -3,11 +3,13 @@ import db from "@/lib/db";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { timeEntryId: string } }
+  { params }: { params: Promise<{ timeEntryId: string }> }
 ) {
   try {
     const { timeEntryId } = await params;
+
     const body = await request.json();
+
     const { timeOut, photoUrl } = body;
 
     if (!timeOut) {
@@ -17,7 +19,6 @@ export async function PATCH(
       );
     }
 
-    // Get the time entry with its related task information
     const existingEntry = await db.timeEntry.findUnique({
       where: { id: timeEntryId },
       include: {
@@ -47,9 +48,7 @@ export async function PATCH(
       updatedImages.push(photoUrl);
     }
 
-    // Update time entry and potentially the task status in a transaction
     const result = await db.$transaction(async (tx) => {
-      // Update the time entry
       const updatedEntry = await tx.timeEntry.update({
         where: { id: timeEntryId },
         data: {
@@ -59,25 +58,17 @@ export async function PATCH(
         },
       });
 
-      // If the parent task status is "todo", update it to "inprogress"
-      if (existingEntry?.task?.status === "TODO") {
-        await tx.task.update({
-          where: { id: existingEntry.task.id },
-          data: { status: "IN_PROGRESS" },
-        });
-      }
-
       return {
         updatedEntry,
-        taskUpdated: existingEntry?.task?.status === "TODO",
       };
     });
 
+    console.log("[STOP_TIMER] Success:", result.updatedEntry.id);
     return NextResponse.json(result.updatedEntry);
-  } catch (error) {
-    console.error("Error stopping timer:", error);
+  } catch (error: any) {
+    console.error("[TIME_ENTRY_STOP_ERROR]", error);
     return NextResponse.json(
-      { error: "Failed to stop timer" },
+      { error: `Failed to stop timer: ${error.message || "Unknown error"}` },
       { status: 500 }
     );
   }
