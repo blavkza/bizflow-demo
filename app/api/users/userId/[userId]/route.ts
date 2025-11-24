@@ -233,6 +233,8 @@ export async function GET(
                 timeEntries: true,
               },
             },
+            documents: true,
+
             Expense: true,
             timeEntries: true,
             workLogs: true,
@@ -271,6 +273,7 @@ export async function GET(
                     timeEntries: true,
                   },
                 },
+                documents: true,
                 timeEntries: true,
                 workLogs: true,
               },
