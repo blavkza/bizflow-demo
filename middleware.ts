@@ -15,7 +15,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/documents/(.*)",
   "/api/attendance/(.*)",
   "/api/work-logs",
-  "/api/comments-mobile/(.*)",
+  "/api/comments-mobile(.*)",
 ]);
 
 const allowedOrigins = [
