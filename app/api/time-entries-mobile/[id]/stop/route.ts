@@ -3,10 +3,10 @@ import db from "@/lib/db";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ timeEntryId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { timeEntryId } = await params;
+    const { id } = await params;
 
     const body = await request.json();
 
@@ -20,7 +20,7 @@ export async function PATCH(
     }
 
     const existingEntry = await db.timeEntry.findUnique({
-      where: { id: timeEntryId },
+      where: { id },
       include: {
         task: {
           select: {
@@ -50,7 +50,7 @@ export async function PATCH(
 
     const result = await db.$transaction(async (tx) => {
       const updatedEntry = await tx.timeEntry.update({
-        where: { id: timeEntryId },
+        where: { id },
         data: {
           timeOut: new Date(timeOut),
           hours: Math.max(0, Number(hours.toFixed(2))),
