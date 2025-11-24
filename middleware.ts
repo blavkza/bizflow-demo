@@ -11,7 +11,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/users/userId/(.*)",
   "/api/leaves",
   "/api/subtasksMobile/(.*)",
-  "/api/time-entries-mobile/(.*)",
+  "/api/time-entries-mobile(.*)",
   "/api/documents(.*)",
   "/api/attendance/(.*)",
   "/api/work-logs",
