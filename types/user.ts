@@ -20,6 +20,15 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
+    name: "Expenses",
+    permissions: [
+      UserPermission.Expanses_CREATE,
+      UserPermission.Expanses_EDIT,
+      UserPermission.Expanses_DELETE,
+      UserPermission.Expanses_VIEW,
+    ],
+  },
+  {
     name: "Users",
     permissions: [
       UserPermission.USERS_CREATE,
@@ -107,6 +116,15 @@ export const PERMISSION_GROUPS = [
       UserPermission.Product_EDIT,
       UserPermission.Product_DELETE,
       UserPermission.Product_VIEW,
+    ],
+  },
+  {
+    name: "Services",
+    permissions: [
+      UserPermission.Service_CREATE,
+      UserPermission.Service_EDIT,
+      UserPermission.Service_DELETE,
+      UserPermission.Service_VIEW,
     ],
   },
   {

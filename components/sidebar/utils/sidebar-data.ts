@@ -156,7 +156,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.PAYROLL_VIEW)
+          hasPermission(permissions, UserPermission.Expanses_VIEW)
             ? [
                 {
                   title: "Expenses",
@@ -167,7 +167,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.PAYROLL_VIEW)
+          hasPermission(permissions, UserPermission.Refund_VIEW)
             ? [
                 {
                   title: "Refunds",
@@ -254,7 +254,7 @@ export const getSidebarData = (
         title: "Business",
         items: [
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+          hasPermission(permissions, UserPermission.Service_VIEW)
             ? [
                 {
                   title: "Services",
@@ -265,7 +265,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+          hasPermission(permissions, UserPermission.Tool_VIEW)
             ? [
                 {
                   title: "Tools Management",
@@ -276,7 +276,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+          hasPermission(permissions, UserPermission.ToolRental_VIEW)
             ? [
                 {
                   title: "Tools Rentals",
@@ -287,7 +287,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+          hasPermission(permissions, UserPermission.Vender_VIEW)
             ? [
                 {
                   title: "Suppliers",
@@ -314,7 +314,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.EMPLOYEES_VIEW)
+          hasPermission(permissions, UserPermission.Freelancer_VIEW)
             ? [
                 {
                   title: "Freelancers",
@@ -347,7 +347,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.DEPARTMENT_VIEW)
+          hasPermission(permissions, UserPermission.Leave_VIEW)
             ? [
                 {
                   title: "Leaves",
@@ -380,7 +380,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.USERS_VIEW)
+          hasPermission(permissions, UserPermission.Perfomance_VIEW)
             ? [
                 {
                   title: "Performance",
