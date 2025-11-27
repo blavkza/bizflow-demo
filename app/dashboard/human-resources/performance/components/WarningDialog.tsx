@@ -27,6 +27,8 @@ interface WarningDialogProps {
   onGenerateWarning: (data: WarningFormData) => void;
   employeeId: string;
   employeeName: string;
+  canEditPerfomance: boolean;
+  hasFullAccess: boolean;
 }
 
 export default function WarningDialog({
@@ -35,6 +37,8 @@ export default function WarningDialog({
   onGenerateWarning,
   employeeId,
   employeeName,
+  canEditPerfomance,
+  hasFullAccess,
 }: WarningDialogProps) {
   const [formData, setFormData] = useState<WarningFormData>({
     type: "",

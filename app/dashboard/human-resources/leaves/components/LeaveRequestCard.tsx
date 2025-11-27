@@ -8,6 +8,8 @@ import { Calendar, Clock, CheckCircle, XCircle } from "lucide-react";
 import RejectLeaveDialog from "./RejectLeaveDialog";
 
 interface LeaveRequestCardProps {
+  canEditLeave: boolean;
+  hasFullAccess: boolean;
   request: LeaveRequest;
   onApprove: () => void;
   onReject: (comments: string) => Promise<boolean>;
@@ -17,6 +19,8 @@ export default function LeaveRequestCard({
   request,
   onApprove,
   onReject,
+  canEditLeave,
+  hasFullAccess,
 }: LeaveRequestCardProps) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
 
@@ -140,22 +144,24 @@ export default function LeaveRequestCard({
               </div>
             </div>
             {/* ALWAYS SHOW APPROVE/REJECT BUTTONS FOR PENDING REQUESTS */}
-            {request.status === "PENDING" && (
-              <div className="flex space-x-2">
-                <Button size="sm" onClick={onApprove}>
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Approve
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => setRejectDialogOpen(true)}
-                >
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Reject
-                </Button>
-              </div>
-            )}
+
+            {(canEditLeave || hasFullAccess) &&
+              request.status === "PENDING" && (
+                <div className="flex space-x-2">
+                  <Button size="sm" onClick={onApprove}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setRejectDialogOpen(true)}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Reject
+                  </Button>
+                </div>
+              )}
           </div>
         </CardContent>
       </Card>

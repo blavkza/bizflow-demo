@@ -24,6 +24,8 @@ interface WarningsTabProps {
   loading?: boolean;
   onResolveWarning: (warning: any, employee: Employee) => void;
   onRefresh?: () => void;
+  canEditPerfomance: boolean;
+  hasFullAccess: boolean;
 }
 
 export default function WarningsTab({
@@ -31,6 +33,8 @@ export default function WarningsTab({
   loading = false,
   onResolveWarning,
   onRefresh,
+  canEditPerfomance,
+  hasFullAccess,
 }: WarningsTabProps) {
   const [warningFilter, setWarningFilter] = useState<
     "all" | "active" | "resolved"
@@ -329,20 +333,21 @@ export default function WarningsTab({
                               </div>
                             )}
 
-                            {status === "ACTIVE" && (
-                              <div className="flex justify-end mt-3">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() =>
-                                    onResolveWarning(warning, employee)
-                                  }
-                                  className="text-green-600 border-green-600 hover:bg-green-50"
-                                >
-                                  Mark as Resolved
-                                </Button>
-                              </div>
-                            )}
+                            {(canEditPerfomance || hasFullAccess) &&
+                              status === "ACTIVE" && (
+                                <div className="flex justify-end mt-3">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() =>
+                                      onResolveWarning(warning, employee)
+                                    }
+                                    className="text-green-600 border-green-600 hover:bg-green-50"
+                                  >
+                                    Mark as Resolved
+                                  </Button>
+                                </div>
+                              )}
                           </div>
                         );
                       })}

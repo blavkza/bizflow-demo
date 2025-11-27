@@ -13,6 +13,8 @@ interface LeaveTabsProps {
   leaveBalances: LeaveBalances | null;
   employeeOptions: ComboboxOption[];
   currentUser: Employee | null;
+  canEditLeave: boolean;
+  hasFullAccess: boolean;
   onLeaveSubmit: (data: any) => Promise<boolean>;
   onLeaveStatusUpdate: (
     id: string,
@@ -24,6 +26,8 @@ interface LeaveTabsProps {
 export default function LeaveTabs({
   leaveRequests,
   leaveBalances,
+  canEditLeave,
+  hasFullAccess,
   employeeOptions,
   currentUser,
   onLeaveSubmit,
@@ -43,6 +47,8 @@ export default function LeaveTabs({
           currentUser={currentUser}
           onLeaveSubmit={onLeaveSubmit}
           onLeaveStatusUpdate={onLeaveStatusUpdate}
+          canEditLeave={canEditLeave}
+          hasFullAccess={hasFullAccess}
         />
       </TabsContent>
 

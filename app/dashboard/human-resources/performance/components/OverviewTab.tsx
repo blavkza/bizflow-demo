@@ -284,7 +284,7 @@ export default function OverviewTab({
                   {departmentStats.map((dept) => (
                     <div
                       key={dept.name}
-                      className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                      className="flex items-center justify-between p-2 bg-gray-50 dark:bg-zinc-600 rounded"
                     >
                       <span className="font-medium">{dept.name}</span>
                       <Badge variant="secondary">{dept.avgScore}%</Badge>

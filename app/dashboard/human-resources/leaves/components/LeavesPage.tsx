@@ -21,6 +21,22 @@ import {
 } from "@/components/ui/dialog";
 import LeaveRequestForm from "./LeaveRequestForm";
 import { toast } from "@/components/ui/use-toast";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
+import { useQuery } from "@tanstack/react-query";
+import { UserPermission, UserRole } from "@prisma/client";
+
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
 
 export default function LeavesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -29,14 +45,38 @@ export default function LeavesPage() {
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalances | null>(
     null
   );
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLeaveLoading, setIsLeaveLoading] = useState(true);
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false);
+
+  const router = useRouter();
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewLeave = data?.permissions?.includes(UserPermission.Leave_VIEW);
+
+  const canCreateLeave = data?.permissions?.includes(
+    UserPermission.Leave_CREATE
+  );
+
+  const canEditLeave = data?.permissions?.includes(UserPermission.Leave_EDIT);
 
   // Fetch all data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setIsLoading(true);
+        setIsLeaveLoading(true);
 
         // Fetch leave requests
         const leavesResponse = await fetch("/api/leaves");
@@ -54,7 +94,7 @@ export default function LeavesPage() {
           variant: "destructive",
         });
       } finally {
-        setIsLoading(false);
+        setIsLeaveLoading(false);
       }
     };
 
@@ -178,7 +218,7 @@ export default function LeavesPage() {
     }
   };
 
-  if (isLoading) {
+  if (isLeaveLoading || isLoading) {
     return (
       <div className="flex-1 space-y-4 p-4 pt-6">
         <div className="flex items-center justify-between">
@@ -205,27 +245,28 @@ export default function LeavesPage() {
           </p>
         </div>
 
-        {/* ALWAYS SHOW THE BUTTON - NO PERMISSION CHECK */}
-        <Dialog open={isNewLeaveOpen} onOpenChange={setIsNewLeaveOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Request Leave for Employee
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Request Leave for Employee</DialogTitle>
-              <DialogDescription>
-                Submit a leave request on behalf of an employee.
-              </DialogDescription>
-            </DialogHeader>
-            <LeaveRequestForm
-              onSubmit={handleSubmitLeave}
-              onCancel={() => setIsNewLeaveOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
+        {(canCreateLeave || hasFullAccess) && (
+          <Dialog open={isNewLeaveOpen} onOpenChange={setIsNewLeaveOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Request Leave for Employee
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Request Leave for Employee</DialogTitle>
+                <DialogDescription>
+                  Submit a leave request on behalf of an employee.
+                </DialogDescription>
+              </DialogHeader>
+              <LeaveRequestForm
+                onSubmit={handleSubmitLeave}
+                onCancel={() => setIsNewLeaveOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <LeaveStats leaveRequests={leaveRequests} />
@@ -236,6 +277,8 @@ export default function LeavesPage() {
         employeeOptions={employeeOptions}
         currentUser={currentUser}
         onLeaveSubmit={handleSubmitLeave}
+        canEditLeave={canEditLeave}
+        hasFullAccess={hasFullAccess}
         onLeaveStatusUpdate={handleUpdateLeaveStatus}
       />
     </div>

@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
 }
 
 // ------------------------------------------------------------------
-// FIXED CALCULATE FUNCTION (Handles SAST Timezone)
+// UPDATED CALCULATE FUNCTION (With Weekend Support - Fixed Type Issue)
 // ------------------------------------------------------------------
 async function calculateHoursAndStatus(
   person: any,
@@ -212,18 +212,35 @@ async function calculateHoursAndStatus(
   const actualHoursWorked =
     (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
-  if (person.scheduledKnockIn && person.scheduledKnockOut) {
+  // ---------------------------------------------------------
+  // DETERMINE IF WEEKDAY OR WEEKEND AND GET SCHEDULED TIME
+  // ---------------------------------------------------------
+  const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+  const todayDay = dayNames[checkInTime.getDay()];
+  const isWeekend = todayDay === "SAT" || todayDay === "SUN";
+
+  // Get the appropriate scheduled knock-in and knock-out times (handle undefined)
+  let scheduledKnockInTime: string | null = null;
+  let scheduledKnockOutTime: string | null = null;
+
+  if (isWeekend) {
+    scheduledKnockInTime =
+      person.scheduledWeekendKnockIn ?? person.scheduledKnockIn ?? null;
+    scheduledKnockOutTime =
+      person.scheduledWeekendKnockOut ?? person.scheduledKnockOut ?? null;
+  } else {
+    scheduledKnockInTime = person.scheduledKnockIn ?? null;
+    scheduledKnockOutTime = person.scheduledKnockOut ?? null;
+  }
+
+  if (scheduledKnockInTime && scheduledKnockOutTime) {
     // Parse time strings (e.g., "09:00" and "17:00")
-    const [startHours, startMinutes] = person.scheduledKnockIn
+    const [startHours, startMinutes] = scheduledKnockInTime
       .split(":")
       .map(Number);
-    const [endHours, endMinutes] = person.scheduledKnockOut
-      .split(":")
-      .map(Number);
+    const [endHours, endMinutes] = scheduledKnockOutTime.split(":").map(Number);
 
     // --- FIX: ADJUST FOR SOUTH AFRICA TIMEZONE (UTC+2) ---
-    // If schedule is 09:00 SAST, Server sees 07:00 UTC.
-    // We must subtract 2 hours from the scheduled hours so it matches the DB timestamps.
     const SAST_OFFSET = 2;
 
     // Create scheduled times based on check-in date
@@ -243,46 +260,90 @@ async function calculateHoursAndStatus(
       (scheduledEndTime.getTime() - scheduledStartTime.getTime()) /
       (1000 * 60 * 60);
 
-    // OVERTIME CALCULATION - ONLY if worked beyond scheduled end time
+    // Calculate overtime start time (scheduled end time + 1 hour)
+    const overtimeStartTime = new Date(scheduledEndTime);
+    overtimeStartTime.setHours(overtimeStartTime.getHours() + 1);
+
+    // OVERTIME CALCULATION - Count full hours beyond scheduled end time
     if (checkOutTime > scheduledEndTime) {
-      // Person worked overtime
-      regularHours = scheduledHours; // Full scheduled hours as regular
-      overtimeHours =
-        (checkOutTime.getTime() - scheduledEndTime.getTime()) /
-        (1000 * 60 * 60);
-      overtimeHours = Math.max(overtimeHours, 0);
+      // Person worked beyond scheduled end time
 
-      // Status remains PRESENT/LATE (worked full schedule + overtime)
-      newStatus = currentStatus;
-      workedPercentage = 100; // Worked 100% of scheduled time + overtime
+      if (checkOutTime >= overtimeStartTime) {
+        // Person worked beyond the 1-hour mark - count full overtime from scheduled end time
+        regularHours = scheduledHours; // Full scheduled hours as regular
 
-      console.log(
-        `Overtime Scenario: Scheduled=${scheduledHours.toFixed(2)}h, Regular=${regularHours.toFixed(2)}h, Overtime=${overtimeHours.toFixed(2)}h, Status=${newStatus}`
-      );
+        // Overtime counts from scheduledEndTime, not overtimeStartTime
+        overtimeHours =
+          (checkOutTime.getTime() - scheduledEndTime.getTime()) /
+          (1000 * 60 * 60);
+        overtimeHours = Math.max(overtimeHours, 0);
+
+        // Status remains PRESENT/LATE (worked full schedule + overtime)
+        newStatus = currentStatus;
+        workedPercentage = 100;
+
+        console.log(
+          `Overtime Scenario [${isWeekend ? "WEEKEND" : "WEEKDAY"}]: Scheduled=${scheduledHours.toFixed(2)}h, Regular=${regularHours.toFixed(2)}h, Overtime=${overtimeHours.toFixed(2)}h, Status=${newStatus}`
+        );
+        console.log(
+          `Schedule Used: ${scheduledKnockInTime} - ${scheduledKnockOutTime}`
+        );
+        console.log(
+          `Overtime Details: Scheduled End=${scheduledEndTime.toISOString()}, Checkout=${checkOutTime.toISOString()}, Overtime Hours=${overtimeHours.toFixed(2)}`
+        );
+      } else {
+        // Person worked beyond scheduled end time but less than 1 hour
+        // Count all as regular hours, no overtime
+        regularHours = actualHoursWorked;
+        overtimeHours = 0;
+
+        // Calculate worked percentage for status determination
+        workedPercentage = (actualHoursWorked / scheduledHours) * 100;
+
+        // Apply status logic
+        if (workedPercentage >= 50 && workedPercentage < 90) {
+          newStatus = AttendanceStatus.HALF_DAY;
+        } else if (workedPercentage < 50) {
+          newStatus = AttendanceStatus.ABSENT;
+        } else {
+          newStatus = currentStatus;
+        }
+
+        console.log(
+          `Extended Regular Hours [${isWeekend ? "WEEKEND" : "WEEKDAY"}]: Worked beyond schedule but less than 1 hour overtime`
+        );
+        console.log(
+          `Schedule Used: ${scheduledKnockInTime} - ${scheduledKnockOutTime}`
+        );
+        console.log(
+          `Regular Scenario: Scheduled=${scheduledHours.toFixed(2)}h, Worked=${actualHoursWorked.toFixed(2)}h, Percentage=${workedPercentage.toFixed(1)}%, Regular=${regularHours.toFixed(2)}h, Status=${newStatus}`
+        );
+      }
     } else {
-      // Person checked out BEFORE or AT scheduled end time - NO OVERTIME
+      // Person checked out AT or BEFORE scheduled end time - NO OVERTIME
       overtimeHours = 0;
+      regularHours = actualHoursWorked;
 
       // Calculate worked percentage based on actual hours vs scheduled hours
       workedPercentage = (actualHoursWorked / scheduledHours) * 100;
 
-      // Smart status change logic (only for persons who didn't work overtime)
+      // Smart status change logic
       if (workedPercentage >= 50 && workedPercentage < 90) {
         // Worked 50% to 90% → Change to HALF_DAY
         newStatus = AttendanceStatus.HALF_DAY;
-        regularHours = actualHoursWorked;
       } else if (workedPercentage < 50) {
         // Worked less than 50% → Change to ABSENT
         newStatus = AttendanceStatus.ABSENT;
-        regularHours = actualHoursWorked;
       } else {
         // Worked 90% to 100% → Keep original status (PRESENT/LATE)
         newStatus = currentStatus;
-        regularHours = actualHoursWorked;
       }
 
       console.log(
-        `Regular Scenario: Scheduled=${scheduledHours.toFixed(2)}h, Worked=${actualHoursWorked.toFixed(2)}h, Percentage=${workedPercentage.toFixed(1)}%, Regular=${regularHours.toFixed(2)}h, Status=${newStatus}`
+        `Regular Scenario [${isWeekend ? "WEEKEND" : "WEEKDAY"}]: Scheduled=${scheduledHours.toFixed(2)}h, Worked=${actualHoursWorked.toFixed(2)}h, Percentage=${workedPercentage.toFixed(1)}%, Regular=${regularHours.toFixed(2)}h, Status=${newStatus}`
+      );
+      console.log(
+        `Schedule Used: ${scheduledKnockInTime} - ${scheduledKnockOutTime}`
       );
     }
   } else {
@@ -292,21 +353,19 @@ async function calculateHoursAndStatus(
 
     // NO OVERTIME in default calculation
     overtimeHours = 0;
+    regularHours = actualHoursWorked;
 
     // Apply the same logic for default schedule
     if (workedPercentage >= 50 && workedPercentage < 90) {
       newStatus = AttendanceStatus.HALF_DAY;
-      regularHours = actualHoursWorked;
     } else if (workedPercentage < 50) {
       newStatus = AttendanceStatus.ABSENT;
-      regularHours = actualHoursWorked;
     } else {
       newStatus = currentStatus;
-      regularHours = actualHoursWorked;
     }
 
     console.log(
-      `Default Schedule: Worked=${actualHoursWorked.toFixed(2)}h, Percentage=${workedPercentage.toFixed(1)}%, Regular=${regularHours.toFixed(2)}h, Status=${newStatus}`
+      `Default Schedule [${isWeekend ? "WEEKEND" : "WEEKDAY"}]: Worked=${actualHoursWorked.toFixed(2)}h, Percentage=${workedPercentage.toFixed(1)}%, Regular=${regularHours.toFixed(2)}h, Status=${newStatus}`
     );
   }
 
@@ -318,10 +377,9 @@ async function calculateHoursAndStatus(
 }
 
 // ------------------------------------------------------------------
-// HELPERS
+// HELPERS (Updated with proper null handling)
 // ------------------------------------------------------------------
 
-// Add this helper function to your file (updating the existing one)
 async function checkAndCreateAbsentWarning(
   employeeId: string,
   currentTime: Date,
@@ -461,6 +519,8 @@ async function checkAndCreateAbsentRecords(
           select: {
             scheduledKnockIn: true,
             scheduledKnockOut: true,
+            scheduledWeekendKnockIn: true,
+            scheduledWeekendKnockOut: true,
           },
         },
       },
@@ -470,14 +530,34 @@ async function checkAndCreateAbsentRecords(
 
     // Check if any employee worked more than 50%
     for (const record of employeesWorkedOver50) {
-      if (
-        record.employee?.scheduledKnockIn &&
-        record.employee?.scheduledKnockOut
-      ) {
-        const [startHours, startMinutes] = record.employee.scheduledKnockIn
+      // Determine if it was weekend for this record
+      const recordDay = new Date(record.date);
+      const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+      const recordDayName = dayNames[recordDay.getDay()];
+      const isWeekend = recordDayName === "SAT" || recordDayName === "SUN";
+
+      let scheduledKnockInTime: string | null = null;
+      let scheduledKnockOutTime: string | null = null;
+
+      if (isWeekend) {
+        scheduledKnockInTime =
+          record.employee?.scheduledWeekendKnockIn ??
+          record.employee?.scheduledKnockIn ??
+          null;
+        scheduledKnockOutTime =
+          record.employee?.scheduledWeekendKnockOut ??
+          record.employee?.scheduledKnockOut ??
+          null;
+      } else {
+        scheduledKnockInTime = record.employee?.scheduledKnockIn ?? null;
+        scheduledKnockOutTime = record.employee?.scheduledKnockOut ?? null;
+      }
+
+      if (scheduledKnockInTime && scheduledKnockOutTime) {
+        const [startHours, startMinutes] = scheduledKnockInTime
           .split(":")
           .map(Number);
-        const [endHours, endMinutes] = record.employee.scheduledKnockOut
+        const [endHours, endMinutes] = scheduledKnockOutTime
           .split(":")
           .map(Number);
 
@@ -592,13 +672,33 @@ async function createAbsentRecords() {
           continue;
         }
 
+        // Determine if weekend for schedule selection
+        const isWeekend = todayDay === "SAT" || todayDay === "SUN";
+        let scheduledKnockInTime: string | null = null;
+        let scheduledKnockOutTime: string | null = null;
+
+        if (isWeekend) {
+          scheduledKnockInTime =
+            employee.scheduledWeekendKnockIn ??
+            employee.scheduledKnockIn ??
+            null;
+          scheduledKnockOutTime =
+            employee.scheduledWeekendKnockOut ??
+            employee.scheduledKnockOut ??
+            null;
+        } else {
+          scheduledKnockInTime = employee.scheduledKnockIn ?? null;
+          scheduledKnockOutTime = employee.scheduledKnockOut ?? null;
+        }
+
         const attendanceRecord = await db.attendanceRecord.create({
           data: {
             employeeId: employee.id,
             date: today,
             status: AttendanceStatus.ABSENT,
-            scheduledKnockIn: employee.scheduledKnockIn,
-            scheduledKnockOut: employee.scheduledKnockOut,
+            scheduledKnockIn: scheduledKnockInTime,
+            scheduledKnockOut: scheduledKnockOutTime,
+            isWeekend: isWeekend,
             notes: "Auto-created: Absent - No check-in recorded",
           },
         });
@@ -607,10 +707,11 @@ async function createAbsentRecords() {
           id: attendanceRecord.id,
           employee: `${employee.firstName} ${employee.lastName}`,
           status: attendanceRecord.status,
+          isWeekend: isWeekend,
         });
 
         console.log(
-          `Auto-attendance: Created absent record for EMPLOYEE ${employee.firstName} ${employee.lastName}`
+          `Auto-attendance: Created absent record for EMPLOYEE ${employee.firstName} ${employee.lastName} (${isWeekend ? "WEEKEND" : "WEEKDAY"})`
         );
 
         const warning = await checkAndCreateAbsentWarning(

@@ -31,6 +31,8 @@ interface IndividualPerformanceTabProps {
   loading?: boolean;
   onGenerateWarning: (employee: Employee) => void;
   onRefresh?: () => void;
+  canCreatePerfomance: boolean;
+  hasFullAccess: boolean;
 }
 
 export default function IndividualPerformanceTab({
@@ -38,6 +40,8 @@ export default function IndividualPerformanceTab({
   loading = false,
   onGenerateWarning,
   onRefresh,
+  canCreatePerfomance,
+  hasFullAccess,
 }: IndividualPerformanceTabProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -284,17 +288,18 @@ TOTAL: ${total} / 100`;
                     {employee.status}
                   </Badge>
 
-                  {employee.currentPoints < 70 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onGenerateWarning(employee)}
-                      className="text-red-600 border-red-600 hover:bg-red-50"
-                    >
-                      <AlertTriangle className="h-4 w-4 mr-2" />
-                      Generate Warning
-                    </Button>
-                  )}
+                  {(canCreatePerfomance || hasFullAccess) &&
+                    employee.currentPoints < 70 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onGenerateWarning(employee)}
+                        className="text-red-600 border-red-600 hover:bg-red-50"
+                      >
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Generate Warning
+                      </Button>
+                    )}
                 </div>
               </div>
             </CardHeader>

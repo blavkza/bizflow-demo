@@ -67,7 +67,7 @@ export default function FreelancersPage() {
     : false;
 
   const canViewFreelancers = data?.permissions?.includes(
-    UserPermission.EMPLOYEES_VIEW
+    UserPermission.Freelancer_VIEW
   );
 
   const canCreateFreelancers = data?.permissions?.includes(

@@ -437,13 +437,13 @@ export default function UserForm({
 
           {/* Show selected employee info */}
           {selectedEmployee && selectedEmployeeId !== "no-employee" && (
-            <div className="md:col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="md:col-span-2 p-3 bg-blue-50 dark:bg-zinc-600 border border-blue-200  rounded-lg">
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-medium text-blue-900">
+                  <h4 className="font-medium text-blue-900 dark:text-zinc-300">
                     Selected Employee:
                   </h4>
-                  <p className="text-sm text-blue-800">
+                  <p className="text-sm text-blue-800 dark:text-zinc-300">
                     <strong>Name:</strong> {selectedEmployee.firstName}{" "}
                     {selectedEmployee.lastName}
                     <br />
@@ -465,12 +465,12 @@ export default function UserForm({
                   variant="outline"
                   size="sm"
                   onClick={fillFromEmployee}
-                  className="bg-white hover:bg-blue-100"
+                  className="bg-white dark:bg-zinc-600  hover:bg-blue-100 dark:hover:bg-zinc-400"
                 >
                   Fill User Details
                 </Button>
               </div>
-              <p className="text-xs text-blue-700 mt-2">
+              <p className="text-xs text-blue-700 dark:text-white mt-2">
                 User details will be automatically filled when fields are empty,
                 or click "Fill User Details" to manually fill all fields.
               </p>

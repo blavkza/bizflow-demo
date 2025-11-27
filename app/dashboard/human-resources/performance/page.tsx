@@ -20,6 +20,8 @@ import {
 } from "./components";
 import { Employee, WarningFormData, UnifiedPerformanceData } from "./types";
 import { toast } from "sonner";
+import { useAuth } from "@clerk/nextjs";
+import { UserPermission, UserRole } from "@prisma/client";
 
 // Define the unified data structure
 interface UnifiedPerformanceResponse {
@@ -51,6 +53,18 @@ const fetchPerformanceData = async (
   return response.json();
 };
 
+async function fetchUserData(userId: string) {
+  const response = await fetch(`/api/users/userId/${userId}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch user data");
+  }
+  return response.json();
+}
+
+const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
+  return requiredRoles.includes(role as UserRole);
+};
+
 export default function EmployeePerformancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState("6months");
   const [isWarningDialogOpen, setIsWarningDialogOpen] = useState(false);
@@ -70,6 +84,33 @@ export default function EmployeePerformancePage() {
     refetchInterval: 30000, // Refetch every 30 seconds
     staleTime: 10000, // Consider data fresh for 10 seconds
   });
+
+  const { userId } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["user", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: !!userId,
+    refetchInterval: 30000,
+  });
+
+  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+
+  const hasFullAccess = data?.role
+    ? hasRole(data?.role, fullAccessRoles)
+    : false;
+
+  const canViewPerfomance = data?.permissions?.includes(
+    UserPermission.Perfomance_VIEW
+  );
+
+  const canCreatePerfomance = data?.permissions?.includes(
+    UserPermission.Perfomance_CREATE
+  );
+
+  const canEditPerfomance = data?.permissions?.includes(
+    UserPermission.Perfomance_EDIT
+  );
 
   const handleGenerateWarning = (employee: Employee) => {
     setSelectedEmployee(employee);
@@ -233,6 +274,8 @@ export default function EmployeePerformancePage() {
             loading={loading}
             onGenerateWarning={handleGenerateWarning}
             onRefresh={handleRefreshData}
+            canCreatePerfomance={canCreatePerfomance}
+            hasFullAccess={hasFullAccess}
           />
         </TabsContent>
 
@@ -250,6 +293,8 @@ export default function EmployeePerformancePage() {
             loading={loading}
             onResolveWarning={handleResolveWarning}
             onRefresh={handleRefreshData}
+            canEditPerfomance={canEditPerfomance}
+            hasFullAccess={hasFullAccess}
           />
         </TabsContent>
       </Tabs>
@@ -261,6 +306,8 @@ export default function EmployeePerformancePage() {
           onGenerateWarning={handleWarningSubmit}
           employeeId={selectedEmployee.id}
           employeeName={selectedEmployee.name}
+          canEditPerfomance={canEditPerfomance}
+          hasFullAccess={hasFullAccess}
         />
       )}
     </div>

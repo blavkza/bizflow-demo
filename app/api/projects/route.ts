@@ -3,6 +3,7 @@ import { projectSchema } from "@/lib/formValidationSchemas";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { sendPushNotification } from "@/lib/expo";
+import { UserRole } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
@@ -166,6 +167,7 @@ export async function GET() {
       select: {
         id: true,
         name: true,
+        role: true,
       },
     });
 
@@ -173,67 +175,65 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const projects = await db.project.findMany({
-      where: {
-        OR: [
-          { managerId: user.id },
-          {
-            teamMembers: {
-              some: { userId: user.id },
+    const isSuperAdmin =
+      user.role === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+      user.role === UserRole.ADMIN_MANAGER;
+
+    let projects;
+
+    if (isSuperAdmin) {
+      // SUPER ADMIN GETS ALL PROJECTS
+      projects = await db.project.findMany({
+        include: {
+          client: true,
+          manager: true,
+          tasks: true,
+          invoices: true,
+          Folder: {
+            include: {
+              Document: true,
+              Note: true,
             },
           },
-        ],
-      },
-      include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-            company: true,
-            email: true,
-          },
+          timeEntries: true,
+          workLogs: true,
         },
-        manager: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-          },
+        orderBy: { updatedAt: "desc" },
+      });
+    } else {
+      // NORMAL USERS GET ONLY THEIR OWN PROJECTS
+      projects = await db.project.findMany({
+        where: {
+          OR: [
+            { managerId: user.id },
+            {
+              teamMembers: {
+                some: { userId: user.id },
+              },
+            },
+          ],
         },
-        tasks: true,
-        invoices: {
-          select: {
-            id: true,
-            invoiceNumber: true,
-            totalAmount: true,
+        include: {
+          client: true,
+          manager: true,
+          tasks: true,
+          invoices: true,
+          Folder: {
+            include: {
+              Document: true,
+              Note: true,
+            },
           },
+          timeEntries: true,
+          workLogs: true,
         },
-        Folder: {
-          include: {
-            Document: true,
-            Note: true,
-          },
+        orderBy: {
+          updatedAt: "desc",
         },
-        timeEntries: {
-          select: {
-            id: true,
-          },
-        },
-        workLogs: {
-          select: {
-            id: true,
-            date: true,
-            hours: true,
-          },
-        },
-      },
-      orderBy: {
-        updatedAt: "desc",
-      },
-    });
+      });
+    }
 
-    // Transform the data for better client-side consumption
+    // Format Data
     const formattedProjects = projects.map((project) => ({
       id: project.id,
       projectNumber: project.projectNumber,
@@ -257,29 +257,18 @@ export async function GET() {
       folder: project.Folder,
       invoices: project.invoices,
       archived: project.archived,
-      client: project.client
-        ? {
-            id: project.client.id,
-            name: project.client.name,
-            email: project.client.email,
-            company: project.client.company,
-          }
-        : null,
-      manager: {
-        id: project.manager?.id,
-        name: project.manager?.name,
-        email: project.manager?.email,
-        avatar: project.manager?.avatar,
-      },
+      client: project.client,
+      manager: project.manager,
       stats: {
         totalTasks: project.tasks.length,
         completedTasks: project.tasks.filter(
           (task) => task.status === "COMPLETED"
         ).length,
         timeEntries: project.timeEntries.length,
-        totalWorkHours: project.workLogs.reduce((total, log) => {
-          return total + (log.hours ? Number(log.hours) : 0);
-        }, 0),
+        totalWorkHours: project.workLogs.reduce(
+          (total, log) => total + (log.hours ? Number(log.hours) : 0),
+          0
+        ),
       },
     }));
 

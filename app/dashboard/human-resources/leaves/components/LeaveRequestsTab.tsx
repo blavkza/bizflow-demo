@@ -18,6 +18,8 @@ interface LeaveRequestsTabProps {
   leaveRequests: LeaveRequest[];
   employeeOptions: ComboboxOption[];
   currentUser: Employee | null;
+  canEditLeave: boolean;
+  hasFullAccess: boolean;
   onLeaveSubmit: (data: any) => Promise<boolean>;
   onLeaveStatusUpdate: (
     id: string,
@@ -30,6 +32,8 @@ export default function LeaveRequestsTab({
   leaveRequests,
   employeeOptions,
   currentUser,
+  canEditLeave,
+  hasFullAccess,
   onLeaveSubmit,
   onLeaveStatusUpdate,
 }: LeaveRequestsTabProps) {
@@ -97,6 +101,8 @@ export default function LeaveRequestsTab({
             request={request}
             onApprove={() => onLeaveStatusUpdate(request.id, "APPROVED")}
             onReject={() => onLeaveStatusUpdate(request.id, "REJECTED")}
+            canEditLeave={canEditLeave}
+            hasFullAccess={hasFullAccess}
           />
         ))}
       </div>
