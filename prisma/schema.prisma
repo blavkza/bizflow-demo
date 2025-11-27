@@ -2759,6 +2759,10 @@ enum UserPermission {
   Leave_CREATE
   Leave_EDIT
   Leave_DELETE
+  Service_VIEW
+  Service_CREATE
+  Service_EDIT
+  Service_DELETE
 }
 
 enum DepositType {

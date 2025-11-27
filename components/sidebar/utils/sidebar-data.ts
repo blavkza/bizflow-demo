@@ -205,7 +205,7 @@ export const getSidebarData = (
         title: "Shop",
         items: [
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+          hasPermission(permissions, UserPermission.POS_VIEW)
             ? [
                 {
                   title: "Point Of Sale",
@@ -216,7 +216,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+          hasPermission(permissions, UserPermission.Order_VIEW)
             ? [
                 {
                   title: "Orders",
@@ -227,7 +227,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+          hasPermission(permissions, UserPermission.Sale_VIEW)
             ? [
                 {
                   title: "Sales",
@@ -238,7 +238,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_AI)
+          hasPermission(permissions, UserPermission.Product_VIEW)
             ? [
                 {
                   title: "Products",
