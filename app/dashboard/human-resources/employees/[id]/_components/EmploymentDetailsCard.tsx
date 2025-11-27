@@ -103,28 +103,45 @@ export function EmploymentDetailsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Employment Details</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <div className=""> Employment Details</div>
+
+          <Badge className={getStatusColor(employee.status)}>
+            {employee.status.replace("_", " ")}
+          </Badge>
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Manager */}
         <div>
           <p className="text-sm font-medium">Manager</p>
           <p className="text-sm text-muted-foreground">
-            {employee.department?.manager?.name || "Not assigned"}
+            {employee.department?.manager?.name || "Not Assigned"}
           </p>
         </div>
 
         {/* Start Date */}
-        <div>
-          <p className="text-sm font-medium">commencement date</p>
-          <p className="text-sm text-muted-foreground">
-            {new Date(employee.hireDate).toLocaleDateString()}
-          </p>
+        <div className="grid grid-cols-2 gap-4 my-2">
+          <div>
+            <p className="text-sm font-medium">Commencement Date</p>
+            <p className="text-sm text-muted-foreground">
+              {new Date(employee.hireDate).toLocaleDateString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Contract End Date</p>
+            <p className="text-sm text-muted-foreground">
+              {new Date(
+                employee.terminationDate || "Not Assigned"
+              ).toLocaleDateString()}
+            </p>
+          </div>
         </div>
 
         {/* Working Hours */}
+
         <div className="space-y-3">
-          <p className="text-sm font-medium flex items-center gap-2">
+          <p className=" font-medium flex items-center gap-2">
             <Clock className="h-4 w-4" />
             Working Hours
           </p>
@@ -139,6 +156,26 @@ export function EmploymentDetailsCard({
               <p className="text-muted-foreground">Knock Out</p>
               <p className="font-medium text-red-500">
                 {formatTime(employee.scheduledKnockOut)}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <p className=" font-medium flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Weekend Working Hours
+          </p>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Knock In</p>
+              <p className="font-medium text-green-700">
+                {formatTime(employee.scheduledWeekendKnockIn)}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Knock Out</p>
+              <p className="font-medium text-red-500">
+                {formatTime(employee.scheduledWeekendKnockOut)}
               </p>
             </div>
           </div>
@@ -182,15 +219,6 @@ export function EmploymentDetailsCard({
           </div>
         )}
 
-        {/* Status */}
-        <div>
-          <p className="text-sm font-medium">Status</p>
-          <Badge className={getStatusColor(employee.status)}>
-            {employee.status.replace("_", " ")}
-          </Badge>
-        </div>
-
-        {/* Work Type / Position */}
         <div>
           <p className="text-sm font-medium">Position</p>
           <p className="text-sm text-muted-foreground">
@@ -198,11 +226,16 @@ export function EmploymentDetailsCard({
           </p>
         </div>
 
-        {/* Department */}
         <div>
           <p className="text-sm font-medium">Department</p>
           <p className="text-sm text-muted-foreground">
-            {employee.department?.name || "Not assigned"}
+            {employee.department?.name || "Not Assigned"}
+          </p>
+        </div>
+        <div>
+          <p className="text-sm font-medium">Contract Type</p>
+          <p className="text-sm text-muted-foreground">
+            {employee.contractType || "Not Assigned"}
           </p>
         </div>
       </CardContent>

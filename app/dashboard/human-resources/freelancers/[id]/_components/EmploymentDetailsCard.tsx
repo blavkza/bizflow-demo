@@ -18,6 +18,9 @@ interface FreelancerWithDetails {
   scheduledKnockOut?: string;
   overtimeHourRate?: number;
   workingDays?: string[];
+  terminationDate?: string;
+  scheduledWeekendKnockIn: string;
+  scheduledWeekendKnockOut: string;
 }
 
 export function EmploymentDetailsCard({
@@ -125,7 +128,13 @@ export function EmploymentDetailsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Freelancer Details</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <div className=""> Freelancer Details</div>
+
+          <Badge className={getStatusColor(freelancer.status)}>
+            {freelancer.status.replace("_", " ")}
+          </Badge>
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Manager */}
@@ -137,11 +146,21 @@ export function EmploymentDetailsCard({
         </div>
 
         {/* Start Date */}
-        <div>
-          <p className="text-sm font-medium">Commencement date</p>
-          <p className="text-sm text-muted-foreground">
-            {new Date(freelancer.hireDate).toLocaleDateString()}
-          </p>
+        <div className="grid grid-cols-2 gap-4 my-2">
+          <div>
+            <p className="text-sm font-medium">Commencement Date</p>
+            <p className="text-sm text-muted-foreground">
+              {new Date(freelancer.hireDate).toLocaleDateString()}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm font-medium">Contract End Date</p>
+            <p className="text-sm text-muted-foreground">
+              {new Date(
+                freelancer.terminationDate || "Not Assigned"
+              ).toLocaleDateString()}
+            </p>
+          </div>
         </div>
 
         {/* Reliability Status */}
@@ -174,6 +193,27 @@ export function EmploymentDetailsCard({
               <p className="text-muted-foreground">Knock Out</p>
               <p className="font-medium text-red-500">
                 {formatTime(freelancer.scheduledKnockOut)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <p className=" font-medium flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Weekend Working Hours
+          </p>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="text-muted-foreground">Knock In</p>
+              <p className="font-medium text-green-700">
+                {formatTime(freelancer.scheduledWeekendKnockIn)}
+              </p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Knock Out</p>
+              <p className="font-medium text-red-500">
+                {formatTime(freelancer.scheduledWeekendKnockOut)}
               </p>
             </div>
           </div>
@@ -216,14 +256,6 @@ export function EmploymentDetailsCard({
             <p className="text-sm text-muted-foreground">Not set</p>
           </div>
         )}
-
-        {/* Status */}
-        <div>
-          <p className="text-sm font-medium">Status</p>
-          <Badge className={getStatusColor(freelancer.status)}>
-            {freelancer.status.replace("_", " ")}
-          </Badge>
-        </div>
 
         {/* Position */}
         <div>

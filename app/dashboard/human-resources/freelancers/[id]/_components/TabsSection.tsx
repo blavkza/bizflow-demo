@@ -249,38 +249,7 @@ export default function TabsSection({
                               {payment.status.toLowerCase()}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDownloadPayslip(payment.id)}
-                              disabled={
-                                generatingPayslipId === payment.id ||
-                                !companySettings
-                              }
-                              className="hover:bg-gray-100"
-                            >
-                              <DownloadIcon className="h-4 w-4 mr-2" />
-                              {generatingPayslipId === payment.id
-                                ? "Generating..."
-                                : !companySettings
-                                  ? "Unavailable"
-                                  : "Download"}
-                            </Button>
-                            {companySettings && (
-                              <div
-                                ref={(el) =>
-                                  (payslipRefs.current[payment.id] = el)
-                                }
-                                style={{
-                                  position: "absolute",
-                                  visibility: "hidden",
-                                }}
-                              >
-                                {/* Payslip content would go here */}
-                              </div>
-                            )}
-                          </TableCell>
+                          <TableCell></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

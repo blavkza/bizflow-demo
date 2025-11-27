@@ -21,10 +21,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  employeeSchema,
-  employeeSchemaType,
-} from "@/lib/formValidationSchemas";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
@@ -34,12 +30,15 @@ import {
   Eye,
   EyeOff,
   MapPin,
+  Clock,
+  X,
 } from "lucide-react";
 import {
   Department,
   Employee,
   EmployeeStatus,
   SalaryType,
+  ContractType,
 } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import {
@@ -89,8 +88,117 @@ const SOUTH_AFRICAN_PROVINCES = [
   "Western Cape",
 ];
 
+// Contract type options
+const CONTRACT_TYPES = [
+  { value: "FULL_TIME", label: "Full Time" },
+  { value: "PART_TIME", label: "Part Time" },
+  { value: "PERMANENT", label: "PERMANENT" },
+  { value: "CONTRACT", label: "Contract" },
+  { value: "TEMPORARY", label: "Temporary" },
+  { value: "INTERN", label: "Intern" },
+];
+
 // Constants for calculations
 const WORKING_DAYS_PER_MONTH = 22; // Average working days per month
+
+// Validation Schema
+const employeeSchema = z
+  .object({
+    firstName: z.string().min(1, { message: "First name is required" }),
+    lastName: z.string().min(1, { message: "Last name is required" }),
+    phone: z.string().min(1, { message: "Phone number is required" }),
+    email: z
+      .string()
+      .email({ message: "Invalid email address!" })
+      .optional()
+      .or(z.literal("")),
+    position: z.string().min(1, { message: "Position is required" }),
+    departmentId: z.string().min(1, { message: "Department is required" }),
+    contractType: z.nativeEnum(ContractType).default("FULL_TIME"),
+    salaryType: z.nativeEnum(SalaryType).default("MONTHLY"),
+    dailySalary: z.coerce
+      .number()
+      .min(0, { message: "Daily salary must be positive" })
+      .default(0),
+    monthlySalary: z.coerce
+      .number()
+      .min(0, { message: "Monthly salary must be positive" })
+      .default(0),
+    overtimeHourRate: z.coerce
+      .number()
+      .min(0, { message: "Overtime rate must be positive" })
+      .default(50.0),
+    hireDate: z.date({ required_error: "Hire date is required" }),
+    terminationDate: z.date().optional().nullable(),
+    status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
+    address: z.string().min(1, { message: "Address is required" }),
+    city: z.string().or(z.literal("")),
+    province: z.string().or(z.literal("")),
+    postalCode: z.string().or(z.literal("")),
+    country: z.string().or(z.literal("")),
+    scheduledKnockIn: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+        message: "Invalid time format (HH:mm)",
+      })
+      .optional()
+      .or(z.literal("")),
+    scheduledKnockOut: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+        message: "Invalid time format (HH:mm)",
+      })
+      .optional()
+      .or(z.literal("")),
+    scheduledWeekendKnockIn: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+        message: "Invalid time format (HH:mm)",
+      })
+      .optional()
+      .or(z.literal("")),
+    scheduledWeekendKnockOut: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+        message: "Invalid time format (HH:mm)",
+      })
+      .optional()
+      .or(z.literal("")),
+    workingDays: z.array(z.string()).default([]),
+  })
+  .refine(
+    (data) => {
+      if (data.salaryType === "DAILY" && data.dailySalary <= 0) {
+        return false;
+      }
+      if (data.salaryType === "MONTHLY" && data.monthlySalary <= 0) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Salary is required for the selected salary type",
+      path: ["salaryType"],
+    }
+  )
+  .refine(
+    (data) => {
+      if (
+        data.terminationDate &&
+        data.hireDate &&
+        data.terminationDate < data.hireDate
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Termination date must be after hire date",
+      path: ["terminationDate"],
+    }
+  );
+
+export type employeeSchemaType = z.infer<typeof employeeSchema>;
 
 export default function EmployeeForm({
   type,
@@ -105,11 +213,11 @@ export default function EmployeeForm({
   const [isLoading, setIsLoading] = useState(false);
   const [showBothSalaries, setShowBothSalaries] = useState(false);
 
-  const parseDate = (dateValue: any): Date => {
-    if (!dateValue) return new Date();
+  const parseDate = (dateValue: any): Date | undefined => {
+    if (!dateValue) return undefined;
     if (dateValue instanceof Date) return dateValue;
     if (typeof dateValue === "string") return new Date(dateValue);
-    return new Date();
+    return undefined;
   };
 
   // Parse working days from database
@@ -138,17 +246,21 @@ export default function EmployeeForm({
       overtimeHourRate: data?.overtimeHourRate
         ? Number(data.overtimeHourRate)
         : 50.0,
-
-      hireDate: parseDate(data?.hireDate),
+      hireDate: parseDate(data?.hireDate) || new Date(),
+      terminationDate: parseDate(data?.terminationDate),
       status: data?.status || "ACTIVE",
+      contractType: data?.contractType || "FULL_TIME",
       // Address fields with defaults
       address: data?.address || "",
       city: data?.city || "",
       province: data?.province || "",
       postalCode: data?.postalCode || "",
       country: data?.country || "South Africa",
+      // Schedule fields
       scheduledKnockIn: data?.scheduledKnockIn || "09:00",
       scheduledKnockOut: data?.scheduledKnockOut || "17:00",
+      scheduledWeekendKnockIn: data?.scheduledWeekendKnockIn || "09:00",
+      scheduledWeekendKnockOut: data?.scheduledWeekendKnockOut || "17:00",
       workingDays: parseWorkingDays(data?.workingDays) || [
         "MON",
         "TUE",
@@ -159,34 +271,27 @@ export default function EmployeeForm({
     },
   });
 
-  // Watch salary type and values for calculations
+  // Watch form values
   const salaryType = form.watch("salaryType");
-  const dailySalary = form.watch("dailySalary");
-  const monthlySalary = form.watch("monthlySalary");
+  const dailySalary = form.watch("dailySalary") || 0;
+  const monthlySalary = form.watch("monthlySalary") || 0;
+  const workingDays = form.watch("workingDays");
 
-  // Safe type guards
-  const getDailySalary = (): number => {
-    return dailySalary || 0;
-  };
-
-  const getMonthlySalary = (): number => {
-    return monthlySalary || 0;
-  };
+  // Check if weekend days are selected
+  const hasWeekendWork =
+    workingDays?.includes("SAT") || workingDays?.includes("SUN");
 
   // Auto-calculate salaries when one changes (only if not showing both)
   useEffect(() => {
     if (!showBothSalaries) {
-      const currentDailySalary = getDailySalary();
-      const currentMonthlySalary = getMonthlySalary();
-
-      if (salaryType === "DAILY" && currentDailySalary > 0) {
-        const calculatedMonthly = currentDailySalary * WORKING_DAYS_PER_MONTH;
+      if (salaryType === "DAILY" && dailySalary > 0) {
+        const calculatedMonthly = dailySalary * WORKING_DAYS_PER_MONTH;
         form.setValue(
           "monthlySalary",
           parseFloat(calculatedMonthly.toFixed(2))
         );
-      } else if (salaryType === "MONTHLY" && currentMonthlySalary > 0) {
-        const calculatedDaily = currentMonthlySalary / WORKING_DAYS_PER_MONTH;
+      } else if (salaryType === "MONTHLY" && monthlySalary > 0) {
+        const calculatedDaily = monthlySalary / WORKING_DAYS_PER_MONTH;
         form.setValue("dailySalary", parseFloat(calculatedDaily.toFixed(2)));
       }
     }
@@ -195,14 +300,11 @@ export default function EmployeeForm({
   // Reset the non-primary salary field when switching salary type and not showing both
   useEffect(() => {
     if (!showBothSalaries) {
-      const currentDailySalary = getDailySalary();
-      const currentMonthlySalary = getMonthlySalary();
-
-      if (salaryType === "DAILY" && currentMonthlySalary > 0) {
-        const calculatedDaily = currentMonthlySalary / WORKING_DAYS_PER_MONTH;
+      if (salaryType === "DAILY" && monthlySalary > 0) {
+        const calculatedDaily = monthlySalary / WORKING_DAYS_PER_MONTH;
         form.setValue("dailySalary", parseFloat(calculatedDaily.toFixed(2)));
-      } else if (salaryType === "MONTHLY" && currentDailySalary > 0) {
-        const calculatedMonthly = currentDailySalary * WORKING_DAYS_PER_MONTH;
+      } else if (salaryType === "MONTHLY" && dailySalary > 0) {
+        const calculatedMonthly = dailySalary * WORKING_DAYS_PER_MONTH;
         form.setValue(
           "monthlySalary",
           parseFloat(calculatedMonthly.toFixed(2))
@@ -236,7 +338,6 @@ export default function EmployeeForm({
       const formattedData = {
         ...values,
         workingDays: values.workingDays,
-        // Both salary fields are guaranteed to be numbers now
         dailySalary: values.dailySalary,
         monthlySalary: values.monthlySalary,
       };
@@ -263,21 +364,22 @@ export default function EmployeeForm({
   };
 
   const calculateEquivalentSalary = () => {
-    const currentDailySalary = getDailySalary();
-    const currentMonthlySalary = getMonthlySalary();
-
-    if (salaryType === "DAILY" && currentDailySalary > 0) {
+    if (salaryType === "DAILY" && dailySalary > 0) {
       return {
         label: "Monthly Equivalent",
-        value: (currentDailySalary * WORKING_DAYS_PER_MONTH).toFixed(2),
+        value: (dailySalary * WORKING_DAYS_PER_MONTH).toFixed(2),
       };
-    } else if (salaryType === "MONTHLY" && currentMonthlySalary > 0) {
+    } else if (salaryType === "MONTHLY" && monthlySalary > 0) {
       return {
         label: "Daily Equivalent",
-        value: (currentMonthlySalary / WORKING_DAYS_PER_MONTH).toFixed(2),
+        value: (monthlySalary / WORKING_DAYS_PER_MONTH).toFixed(2),
       };
     }
     return null;
+  };
+
+  const handleClearTerminationDate = () => {
+    form.setValue("terminationDate", undefined);
   };
 
   const equivalentSalary = calculateEquivalentSalary();
@@ -373,6 +475,32 @@ export default function EmployeeForm({
                     {departmentsOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* Contract Type */}
+          <FormField
+            control={form.control}
+            name="contractType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Contract Type</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select contract type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {CONTRACT_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -578,7 +706,7 @@ export default function EmployeeForm({
             name="hireDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>commencement date</FormLabel>
+                <FormLabel>Commencement Date</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -603,9 +731,6 @@ export default function EmployeeForm({
                       mode="single"
                       selected={field.value}
                       onSelect={field.onChange}
-                      disabled={(date) =>
-                        date > new Date() || date < new Date("1900-01-01")
-                      }
                       initialFocus
                     />
                   </PopoverContent>
@@ -614,6 +739,66 @@ export default function EmployeeForm({
               </FormItem>
             )}
           />
+
+          {/* Termination Date - Always shown but optional */}
+          <FormField
+            control={form.control}
+            name="terminationDate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center justify-between">
+                  Contract End Date (Optional)
+                  {field.value && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearTerminationDate}
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full pl-3 text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value ? (
+                          format(field.value, "PPP")
+                        ) : (
+                          <span>Pick termination date</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value || undefined}
+                      onSelect={field.onChange}
+                      disabled={(date) => {
+                        const hireDate = form.getValues("hireDate");
+                        return hireDate && date < hireDate;
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           {/* Status */}
           <FormField
             control={form.control}
@@ -745,7 +930,11 @@ export default function EmployeeForm({
 
         {/* Schedule Section */}
         <div className="space-y-6 border-t pt-6">
-          <h3 className="text-lg font-medium">Schedule Information</h3>
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-lg font-medium">Schedule Information</h3>
+          </div>
+
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             {/* Scheduled Knock In */}
             <FormField
@@ -753,7 +942,7 @@ export default function EmployeeForm({
               name="scheduledKnockIn"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Scheduled Knock In Time</FormLabel>
+                  <FormLabel>Weekday Knock In Time</FormLabel>
                   <FormControl>
                     <Input type="time" {...field} />
                   </FormControl>
@@ -768,7 +957,7 @@ export default function EmployeeForm({
               name="scheduledKnockOut"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Scheduled Knock Out Time</FormLabel>
+                  <FormLabel>Weekday Knock Out Time</FormLabel>
                   <FormControl>
                     <Input type="time" {...field} />
                   </FormControl>
@@ -776,7 +965,55 @@ export default function EmployeeForm({
                 </FormItem>
               )}
             />
+
+            {/* Weekend Schedule - Conditionally shown */}
+            {hasWeekendWork && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="scheduledWeekendKnockIn"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Weekend Knock In Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <div className="text-xs text-muted-foreground">
+                        Applies when Saturday or Sunday is selected
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="scheduledWeekendKnockOut"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Weekend Knock Out Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <div className="text-xs text-muted-foreground">
+                        Applies when Saturday or Sunday is selected
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
           </div>
+
+          {!hasWeekendWork && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <div className="text-sm text-amber-800">
+                <strong>Note:</strong> Weekend schedule fields will appear when
+                you select Saturday or Sunday as working days.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Working Days */}

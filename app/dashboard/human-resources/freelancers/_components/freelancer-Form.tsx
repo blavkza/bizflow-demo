@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/form";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { Loader2, CalendarIcon } from "lucide-react";
+import { Loader2, CalendarIcon, MapPin, Clock, X } from "lucide-react";
 import { Department, EmployeeStatus, FreeLancer } from "@prisma/client";
 import { cn } from "@/lib/utils";
 import {
@@ -63,6 +63,19 @@ const WORKING_DAYS = [
   { id: "SUN", label: "Sunday" },
 ];
 
+// South African provinces
+const SOUTH_AFRICAN_PROVINCES = [
+  "Eastern Cape",
+  "Free State",
+  "Gauteng",
+  "KwaZulu-Natal",
+  "Limpopo",
+  "Mpumalanga",
+  "North West",
+  "Northern Cape",
+  "Western Cape",
+];
+
 export default function FreeLancerForm({
   type,
   data,
@@ -75,13 +88,14 @@ export default function FreeLancerForm({
   >([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const parseDate = (dateValue: any): Date => {
-    if (!dateValue) return new Date();
+  const parseDate = (dateValue: any): Date | undefined => {
+    if (!dateValue) return undefined;
     if (dateValue instanceof Date) return dateValue;
     if (typeof dateValue === "string") return new Date(dateValue);
-    return new Date();
+    return undefined;
   };
 
+  // Parse working days from database
   const parseWorkingDays = (workingDays: any): string[] => {
     if (!workingDays) return [];
     if (Array.isArray(workingDays)) return workingDays;
@@ -106,11 +120,20 @@ export default function FreeLancerForm({
       overtimeHourRate: data?.overtimeHourRate
         ? Number(data.overtimeHourRate)
         : 50.0,
-      hireDate: parseDate(data?.hireDate),
+      hireDate: parseDate(data?.hireDate) || new Date(),
+      terminationDate: parseDate(data?.terminationDate),
       status: data?.status || "ACTIVE",
+      // Address fields with defaults
       address: data?.address || "",
+      city: data?.city || "",
+      province: data?.province || "",
+      postalCode: data?.postalCode || "",
+      country: data?.country || "South Africa",
+      // Schedule fields
       scheduledKnockIn: data?.scheduledKnockIn || "09:00",
       scheduledKnockOut: data?.scheduledKnockOut || "17:00",
+      scheduledWeekendKnockIn: data?.scheduledWeekendKnockIn || "09:00",
+      scheduledWeekendKnockOut: data?.scheduledWeekendKnockOut || "17:00",
       workingDays: parseWorkingDays(data?.workingDays) || [
         "MON",
         "TUE",
@@ -120,6 +143,13 @@ export default function FreeLancerForm({
       ],
     },
   });
+
+  // Watch form values
+  const workingDays = form.watch("workingDays");
+
+  // Check if weekend days are selected
+  const hasWeekendWork =
+    workingDays?.includes("SAT") || workingDays?.includes("SUN");
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -167,6 +197,10 @@ export default function FreeLancerForm({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleClearTerminationDate = () => {
+    form.setValue("terminationDate", undefined);
   };
 
   return (
@@ -315,7 +349,7 @@ export default function FreeLancerForm({
             name="hireDate"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Commencement date</FormLabel>
+                <FormLabel>Commencement Date</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -340,9 +374,6 @@ export default function FreeLancerForm({
                       mode="single"
                       selected={field.value}
                       onSelect={field.onChange}
-                      disabled={(date) =>
-                        date > new Date() || date < new Date("1900-01-01")
-                      }
                       initialFocus
                     />
                   </PopoverContent>
@@ -351,6 +382,66 @@ export default function FreeLancerForm({
               </FormItem>
             )}
           />
+
+          {/* Termination Date - Always shown but optional */}
+          <FormField
+            control={form.control}
+            name="terminationDate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="flex items-center justify-between">
+                  Contract End Date (Optional)
+                  {field.value && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearTerminationDate}
+                      className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full pl-3 text-left font-normal",
+                          !field.value && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value ? (
+                          format(field.value, "PPP")
+                        ) : (
+                          <span>Pick termination date</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value || undefined}
+                      onSelect={field.onChange}
+                      disabled={(date) => {
+                        const hireDate = form.getValues("hireDate");
+                        return hireDate && date < hireDate;
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           {/* Status */}
           <FormField
             control={form.control}
@@ -381,49 +472,213 @@ export default function FreeLancerForm({
             )}
           />
 
-          {/* Scheduled Knock In */}
+          {/* Reliable Field */}
           <FormField
             control={form.control}
-            name="scheduledKnockIn"
+            name="reliable"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Scheduled Knock In Time</FormLabel>
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                 <FormControl>
-                  <Input type="time" {...field} />
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
                 </FormControl>
-                <FormMessage />
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Reliable Freelancer</FormLabel>
+                  <div className="text-sm text-muted-foreground">
+                    Mark this freelancer as reliable for future assignments
+                  </div>
+                </div>
               </FormItem>
             )}
           />
+        </div>
 
-          {/* Scheduled Knock Out */}
-          <FormField
-            control={form.control}
-            name="scheduledKnockOut"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Scheduled Knock Out Time</FormLabel>
-                <FormControl>
-                  <Input type="time" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
+        {/* Address Section */}
+        <div className="space-y-6 border-t pt-6">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-lg font-medium">Address Information</h3>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* Address */}
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem className="md:col-span-2">
+                  <FormLabel>Street Address</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Street address" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* City */}
+            <FormField
+              control={form.control}
+              name="city"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>City</FormLabel>
+                  <FormControl>
+                    <Input placeholder="City" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="province"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Province</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value || undefined}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select province" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {SOUTH_AFRICAN_PROVINCES.map((province) => (
+                        <SelectItem key={province} value={province}>
+                          {province}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Postal Code */}
+            <FormField
+              control={form.control}
+              name="postalCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Postal Code</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Postal code" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Country */}
+            <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Country</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Country" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Schedule Section */}
+        <div className="space-y-6 border-t pt-6">
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            <h3 className="text-lg font-medium">Schedule Information</h3>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            {/* Scheduled Knock In */}
+            <FormField
+              control={form.control}
+              name="scheduledKnockIn"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Weekday Knock In Time</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Scheduled Knock Out */}
+            <FormField
+              control={form.control}
+              name="scheduledKnockOut"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Weekday Knock Out Time</FormLabel>
+                  <FormControl>
+                    <Input type="time" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Weekend Schedule - Conditionally shown */}
+            {hasWeekendWork && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="scheduledWeekendKnockIn"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Weekend Knock In Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <div className="text-xs text-muted-foreground">
+                        Applies when Saturday or Sunday is selected
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="scheduledWeekendKnockOut"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Weekend Knock Out Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <div className="text-xs text-muted-foreground">
+                        Applies when Saturday or Sunday is selected
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
-          />
-          {/* Address */}
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Address</FormLabel>
-                <FormControl>
-                  <Input placeholder="Address" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          </div>
+
+          {!hasWeekendWork && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <div className="text-sm text-amber-800">
+                <strong>Note:</strong> Weekend schedule fields will appear when
+                you select Saturday or Sunday as working days.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Working Days */}
@@ -431,7 +686,7 @@ export default function FreeLancerForm({
           control={form.control}
           name="workingDays"
           render={() => (
-            <FormItem>
+            <FormItem className="border-t pt-6">
               <div className="mb-4">
                 <FormLabel className="text-base">Working Days</FormLabel>
                 <div className="text-sm text-muted-foreground">

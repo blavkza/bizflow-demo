@@ -35,10 +35,17 @@ export async function POST(req: Request) {
       status,
       hireDate,
       address,
+      city,
+      province,
+      postalCode,
+      country,
       scheduledKnockIn,
       scheduledKnockOut,
       workingDays,
       reliable,
+      scheduledWeekendKnockOut,
+      scheduledWeekendKnockIn,
+      terminationDate,
     } = body;
 
     const lastFreelancer = await db.freeLancer.findFirst({
@@ -63,11 +70,18 @@ export async function POST(req: Request) {
         status,
         hireDate,
         address,
+        city,
+        province,
+        postalCode,
+        country,
         scheduledKnockIn,
         scheduledKnockOut,
         workingDays,
         reliable,
         createdBy: creator?.name,
+        scheduledWeekendKnockOut,
+        scheduledWeekendKnockIn,
+        terminationDate,
       },
     });
 

@@ -197,21 +197,12 @@ export default function FreelancersList({
                   <Building className="h-4 w-4" />
                   <span>{freelancer.department || "No Department"}</span>
                 </div>
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span className="truncate">
-                    {freelancer.address || "No Address"}
-                  </span>
-                </div>
+
                 <div className="flex items-center space-x-2 text-muted-foreground">
                   <DollarSign className="h-4 w-4" />
                   <span>
                     R{(freelancer.salary || 0).toLocaleString()} Per Day
                   </span>
-                </div>
-                <div className="flex items-center space-x-2 text-muted-foreground">
-                  <Calendar className="h-4 w-4" />
-                  <span>Hired {formatDate(freelancer.hireDate)}</span>
                 </div>
               </div>
 

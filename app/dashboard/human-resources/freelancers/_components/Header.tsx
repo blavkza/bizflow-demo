@@ -53,7 +53,7 @@ export default function Header({
                 Add Freelancer
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New Freelancer</DialogTitle>
                 <DialogDescription>

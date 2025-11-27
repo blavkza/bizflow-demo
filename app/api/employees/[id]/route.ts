@@ -108,6 +108,10 @@ export async function PUT(
       scheduledKnockIn,
       scheduledKnockOut,
       workingDays,
+      scheduledWeekendKnockOut,
+      scheduledWeekendKnockIn,
+      terminationDate,
+      contractType,
     } = body;
 
     const { userId } = await auth();
@@ -150,6 +154,10 @@ export async function PUT(
         scheduledKnockIn,
         scheduledKnockOut,
         workingDays,
+        scheduledWeekendKnockOut,
+        scheduledWeekendKnockIn,
+        terminationDate,
+        contractType,
       },
     });
 

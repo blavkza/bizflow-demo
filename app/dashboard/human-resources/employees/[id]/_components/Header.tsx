@@ -18,6 +18,10 @@ import EmployeeForm from "../../_components/employee-Form";
 import { useRouter } from "next/navigation";
 import { Employee, EmployeeStatus } from "@prisma/client";
 import { EmployeeWithDetails } from "@/types/employee";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import axios from "axios";
+import { toast } from "sonner";
 
 interface HeaderProps {
   employee: EmployeeWithDetails;
@@ -37,10 +41,11 @@ export default function Header({
     employee.avatar ?? null
   );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isUpdatingGPS, setIsUpdatingGPS] = useState(false);
 
   const router = useRouter();
 
-  const name = employee.firstName + employee.lastName;
+  const name = employee.firstName + " " + employee.lastName;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -64,12 +69,37 @@ export default function Header({
       .substring(0, 2);
   };
 
+  const handleGPSChange = async (checked: boolean) => {
+    if (!canEditEmployees && !hasFullAccess) return;
+
+    setIsUpdatingGPS(true);
+    try {
+      await axios.patch(`/api/employees/${employee.id}/gps-ckeckin`, {
+        canCheckByGPS: checked,
+      });
+
+      toast.success(
+        checked
+          ? "GPS check-in enabled for employee"
+          : "GPS check-in disabled for employee"
+      );
+
+      // Refresh employee data
+      fetchEmployee();
+    } catch (error) {
+      console.error("Error updating GPS check-in setting:", error);
+      toast.error("Failed to update GPS check-in setting");
+    } finally {
+      setIsUpdatingGPS(false);
+    }
+  };
+
   return (
     <div className="flex items-center justify-between p-6">
-      <div className="flex flex-col  space-y-4">
+      <div className="flex flex-col space-y-4">
         <div className="flex items-center space-x-4">
           <Button variant="outline" size={"icon"} onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 " />
+            <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="relative group">
             <Avatar className="h-28 w-28 border-4 border-background shadow-xl">
@@ -102,12 +132,26 @@ export default function Header({
               <Badge className={getStatusColor(employee.status)}>
                 {employee.status}
               </Badge>
-              {/* <Badge
-                variant="outline"
-                className={getWorkTypeColor(employee)}
-              >
-                {employee.workType}
-              </Badge> */}
+              {(canEditEmployees || hasFullAccess) && (
+                <div className="flex items-center space-x-2 bg-muted/50 px-4 py-2 rounded-lg">
+                  <Label
+                    htmlFor="canCheckByGPS"
+                    className="text-sm font-medium"
+                  >
+                    Allow GPS Check-in
+                  </Label>
+                  <Switch
+                    id="canCheckByGPS"
+                    checked={employee.canCheckByGPS}
+                    onCheckedChange={handleGPSChange}
+                    disabled={isUpdatingGPS}
+                    className="data-[state=checked]:bg-blue-600"
+                  />
+                  {isUpdatingGPS && (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

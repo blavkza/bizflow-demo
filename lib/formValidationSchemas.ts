@@ -4,6 +4,7 @@ import {
   CategoryType,
   ClientStatus,
   ClientType,
+  ContractType,
   DepositType,
   DiscountType,
   EmployeeStatus,
@@ -258,45 +259,22 @@ export const employeeSchema = z
       .or(z.literal("")),
     position: z.string().min(1, { message: "Position is required" }),
     departmentId: z.string().min(1, { message: "Department is required" }),
-    // Update salary fields
+    contractType: z.nativeEnum(ContractType).default("FULL_TIME"),
     salaryType: z.nativeEnum(SalaryType).default("MONTHLY"),
-    dailySalary: z
-      .union([
-        z
-          .string()
-          .min(1, { message: "Daily salary is required" })
-          .refine((val) => !isNaN(Number(val)), {
-            message: "Must be a valid number",
-          }),
-        z.number().min(0, { message: "Daily salary must be positive" }),
-      ])
-      .transform((val) => Number(val))
-      .optional(),
-    monthlySalary: z
-      .union([
-        z
-          .string()
-          .min(1, { message: "Monthly salary is required" })
-          .refine((val) => !isNaN(Number(val)), {
-            message: "Must be a valid number",
-          }),
-        z.number().min(0, { message: "Monthly salary must be positive" }),
-      ])
-      .transform((val) => Number(val))
-      .optional(),
-    overtimeHourRate: z
-      .union([
-        z
-          .string()
-          .min(1, { message: "Overtime rate is required" })
-          .refine((val) => !isNaN(Number(val)), {
-            message: "Must be a valid number",
-          }),
-        z.number().min(0, { message: "Overtime rate must be positive" }),
-      ])
-      .transform((val) => Number(val))
+    dailySalary: z.coerce
+      .number()
+      .min(0, { message: "Daily salary must be positive" })
+      .default(0),
+    monthlySalary: z.coerce
+      .number()
+      .min(0, { message: "Monthly salary must be positive" })
+      .default(0),
+    overtimeHourRate: z.coerce
+      .number()
+      .min(0, { message: "Overtime rate must be positive" })
       .default(50.0),
     hireDate: z.date({ required_error: "Hire date is required" }),
+    terminationDate: z.date().optional().nullable(),
     status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
     address: z.string().min(1, { message: "Address is required" }),
     city: z.string().or(z.literal("")),
@@ -317,21 +295,28 @@ export const employeeSchema = z
       })
       .optional()
       .or(z.literal("")),
+    scheduledWeekendKnockIn: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+        message: "Invalid time format (HH:mm)",
+      })
+      .optional()
+      .or(z.literal("")),
+    scheduledWeekendKnockOut: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+        message: "Invalid time format (HH:mm)",
+      })
+      .optional()
+      .or(z.literal("")),
     workingDays: z.array(z.string()).default([]),
   })
   .refine(
     (data) => {
-      // Validate that at least one salary field is provided based on salaryType
-      if (
-        data.salaryType === "DAILY" &&
-        (!data.dailySalary || data.dailySalary <= 0)
-      ) {
+      if (data.salaryType === "DAILY" && data.dailySalary <= 0) {
         return false;
       }
-      if (
-        data.salaryType === "MONTHLY" &&
-        (!data.monthlySalary || data.monthlySalary <= 0)
-      ) {
+      if (data.salaryType === "MONTHLY" && data.monthlySalary <= 0) {
         return false;
       }
       return true;
@@ -339,6 +324,23 @@ export const employeeSchema = z
     {
       message: "Salary is required for the selected salary type",
       path: ["salaryType"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Validate that termination date is after hire date if both are provided
+      if (
+        data.terminationDate &&
+        data.hireDate &&
+        data.terminationDate < data.hireDate
+      ) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: "Termination date must be after hire date",
+      path: ["terminationDate"],
     }
   );
 
@@ -379,7 +381,12 @@ export const freelancerSchema = z.object({
     .transform((val) => Number(val))
     .default(50.0),
   hireDate: z.date({ required_error: "Hire date is required" }),
+  terminationDate: z.date().optional().nullable(),
   status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
+  city: z.string().or(z.literal("")),
+  province: z.string().or(z.literal("")),
+  postalCode: z.string().or(z.literal("")),
+  country: z.string().or(z.literal("")),
   address: z.string().min(1, { message: "Address is required" }),
   scheduledKnockIn: z
     .string()
@@ -389,6 +396,20 @@ export const freelancerSchema = z.object({
     .optional()
     .or(z.literal("")),
   scheduledKnockOut: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  scheduledWeekendKnockIn: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  scheduledWeekendKnockOut: z
     .string()
     .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
       message: "Invalid time format (HH:mm)",

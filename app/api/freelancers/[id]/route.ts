@@ -99,10 +99,17 @@ export async function PUT(
       status,
       hireDate,
       address,
+      city,
+      province,
+      postalCode,
+      country,
       scheduledKnockIn,
       scheduledKnockOut,
       workingDays,
       reliable,
+      scheduledWeekendKnockOut,
+      scheduledWeekendKnockIn,
+      terminationDate,
     } = body;
 
     const { userId } = await auth();
@@ -136,10 +143,17 @@ export async function PUT(
         status,
         hireDate,
         address,
+        city,
+        province,
+        postalCode,
+        country,
         scheduledKnockIn,
         scheduledKnockOut,
         workingDays,
         reliable,
+        scheduledWeekendKnockOut,
+        scheduledWeekendKnockIn,
+        terminationDate,
       },
     });
 

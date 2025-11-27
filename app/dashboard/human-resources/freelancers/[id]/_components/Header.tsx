@@ -22,7 +22,7 @@ import axios from "axios";
 
 interface FreelancerWithDetails {
   id: string;
-  freelancerNumber: string;
+  freeLancerNumber: string;
   firstName: string;
   lastName: string;
   email?: string;

@@ -45,6 +45,10 @@ export async function POST(req: Request) {
       scheduledKnockIn,
       scheduledKnockOut,
       workingDays,
+      scheduledWeekendKnockOut,
+      scheduledWeekendKnockIn,
+      terminationDate,
+      contractType,
     } = body;
 
     const lastEmployeer = await db.employee.findFirst({
@@ -78,6 +82,10 @@ export async function POST(req: Request) {
         country: country || "South Africa", // Default to South Africa
         scheduledKnockIn,
         scheduledKnockOut,
+        scheduledWeekendKnockIn,
+        scheduledWeekendKnockOut,
+        terminationDate,
+        contractType,
         workingDays,
         createdBy: creater?.name,
       },

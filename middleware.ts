@@ -17,6 +17,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/work-logs",
   "/api/comments-mobile(.*)",
   "/api/employee-notifications(.*)",
+  "/api/employees/(.*)/push-token",
 ]);
 
 const allowedOrigins = [
@@ -57,6 +58,7 @@ function setCorsHeaders(req: Request, res: NextResponse): NextResponse {
       "Expo-Platform",
       "Expo-Runtime-Version",
       "Clerk-Auth",
+      "Expo-Push-Token",
     ].join(", ")
   );
   res.headers.set("Access-Control-Allow-Credentials", "true");

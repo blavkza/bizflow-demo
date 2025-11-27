@@ -131,13 +131,38 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 4. STATUS CALCULATION (FIXED FOR SAST TIMEZONE)
+    // 4. DETERMINE IF WEEKDAY OR WEEKEND AND GET SCHEDULED TIME
+    // ---------------------------------------------------------
+    const isWeekend = todayDay === "SAT" || todayDay === "SUN";
+
+    // Get the appropriate scheduled knock-in time
+    let scheduledKnockInTime: string | null = null;
+
+    if (isWeekend) {
+      scheduledKnockInTime =
+        person.scheduledWeekendKnockIn || person.scheduledKnockIn;
+    } else {
+      scheduledKnockInTime = person.scheduledKnockIn;
+    }
+
+    // Also get the appropriate scheduled knock-out time for the record
+    let scheduledKnockOutTime: string | null = null;
+
+    if (isWeekend) {
+      scheduledKnockOutTime =
+        person.scheduledWeekendKnockOut || person.scheduledKnockOut;
+    } else {
+      scheduledKnockOutTime = person.scheduledKnockOut;
+    }
+
+    // ---------------------------------------------------------
+    // 5. STATUS CALCULATION (FIXED FOR SAST TIMEZONE)
     // ---------------------------------------------------------
     let status: AttendanceStatus = AttendanceStatus.PRESENT;
     let isLate = false;
 
-    if (person.scheduledKnockIn) {
-      const [scheduledHours, scheduledMinutes] = person.scheduledKnockIn
+    if (scheduledKnockInTime) {
+      const [scheduledHours, scheduledMinutes] = scheduledKnockInTime
         .split(":")
         .map(Number);
 
@@ -163,7 +188,8 @@ export async function POST(request: NextRequest) {
       // Debug logs (check your server console to verify)
       console.log(`Time Check [${person.firstName}]:`);
       console.log(`Server Time (UTC): ${currentTime.toISOString()}`);
-      console.log(`Scheduled (SAST): ${person.scheduledKnockIn}`);
+      console.log(`Is Weekend: ${isWeekend}`);
+      console.log(`Scheduled (SAST): ${scheduledKnockInTime}`);
       console.log(`Threshold (UTC): ${lateThreshold.toISOString()}`);
 
       if (currentTime > lateThreshold) {
@@ -173,7 +199,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 5. WARNINGS (For Employees Only)
+    // 6. WARNINGS (For Employees Only)
     // ---------------------------------------------------------
     let warningCreated = null;
     if (isLate && personType === "employee") {
@@ -181,7 +207,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 6. SAVE RECORD
+    // 7. SAVE RECORD
     // ---------------------------------------------------------
     const attendanceData: any = {
       checkIn: currentTime,
@@ -191,8 +217,9 @@ export async function POST(request: NextRequest) {
       checkInLng: lng ? parseFloat(lng) : null,
       status: status,
       notes: notes || null,
-      scheduledKnockIn: person.scheduledKnockIn,
-      scheduledKnockOut: person.scheduledKnockOut,
+      scheduledKnockIn: scheduledKnockInTime, // Use the determined scheduled time
+      scheduledKnockOut: scheduledKnockOutTime, // Use the determined scheduled time
+      isWeekend: isWeekend, // Store whether it was a weekend for reporting
     };
 
     if (personType === "employee") {
@@ -266,6 +293,8 @@ export async function POST(request: NextRequest) {
       isLate: isLate,
       warning: warningCreated,
       personType,
+      isWeekend,
+      scheduledTimeUsed: scheduledKnockInTime,
     });
   } catch (error) {
     console.error("Check-in error:", error);
@@ -458,14 +487,33 @@ async function triggerAutoAttendanceForLeave() {
         );
 
         if (shouldCreateRecord.shouldCreate) {
+          // Determine if it's weekend for auto-attendance as well
+          const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+          const todayDay = dayNames[today.getDay()];
+          const isWeekend = todayDay === "SAT" || todayDay === "SUN";
+
+          let scheduledKnockInTime: string | null = null;
+          let scheduledKnockOutTime: string | null = null;
+
+          if (isWeekend) {
+            scheduledKnockInTime =
+              employee.scheduledWeekendKnockIn || employee.scheduledKnockIn;
+            scheduledKnockOutTime =
+              employee.scheduledWeekendKnockOut || employee.scheduledKnockOut;
+          } else {
+            scheduledKnockInTime = employee.scheduledKnockIn;
+            scheduledKnockOutTime = employee.scheduledKnockOut;
+          }
+
           const attendanceRecord = await db.attendanceRecord.create({
             data: {
               employeeId: employee.id,
               date: today,
               status: shouldCreateRecord.status!,
-              scheduledKnockIn: employee.scheduledKnockIn,
-              scheduledKnockOut: employee.scheduledKnockOut,
+              scheduledKnockIn: scheduledKnockInTime,
+              scheduledKnockOut: scheduledKnockOutTime,
               notes: shouldCreateRecord.notes,
+              isWeekend: isWeekend,
             },
           });
           createdRecords.push(attendanceRecord);

@@ -334,9 +334,11 @@ model Employee {
   workSchedule String?
   probationEnd DateTime?
 
-  scheduledKnockIn  String?
-  scheduledKnockOut String?
-  workingDays       String[]
+  scheduledKnockIn         String?
+  scheduledKnockOut        String?
+  scheduledWeekendKnockIn  String?
+  scheduledWeekendKnockOut String?
+  workingDays              String[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -429,9 +431,11 @@ model FreeLancer {
   workSchedule String?
   probationEnd DateTime?
 
-  scheduledKnockIn  String?
-  scheduledKnockOut String?
-  workingDays       String[]
+  scheduledKnockIn         String?
+  scheduledKnockOut        String?
+  scheduledWeekendKnockIn  String?
+  scheduledWeekendKnockOut String?
+  workingDays              String[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -492,6 +496,8 @@ model AttendanceRecord {
   checkOutLat     Decimal?  @db.Decimal(10, 8)
   checkOutLng     Decimal?  @db.Decimal(11, 8)
   checkOutAddress String?
+
+  isWeekend Boolean @default(true)
 
   breakStart    DateTime?
   breakEnd      DateTime?
@@ -2810,6 +2816,7 @@ enum MaritalStatus {
 }
 
 enum ContractType {
+  FULL_TIME
   PERMANENT
   CONTRACT
   TEMPORARY

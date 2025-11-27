@@ -110,6 +110,8 @@ export default function FreelancersPage() {
     return <div className="container mx-auto p-6 text-red-500">{error}</div>;
   }
 
+  console.log(freelancers);
+
   return (
     <FreelancersPageWrapper
       freelancers={freelancers}
