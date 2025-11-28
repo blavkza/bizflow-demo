@@ -61,20 +61,13 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
     setSelectedRecord(null);
   };
 
-  // Helper function to safely convert coordinates to numbers
   const getSafeCoordinates = (coordinates: any) => {
     if (!coordinates) return null;
-
     const lat = safeDecimalToNumber(coordinates.lat);
     const lng = safeDecimalToNumber(coordinates.lng);
-
-    // Check if coordinates are valid numbers
-    if (isNaN(lat) || isNaN(lng)) return null;
-
-    return { lat, lng };
+    return isNaN(lat) || isNaN(lng) ? null : { lat, lng };
   };
 
-  // Helper function to format coordinates for display
   const formatCoordinate = (coord: any): string => {
     const num = safeDecimalToNumber(coord);
     return isNaN(num) ? "N/A" : num.toFixed(4);
@@ -83,25 +76,23 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="text-muted-foreground">Loading check-in history...</div>
+        <div className="text-muted-foreground text-sm">Loading...</div>
       </div>
     );
   }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle>All Check-ins & Check-outs</CardTitle>
-          <CardDescription>
-            Complete history of check-ins and check-outs by method (GPS, Manual,
-            Barcode) for Employees & Freelancers
+      <Card className="text-xs">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm">All Check-ins & Check-outs</CardTitle>
+          <CardDescription className="text-xs">
+            Complete history of check-ins and check-outs
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="pt-0">
+          <div className="space-y-3">
             {checkins.map((checkin) => {
-              const isFreelancer = checkin.employeeId.startsWith("FRL");
               const CheckInMethodIcon =
                 checkin.method === "GPS"
                   ? MapPin
@@ -109,7 +100,6 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                     ? UserCheck
                     : QrCode;
 
-              // Safe coordinate access
               const checkInCoordinates = getSafeCoordinates(
                 checkin.coordinates
               );
@@ -122,191 +112,174 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
               return (
                 <div
                   key={checkin.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md transition-shadow"
+                  className="flex items-center justify-between p-3 border rounded-lg hover:shadow-sm transition-shadow"
                 >
-                  <div className="flex items-center space-x-4">
-                    <Avatar>
+                  {/* Left Side - Person Info */}
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
+                    <Avatar className="h-8 w-8">
                       <AvatarImage
                         src={checkin.employeeAvatar || "/placeholder.svg"}
                         alt={checkin.employeeName}
                       />
-                      <AvatarFallback>
+                      <AvatarFallback className="text-xs">
                         {checkin.employeeName
                           .split(" ")
                           .map((n) => n[0])
                           .join("")}
                       </AvatarFallback>
                     </Avatar>
-                    <div>
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center space-x-2">
-                        <h4 className="font-medium">{checkin.employeeName}</h4>
-                        <Badge variant="outline" className="text-xs">
+                        <h4 className="font-medium truncate text-xs">
+                          {checkin.employeeName}
+                        </h4>
+                        <Badge variant="outline" className="text-[10px] h-4">
                           {checkin.personType === "freelancer" ? (
-                            <UserCog className="w-3 h-3 mr-1" />
+                            <UserCog className="w-2.5 h-2.5 mr-1" />
                           ) : (
-                            <User className="w-3 h-3 mr-1" />
+                            <User className="w-2.5 h-2.5 mr-1" />
                           )}
-                          {checkin.personType === "freelancer"
-                            ? "Freelancer"
-                            : "Employee"}
+                          {checkin.personType === "freelancer" ? "FL" : "EMP"}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-muted-foreground truncate text-[10px]">
                         {checkin.employeeNumber}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-6">
-                    {/* Check-in Method */}
+                  {/* Right Side - Details */}
+                  <div className="flex items-center space-x-4 flex-shrink-0">
+                    {/* Method */}
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground">Method</p>
+                      <p className="text-muted-foreground text-[10px]">
+                        Method
+                      </p>
                       <Badge
                         variant="outline"
-                        className={getCheckInMethodColor(checkin.method)}
+                        className={
+                          getCheckInMethodColor(checkin.method) +
+                          " text-[10px] h-4"
+                        }
                       >
-                        <CheckInMethodIcon className="h-3 w-3 mr-1" />
-                        <span className="ml-1">{checkin.method}</span>
+                        <CheckInMethodIcon className="h-2.5 w-2.5 mr-1" />
+                        {checkin.method}
                       </Badge>
                     </div>
 
-                    {/* Check-in Location */}
+                    {/* Check-in */}
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground">
-                        Check-in Location
+                      <p className="text-muted-foreground text-[10px]">
+                        Check-in
                       </p>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1">
                         {checkin.address ? (
                           <HoverCard>
                             <HoverCardTrigger asChild>
-                              <div className="flex items-center justify-center space-x-1 cursor-pointer overflow-hidden whitespace-nowrap text-ellipsis max-w-[200px]">
-                                <MapPin className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">
-                                  {checkin.address}
+                              <div className="flex items-center cursor-pointer max-w-[80px]">
+                                <MapPin className="w-2.5 h-2.5 flex-shrink-0" />
+                                <span className="truncate text-[10px] ml-0.5">
+                                  {checkin.address.split(",")[0]}
                                 </span>
                               </div>
                             </HoverCardTrigger>
-                            <HoverCardContent className="w-auto max-w-xs">
+                            <HoverCardContent className="w-auto max-w-xs text-xs">
                               {checkin.address}
                             </HoverCardContent>
                           </HoverCard>
                         ) : (
-                          <p className="text-sm">N/A</p>
+                          <span className="text-[10px]">N/A</span>
                         )}
                         {hasCheckInCoordinates && (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleShowMap(checkin, "checkin")}
-                            className="h-6 w-6 p-0 hover:bg-blue-50"
-                            title="View check-in on map"
+                            className="h-5 w-5 p-0 hover:bg-blue-50"
+                            title="View check-in map"
                           >
-                            <Eye className="h-3 w-3 text-blue-600" />
+                            <Eye className="h-2.5 w-2.5 text-blue-600" />
                           </Button>
                         )}
                       </div>
+                      <p className="text-[10px] font-medium">
+                        {new Date(checkin.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
                     </div>
 
-                    {/* Check-out Location */}
+                    {/* Check-out */}
                     <div className="text-center">
-                      <p className="text-sm text-muted-foreground">
-                        Check-out Location
+                      <p className="text-muted-foreground text-[10px]">
+                        Check-out
                       </p>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-1">
                         {checkin.checkOutAddress ? (
                           <HoverCard>
                             <HoverCardTrigger asChild>
-                              <div className="flex items-center justify-center space-x-1 cursor-pointer overflow-hidden whitespace-nowrap text-ellipsis max-w-[200px]">
-                                <LogOut className="w-3 h-3 flex-shrink-0" />
-                                <span className="truncate">
-                                  {checkin.checkOutAddress}
+                              <div className="flex items-center cursor-pointer max-w-[80px]">
+                                <LogOut className="w-2.5 h-2.5 flex-shrink-0" />
+                                <span className="truncate text-[10px] ml-0.5">
+                                  {checkin.checkOutAddress.split(",")[0]}
                                 </span>
                               </div>
                             </HoverCardTrigger>
-                            <HoverCardContent className="w-auto max-w-xs">
+                            <HoverCardContent className="w-auto max-w-xs text-xs">
                               {checkin.checkOutAddress}
                             </HoverCardContent>
                           </HoverCard>
                         ) : (
-                          <p className="text-sm">N/A</p>
+                          <span className="text-[10px]">N/A</span>
                         )}
                         {hasCheckOutCoordinates && (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleShowMap(checkin, "checkout")}
-                            className="h-6 w-6 p-0 hover:bg-green-50"
-                            title="View check-out on map"
+                            className="h-5 w-5 p-0 hover:bg-green-50"
+                            title="View check-out map"
                           >
-                            <Eye className="h-3 w-3 text-green-600" />
+                            <Eye className="h-2.5 w-2.5 text-green-600" />
                           </Button>
                         )}
                       </div>
-                    </div>
-
-                    {/* Check-in Time */}
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground">
-                        Check-in Time
-                      </p>
-                      <p className="font-medium text-sm">
-                        {new Date(checkin.timestamp).toLocaleTimeString()}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(checkin.timestamp).toLocaleDateString()}
-                      </p>
-                    </div>
-
-                    {/* Check-out Time */}
-                    <div className="text-center">
-                      <p className="text-sm text-muted-foreground">
-                        Check-out Time
-                      </p>
-                      <p className="font-medium text-sm">
+                      <p className="text-[10px] font-medium">
                         {checkin.checkOutTimestamp ? (
                           new Date(
                             checkin.checkOutTimestamp
-                          ).toLocaleTimeString()
-                        ) : (
-                          <span className="text-orange-500">-</span>
-                        )}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {checkin.checkOutTimestamp ? (
-                          new Date(
-                            checkin.checkOutTimestamp
-                          ).toLocaleDateString()
+                          ).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
                         ) : (
                           <span className="text-orange-500">-</span>
                         )}
                       </p>
                     </div>
 
-                    {/* Check-in Coordinates */}
-                    {checkin.coordinates && (
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground">
-                          Check-in Coords
-                        </p>
-                        <p className="text-xs font-mono">
-                          {formatCoordinate(checkin.coordinates.lat)},{" "}
-                          {formatCoordinate(checkin.coordinates.lng)}
-                        </p>
+                    {/* Coordinates */}
+                    <div className="text-center">
+                      <p className="text-muted-foreground text-[10px]">
+                        Coords
+                      </p>
+                      <div className="space-y-0.5">
+                        {checkin.coordinates && (
+                          <p className="font-mono text-[9px] leading-none">
+                            {formatCoordinate(checkin.coordinates.lat)},<br />
+                            {formatCoordinate(checkin.coordinates.lng)}
+                          </p>
+                        )}
+                        {checkin.checkOutCoordinates && (
+                          <p className="font-mono text-[9px] leading-none text-green-600">
+                            {formatCoordinate(checkin.checkOutCoordinates.lat)},
+                            <br />
+                            {formatCoordinate(checkin.checkOutCoordinates.lng)}
+                          </p>
+                        )}
                       </div>
-                    )}
-
-                    {/* Check-out Coordinates */}
-                    {checkin.checkOutCoordinates && (
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground">
-                          Check-out Coords
-                        </p>
-                        <p className="text-xs font-mono">
-                          {formatCoordinate(checkin.checkOutCoordinates.lat)},{" "}
-                          {formatCoordinate(checkin.checkOutCoordinates.lng)}
-                        </p>
-                      </div>
-                    )}
+                    </div>
                   </div>
                 </div>
               );
@@ -317,20 +290,19 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
 
       {/* Map Dialog */}
       <Dialog open={showMap} onOpenChange={setShowMap}>
-        <DialogContent className="max-w-4xl">
+        <DialogContent className="max-w-2xl text-sm">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="text-sm">
               {mapType === "checkin" ? "Check-in" : "Check-out"} Location
             </DialogTitle>
-            <DialogDescription>
-              Viewing {mapType} location for {selectedRecord?.employeeName}
+            <DialogDescription className="text-xs">
+              {selectedRecord?.employeeName} - {mapType}
             </DialogDescription>
           </DialogHeader>
 
           {selectedRecord && (
-            <div className="space-y-4">
-              {/* Location Information */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
                   <p className="font-medium">Employee</p>
                   <p>{selectedRecord.employeeName}</p>
@@ -347,22 +319,13 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                         : "N/A"}
                   </p>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <p className="font-medium">Location</p>
                   <p className="truncate">
                     {mapType === "checkin"
                       ? selectedRecord.location
                       : selectedRecord.checkOutAddress || "N/A"}
                   </p>
-                </div>
-                <div>
-                  <p className="font-medium">Method</p>
-                  <Badge
-                    variant="outline"
-                    className={getCheckInMethodColor(selectedRecord.method)}
-                  >
-                    {selectedRecord.method}
-                  </Badge>
                 </div>
                 {mapType === "checkin" && selectedRecord.coordinates && (
                   <>
@@ -401,16 +364,9 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                       </div>
                     </>
                   )}
-                {selectedRecord.accuracy && mapType === "checkin" && (
-                  <div>
-                    <p className="font-medium">Accuracy</p>
-                    <p>{selectedRecord.accuracy}m</p>
-                  </div>
-                )}
               </div>
 
-              {/* Map */}
-              <div className="w-full h-96 rounded-lg overflow-hidden border">
+              <div className="w-full h-64 rounded-lg overflow-hidden border">
                 {mapType === "checkin" && selectedRecord.coordinates ? (
                   <iframe
                     src={`https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d500!2d${safeDecimalToNumber(selectedRecord.coordinates.lng)}!3d${safeDecimalToNumber(selectedRecord.coordinates.lat)}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sza!4v${Date.now()}!5m2!1sen!2sza`}
@@ -418,7 +374,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title={`Check-in location of ${selectedRecord.employeeName}`}
+                    title={`${mapType} location of ${selectedRecord.employeeName}`}
                   />
                 ) : mapType === "checkout" &&
                   selectedRecord.checkOutCoordinates ? (
@@ -428,20 +384,14 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                     allowFullScreen
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
-                    title={`Check-out location of ${selectedRecord.employeeName}`}
+                    title={`${mapType} location of ${selectedRecord.employeeName}`}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-muted">
                     <div className="text-center">
-                      <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-muted-foreground">
-                        No coordinates available
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Location:{" "}
-                        {mapType === "checkin"
-                          ? selectedRecord.location
-                          : selectedRecord.checkOutAddress || "N/A"}
+                      <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-1" />
+                      <p className="text-muted-foreground text-xs">
+                        No coordinates
                       </p>
                     </div>
                   </div>
@@ -449,7 +399,9 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleCloseMap}>Close</Button>
+                <Button size="sm" onClick={handleCloseMap}>
+                  Close
+                </Button>
               </div>
             </div>
           )}
