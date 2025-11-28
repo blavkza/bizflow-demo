@@ -106,7 +106,9 @@ export default function LeaveCalendarTab({
               <div
                 key={day}
                 className={`aspect-square border rounded-lg p-2 hover:bg-muted cursor-pointer transition-colors ${
-                  isLeaveDay ? "bg-green-50 border-green-200" : ""
+                  isLeaveDay
+                    ? "bg-green-50 dark:bg-zinc-600 border-green-200"
+                    : ""
                 }`}
               >
                 <div className="text-sm font-medium mb-1">{day}</div>

@@ -321,14 +321,14 @@ export default function LeaveRequestForm({
     <form onSubmit={handleSubmit}>
       <div className="grid gap-4 py-4">
         {/* Current Year Info */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+        <div className="p-3 bg-blue-50 dark:bg-zinc-700 border border-blue-200 rounded-md">
           <div className="flex items-center space-x-2">
             <Calendar className="h-4 w-4 text-blue-600" />
             <div>
-              <h4 className="text-sm font-medium text-blue-800">
+              <h4 className="text-sm font-medium text-blue-800 dark:text-zinc-100">
                 Current Leave Year: {currentYear}
               </h4>
-              <p className="text-xs text-blue-600">
+              <p className="text-xs text-blue-600 dark:text-zinc-100">
                 Leave balances are calculated based on approved leaves in{" "}
                 {currentYear}
               </p>
@@ -375,12 +375,12 @@ export default function LeaveRequestForm({
 
         {/* Employee Leave Balance Info */}
         {selectedEmployee && (
-          <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="p-3 bg-blue-50 dark:bg-zinc-700 border border-blue-200 rounded-md">
             <div className="flex items-start space-x-2">
-              <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+              <Info className="h-4 w-4 text-blue-600 dark:text-zinc-100 mt-0.5" />
               <div className="space-y-2 flex-1">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-sm font-medium text-blue-800">
+                  <h4 className="text-sm font-medium text-blue-800 dark:text-zinc-100">
                     Leave Balance for {selectedEmployee.name} ({currentYear})
                   </h4>
                   {leaveUsage && (
@@ -390,7 +390,7 @@ export default function LeaveRequestForm({
                   )}
                 </div>
                 {isLoadingUsage ? (
-                  <p className="text-xs text-blue-600">
+                  <p className="text-xs text-blue-600 dark:text-zinc-100">
                     Loading leave balance...
                   </p>
                 ) : leaveUsage ? (
@@ -407,8 +407,8 @@ export default function LeaveRequestForm({
                           key={type.value}
                           className={`p-2 rounded text-xs ${
                             isExhausted
-                              ? "bg-red-50 border border-red-200"
-                              : "bg-white border border-blue-200"
+                              ? "bg-red-50 dark:bg-zinc-800 border border-red-200"
+                              : "bg-white dark:bg-zinc-800 border border-blue-200"
                           }`}
                         >
                           <div className="flex items-center justify-between">
@@ -436,7 +436,7 @@ export default function LeaveRequestForm({
                               </span>
                             )}
                             {type.value !== "UNPAID" && (
-                              <div className="text-gray-500">
+                              <div className="text-gray-500 dark:text-zinc-300">
                                 ({used}/{allocation} days used in {currentYear})
                               </div>
                             )}
