@@ -28,7 +28,6 @@ export async function GET(
     const expense = await db.expense.findUnique({
       where: {
         id: params.id,
-        userId: user.id,
       },
       include: {
         category: {
