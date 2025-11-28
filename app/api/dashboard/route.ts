@@ -1133,15 +1133,15 @@ export async function GET(request: NextRequest) {
     // <--- END NEW CALCULATION --->
 
     // Employee metrics
-
-    const isPersonOnLeave = (person: any) => {
-      if (!person.leaveRequests || person.leaveRequests.length === 0)
+    // --- HELPER FUNCTION: Defined inside GET to access 'todayStart' and 'todayEnd' ---
+    const checkIsOnLeaveToday = (record: any) => {
+      if (!record.leaveRequests || record.leaveRequests.length === 0)
         return false;
 
-      return person.leaveRequests.some((leave: any) => {
+      return record.leaveRequests.some((leave: any) => {
         const leaveStart = new Date(leave.startDate);
         const leaveEnd = new Date(leave.endDate);
-
+        // Check strict overlap with "Today"
         return (
           leave.status === "APPROVED" &&
           leaveStart <= todayEnd &&
@@ -1150,45 +1150,56 @@ export async function GET(request: NextRequest) {
       });
     };
 
+    // --- EMPLOYEE METRICS ---
     const activeEmployees = typedEmployees.filter(
       (employee: DashboardEmployee) => employee.status === "ACTIVE"
     );
 
+    // 1. On Duty: Has checked in today
     const onDutyEmployees = activeEmployees.filter(
       (employee) =>
         employee.AttendanceRecord && employee.AttendanceRecord.length > 0
     );
 
-    const offDutyEmployees = activeEmployees.filter(
-      (employee) =>
-        (!employee.AttendanceRecord ||
-          employee.AttendanceRecord.length === 0) &&
-        !isPersonOnLeave(employee)
-    );
-
+    // 2. On Leave: Strictly verified against today's date
     const employeesOnLeave = activeEmployees.filter((employee) =>
-      isPersonOnLeave(employee)
+      checkIsOnLeaveToday(employee)
     ).length;
 
-    // Freelancer metrics
+    // 3. Off Duty: Active AND No Check-in AND Not On Leave
+    const offDutyEmployees = activeEmployees.filter((employee) => {
+      const hasCheckedIn =
+        employee.AttendanceRecord && employee.AttendanceRecord.length > 0;
+      const isOnLeave = checkIsOnLeaveToday(employee);
+
+      // They are off duty if they haven't checked in AND are not on approved leave
+      return !hasCheckedIn && !isOnLeave;
+    });
+
+    // --- FREELANCER METRICS ---
     const activeFreelancers = typedFreelancers.filter(
       (freelancer: DashboardFreeLancer) => freelancer.status === "ACTIVE"
     );
 
+    // 1. On Duty
     const onDutyFreelancers = activeFreelancers.filter(
       (freelancer) =>
         freelancer.attendanceRecords && freelancer.attendanceRecords.length > 0
     );
 
-    const offDutyFreelancers = activeFreelancers.filter(
-      (freelancer) =>
-        !freelancer.attendanceRecords ||
-        freelancer.attendanceRecords.length === 0
-    );
-
-    const freelancersOnLeave = typedLeaveRequests.filter(
-      (lr: DashboardLeaveRequest) => lr.freeLancer
+    // 2. On Leave
+    const freelancersOnLeave = activeFreelancers.filter((freelancer) =>
+      checkIsOnLeaveToday(freelancer)
     ).length;
+
+    // 3. Off Duty
+    const offDutyFreelancers = activeFreelancers.filter((freelancer) => {
+      const hasCheckedIn =
+        freelancer.attendanceRecords && freelancer.attendanceRecords.length > 0;
+      const isOnLeave = checkIsOnLeaveToday(freelancer);
+
+      return !hasCheckedIn && !isOnLeave;
+    });
 
     const reliableFreelancers = activeFreelancers.filter(
       (freelancer: DashboardFreeLancer) => freelancer.reliable
