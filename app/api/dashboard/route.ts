@@ -1087,9 +1087,8 @@ export async function GET(request: NextRequest) {
     );
 
     const paidExpensesCount = paidExpenses.length;
-    const paidExpensesAmount = paidExpenses.reduce(
-      (sum: number, expense: any) =>
-        sum + convertDecimalToNumber(expense.totalAmount),
+    const paidExpensesAmount = expensesWithActualPayments.reduce(
+      (sum: number, expense: any) => sum + expense.actualPaidAmount,
       0
     );
 
@@ -1134,6 +1133,23 @@ export async function GET(request: NextRequest) {
     // <--- END NEW CALCULATION --->
 
     // Employee metrics
+
+    const isPersonOnLeave = (person: any) => {
+      if (!person.leaveRequests || person.leaveRequests.length === 0)
+        return false;
+
+      return person.leaveRequests.some((leave: any) => {
+        const leaveStart = new Date(leave.startDate);
+        const leaveEnd = new Date(leave.endDate);
+
+        return (
+          leave.status === "APPROVED" &&
+          leaveStart <= todayEnd &&
+          leaveEnd >= todayStart
+        );
+      });
+    };
+
     const activeEmployees = typedEmployees.filter(
       (employee: DashboardEmployee) => employee.status === "ACTIVE"
     );
@@ -1145,11 +1161,13 @@ export async function GET(request: NextRequest) {
 
     const offDutyEmployees = activeEmployees.filter(
       (employee) =>
-        !employee.AttendanceRecord || employee.AttendanceRecord.length === 0
+        (!employee.AttendanceRecord ||
+          employee.AttendanceRecord.length === 0) &&
+        !isPersonOnLeave(employee)
     );
 
-    const employeesOnLeave = typedLeaveRequests.filter(
-      (lr: DashboardLeaveRequest) => lr.employee
+    const employeesOnLeave = activeEmployees.filter((employee) =>
+      isPersonOnLeave(employee)
     ).length;
 
     // Freelancer metrics
