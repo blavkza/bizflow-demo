@@ -25,15 +25,26 @@ export default function EmployeeSummary({
   const employeeData = data?.employeeSummary || {};
   const employees = data?.employees || [];
 
-  // Calculate on/off duty based on status and AttendanceRecord
+  // Filter Active Employees
   const activeEmployees = employees.filter(
     (emp: any) => emp.status === "ACTIVE"
   );
+
+  // 1. On Duty: Has Attendance Record
   const employeesOnDuty = activeEmployees.filter(
     (emp: any) => emp.AttendanceRecord && emp.AttendanceRecord.length > 0
   );
+
+  // 2. On Leave: Has Leave Requests (API filters these to today only)
+  const employeesOnLeave = activeEmployees.filter(
+    (emp: any) => emp.leaveRequests && emp.leaveRequests.length > 0
+  );
+
+  // 3. Off Duty: No Attendance AND Not On Leave
   const employeesOffDuty = activeEmployees.filter(
-    (emp: any) => !emp.AttendanceRecord || emp.AttendanceRecord.length === 0
+    (emp: any) =>
+      (!emp.AttendanceRecord || emp.AttendanceRecord.length === 0) &&
+      (!emp.leaveRequests || emp.leaveRequests.length === 0)
   );
 
   const handleCardClick = (type: string) => {
@@ -44,7 +55,8 @@ export default function EmployeeSummary({
     type: string | null,
     data: any,
     onDuty: any[],
-    offDuty: any[]
+    offDuty: any[],
+    onLeave: any[]
   ) => {
     switch (type) {
       case "workforce":
@@ -56,7 +68,7 @@ export default function EmployeeSummary({
       case "off-duty":
         return <OffDutyEmployeesDetails employees={offDuty} />;
       case "on-leave":
-        return <OnLeaveEmployeesDetails data={data} />;
+        return <OnLeaveEmployeesDetails employees={onLeave} />;
       default:
         return null;
     }
@@ -97,7 +109,7 @@ export default function EmployeeSummary({
             <StatCard
               isLoading={isLoading}
               title="On Leave"
-              value={employeeData.onLeave}
+              value={employeesOnLeave.length} // Use calculated length to match logic
               icon="calendar"
               description="All Employees On Leave"
               onClick={() => handleCardClick("on-leave")}
@@ -120,13 +132,37 @@ export default function EmployeeSummary({
             openDialog,
             data,
             employeesOnDuty,
-            employeesOffDuty
+            employeesOffDuty,
+            employeesOnLeave
           )}
         </DialogContent>
       </Dialog>
     </>
   );
 }
+
+// Helper to determine status for Badge display
+const getEmployeeStatus = (employee: any) => {
+  if (employee.AttendanceRecord && employee.AttendanceRecord.length > 0) {
+    return {
+      label: "On Duty",
+      variant: "default" as const,
+      color: "bg-green-500",
+    };
+  }
+  if (employee.leaveRequests && employee.leaveRequests.length > 0) {
+    return {
+      label: "On Leave",
+      variant: "destructive" as const,
+      color: "bg-red-500",
+    };
+  }
+  return {
+    label: "Off Duty",
+    variant: "secondary" as const,
+    color: "bg-gray-300",
+  };
+};
 
 // Employee Detail Components
 const EmployeeWorkforceDetails = ({
@@ -135,97 +171,80 @@ const EmployeeWorkforceDetails = ({
 }: {
   data: any;
   employees: any[];
-}) => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-3 gap-4 text-sm">
-      <div className="text-center p-4 bg-blue-50 rounded-lg">
-        <div className="text-2xl font-bold text-blue-600">
-          {employees.length}
-        </div>
-        <div className="text-blue-800">Active Employees</div>
-      </div>
-      <div className="text-center p-4 bg-green-50 rounded-lg">
-        <div className="text-2xl font-bold text-green-600">
-          {
-            employees.filter(
-              (emp: any) =>
-                emp.AttendanceRecord && emp.AttendanceRecord.length > 0
-            ).length
-          }
-        </div>
-        <div className="text-green-800">On Duty</div>
-      </div>
-      <div className="text-center p-4 bg-orange-50 rounded-lg">
-        <div className="text-2xl font-bold text-orange-600">
-          {
-            employees.filter(
-              (emp: any) =>
-                !emp.AttendanceRecord || emp.AttendanceRecord.length === 0
-            ).length
-          }
-        </div>
-        <div className="text-orange-800">Off Duty</div>
-      </div>
-    </div>
+}) => {
+  // Recalculate counts locally for the summary boxes
+  const onDutyCount = employees.filter(
+    (e) => e.AttendanceRecord?.length > 0
+  ).length;
+  const onLeaveCount = employees.filter(
+    (e) => e.leaveRequests?.length > 0
+  ).length;
+  const offDutyCount = employees.length - onDutyCount - onLeaveCount;
 
-    <div className="border rounded-lg">
-      <div className="p-4 font-semibold border-b">All Active Employees</div>
-      <div className="max-h-96 overflow-y-auto">
-        {employees.length > 0 ? (
-          employees.map((employee: any) => (
-            <div
-              key={employee.id}
-              className="p-4 border-b last:border-b-0 hover:bg-gray-50"
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      employee.AttendanceRecord &&
-                      employee.AttendanceRecord.length > 0
-                        ? "bg-green-500"
-                        : "bg-gray-300"
-                    }`}
-                  />
-                  <div>
-                    <div className="font-medium">
-                      {employee.firstName} {employee.lastName}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {employee.position}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <Badge
-                    variant={
-                      employee.AttendanceRecord &&
-                      employee.AttendanceRecord.length > 0
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {employee.AttendanceRecord &&
-                    employee.AttendanceRecord.length > 0
-                      ? "On Duty"
-                      : "Off Duty"}
-                  </Badge>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {employee.department?.name || "No Department"}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="p-8 text-center text-gray-500">
-            No employees data available
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-4 text-sm">
+        <div className="text-center p-4 bg-blue-50 rounded-lg">
+          <div className="text-2xl font-bold text-blue-600">
+            {employees.length}
           </div>
-        )}
+          <div className="text-blue-800">Active Employees</div>
+        </div>
+        <div className="text-center p-4 bg-green-50 rounded-lg">
+          <div className="text-2xl font-bold text-green-600">{onDutyCount}</div>
+          <div className="text-green-800">On Duty</div>
+        </div>
+        <div className="text-center p-4 bg-orange-50 rounded-lg">
+          <div className="text-2xl font-bold text-orange-600">
+            {offDutyCount}
+          </div>
+          <div className="text-orange-800">Off Duty</div>
+        </div>
+      </div>
+
+      <div className="border rounded-lg">
+        <div className="p-4 font-semibold border-b">All Active Employees</div>
+        <div className="max-h-96 overflow-y-auto">
+          {employees.length > 0 ? (
+            employees.map((employee: any) => {
+              const status = getEmployeeStatus(employee);
+              return (
+                <div
+                  key={employee.id}
+                  className="p-4 border-b last:border-b-0 "
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${status.color}`} />
+                      <div>
+                        <div className="font-medium">
+                          {employee.firstName} {employee.lastName}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {employee.position}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {employee.department?.name || "No Department"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              No employees data available
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const OnDutyEmployeesDetails = ({ employees }: { employees: any[] }) => (
   <div className="space-y-4">
@@ -244,10 +263,7 @@ const OnDutyEmployeesDetails = ({ employees }: { employees: any[] }) => (
       <div className="max-h-96 overflow-y-auto">
         {employees.length > 0 ? (
           employees.map((employee: any) => (
-            <div
-              key={employee.id}
-              className="p-4 border-b last:border-b-0 hover:bg-gray-50"
-            >
+            <div key={employee.id} className="p-4 border-b last:border-b-0 ">
               <div className="flex justify-between items-center">
                 <div>
                   <div className="font-medium">
@@ -283,7 +299,7 @@ const OffDutyEmployeesDetails = ({ employees }: { employees: any[] }) => (
       </div>
       <div className="text-orange-800 font-medium">Employees Off Duty</div>
       <div className="text-sm text-orange-600 mt-2">
-        Not currently clocked in
+        Not clocked in (excluding those on leave)
       </div>
     </div>
 
@@ -292,10 +308,7 @@ const OffDutyEmployeesDetails = ({ employees }: { employees: any[] }) => (
       <div className="max-h-96 overflow-y-auto">
         {employees.length > 0 ? (
           employees.map((employee: any) => (
-            <div
-              key={employee.id}
-              className="p-4 border-b last:border-b-0 hover:bg-gray-50"
-            >
+            <div key={employee.id} className="p-4 border-b last:border-b-0 ">
               <div className="flex justify-between items-center">
                 <div>
                   <div className="font-medium">
@@ -322,21 +335,13 @@ const OffDutyEmployeesDetails = ({ employees }: { employees: any[] }) => (
   </div>
 );
 
-const OnLeaveEmployeesDetails = ({ data }: { data: any }) => {
-  const employeeData = data?.employeeSummary || {};
-  const employees = data?.employees || [];
-
-  // Get employees who are on leave (have approved leave requests)
-  const employeesOnLeave = employees.filter(
-    (employee: any) =>
-      employee.leaveRequests && employee.leaveRequests.length > 0
-  );
-
+// Updated to accept the pre-filtered employeesOnLeave array
+const OnLeaveEmployeesDetails = ({ employees }: { employees: any[] }) => {
   return (
     <div className="space-y-4">
       <div className="text-center p-6 bg-red-50 rounded-lg">
         <div className="text-3xl font-bold text-red-600">
-          {employeeData.onLeave || 0}
+          {employees.length}
         </div>
         <div className="text-red-800 font-medium">Employees On Leave</div>
         <div className="text-sm text-red-600 mt-2">
@@ -347,12 +352,9 @@ const OnLeaveEmployeesDetails = ({ data }: { data: any }) => {
       <div className="border rounded-lg">
         <div className="p-4 font-semibold border-b">Employees On Leave</div>
         <div className="max-h-96 overflow-y-auto">
-          {employeesOnLeave.length > 0 ? (
-            employeesOnLeave.map((employee: any) => (
-              <div
-                key={employee.id}
-                className="p-4 border-b last:border-b-0 hover:bg-gray-50"
-              >
+          {employees.length > 0 ? (
+            employees.map((employee: any) => (
+              <div key={employee.id} className="p-4 border-b last:border-b-0 ">
                 <div className="flex justify-between items-center">
                   <div>
                     <div className="font-medium">

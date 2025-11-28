@@ -24,15 +24,19 @@ export default function FreelancerSummary({
   const freelancerData = data?.freelancerSummary || {};
   const freelancers = data?.freelancers || [];
 
-  // Calculate on/off duty based on status and time entries
+  // Filter Active Freelancers
   const activeFreelancers = freelancers.filter(
     (fl: any) => fl.status === "ACTIVE"
   );
+
+  // 1. On Duty: Has Attendance Record
   const freelancersOnDuty = activeFreelancers.filter(
-    (fl: any) => fl.timeEntries && fl.timeEntries.length > 0
+    (fl: any) => fl.attendanceRecords && fl.attendanceRecords.length > 0
   );
+
+  // 2. Off Duty: No Attendance Record
   const freelancersOffDuty = activeFreelancers.filter(
-    (fl: any) => !fl.timeEntries || fl.timeEntries.length === 0
+    (fl: any) => !fl.attendanceRecords || fl.attendanceRecords.length === 0
   );
 
   const handleCardClick = (type: string) => {
@@ -119,6 +123,22 @@ export default function FreelancerSummary({
   );
 }
 
+// Helper for badges - Simplified (No On Leave)
+const getFreelancerStatus = (freelancer: any) => {
+  if (freelancer.attendanceRecords && freelancer.attendanceRecords.length > 0) {
+    return {
+      label: "On Duty",
+      variant: "default" as const,
+      color: "bg-green-500",
+    };
+  }
+  return {
+    label: "Off Duty",
+    variant: "secondary" as const,
+    color: "bg-gray-300",
+  };
+};
+
 // Freelancer Detail Components
 const FreelancerWorkforceDetails = ({
   data,
@@ -126,99 +146,84 @@ const FreelancerWorkforceDetails = ({
 }: {
   data: any;
   freelancers: any[];
-}) => (
-  <div className="space-y-4">
-    <div className="grid grid-cols-3 gap-4 text-sm">
-      <div className="text-center p-4 bg-blue-50 rounded-lg">
-        <div className="text-2xl font-bold text-blue-600">
-          {freelancers.length}
-        </div>
-        <div className="text-blue-800">Active Freelancers</div>
-      </div>
-      <div className="text-center p-4 bg-green-50 rounded-lg">
-        <div className="text-2xl font-bold text-green-600">
-          {
-            freelancers.filter(
-              (fl: any) => fl.timeEntries && fl.timeEntries.length > 0
-            ).length
-          }
-        </div>
-        <div className="text-green-800">On Duty</div>
-      </div>
-      <div className="text-center p-4 bg-orange-50 rounded-lg">
-        <div className="text-2xl font-bold text-orange-600">
-          {
-            freelancers.filter(
-              (fl: any) => !fl.timeEntries || fl.timeEntries.length === 0
-            ).length
-          }
-        </div>
-        <div className="text-orange-800">Off Duty</div>
-      </div>
-    </div>
+}) => {
+  const onDutyCount = freelancers.filter(
+    (f) => f.attendanceRecords?.length > 0
+  ).length;
+  const offDutyCount = freelancers.length - onDutyCount;
 
-    <div className="border rounded-lg">
-      <div className="p-4 font-semibold border-b">All Active Freelancers</div>
-      <div className="max-h-96 overflow-y-auto">
-        {freelancers.length > 0 ? (
-          freelancers.map((freelancer: any) => (
-            <div
-              key={freelancer.id}
-              className="p-4 border-b last:border-b-0 hover:bg-gray-50"
-            >
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-3 h-3 rounded-full ${
-                      freelancer.timeEntries &&
-                      freelancer.timeEntries.length > 0
-                        ? "bg-green-500"
-                        : "bg-gray-300"
-                    }`}
-                  />
-                  <div>
-                    <div className="font-medium">
-                      {freelancer.firstName} {freelancer.lastName}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {freelancer.position}
-                    </div>
-                    {freelancer.reliable && (
-                      <Badge variant="default" className="mt-1 text-xs">
-                        Reliable
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <Badge
-                    variant={
-                      freelancer.timeEntries &&
-                      freelancer.timeEntries.length > 0
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {freelancer.timeEntries && freelancer.timeEntries.length > 0
-                      ? "On Duty"
-                      : "Off Duty"}
-                  </Badge>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {freelancer.department?.name || "No Department"}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="p-8 text-center text-gray-500">
-            No freelancers data available
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-4 text-sm">
+        <div className="text-center p-4 bg-blue-50 rounded-lg">
+          <div className="text-2xl font-bold text-blue-600">
+            {freelancers.length}
           </div>
-        )}
+          <div className="text-blue-800">Active Freelancers</div>
+        </div>
+        <div className="text-center p-4 bg-green-50 rounded-lg">
+          <div className="text-2xl font-bold text-green-600">{onDutyCount}</div>
+          <div className="text-green-800">On Duty</div>
+        </div>
+        <div className="text-center p-4 bg-orange-50 rounded-lg">
+          <div className="text-2xl font-bold text-orange-600">
+            {offDutyCount}
+          </div>
+          <div className="text-orange-800">Off Duty</div>
+        </div>
+      </div>
+
+      <div className="border rounded-lg">
+        <div className="p-4 font-semibold border-b">All Active Freelancers</div>
+        <div className="max-h-96 overflow-y-auto">
+          {freelancers.length > 0 ? (
+            freelancers.map((freelancer: any) => {
+              const status = getFreelancerStatus(freelancer);
+              return (
+                <div
+                  key={freelancer.id}
+                  className="p-4 border-b last:border-b-0 hover:bg-gray-50"
+                >
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${status.color}`} />
+                      <div>
+                        <div className="font-medium">
+                          {freelancer.firstName} {freelancer.lastName}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {freelancer.position}
+                        </div>
+                        {freelancer.reliable && (
+                          <Badge
+                            variant="outline"
+                            className="mt-1 text-xs border-green-500 text-green-600"
+                          >
+                            Reliable
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant={status.variant}>{status.label}</Badge>
+                      <div className="text-sm text-gray-500 mt-1">
+                        {freelancer.department?.name || "No Department"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              No freelancers data available
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const OnDutyFreelancersDetails = ({ freelancers }: { freelancers: any[] }) => (
   <div className="space-y-4">
@@ -250,7 +255,8 @@ const OnDutyFreelancersDetails = ({ freelancers }: { freelancers: any[] }) => (
                     {freelancer.position}
                   </div>
                   <div className="text-xs text-gray-400 mt-1">
-                    Time entries today: {freelancer.timeEntries?.length || 0}
+                    Attendance records today:{" "}
+                    {freelancer.attendanceRecords?.length || 0}
                     {freelancer.reliable && (
                       <span className="ml-2 text-green-600">• Reliable</span>
                     )}
