@@ -65,7 +65,7 @@ export interface CheckInRecord {
   employeeName: string;
   employeeId: string;
   employeeNumber: string;
-  employeeAvatar: string;
+  employeeAvatar: string | null;
   personType: "employee" | "freelancer";
   method: CheckInMethod;
   location: string;
@@ -76,6 +76,19 @@ export interface CheckInRecord {
     lat: number;
     lng: number;
   };
+  // Check-out fields
+  checkOutTimestamp?: string | null;
+  checkOutAddress?: string | null;
+  checkOutCoordinates?: {
+    lat: number;
+    lng: number;
+  };
+  checkOutMethod?: string | null;
+  // Additional fields
+  regularHours?: number | null;
+  overtimeHours?: number | null;
+  status?: string;
+  notes?: string | null;
 }
 
 export interface Department {

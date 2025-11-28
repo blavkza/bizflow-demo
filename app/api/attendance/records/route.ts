@@ -27,6 +27,33 @@ export async function GET(request: NextRequest) {
     const targetDate = new Date(date);
     targetDate.setHours(0, 0, 0, 0);
 
+    // Helper function to determine if a date is weekend
+    const isWeekend = (date: Date): boolean => {
+      const day = date.getDay();
+      return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+    };
+
+    // Helper function to get appropriate scheduled times
+    const getScheduledTimes = (person: any, date: Date) => {
+      const weekend = isWeekend(date);
+
+      if (weekend) {
+        return {
+          knockIn:
+            person.scheduledWeekendKnockIn ?? person.scheduledKnockIn ?? null,
+          knockOut:
+            person.scheduledWeekendKnockOut ?? person.scheduledKnockOut ?? null,
+          isWeekend: true,
+        };
+      } else {
+        return {
+          knockIn: person.scheduledKnockIn ?? null,
+          knockOut: person.scheduledKnockOut ?? null,
+          isWeekend: false,
+        };
+      }
+    };
+
     // Build where clause for active employees and freelancers
     const activeEmployeesWhere: any = {
       status: EmployeeStatus.ACTIVE,
@@ -80,6 +107,11 @@ export async function GET(request: NextRequest) {
     // Transform employee data
     const employeeRecords = activeEmployees.map((employee) => {
       const todayRecord = employee.AttendanceRecord[0];
+      const {
+        knockIn: scheduledKnockIn,
+        knockOut: scheduledKnockOut,
+        isWeekend,
+      } = getScheduledTimes(employee, targetDate);
 
       let status: AttendanceStatus;
       let displayStatus: string;
@@ -92,7 +124,10 @@ export async function GET(request: NextRequest) {
           employee,
           currentTime,
           targetDate,
-          "employee"
+          "employee",
+          scheduledKnockIn,
+          scheduledKnockOut,
+          isWeekend
         );
         status = calculatedStatus.status;
         displayStatus = calculatedStatus.displayStatus;
@@ -109,8 +144,10 @@ export async function GET(request: NextRequest) {
           avatar: employee.avatar,
           position: employee.position,
           department: employee.department,
-          scheduledKnockIn: employee.scheduledKnockIn,
-          scheduledKnockOut: employee.scheduledKnockOut,
+          scheduledKnockIn: scheduledKnockIn,
+          scheduledKnockOut: scheduledKnockOut,
+          scheduledWeekendKnockIn: employee.scheduledWeekendKnockIn,
+          scheduledWeekendKnockOut: employee.scheduledWeekendKnockOut,
           workingDays: employee.workingDays,
         },
         freeLancer: null,
@@ -127,6 +164,7 @@ export async function GET(request: NextRequest) {
         status,
         displayStatus,
         isVirtualRecord: !todayRecord,
+        isWeekend: isWeekend,
         personType: "employee" as const,
         createdAt: todayRecord?.createdAt,
         updatedAt: todayRecord?.updatedAt,
@@ -136,6 +174,11 @@ export async function GET(request: NextRequest) {
     // Transform freelancer data
     const freelancerRecords = activeFreelancers.map((freelancer) => {
       const todayRecord = freelancer.attendanceRecords[0];
+      const {
+        knockIn: scheduledKnockIn,
+        knockOut: scheduledKnockOut,
+        isWeekend,
+      } = getScheduledTimes(freelancer, targetDate);
 
       let status: AttendanceStatus;
       let displayStatus: string;
@@ -148,7 +191,10 @@ export async function GET(request: NextRequest) {
           freelancer,
           currentTime,
           targetDate,
-          "freelancer"
+          "freelancer",
+          scheduledKnockIn,
+          scheduledKnockOut,
+          isWeekend
         );
         status = calculatedStatus.status;
         displayStatus = calculatedStatus.displayStatus;
@@ -164,9 +210,11 @@ export async function GET(request: NextRequest) {
           freeLancerNumber: freelancer.freeLancerNumber,
           avatar: freelancer.avatar,
           position: freelancer.position,
-          department: freelancer.departmentId,
-          scheduledKnockIn: freelancer.scheduledKnockIn,
-          scheduledKnockOut: freelancer.scheduledKnockOut,
+          department: freelancer.department,
+          scheduledKnockIn: scheduledKnockIn,
+          scheduledKnockOut: scheduledKnockOut,
+          scheduledWeekendKnockIn: freelancer.scheduledWeekendKnockIn,
+          scheduledWeekendKnockOut: freelancer.scheduledWeekendKnockOut,
           workingDays: freelancer.workingDays,
         },
         employee: null,
@@ -183,6 +231,7 @@ export async function GET(request: NextRequest) {
         status,
         displayStatus,
         isVirtualRecord: !todayRecord,
+        isWeekend: isWeekend,
         personType: "freelancer" as const,
         createdAt: todayRecord?.createdAt,
         updatedAt: todayRecord?.updatedAt,
@@ -226,7 +275,10 @@ function calculateAttendanceStatus(
   person: any,
   currentTime: Date,
   targetDate: Date,
-  personType: "employee" | "freelancer"
+  personType: "employee" | "freelancer",
+  scheduledKnockIn: string | null,
+  scheduledKnockOut: string | null,
+  isWeekend: boolean
 ) {
   const today = new Date().toDateString();
   const targetDay = targetDate.toDateString();
@@ -259,7 +311,7 @@ function calculateAttendanceStatus(
   }
 
   // For today - calculate based on person's scheduled times
-  if (!person.scheduledKnockIn || !person.scheduledKnockOut) {
+  if (!scheduledKnockIn || !scheduledKnockOut) {
     return {
       status: AttendanceStatus.ABSENT,
       displayStatus: "No Schedule",
@@ -267,22 +319,22 @@ function calculateAttendanceStatus(
   }
 
   // Get scheduled times from person record
-  const scheduledKnockIn = new Date(person.scheduledKnockIn);
-  const scheduledKnockOut = new Date(person.scheduledKnockOut);
+  const scheduledTimeIn = new Date(`1970-01-01T${scheduledKnockIn}`);
+  const scheduledTimeOut = new Date(`1970-01-01T${scheduledKnockOut}`);
 
   // Set scheduled times to today for comparison
   const scheduledInToday = new Date(currentTime);
   scheduledInToday.setHours(
-    scheduledKnockIn.getHours(),
-    scheduledKnockIn.getMinutes(),
+    scheduledTimeIn.getHours(),
+    scheduledTimeIn.getMinutes(),
     0,
     0
   );
 
   const scheduledOutToday = new Date(currentTime);
   scheduledOutToday.setHours(
-    scheduledKnockOut.getHours(),
-    scheduledKnockOut.getMinutes(),
+    scheduledTimeOut.getHours(),
+    scheduledTimeOut.getMinutes(),
     0,
     0
   );

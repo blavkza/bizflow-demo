@@ -15,17 +15,27 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get("endDate");
 
     const where: any = {
-      checkIn: { not: null },
+      OR: [{ checkIn: { not: null } }, { checkOut: { not: null } }],
     };
 
     if (startDate && endDate) {
-      where.checkIn = {
-        gte: new Date(startDate),
-        lte: new Date(endDate + "T23:59:59.999Z"),
-      };
+      where.OR = [
+        {
+          checkIn: {
+            gte: new Date(startDate),
+            lte: new Date(endDate + "T23:59:59.999Z"),
+          },
+        },
+        {
+          checkOut: {
+            gte: new Date(startDate),
+            lte: new Date(endDate + "T23:59:59.999Z"),
+          },
+        },
+      ];
     }
 
-    const checkins = await db.attendanceRecord.findMany({
+    const records = await db.attendanceRecord.findMany({
       where,
       include: {
         employee: {
@@ -52,7 +62,7 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const formattedCheckins = checkins
+    const formattedCheckins = records
       .map((record) => {
         try {
           // Safely get person data (employee or freelancer)
@@ -75,12 +85,21 @@ export async function GET(request: NextRequest) {
             : record.freeLancer!.freeLancerNumber;
           const personName = `${person.firstName} ${person.lastName}`;
 
-          // Safely get coordinates
+          // Safely get check-in coordinates
           let coordinates = undefined;
           if (record.checkInLat && record.checkInLng) {
             coordinates = {
               lat: Number(record.checkInLat),
               lng: Number(record.checkInLng),
+            };
+          }
+
+          // Safely get check-out coordinates
+          let checkOutCoordinates = undefined;
+          if (record.checkOutLat && record.checkOutLng) {
+            checkOutCoordinates = {
+              lat: Number(record.checkOutLat),
+              lng: Number(record.checkOutLng),
             };
           }
 
@@ -94,8 +113,23 @@ export async function GET(request: NextRequest) {
             method: record.checkInMethod,
             location: record.checkInAddress || "Unknown",
             address: record.checkInAddress,
-            timestamp: record.checkIn!.toISOString(),
+            timestamp:
+              record.checkIn?.toISOString() || new Date().toISOString(),
             coordinates,
+            // Check-out data
+            checkOutTimestamp: record.checkOut?.toISOString() || null,
+            checkOutAddress: record.checkOutAddress,
+            checkOutCoordinates,
+            checkOutMethod: record.checkInMethod,
+            // Additional data
+            regularHours: record.regularHours
+              ? Number(record.regularHours)
+              : null,
+            overtimeHours: record.overtimeHours
+              ? Number(record.overtimeHours)
+              : null,
+            status: record.status,
+            notes: record.notes,
           };
         } catch (error) {
           console.error(

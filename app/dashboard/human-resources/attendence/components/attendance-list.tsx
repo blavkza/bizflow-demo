@@ -40,6 +40,33 @@ export function AttendanceList({
     return timeRegex.test(time.trim());
   };
 
+  // Helper function to determine if a date is weekend
+  const isWeekend = (date: Date): boolean => {
+    const day = date.getDay();
+    return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+  };
+
+  // Get the appropriate scheduled times based on weekday/weekend
+  const getScheduledTimes = (person: any, date: Date) => {
+    const weekend = isWeekend(date);
+
+    if (weekend) {
+      return {
+        knockIn:
+          person.scheduledWeekendKnockIn ?? person.scheduledKnockIn ?? null,
+        knockOut:
+          person.scheduledWeekendKnockOut ?? person.scheduledKnockOut ?? null,
+        isWeekend: true,
+      };
+    } else {
+      return {
+        knockIn: person.scheduledKnockIn ?? null,
+        knockOut: person.scheduledKnockOut ?? null,
+        isWeekend: false,
+      };
+    }
+  };
+
   const shouldShowNotCheckedIn = (record: AttendanceRecord) => {
     if (record.checkIn) return false;
 
@@ -55,7 +82,7 @@ export function AttendanceList({
 
     const now = new Date();
     const person = record.employee || record.freeLancer;
-    const scheduledKnockIn = person?.scheduledKnockIn;
+    const { knockIn: scheduledKnockIn } = getScheduledTimes(person, now);
 
     if (!isValidScheduledTime(scheduledKnockIn)) return false;
 
@@ -81,7 +108,10 @@ export function AttendanceList({
   const getDisplayStatusText = (record: AttendanceRecord) => {
     if (shouldShowNotCheckedIn(record)) {
       const person = record.employee || record.freeLancer;
-      const scheduledKnockIn = person?.scheduledKnockIn;
+      const { knockIn: scheduledKnockIn } = getScheduledTimes(
+        person,
+        new Date()
+      );
       if (isValidScheduledTime(scheduledKnockIn)) {
         try {
           const scheduledTime = new Date(`1970-01-01T${scheduledKnockIn}`);
@@ -112,7 +142,10 @@ export function AttendanceList({
   const getStatusBadgeColor = (record: AttendanceRecord) => {
     if (shouldShowNotCheckedIn(record)) {
       const person = record.employee || record.freeLancer;
-      const scheduledKnockIn = person?.scheduledKnockIn;
+      const { knockIn: scheduledKnockIn } = getScheduledTimes(
+        person,
+        new Date()
+      );
       if (isValidScheduledTime(scheduledKnockIn)) {
         try {
           const scheduledTime = new Date(`1970-01-01T${scheduledKnockIn}`);
@@ -184,9 +217,13 @@ export function AttendanceList({
         // Check if this is a virtual record (no actual check-in)
         const isVirtualRecord = record.isVirtualRecord || !record.checkIn;
 
-        // Get scheduled times from person record with validation
-        const scheduledKnockIn = person.scheduledKnockIn;
-        const scheduledKnockOut = person.scheduledKnockOut;
+        // Get scheduled times based on weekday/weekend
+        const recordDate = new Date(record.date);
+        const {
+          knockIn: scheduledKnockIn,
+          knockOut: scheduledKnockOut,
+          isWeekend,
+        } = getScheduledTimes(person, recordDate);
         const hasValidSchedule =
           isValidScheduledTime(scheduledKnockIn) &&
           isValidScheduledTime(scheduledKnockOut);
@@ -224,6 +261,14 @@ export function AttendanceList({
                         )}
                         {personType}
                       </Badge>
+                      {isWeekend && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                        >
+                          Weekend
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {personId} • {person.position}
@@ -241,6 +286,7 @@ export function AttendanceList({
                         <span>
                           Scheduled: {formatTime(scheduledKnockIn!)} -{" "}
                           {formatTime(scheduledKnockOut!)}
+                          {isWeekend && " (Weekend)"}
                         </span>
                       </div>
                     ) : (
