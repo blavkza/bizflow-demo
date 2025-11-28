@@ -403,7 +403,20 @@ export async function GET(
           },
         },
         documents: true,
-        timeEntries: true,
+        timeEntries: {
+          orderBy: {
+            date: "desc",
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                avatar: true,
+              },
+            },
+          },
+        },
       },
     });
 

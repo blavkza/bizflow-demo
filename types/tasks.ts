@@ -1,5 +1,21 @@
 import { TaskStatus, Priority } from "@prisma/client";
 
+export interface TimeEntry {
+  id: string;
+  description: string | null;
+  hours: number;
+  date: Date | string;
+  timeIn: Date;
+  timeOut: Date | null;
+  userId: string;
+  images: string[];
+  user?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    avatar: string | null;
+  };
+}
 export interface Task {
   id: string;
   taskNumber: string;
@@ -69,15 +85,7 @@ export interface Task {
     mimeType: string | null;
     createdAt: Date;
   }>;
-  timeEntries: Array<{
-    id: string;
-    hours: number;
-    description: string | null;
-    date: Date;
-    timeIn: Date;
-    timeOut: Date | null;
-    userId: string;
-  }>;
+  timeEntries: TimeEntry[];
 }
 
 export const getPriorityColor = (priority: string) => {

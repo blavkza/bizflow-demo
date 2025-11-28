@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Play, Square, Plus, Trash2, Timer, Clock } from "lucide-react";
-import { Task } from "@/types/tasks";
+import { Task, TimeEntry } from "@/types/tasks";
 import { format, differenceInSeconds } from "date-fns";
 import {
   Dialog,
@@ -21,16 +21,6 @@ import {
 interface TimeTrackingTabProps {
   task: Task;
   refetch: () => void;
-}
-
-interface TimeEntry {
-  id: string;
-  hours: number | string | { toString?: () => string };
-  description: string | null;
-  date: Date;
-  timeIn: Date;
-  timeOut: Date | null;
-  userId: string;
 }
 
 interface ActiveTimer {
