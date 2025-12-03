@@ -227,3 +227,17 @@ body {
   scrollbar-width: none;  /* Firefox */
 }
 
+
+/* Allow right-click in Quill editor */
+.allow-right-click .ql-container,
+.allow-right-click .ql-editor,
+.allow-right-click .ql-editor * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+.allow-right-click .ql-editor {
+  cursor: text !important;
+}

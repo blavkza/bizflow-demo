@@ -45,7 +45,7 @@ export const Editor = ({ value, onChange, placeholder }: EditorProps) => {
   ];
 
   return (
-    <div className="bg-background">
+    <div className="bg-background allow-right-click">
       <ReactQuill
         theme="snow"
         value={value}

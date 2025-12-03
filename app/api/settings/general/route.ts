@@ -170,7 +170,6 @@ export async function GET() {
     }
 
     const settings = await db.generalSetting.findFirst({
-      where: { userId: user.id },
       select: {
         id: true,
         companyName: true,
