@@ -792,6 +792,26 @@ export async function GET(request: NextRequest) {
         0
       );
 
+    const allTimeIncomeFromTransactions = typedAllTransactions
+      .filter(
+        (transaction: DashboardTransaction) => transaction.type === "INCOME"
+      )
+      .reduce(
+        (sum: number, transaction: DashboardTransaction) =>
+          sum + convertDecimalToNumber(transaction.amount),
+        0
+      );
+
+    const allTimeExpensesFromTransactions = typedAllTransactions
+      .filter(
+        (transaction: DashboardTransaction) => transaction.type === "EXPENSE"
+      )
+      .reduce(
+        (sum: number, transaction: DashboardTransaction) =>
+          sum + convertDecimalToNumber(transaction.amount),
+        0
+      );
+
     const lastMonthIncomeFromTransactions = typedAllTransactions
       .filter((transaction: DashboardTransaction) => {
         const transactionDate = new Date(transaction.date);
@@ -912,7 +932,10 @@ export async function GET(request: NextRequest) {
 
     // Calculate current month net profit (USE TRANSACTIONS FOR WELCOMEHEADER)
     const currentMonthNetProfitFromTransactions =
-      currentMonthIncomeFromTransactions - currentMonthExpensesFromTransactions;
+      allTimeIncomeFromTransactions - currentMonthExpensesFromTransactions;
+
+    const allNetProfitFromTransactions =
+      allTimeIncomeFromTransactions - allTimeExpensesFromTransactions;
 
     const lastMonthNetProfitFromTransactions =
       lastMonthIncomeFromTransactions - lastMonthExpensesFromTransactions;
@@ -1449,8 +1472,8 @@ export async function GET(request: NextRequest) {
         overallRevenue: overallRevenueFromTransactions,
         quarterlyRevenue: currentMonthIncomeFromTransactions * 3,
         yearlyRevenue: currentMonthIncomeFromTransactions * 12,
-        netProfit: currentMonthNetProfitFromTransactions,
-        grossRevenue: currentMonthIncomeFromTransactions,
+        netProfit: allNetProfitFromTransactions,
+        grossRevenue: allTimeIncomeFromTransactions,
         profitMargin:
           currentMonthIncomeFromTransactions > 0
             ? (currentMonthNetProfitFromTransactions /
