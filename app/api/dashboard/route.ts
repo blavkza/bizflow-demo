@@ -932,7 +932,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate current month net profit (USE TRANSACTIONS FOR WELCOMEHEADER)
     const currentMonthNetProfitFromTransactions =
-      allTimeIncomeFromTransactions - currentMonthExpensesFromTransactions;
+      currentMonthIncomeFromTransactions - currentMonthExpensesFromTransactions;
 
     const allNetProfitFromTransactions =
       allTimeIncomeFromTransactions - allTimeExpensesFromTransactions;
