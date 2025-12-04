@@ -12,6 +12,7 @@ import {
 import { Search, Barcode, Package, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { Product } from "@/types/pos";
+import { useEffect, useRef } from "react";
 
 interface ProductGridProps {
   products: Product[];
@@ -40,6 +41,69 @@ export function ProductGrid({
   handleBarcodeSearch,
   addToCart,
 }: ProductGridProps) {
+  const barcodeRef = useRef<string>("");
+  const barcodeTimeoutRef = useRef<NodeJS.Timeout>();
+
+  // Handle barcode scanner input
+  useEffect(() => {
+    // Clear the barcode input after processing
+    const processBarcode = () => {
+      if (barcodeInput.trim() && barcodeInput !== barcodeRef.current) {
+        barcodeRef.current = barcodeInput;
+
+        // Find product by barcode/SKU
+        const productToAdd = products.find(
+          (product) => product.sku === barcodeInput.trim()
+        );
+
+        if (productToAdd) {
+          // Add product to cart
+          addToCart(productToAdd);
+          // Clear input after adding
+          setBarcodeInput("");
+          barcodeRef.current = "";
+        } else {
+          // If product not found, try searching
+          handleBarcodeSearch();
+        }
+      }
+    };
+
+    // Debounce barcode input
+    if (barcodeInput) {
+      if (barcodeTimeoutRef.current) {
+        clearTimeout(barcodeTimeoutRef.current);
+      }
+
+      barcodeTimeoutRef.current = setTimeout(() => {
+        processBarcode();
+      }, 100); // Adjust timeout based on your scanner speed (usually 50-150ms)
+    }
+
+    return () => {
+      if (barcodeTimeoutRef.current) {
+        clearTimeout(barcodeTimeoutRef.current);
+      }
+    };
+  }, [barcodeInput, products, addToCart, handleBarcodeSearch, setBarcodeInput]);
+
+  // Handle manual barcode search (when clicking button or pressing Enter)
+  const handleManualBarcodeSearch = () => {
+    if (barcodeInput.trim()) {
+      const productToAdd = products.find(
+        (product) => product.sku === barcodeInput.trim()
+      );
+
+      if (productToAdd) {
+        addToCart(productToAdd);
+        setBarcodeInput("");
+        barcodeRef.current = "";
+      } else {
+        handleBarcodeSearch();
+      }
+    }
+  };
+
   return (
     <div className="lg:col-span-2 space-y-4">
       {/* Search and Filters */}
@@ -83,13 +147,14 @@ export function ProductGrid({
                   onChange={(e) => setBarcodeInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
-                      handleBarcodeSearch();
+                      handleManualBarcodeSearch();
                     }
                   }}
                   className="pl-9"
+                  autoFocus // Helps with scanner input
                 />
               </div>
-              <Button onClick={handleBarcodeSearch}>
+              <Button onClick={handleManualBarcodeSearch}>
                 <Search className="h-4 w-4" />
               </Button>
             </div>

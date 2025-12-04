@@ -53,18 +53,16 @@ export class InvoiceReportGenerator {
     const issueDate = new Date(invoice.issueDate).toLocaleDateString("en-GB");
     const dueDate = new Date(invoice.dueDate).toLocaleDateString("en-GB");
 
-    const cName = companyInfo?.companyName || "NECS ENGINEERS";
-    const cAddress = companyInfo?.address || "Shayandima 88 Khwevha street";
-    const cCity = companyInfo?.city || "thohoyandou";
-    const cCode = companyInfo?.postCode || "0945";
-    const cProv = companyInfo?.province || "South Africa";
-    const cReg = "2020/472506/07";
+    const cName = companyInfo?.companyName || "";
+    const cAddress = companyInfo?.address || "";
+    const cCity = companyInfo?.city || "";
+    const cCode = companyInfo?.postCode || "";
+    const cProv = companyInfo?.province || "";
     const cVat = companyInfo?.taxId || "";
-    const cContact = "Mr Ndou R";
-    const cPhone = companyInfo?.phone || "015 023 1583";
-    const cPhone2 = companyInfo?.phone2 || "0793750399";
-    const cEmail = companyInfo?.email || "info@necsengineers.co.za";
-    const cWeb = companyInfo?.website || "http://necsengineers.co.za/";
+    const cPhone = companyInfo?.phone || "";
+    const cPhone2 = companyInfo?.phone2 || "";
+    const cEmail = companyInfo?.email || "";
+    const cWeb = companyInfo?.website || "";
     const logo = companyInfo?.logo || "";
 
     // --- CALCULATIONS ---
@@ -123,11 +121,10 @@ export class InvoiceReportGenerator {
 
     // Payments Logic
     // Assuming invoice.payments exists on InvoiceProps, otherwise use depositAmount
-    const totalPaid =
-      (invoice.payments || []).reduce(
-        (sum: number, p: any) => sum + this.decimalToNumber(p.amount),
-        0
-      ) + this.decimalToNumber(invoice.depositAmount);
+    const totalPaid = (invoice.payments || []).reduce(
+      (sum: number, p: any) => sum + this.decimalToNumber(p.amount),
+      0
+    );
     const balanceDue = finalTotal - totalPaid;
 
     return `
@@ -190,8 +187,9 @@ export class InvoiceReportGenerator {
               ${logo ? `<img src="${logo}" class="logo-img" />` : ""}
               ${!logo ? `<div class="company-header">${cName}</div>` : ""}
               <div class="address-block"><strong>${cName}</strong><br>${cAddress}<br>${cCity} ${cCode}<br>${cProv}</div>
-              <div class="reg-info">Co. Reg. No.: ${cReg}<br>VAT Reg. No.: ${cVat}</div>
-              <div class="contact-info">${cContact}<br>${cPhone}<br>${cPhone2}<br>${cEmail}</div>
+              ${cVat && ` <div class="reg-info">VAT No.: ${cVat}</div>`}
+             
+              <div class="contact-info">${cPhone}<br>${cPhone2}<br>${cEmail}</div>
             </div>
             <div class="col-right">
               <div class="quote-title-main">INVOICE</div>
@@ -202,7 +200,7 @@ export class InvoiceReportGenerator {
               </table>
               <div class="client-box-label">BILL TO</div>
               <div class="client-box">
-                <div class="client-name">${invoice.client.name}</div>
+                <div class="client-name">${invoice.client.company || invoice.client.name}</div>
                 ${invoice.client.address || ""}<br>${invoice.client.town || ""} ${invoice.client.village || ""}<br>${invoice.client.province || "South Africa"}
               </div>
             </div>
@@ -267,10 +265,11 @@ export class InvoiceReportGenerator {
           </div>
 
           <div class="footer-strip">
-            Account holder: ${companyInfo?.companyName || "NDOU ELECTRICAL CONSTRUCTION AND SUPPLY ENGINEERS"} &nbsp;&nbsp;
-            Bank: ${companyInfo?.bankName || "FNB/RMB"} Account No.: ${companyInfo?.bankAccount || "62884849351"} &nbsp;&nbsp;
-            Bank: ${companyInfo?.bankName2 || "CAPITEC"} Account No.: ${companyInfo?.bankAccount2 || "1052413331"}
+            Account holder: ${companyInfo?.companyName} &nbsp;&nbsp;
+            Bank: ${companyInfo?.bankName || ""} Account No.: ${companyInfo?.bankAccount || ""} &nbsp;&nbsp;
+            Bank: ${companyInfo?.bankName2 || ""}  Account No.: ${companyInfo?.bankAccount2 || ""}
           </div>
+
         </body>
       </html>
     `;
