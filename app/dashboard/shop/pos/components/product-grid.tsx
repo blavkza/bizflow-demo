@@ -12,7 +12,7 @@ import {
 import { Search, Barcode, Package, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { Product } from "@/types/pos";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 interface ProductGridProps {
   products: Product[];
@@ -41,53 +41,116 @@ export function ProductGrid({
   handleBarcodeSearch,
   addToCart,
 }: ProductGridProps) {
-  const barcodeRef = useRef<string>("");
-  const barcodeTimeoutRef = useRef<NodeJS.Timeout>();
+  const [scannedBarcode, setScannedBarcode] = useState("");
+  const scannerTimeoutRef = useRef<NodeJS.Timeout>();
+  const lastKeyTimeRef = useRef<number>(0);
+  const isTypingRef = useRef<boolean>(false);
 
-  // Handle barcode scanner input
+  // Global keydown listener for barcode scanner
   useEffect(() => {
-    // Clear the barcode input after processing
-    const processBarcode = () => {
-      if (barcodeInput.trim() && barcodeInput !== barcodeRef.current) {
-        barcodeRef.current = barcodeInput;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing in an input field
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        isTypingRef.current = true;
+        return;
+      }
 
-        // Find product by barcode/SKU
-        const productToAdd = products.find(
-          (product) => product.sku === barcodeInput.trim()
-        );
+      // Reset typing flag if user hasn't typed for 500ms
+      const now = Date.now();
+      if (now - lastKeyTimeRef.current > 500) {
+        isTypingRef.current = false;
+      }
+      lastKeyTimeRef.current = now;
 
-        if (productToAdd) {
-          // Add product to cart
-          addToCart(productToAdd);
-          // Clear input after adding
-          setBarcodeInput("");
-          barcodeRef.current = "";
-        } else {
-          // If product not found, try searching
-          handleBarcodeSearch();
+      // If user is manually typing, don't process as scanner input
+      if (isTypingRef.current) return;
+
+      // Check if it's a printable character (not control keys)
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // Append character to barcode buffer
+        setScannedBarcode((prev) => prev + e.key);
+
+        // Reset timer on each key press
+        if (scannerTimeoutRef.current) {
+          clearTimeout(scannerTimeoutRef.current);
         }
+
+        // Set timeout to detect end of barcode (scanners send quickly)
+        scannerTimeoutRef.current = setTimeout(() => {
+          if (scannedBarcode.length > 3) {
+            // Min barcode length
+            processScannedBarcode(scannedBarcode);
+          }
+          setScannedBarcode(""); // Reset for next scan
+        }, 50); // Scanners typically send characters very quickly (20-50ms)
+      }
+
+      // Handle Enter key (some scanners send Enter at the end)
+      if (e.key === "Enter" && scannedBarcode.length > 3) {
+        e.preventDefault(); // Prevent default form submission
+        processScannedBarcode(scannedBarcode);
+        setScannedBarcode("");
       }
     };
 
-    // Debounce barcode input
-    if (barcodeInput) {
-      if (barcodeTimeoutRef.current) {
-        clearTimeout(barcodeTimeoutRef.current);
-      }
+    const processScannedBarcode = (barcode: string) => {
+      // Clean up barcode (remove any trailing newline/enter)
+      const cleanBarcode = barcode.trim().replace(/\r?\n|\r/g, "");
 
-      barcodeTimeoutRef.current = setTimeout(() => {
-        processBarcode();
-      }, 100); // Adjust timeout based on your scanner speed (usually 50-150ms)
-    }
+      // Find product by barcode/SKU
+      const productToAdd = products.find(
+        (product) => product.sku === cleanBarcode
+      );
+
+      if (productToAdd) {
+        // Add product to cart
+        addToCart(productToAdd);
+
+        // Optional: Provide visual feedback
+        flashProductCard(productToAdd.id);
+
+        // Update barcode input field (optional)
+        setBarcodeInput(cleanBarcode);
+      } else {
+        // If product not found in current view, search for it
+        setBarcodeInput(cleanBarcode);
+        setTimeout(() => handleBarcodeSearch(), 100);
+      }
+    };
+
+    // Add global event listener
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      if (barcodeTimeoutRef.current) {
-        clearTimeout(barcodeTimeoutRef.current);
+      document.removeEventListener("keydown", handleKeyDown);
+      if (scannerTimeoutRef.current) {
+        clearTimeout(scannerTimeoutRef.current);
       }
     };
-  }, [barcodeInput, products, addToCart, handleBarcodeSearch, setBarcodeInput]);
+  }, [
+    products,
+    addToCart,
+    handleBarcodeSearch,
+    setBarcodeInput,
+    scannedBarcode,
+  ]);
 
-  // Handle manual barcode search (when clicking button or pressing Enter)
+  // Function to provide visual feedback when product is scanned
+  const flashProductCard = useCallback((productId: string) => {
+    const element = document.querySelector(`[data-product-id="${productId}"]`);
+    if (element) {
+      element.classList.add("bg-primary/10", "border-primary");
+      setTimeout(() => {
+        element.classList.remove("bg-primary/10", "border-primary");
+      }, 500);
+    }
+  }, []);
+
+  // Handle manual barcode input (from the input field)
   const handleManualBarcodeSearch = () => {
     if (barcodeInput.trim()) {
       const productToAdd = products.find(
@@ -96,8 +159,8 @@ export function ProductGrid({
 
       if (productToAdd) {
         addToCart(productToAdd);
+        flashProductCard(productToAdd.id);
         setBarcodeInput("");
-        barcodeRef.current = "";
       } else {
         handleBarcodeSearch();
       }
@@ -144,20 +207,28 @@ export function ProductGrid({
                 <Input
                   placeholder="Scan or enter barcode/SKU..."
                   value={barcodeInput}
-                  onChange={(e) => setBarcodeInput(e.target.value)}
+                  onChange={(e) => {
+                    setBarcodeInput(e.target.value);
+                    isTypingRef.current = true; // Mark as manual typing
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       handleManualBarcodeSearch();
                     }
                   }}
+                  onFocus={() => {
+                    isTypingRef.current = true; // Mark as manual typing when focused
+                  }}
                   className="pl-9"
-                  autoFocus // Helps with scanner input
                 />
               </div>
               <Button onClick={handleManualBarcodeSearch}>
                 <Search className="h-4 w-4" />
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Tip: Point barcode scanner anywhere on this page to add products
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -172,7 +243,8 @@ export function ProductGrid({
           {products.map((product) => (
             <Card
               key={product.id}
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              data-product-id={product.id}
+              className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-transparent"
               onClick={() => addToCart(product)}
             >
               <CardContent className="p-4">
@@ -193,7 +265,7 @@ export function ProductGrid({
                   {product.name}
                 </h3>
                 <p className="text-xs text-muted-foreground mb-2">
-                  {product.sku}
+                  SKU: {product.sku}
                 </p>
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold">
@@ -202,7 +274,7 @@ export function ProductGrid({
                   <Badge
                     variant={product.stock > 10 ? "secondary" : "destructive"}
                   >
-                    {product.stock}
+                    {product.stock} in stock
                   </Badge>
                 </div>
               </CardContent>
