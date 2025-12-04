@@ -76,7 +76,7 @@ export default function InventoryPage() {
               <DialogHeader>
                 <DialogTitle>Add New Product</DialogTitle>
                 <DialogDescription>
-                  Add a new product to your inventory.
+                  Add product to your inventory.
                 </DialogDescription>
               </DialogHeader>
               <ProductForm
