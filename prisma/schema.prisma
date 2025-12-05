@@ -376,6 +376,7 @@ model Employee {
   Warning              Warning[]
   user                 User?
   employeeNotification EmployeeNotification[]
+  bypassRules          AttendanceBypassRule[] @relation("BypassRuleEmployees")
 
   @@index([departmentId])
   @@index([status])
@@ -469,10 +470,41 @@ model FreeLancer {
   notes             Note[]
   attendanceRecords AttendanceRecord[]
   warnings          Warning[]
+  bypassRules       AttendanceBypassRule[] @relation("BypassRuleFreelancers")
 
   @@index([departmentId])
   @@index([status])
   @@map("freelancers")
+}
+
+model AttendanceBypassRule {
+  id String @id @default(cuid())
+
+  // Date range for the bypass
+  startDate DateTime
+  endDate   DateTime
+
+  // Time bypass settings
+  bypassCheckIn      Boolean @default(false)
+  bypassCheckOut     Boolean @default(false)
+  customCheckInTime  String? // HH:mm format
+  customCheckOutTime String? // HH:mm format
+
+  // Reason for bypass
+  reason String?
+
+  // Additional info
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations - Many-to-many with employees and freelancers
+  employees   Employee[]   @relation("BypassRuleEmployees")
+  freelancers FreeLancer[] @relation("BypassRuleFreelancers")
+
+  @@index([startDate])
+  @@index([endDate])
+  @@map("attendance_bypass_rules")
 }
 
 model AttendanceRecord {
@@ -512,6 +544,10 @@ model AttendanceRecord {
 
   status AttendanceStatus @default(PRESENT)
   notes  String?
+
+  bypassApplied     Boolean   @default(false)
+  customCheckInTime DateTime?
+  bypassRuleId      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

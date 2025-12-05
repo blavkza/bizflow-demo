@@ -70,7 +70,29 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
 
   const formatCoordinate = (coord: any): string => {
     const num = safeDecimalToNumber(coord);
-    return isNaN(num) ? "N/A" : num.toFixed(4);
+    return isNaN(num) ? "N/A" : num.toFixed(6);
+  };
+
+  // Function to get map URL with exact pin location
+  const getMapUrl = (
+    coordinates: { lat: number; lng: number } | null,
+    type: "checkin" | "checkout"
+  ): string => {
+    if (!coordinates) return "";
+
+    const { lat, lng } = coordinates;
+    const markerColor = type === "checkin" ? "0x3B82F6" : "0x10B981"; // Blue for check-in, Green for check-out
+    const label = type === "checkin" ? "I" : "O";
+
+    // Using Google Maps embed with marker at exact location
+    // Option 1: Using maps.google.com with q parameter (shows pin)
+    return `https://maps.google.com/maps?q=${lat},${lng}&z=17&t=m&output=embed`;
+
+    // Option 2: Using Google Maps embed API (requires API key)
+    // return `https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${lat},${lng}&zoom=17`;
+
+    // Option 3: Using static map with marker (no zoom/pan)
+    // return `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=17&size=600x300&markers=color:${markerColor}%7Clabel:${label}%7C${lat},${lng}&scale=2&key=YOUR_API_KEY`;
   };
 
   if (loading) {
@@ -323,7 +345,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                   <p className="font-medium">Location</p>
                   <p className="truncate">
                     {mapType === "checkin"
-                      ? selectedRecord.location
+                      ? selectedRecord.address || selectedRecord.location
                       : selectedRecord.checkOutAddress || "N/A"}
                   </p>
                 </div>
@@ -369,7 +391,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
               <div className="w-full h-64 rounded-lg overflow-hidden border">
                 {mapType === "checkin" && selectedRecord.coordinates ? (
                   <iframe
-                    src={`https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d500!2d${safeDecimalToNumber(selectedRecord.coordinates.lng)}!3d${safeDecimalToNumber(selectedRecord.coordinates.lat)}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sza!4v${Date.now()}!5m2!1sen!2sza`}
+                    src={`https://maps.google.com/maps?q=${safeDecimalToNumber(selectedRecord.coordinates.lat)},${safeDecimalToNumber(selectedRecord.coordinates.lng)}&z=17&t=m&output=embed`}
                     className="w-full h-full border-0"
                     allowFullScreen
                     loading="lazy"
@@ -379,7 +401,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                 ) : mapType === "checkout" &&
                   selectedRecord.checkOutCoordinates ? (
                   <iframe
-                    src={`https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d500!2d${safeDecimalToNumber(selectedRecord.checkOutCoordinates.lng)}!3d${safeDecimalToNumber(selectedRecord.checkOutCoordinates.lat)}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2sza!4v${Date.now()}!5m2!1sen!2sza`}
+                    src={`https://maps.google.com/maps?q=${safeDecimalToNumber(selectedRecord.checkOutCoordinates.lat)},${safeDecimalToNumber(selectedRecord.checkOutCoordinates.lng)}&z=17&t=m&output=embed`}
                     className="w-full h-full border-0"
                     allowFullScreen
                     loading="lazy"
@@ -391,11 +413,27 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                     <div className="text-center">
                       <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-1" />
                       <p className="text-muted-foreground text-xs">
-                        No coordinates
+                        No coordinates available
                       </p>
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 rounded-full bg-blue-500 mr-1"></div>
+                    <span>Check-in location</span>
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
+                    <span>Check-out location</span>
+                  </div>
+                </div>
+                <p className="text-[10px]">
+                  Zoom in/out using mouse wheel or +/- buttons
+                </p>
               </div>
 
               <div className="flex justify-end">

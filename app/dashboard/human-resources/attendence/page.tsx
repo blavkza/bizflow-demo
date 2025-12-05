@@ -22,6 +22,7 @@ import {
   ManualCheckInDialog,
   SummaryCards,
 } from "./components";
+import { SettingsDialog } from "./components/settingsDialog";
 
 export default function AttendancePage() {
   const router = useRouter();

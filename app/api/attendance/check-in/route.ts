@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import { CheckInMethod, AttendanceStatus, LeaveStatus } from "@prisma/client";
+import { sendPushNotification } from "@/lib/expo";
 
 export async function POST(request: NextRequest) {
   try {
@@ -73,7 +74,18 @@ export async function POST(request: NextRequest) {
     const currentTime = new Date(); // Server Time (usually UTC)
 
     // ---------------------------------------------------------
-    // 3. VALIDATION CHECKS (Leave, Working Days, Duplicates)
+    // 3. CHECK FOR ATTENDANCE BYPASS RULES
+    // ---------------------------------------------------------
+    const bypassResult = await checkAttendanceBypass(
+      person.id,
+      personType,
+      currentTime
+    );
+
+    console.log(`Bypass check for ${personType} ${person.id}:`, bypassResult);
+
+    // ---------------------------------------------------------
+    // 4. VALIDATION CHECKS (Leave, Working Days, Duplicates)
     // ---------------------------------------------------------
 
     // Check if employee is on leave today
@@ -92,16 +104,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if today is a working day
+    // Check if today is a working day (unless bypassed)
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-    // Note: getDay() relies on server time. Ensure server date matches SA date.
-    // Usually fine unless checking in at 11:59PM UTC / 01:59AM SAST.
     const todayDay = dayNames[currentTime.getDay()];
 
     if (
       person.workingDays &&
       person.workingDays.length > 0 &&
-      !person.workingDays.includes(todayDay)
+      !person.workingDays.includes(todayDay) &&
+      !bypassResult.bypassCheckIn // Check if bypass allows working day restriction to be ignored
     ) {
       return NextResponse.json(
         {
@@ -131,7 +142,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 4. DETERMINE IF WEEKDAY OR WEEKEND AND GET SCHEDULED TIME
+    // 5. DETERMINE IF WEEKDAY OR WEEKEND AND GET SCHEDULED TIME
     // ---------------------------------------------------------
     const isWeekend = todayDay === "SAT" || todayDay === "SUN";
 
@@ -156,12 +167,43 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 5. STATUS CALCULATION (FIXED FOR SAST TIMEZONE)
+    // 6. STATUS CALCULATION WITH BYPASS SUPPORT
     // ---------------------------------------------------------
     let status: AttendanceStatus = AttendanceStatus.PRESENT;
     let isLate = false;
+    let bypassApplied = false;
+    let customCheckInTimeUsed: string | null = null;
+    let checkInTimeToUse: Date = currentTime; // Default to current time
 
-    if (scheduledKnockInTime) {
+    // If bypass is enabled for check-in, skip time validation
+    if (bypassResult.bypassCheckIn) {
+      bypassApplied = true;
+
+      // If custom check-in time is specified, use it
+      if (
+        bypassResult.customCheckInTime &&
+        bypassResult.customCheckInTime !== "none"
+      ) {
+        customCheckInTimeUsed = bypassResult.customCheckInTime;
+        console.log(
+          `Using custom check-in time: ${customCheckInTimeUsed} for ${personType} ${person.id}`
+        );
+
+        // Parse custom time and create a new date with it
+        const [hours, minutes] = customCheckInTimeUsed.split(":").map(Number);
+
+        // Create a new date for check-in time using the custom time
+        checkInTimeToUse = new Date(currentTime);
+        checkInTimeToUse.setHours(hours, minutes, 0, 0);
+
+        console.log(`Check-in time set to: ${checkInTimeToUse.toISOString()}`);
+      }
+
+      // Even with bypass, we still set status to PRESENT (not LATE)
+      status = AttendanceStatus.PRESENT;
+      isLate = false;
+    } else if (scheduledKnockInTime) {
+      // Normal time validation (only if bypass is not enabled)
       const [scheduledHours, scheduledMinutes] = scheduledKnockInTime
         .split(":")
         .map(Number);
@@ -185,13 +227,6 @@ export async function POST(request: NextRequest) {
         scheduledDateTime.getTime() + gracePeriodMinutes * 60000
       );
 
-      // Debug logs (check your server console to verify)
-      console.log(`Time Check [${person.firstName}]:`);
-      console.log(`Server Time (UTC): ${currentTime.toISOString()}`);
-      console.log(`Is Weekend: ${isWeekend}`);
-      console.log(`Scheduled (SAST): ${scheduledKnockInTime}`);
-      console.log(`Threshold (UTC): ${lateThreshold.toISOString()}`);
-
       if (currentTime > lateThreshold) {
         status = AttendanceStatus.LATE;
         isLate = true;
@@ -199,27 +234,31 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 6. WARNINGS (For Employees Only)
+    // 7. WARNINGS (For Employees Only) - Skip if bypass applied
     // ---------------------------------------------------------
     let warningCreated = null;
-    if (isLate && personType === "employee") {
+    if (isLate && personType === "employee" && !bypassApplied) {
       warningCreated = await checkAndCreateLateWarning(person.id, currentTime);
     }
 
     // ---------------------------------------------------------
-    // 7. SAVE RECORD
+    // 8. SAVE RECORD
     // ---------------------------------------------------------
     const attendanceData: any = {
-      checkIn: currentTime,
+      checkIn: checkInTimeToUse, // Use the calculated check-in time
       checkInMethod: method as CheckInMethod,
       checkInAddress: location || address,
       checkInLat: lat ? parseFloat(lat) : null,
       checkInLng: lng ? parseFloat(lng) : null,
       status: status,
       notes: notes || null,
-      scheduledKnockIn: scheduledKnockInTime, // Use the determined scheduled time
-      scheduledKnockOut: scheduledKnockOutTime, // Use the determined scheduled time
-      isWeekend: isWeekend, // Store whether it was a weekend for reporting
+      scheduledKnockIn: scheduledKnockInTime,
+      scheduledKnockOut: scheduledKnockOutTime,
+      isWeekend: isWeekend,
+      // Store bypass info for auditing
+      bypassApplied: bypassApplied,
+      customCheckInTime: customCheckInTimeUsed,
+      bypassRuleId: bypassResult.rule?.id || null,
     };
 
     if (personType === "employee") {
@@ -280,6 +319,28 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Send notification for successful check-in
+    if (personType === "employee" && person.expoPushToken) {
+      try {
+        const checkInStatus = bypassApplied
+          ? customCheckInTimeUsed
+            ? `with custom time ${customCheckInTimeUsed}`
+            : "with time restrictions bypassed"
+          : isLate
+            ? "marked as LATE"
+            : "successful";
+
+        await sendPushNotification({
+          employeeId: person.id,
+          title: "Check-in Recorded",
+          body: `Your check-in was ${checkInStatus}`,
+          data: { attendanceId: attendanceRecord.id },
+        });
+      } catch (error) {
+        console.error("Failed to send push notification:", error);
+      }
+    }
+
     // Trigger auto-attendance for leave employees
     // We don't await this so the UI response is fast
     triggerAutoAttendanceForLeave().catch((error) => {
@@ -295,6 +356,9 @@ export async function POST(request: NextRequest) {
       personType,
       isWeekend,
       scheduledTimeUsed: scheduledKnockInTime,
+      bypassApplied: bypassApplied,
+      customCheckInTime: customCheckInTimeUsed,
+      actualCheckInTime: checkInTimeToUse.toISOString(),
     });
   } catch (error) {
     console.error("Check-in error:", error);
@@ -306,7 +370,100 @@ export async function POST(request: NextRequest) {
 }
 
 // ---------------------------------------------------------
-// HELPER FUNCTIONS (UNCHANGED)
+// ATTENDANCE BYPASS CHECK FUNCTION
+// ---------------------------------------------------------
+async function checkAttendanceBypass(
+  assigneeId: string,
+  assigneeType: "employee" | "freelancer",
+  date: Date
+): Promise<{
+  hasBypass: boolean;
+  bypassCheckIn: boolean;
+  bypassCheckOut: boolean;
+  customCheckInTime?: string | null;
+  customCheckOutTime?: string | null;
+  rule?: any;
+}> {
+  try {
+    // Build the where clause based on assignee type
+    const where: any = {
+      AND: [{ startDate: { lte: date } }, { endDate: { gte: date } }],
+    };
+
+    // Add assignee condition based on type
+    if (assigneeType === "employee") {
+      where.employees = {
+        some: { id: assigneeId },
+      };
+    } else {
+      where.freelancers = {
+        some: { id: assigneeId },
+      };
+    }
+
+    const bypassRule = await db.attendanceBypassRule.findFirst({
+      where,
+      include: {
+        employees:
+          assigneeType === "employee"
+            ? {
+                select: {
+                  id: true,
+                  employeeNumber: true,
+                  firstName: true,
+                  lastName: true,
+                  position: true,
+                  department: true,
+                },
+              }
+            : false,
+        freelancers:
+          assigneeType === "freelancer"
+            ? {
+                select: {
+                  id: true,
+                  freeLancerNumber: true,
+                  firstName: true,
+                  lastName: true,
+                  position: true,
+                  department: true,
+                },
+              }
+            : false,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    if (!bypassRule) {
+      return {
+        hasBypass: false,
+        bypassCheckIn: false,
+        bypassCheckOut: false,
+      };
+    }
+
+    return {
+      hasBypass: true,
+      bypassCheckIn: bypassRule.bypassCheckIn,
+      bypassCheckOut: bypassRule.bypassCheckOut,
+      customCheckInTime: bypassRule.customCheckInTime,
+      customCheckOutTime: bypassRule.customCheckOutTime,
+      rule: bypassRule,
+    };
+  } catch (error) {
+    console.error("Error checking attendance bypass:", error);
+    return {
+      hasBypass: false,
+      bypassCheckIn: false,
+      bypassCheckOut: false,
+    };
+  }
+}
+
+// ---------------------------------------------------------
+// HELPER FUNCTIONS
 // ---------------------------------------------------------
 
 async function checkIfEmployeeOnLeave(
@@ -397,7 +554,7 @@ async function checkAndCreateLateWarning(
       actionPlan = "Formal warning regarding persistent late attendance.";
     }
 
-    // --- LOGIC FIXED HERE ---
+    // --- LOGIC ---
     if (warningType) {
       // 1. Create the Warning
       const warning = await db.warning.create({
@@ -421,7 +578,7 @@ async function checkAndCreateLateWarning(
         },
       });
 
-      // 2. Create the Notification (NOW IT WILL RUN)
+      // 2. Create the Notification
       await db.employeeNotification.create({
         data: {
           employeeId: employeeId,
@@ -430,6 +587,13 @@ async function checkAndCreateLateWarning(
           type: "WARNING",
           isRead: false,
         },
+      });
+
+      await sendPushNotification({
+        employeeId: employeeId,
+        title: "New Warning Created",
+        body: `${reason} (Severity: ${severity})`,
+        data: { warningId: warning.id },
       });
 
       // 3. Return the warning
@@ -517,6 +681,25 @@ async function triggerAutoAttendanceForLeave() {
             },
           });
           createdRecords.push(attendanceRecord);
+        }
+
+        if (employee.AttendanceRecord.length > 0) {
+          await db.employeeNotification.create({
+            data: {
+              employeeId: employee.id,
+              title: "Leave Attendance Recorded",
+              message: `Your attendance for today was recorded as leave`,
+              type: "ATTENDANCE",
+              isRead: false,
+            },
+          });
+
+          await sendPushNotification({
+            employeeId: employee.id,
+            title: "Leave Attendance Recorded",
+            body: `Your attendance for today was recorded as leave`,
+            data: { employeeId: employee.id },
+          });
         }
       } catch (error) {
         console.error(`Auto-attendance error for ${employee.id}:`, error);

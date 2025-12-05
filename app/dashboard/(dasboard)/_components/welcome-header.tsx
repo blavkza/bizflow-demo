@@ -25,7 +25,6 @@ export default function WelcomeHeader({ isLoading, data }: WelcomeHeaderProps) {
 
   const currentUser = data?.currentUser || fallbackUser;
 
-  // Financial metrics - USING ALL-TIME DATA FROM TRANSACTIONS
   const financialMetrics = {
     netProfit: financialData.netProfit || 0, // All-time net profit from transactions
     totalRevenue: financialData.overallRevenue || 0, // All-time total revenue (renamed from monthlyRevenue)

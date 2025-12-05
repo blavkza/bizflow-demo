@@ -101,7 +101,7 @@ export function QuickActions({ isLoading, data }: QuickActionsCardProps) {
             <span>Transaction</span>
           </Button>
         </DialogTrigger>
-        <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Transaction</DialogTitle>
             <DialogDescription>
@@ -130,7 +130,7 @@ export function QuickActions({ isLoading, data }: QuickActionsCardProps) {
             <span>Add Client</span>
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="w-full max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add New Client</DialogTitle>
             <DialogDescription>
@@ -160,7 +160,7 @@ export function QuickActions({ isLoading, data }: QuickActionsCardProps) {
             <span>Add Project</span>
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-[900px]">
+        <DialogContent className="w-full max-w-4xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Project</DialogTitle>
           </DialogHeader>
