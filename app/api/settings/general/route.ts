@@ -1,5 +1,6 @@
 import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
+import { UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -30,7 +31,8 @@ export async function POST(req: Request) {
     if (
       !adminUser ||
       (adminUser.role !== "CHIEF_EXECUTIVE_OFFICER" &&
-        adminUser.role !== "GENERAL_MANAGER")
+        adminUser.role !== "GENERAL_MANAGER" &&
+        adminUser.role !== "ADMIN_MANAGER")
     ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }

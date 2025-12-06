@@ -78,16 +78,20 @@ export default function Profile() {
                   )}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col items-start text-black dark:text-white">
-                <div className="text-sm">
+
+              {/* TEXT CONTAINER WITH PROPER TRUNCATION */}
+              <div className="flex flex-col items-start text-black dark:text-white max-w-[140px] overflow-hidden">
+                <div className="text-sm whitespace-nowrap overflow-hidden text-ellipsis w-full">
                   {isLoading ? "Loading..." : data?.name || "User"}
                 </div>
-                <div className="text-xs text-muted-foreground">
+
+                <div className="text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis w-full">
                   {isLoading ? "Loading..." : data?.email || ""}
                 </div>
               </div>
             </div>
           </DropdownMenuTrigger>
+
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />

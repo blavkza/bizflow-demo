@@ -46,19 +46,18 @@ export function AttendanceTabs({
         <TabsTrigger value="checkins">All Check-ins</TabsTrigger>
         <TabsTrigger value="reports">Reports</TabsTrigger>
       </TabsList>
-
+      <FiltersSection
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        selectedDate={selectedDate}
+        setSelectedDate={setSelectedDate}
+        selectedDepartment={selectedDepartment}
+        setSelectedDepartment={setSelectedDepartment}
+        selectedStatus={selectedStatus}
+        setSelectedStatus={setSelectedStatus}
+        departmentOptions={departmentOptions}
+      />
       <TabsContent value="attendance" className="space-y-4">
-        <FiltersSection
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          selectedDepartment={selectedDepartment}
-          setSelectedDepartment={setSelectedDepartment}
-          selectedStatus={selectedStatus}
-          setSelectedStatus={setSelectedStatus}
-          departmentOptions={departmentOptions}
-        />
         <AttendanceList
           records={filteredAttendance}
           loading={recordsLoading}

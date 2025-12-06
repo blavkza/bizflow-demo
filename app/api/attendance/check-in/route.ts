@@ -82,17 +82,16 @@ export async function POST(request: NextRequest) {
       currentTime
     );
 
-    console.log(`Bypass check for ${personType} ${person.id}:`, bypassResult);
-
     // ---------------------------------------------------------
     // 4. VALIDATION CHECKS (Leave, Working Days, Duplicates)
     // ---------------------------------------------------------
 
-    // Check if employee is on leave today
+    // Check if employee is on leave today (unless bypassed)
     if (personType === "employee") {
       const isOnLeave = await checkIfEmployeeOnLeave(person, today);
 
-      if (isOnLeave) {
+      if (isOnLeave && !bypassResult.bypassCheckIn) {
+        // Only block if not bypassed
         return NextResponse.json(
           {
             error: "Employee is on approved leave today",
@@ -111,31 +110,50 @@ export async function POST(request: NextRequest) {
     if (
       person.workingDays &&
       person.workingDays.length > 0 &&
-      !person.workingDays.includes(todayDay) &&
-      !bypassResult.bypassCheckIn // Check if bypass allows working day restriction to be ignored
+      !person.workingDays.includes(todayDay)
     ) {
-      return NextResponse.json(
-        {
-          error: "Today is not a scheduled working day",
-        },
-        { status: 400 }
+      // Only block if bypass doesn't allow it
+      if (!bypassResult.bypassCheckIn) {
+        console.log(`Blocking: ${personType} ${person.id} - Not a working day`);
+        return NextResponse.json(
+          {
+            error: "Today is not a scheduled working day",
+          },
+          { status: 400 }
+        );
+      }
+      console.log(
+        `Allowing check-in on non-working day due to bypass for ${personType} ${person.id}`
       );
     }
 
     // Check if already checked in today
-    const uniqueConstraint =
+    const existingRecord =
       personType === "employee"
-        ? { employeeId_date: { employeeId: person.id, date: today } }
-        : { freeLancerId_date: { freeLancerId: person.id, date: today } };
+        ? await db.attendanceRecord.findFirst({
+            where: {
+              employeeId: person.id,
+              date: today,
+              checkIn: {
+                not: null,
+              },
+            },
+          })
+        : await db.attendanceRecord.findFirst({
+            where: {
+              freeLancerId: person.id,
+              date: today,
+              checkIn: {
+                not: null,
+              },
+            },
+          });
 
-    let attendanceRecord = await db.attendanceRecord.findUnique({
-      where: uniqueConstraint,
-    });
-
-    if (attendanceRecord && attendanceRecord.checkIn) {
+    if (existingRecord && existingRecord.checkIn) {
       return NextResponse.json(
         {
           error: `${personType === "employee" ? "Employee" : "Freelancer"} already checked in today`,
+          existingRecordId: existingRecord.id,
         },
         { status: 400 }
       );
@@ -174,6 +192,7 @@ export async function POST(request: NextRequest) {
     let bypassApplied = false;
     let customCheckInTimeUsed: string | null = null;
     let checkInTimeToUse: Date = currentTime; // Default to current time
+    let customCheckInDateTime: Date | null = null;
 
     // If bypass is enabled for check-in, skip time validation
     if (bypassResult.bypassCheckIn) {
@@ -185,23 +204,39 @@ export async function POST(request: NextRequest) {
         bypassResult.customCheckInTime !== "none"
       ) {
         customCheckInTimeUsed = bypassResult.customCheckInTime;
-        console.log(
-          `Using custom check-in time: ${customCheckInTimeUsed} for ${personType} ${person.id}`
-        );
 
         // Parse custom time and create a new date with it
         const [hours, minutes] = customCheckInTimeUsed.split(":").map(Number);
 
-        // Create a new date for check-in time using the custom time
-        checkInTimeToUse = new Date(currentTime);
+        // Create a new date for check-in time using TODAY as the base date
+        // This ensures the date is correct (not using currentTime which might be wrong date)
+        checkInTimeToUse = new Date(today);
         checkInTimeToUse.setHours(hours, minutes, 0, 0);
 
-        console.log(`Check-in time set to: ${checkInTimeToUse.toISOString()}`);
+        // Also create a DateTime object for storing in the database
+        // This is what AttendanceRecord.customCheckInTime expects (DateTime?)
+        customCheckInDateTime = new Date(checkInTimeToUse);
+
+        console.log(`Custom check-in time set:`, {
+          customTime: customCheckInTimeUsed,
+          hours: hours,
+          minutes: minutes,
+          checkInTimeToUse: checkInTimeToUse.toISOString(),
+          customCheckInDateTime: customCheckInDateTime.toISOString(),
+          today: today.toISOString(),
+        });
+      } else {
+        console.log(
+          `Using current time for check-in with bypass: ${currentTime.toISOString()}`
+        );
       }
 
-      // Even with bypass, we still set status to PRESENT (not LATE)
+      // With bypass, always set status to PRESENT (not LATE)
       status = AttendanceStatus.PRESENT;
       isLate = false;
+      console.log(
+        `Bypass applied: Status forced to PRESENT for ${personType} ${person.id}`
+      );
     } else if (scheduledKnockInTime) {
       // Normal time validation (only if bypass is not enabled)
       const [scheduledHours, scheduledMinutes] = scheduledKnockInTime
@@ -230,6 +265,11 @@ export async function POST(request: NextRequest) {
       if (currentTime > lateThreshold) {
         status = AttendanceStatus.LATE;
         isLate = true;
+        console.log(`Marked as LATE for ${personType} ${person.id}`);
+      } else {
+        console.log(
+          `Marked as PRESENT (on time) for ${personType} ${person.id}`
+        );
       }
     }
 
@@ -257,9 +297,13 @@ export async function POST(request: NextRequest) {
       isWeekend: isWeekend,
       // Store bypass info for auditing
       bypassApplied: bypassApplied,
-      customCheckInTime: customCheckInTimeUsed,
       bypassRuleId: bypassResult.rule?.id || null,
     };
+
+    // Add customCheckInTime as DateTime (matching the Prisma schema)
+    if (customCheckInDateTime) {
+      attendanceData.customCheckInTime = customCheckInDateTime;
+    }
 
     if (personType === "employee") {
       attendanceData.employeeId = person.id;
@@ -267,56 +311,78 @@ export async function POST(request: NextRequest) {
       attendanceData.freeLancerId = person.id;
     }
 
-    if (!attendanceRecord) {
-      // Create new attendance record
-      attendanceRecord = await db.attendanceRecord.create({
-        data: {
+    // DECLARE attendanceRecord variable here
+    let attendanceRecord: any = null;
+
+    try {
+      if (!existingRecord) {
+        // Create new attendance record
+        attendanceRecord = await db.attendanceRecord.create({
+          data: {
+            ...attendanceData,
+            date: today,
+          },
+          include: {
+            employee:
+              personType === "employee"
+                ? {
+                    include: {
+                      department: true,
+                    },
+                  }
+                : false,
+            freeLancer:
+              personType === "freelancer"
+                ? {
+                    include: {
+                      department: true,
+                    },
+                  }
+                : false,
+          },
+        });
+      } else {
+        // Update existing record (if check-in was null)
+        attendanceRecord = await db.attendanceRecord.update({
+          where: { id: existingRecord.id },
+          data: attendanceData,
+          include: {
+            employee:
+              personType === "employee"
+                ? {
+                    include: {
+                      department: true,
+                    },
+                  }
+                : false,
+            freeLancer:
+              personType === "freelancer"
+                ? {
+                    include: {
+                      department: true,
+                    },
+                  }
+                : false,
+          },
+        });
+      }
+    } catch (dbError: any) {
+      console.error("Database error creating attendance:", dbError);
+      console.error("Attempted data:", {
+        attendanceData: {
           ...attendanceData,
           date: today,
-        },
-        include: {
-          employee:
-            personType === "employee"
-              ? {
-                  include: {
-                    department: true,
-                  },
-                }
-              : false,
-          freeLancer:
-            personType === "freelancer"
-              ? {
-                  include: {
-                    department: true,
-                  },
-                }
-              : false,
+          customCheckInTime: attendanceData.customCheckInTime?.toISOString?.(),
         },
       });
-    } else {
-      // Update existing record
-      attendanceRecord = await db.attendanceRecord.update({
-        where: { id: attendanceRecord.id },
-        data: attendanceData,
-        include: {
-          employee:
-            personType === "employee"
-              ? {
-                  include: {
-                    department: true,
-                  },
-                }
-              : false,
-          freeLancer:
-            personType === "freelancer"
-              ? {
-                  include: {
-                    department: true,
-                  },
-                }
-              : false,
+      return NextResponse.json(
+        {
+          error: "Failed to create attendance record",
+          details: dbError.message,
+          code: dbError.code,
         },
-      });
+        { status: 500 }
+      );
     }
 
     // Send notification for successful check-in
@@ -357,13 +423,17 @@ export async function POST(request: NextRequest) {
       isWeekend,
       scheduledTimeUsed: scheduledKnockInTime,
       bypassApplied: bypassApplied,
-      customCheckInTime: customCheckInTimeUsed,
+      customCheckInTime: customCheckInTimeUsed, // Return the string for display
       actualCheckInTime: checkInTimeToUse.toISOString(),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("Check-in error:", error);
+    console.error("Error stack:", error.stack);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Internal server error",
+        message: error.message,
+      },
       { status: 500 }
     );
   }
