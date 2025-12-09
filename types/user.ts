@@ -204,6 +204,10 @@ export const PERMISSION_GROUPS = [
       UserPermission.SYSTEMS_AI,
       UserPermission.SYSTEMS_DASHBOARD,
       UserPermission.SYSTEMS_NOTIFICATIONS,
+      UserPermission.DASHBOARD_FINANCES,
+      UserPermission.DASHBOARD_PROJECTS,
+      UserPermission.DASHBOARD_TASKs,
+      UserPermission.DASHBOARD_WORKS,
     ],
   },
   {
