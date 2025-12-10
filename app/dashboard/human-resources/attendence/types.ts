@@ -3,6 +3,10 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 // Use the exact same structure as Prisma expects
 export interface AttendanceRecord {
+  isWeekend: boolean;
+  bypassApplied: boolean;
+  customCheckInTime: Date | null;
+  bypassRuleId: string | null;
   id: string;
   employeeId: string | null;
   freeLancerId: string | null;

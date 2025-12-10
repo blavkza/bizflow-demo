@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
 import {
   CheckInMethod,
@@ -54,31 +53,135 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const today = new Date();
+    // Get HR Settings
+    const hrSettings = await db.hRSettings.findFirst();
+    const overtimeThreshold = hrSettings?.overtimeThreshold || 8.0;
+    const halfDayThreshold = hrSettings?.halfDayThreshold || 4.0;
+    const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
+    const overtimeHourRate = hrSettings?.overtimeHourRate || 50.0;
+
+    // Get current time in South Africa timezone (UTC+2)
+    const nowUTC = new Date();
+    const southAfricaOffset = 2 * 60 * 60 * 1000;
+    const currentTime = new Date(nowUTC.getTime() + southAfricaOffset);
+
+    // Create today's date in South Africa timezone
+    const today = new Date(currentTime);
     today.setHours(0, 0, 0, 0);
-    const currentTime = new Date(); // Server Time (UTC)
 
-    // Find today's attendance record
-    const uniqueConstraint =
-      personType === "employee"
-        ? { employeeId_date: { employeeId: person.id, date: today } }
-        : { freeLancerId_date: { freeLancerId: person.id, date: today } };
+    // ---------------------------------------------------------
+    // CHECK FOR ATTENDANCE BYPASS RULES
+    // ---------------------------------------------------------
+    const bypassResult = await checkAttendanceBypass(
+      person.id,
+      personType,
+      currentTime
+    );
 
-    let attendanceRecord = await db.attendanceRecord.findUnique({
-      where: uniqueConstraint,
+    console.log(`=== CHECK-OUT BYPASS DEBUG ===`);
+    console.log(`Person: ${personType} ${person.id}`);
+    console.log(`Current time SAST: ${currentTime.toISOString()}`);
+    console.log(`Today SAST: ${today.toISOString()}`);
+    console.log(`Bypass result:`, bypassResult);
+    console.log(`HR Settings:`, {
+      overtimeThreshold,
+      halfDayThreshold,
+      workingHoursPerDay,
+      overtimeHourRate,
     });
+
+    // ---------------------------------------------------------
+    // FIND ACTIVE ATTENDANCE RECORD (SUPPORT NIGHT SHIFTS)
+    // ---------------------------------------------------------
+    // Get yesterday's date for night shift checking
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const yesterdayUTC = new Date(yesterday);
+    yesterdayUTC.setHours(yesterdayUTC.getHours() - 2);
+
+    const todayUTC = new Date(today);
+    todayUTC.setHours(todayUTC.getHours() - 2);
+
+    // Find active records from today OR yesterday (for night shifts)
+    const attendanceRecords = await db.attendanceRecord.findMany({
+      where: {
+        ...(personType === "employee"
+          ? { employeeId: person.id }
+          : { freeLancerId: person.id }),
+        OR: [
+          // Check for record from today
+          { date: todayUTC },
+          // Also check for record from yesterday (for night shifts)
+          {
+            date: yesterdayUTC,
+            checkOut: null, // Only if not checked out yet
+          },
+        ],
+        checkOut: null, // Must not be checked out already
+      },
+      orderBy: {
+        date: "desc", // Get most recent first
+      },
+      include: {
+        employee:
+          personType === "employee"
+            ? {
+                select: {
+                  scheduledKnockIn: true,
+                  scheduledKnockOut: true,
+                  scheduledWeekendKnockIn: true,
+                  scheduledWeekendKnockOut: true,
+                },
+              }
+            : false,
+        freeLancer:
+          personType === "freelancer"
+            ? {
+                select: {
+                  scheduledKnockIn: true,
+                  scheduledKnockOut: true,
+                  scheduledWeekendKnockIn: true,
+                  scheduledWeekendKnockOut: true,
+                },
+              }
+            : false,
+      },
+    });
+
+    // Find the most recent record that hasn't been checked out
+    let attendanceRecord = null;
+    for (const record of attendanceRecords) {
+      if (!record.checkOut) {
+        attendanceRecord = record;
+        break;
+      }
+    }
 
     if (!attendanceRecord) {
       return NextResponse.json(
-        { error: "No check-in found for today" },
+        { error: "No active check-in found" },
         { status: 400 }
       );
     }
 
+    // Determine if this is a night shift (check-in from previous day)
+    const recordDateSAST = new Date(attendanceRecord.date);
+    recordDateSAST.setHours(recordDateSAST.getHours() + 2); // Convert back to SAST
+
+    const isNightShift = recordDateSAST.getDate() !== today.getDate();
+
+    console.log(`Record analysis:`, {
+      recordDateUTC: attendanceRecord.date,
+      recordDateSAST: recordDateSAST.toISOString(),
+      todaySAST: today.toISOString(),
+      isNightShift: isNightShift,
+    });
+
     if (attendanceRecord.checkOut) {
       return NextResponse.json(
         {
-          error: `${personType === "employee" ? "Employee" : "Freelancer"} already checked out today`,
+          error: `${personType === "employee" ? "Employee" : "Freelancer"} already checked out`,
         },
         { status: 400 }
       );
@@ -86,18 +189,87 @@ export async function POST(request: NextRequest) {
 
     const checkInTime = attendanceRecord.checkIn!;
 
-    // Calculate hours and determine new status
+    // ---------------------------------------------------------
+    // BYPASS LOGIC FOR CHECK-OUT
+    // ---------------------------------------------------------
+    let checkOutTimeToUse: Date = currentTime;
+    let customCheckOutTimeUsed: string | null = null;
+    let bypassApplied = false;
+
+    // If bypass is enabled for check-out, use custom time if specified
+    if (bypassResult.bypassCheckOut) {
+      bypassApplied = true;
+
+      if (
+        bypassResult.customCheckOutTime &&
+        bypassResult.customCheckOutTime !== "none"
+      ) {
+        customCheckOutTimeUsed = bypassResult.customCheckOutTime;
+        console.log(
+          `Using custom check-out time: ${customCheckOutTimeUsed} for ${personType} ${person.id}`
+        );
+
+        const [hours, minutes] = customCheckOutTimeUsed.split(":").map(Number);
+
+        // Create check-out time based on the appropriate date
+        // For night shifts ending in the morning, use today's date
+        checkOutTimeToUse = new Date(today);
+        checkOutTimeToUse.setHours(hours, minutes, 0, 0);
+
+        // Adjust for night shifts
+        if (isNightShift && hours < 12) {
+          // Night shift ending in the morning, time is correct
+          console.log(`Night shift check-out at ${customCheckOutTimeUsed}`);
+        }
+
+        console.log(`Custom check-out time set:`, {
+          customTime: customCheckOutTimeUsed,
+          checkOutTime: checkOutTimeToUse.toISOString(),
+          isNightShift: isNightShift,
+        });
+      } else {
+        console.log(
+          `Using current time for check-out with bypass: ${currentTime.toISOString()}`
+        );
+      }
+    }
+
+    // Calculate hours and determine new status USING HR SETTINGS
     const { regularHours, overtimeHours, newStatus, workedPercentage } =
       await calculateHoursAndStatus(
         person,
         checkInTime,
-        currentTime,
-        attendanceRecord.status
+        checkOutTimeToUse,
+        attendanceRecord.status,
+        isNightShift,
+        hrSettings
       );
+
+    // Calculate overtime pay if applicable
+    let overtimePay = 0;
+    if (overtimeHours > 0 && personType === "employee") {
+      overtimePay = overtimeHours * overtimeHourRate;
+      console.log(
+        `Overtime pay calculated: ${overtimeHours}h × ${overtimeHourRate} = R${overtimePay.toFixed(2)}`
+      );
+    }
 
     // Update status based on worked percentage
     let finalStatus = newStatus;
     let statusNotes = notes || attendanceRecord.notes || "";
+
+    // Add bypass info to notes if applied
+    if (bypassApplied) {
+      if (customCheckOutTimeUsed) {
+        statusNotes +=
+          (statusNotes ? " | " : "") +
+          `Bypass applied: Custom check-out time ${customCheckOutTimeUsed}`;
+      } else {
+        statusNotes +=
+          (statusNotes ? " | " : "") +
+          `Bypass applied: Time restrictions bypassed`;
+      }
+    }
 
     // Add auto-status change note
     if (finalStatus !== attendanceRecord.status) {
@@ -114,33 +286,45 @@ export async function POST(request: NextRequest) {
 
     // Add overtime note if applicable
     if (overtimeHours > 0) {
-      statusNotes += (statusNotes ? " | " : "") + `Overtime: ${overtimeHours}h`;
+      statusNotes +=
+        (statusNotes ? " | " : "") + `Overtime: ${overtimeHours.toFixed(1)}h`;
+      if (overtimePay > 0) {
+        statusNotes += ` (Pay: R${overtimePay.toFixed(2)})`;
+      }
     }
 
     // Check for absent warnings (only for employees, not freelancers)
     let warningCreated = null;
-    if (finalStatus === AttendanceStatus.ABSENT && personType === "employee") {
+    if (
+      finalStatus === AttendanceStatus.ABSENT &&
+      personType === "employee" &&
+      !bypassApplied
+    ) {
       warningCreated = await checkAndCreateAbsentWarning(
         person.id,
-        currentTime,
+        checkOutTimeToUse,
         finalStatus,
-        false // isAutoCreated = false (manual absence from check-out)
+        false
       );
     }
 
     // Update attendance record with check-out and calculated hours
+    const updateData: any = {
+      checkOut: checkOutTimeToUse,
+      checkOutAddress: location || address,
+      checkOutLat: lat ? parseFloat(lat) : null,
+      checkOutLng: lng ? parseFloat(lng) : null,
+      regularHours,
+      overtimeHours,
+      status: finalStatus,
+      notes: statusNotes,
+      bypassApplied: bypassApplied || attendanceRecord.bypassApplied,
+      bypassRuleId: bypassResult.rule?.id || attendanceRecord.bypassRuleId,
+    };
+
     attendanceRecord = await db.attendanceRecord.update({
       where: { id: attendanceRecord.id },
-      data: {
-        checkOut: currentTime,
-        checkOutAddress: location || address,
-        checkOutLat: lat ? parseFloat(lat) : null,
-        checkOutLng: lng ? parseFloat(lng) : null,
-        regularHours,
-        overtimeHours,
-        status: finalStatus,
-        notes: statusNotes,
-      },
+      data: updateData,
       include: {
         employee:
           personType === "employee"
@@ -163,7 +347,7 @@ export async function POST(request: NextRequest) {
 
     // Check if we should create absent records (only for employees)
     let shouldCreateAbsentRecords = false;
-    if (personType === "employee") {
+    if (personType === "employee" && !bypassApplied) {
       shouldCreateAbsentRecords =
         await checkAndCreateAbsentRecords(workedPercentage);
     }
@@ -173,12 +357,17 @@ export async function POST(request: NextRequest) {
       record: attendanceRecord,
       regularHours,
       overtimeHours,
+      overtimePay: overtimePay > 0 ? overtimePay : null,
       status: finalStatus,
       workedPercentage: Math.round(workedPercentage),
       hasOvertime: overtimeHours > 0,
       warning: warningCreated,
       triggeredAbsentCreation: shouldCreateAbsentRecords,
       personType,
+      bypassApplied: bypassApplied,
+      customCheckOutTime: customCheckOutTimeUsed,
+      actualCheckOutTime: checkOutTimeToUse.toISOString(),
+      isNightShift: isNightShift,
     });
   } catch (error) {
     console.error("Check-out error:", error);
@@ -190,13 +379,114 @@ export async function POST(request: NextRequest) {
 }
 
 // ------------------------------------------------------------------
-// UPDATED CALCULATE FUNCTION (With Weekend Support - Fixed Type Issue)
+// ATTENDANCE BYPASS CHECK FUNCTION
+// ------------------------------------------------------------------
+async function checkAttendanceBypass(
+  assigneeId: string,
+  assigneeType: "employee" | "freelancer",
+  date: Date
+): Promise<{
+  hasBypass: boolean;
+  bypassCheckIn: boolean;
+  bypassCheckOut: boolean;
+  customCheckInTime?: string | null;
+  customCheckOutTime?: string | null;
+  rule?: any;
+}> {
+  try {
+    // Get today's date at midnight for date range comparison
+    const today = new Date(date);
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Build the where clause based on assignee type
+    const where: any = {
+      AND: [{ startDate: { lte: tomorrow } }, { endDate: { gte: today } }],
+    };
+
+    // Add assignee condition based on type
+    if (assigneeType === "employee") {
+      where.employees = {
+        some: { id: assigneeId },
+      };
+    } else {
+      where.freelancers = {
+        some: { id: assigneeId },
+      };
+    }
+
+    const bypassRule = await db.attendanceBypassRule.findFirst({
+      where,
+      include: {
+        employees:
+          assigneeType === "employee"
+            ? {
+                select: {
+                  id: true,
+                  employeeNumber: true,
+                  firstName: true,
+                  lastName: true,
+                  position: true,
+                  department: true,
+                },
+              }
+            : false,
+        freelancers:
+          assigneeType === "freelancer"
+            ? {
+                select: {
+                  id: true,
+                  freeLancerNumber: true,
+                  firstName: true,
+                  lastName: true,
+                  position: true,
+                  department: true,
+                },
+              }
+            : false,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    if (!bypassRule) {
+      return {
+        hasBypass: false,
+        bypassCheckIn: false,
+        bypassCheckOut: false,
+      };
+    }
+
+    return {
+      hasBypass: true,
+      bypassCheckIn: bypassRule.bypassCheckIn,
+      bypassCheckOut: bypassRule.bypassCheckOut,
+      customCheckInTime: bypassRule.customCheckInTime,
+      customCheckOutTime: bypassRule.customCheckOutTime,
+      rule: bypassRule,
+    };
+  } catch (error) {
+    console.error("Error checking attendance bypass:", error);
+    return {
+      hasBypass: false,
+      bypassCheckIn: false,
+      bypassCheckOut: false,
+    };
+  }
+}
+
+// ------------------------------------------------------------------
+// CALCULATE HOURS AND STATUS WITH HR SETTINGS
 // ------------------------------------------------------------------
 async function calculateHoursAndStatus(
   person: any,
   checkInTime: Date,
   checkOutTime: Date,
-  currentStatus: AttendanceStatus
+  currentStatus: AttendanceStatus,
+  isNightShift: boolean = false,
+  hrSettings?: any
 ): Promise<{
   regularHours: number;
   overtimeHours: number;
@@ -208,18 +498,33 @@ async function calculateHoursAndStatus(
   let newStatus = currentStatus;
   let workedPercentage = 0;
 
-  // Calculate actual hours worked (Based on UTC timestamps, so this is always correct)
+  // Get HR settings or use defaults
+  const overtimeThreshold = hrSettings?.overtimeThreshold || 8.0;
+  const halfDayThreshold = hrSettings?.halfDayThreshold || 4.0;
+  const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
+
+  // Calculate actual hours worked
   const actualHoursWorked =
     (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
+  console.log(`Calculate hours:`, {
+    checkInTime: checkInTime.toISOString(),
+    checkOutTime: checkOutTime.toISOString(),
+    actualHoursWorked: actualHoursWorked.toFixed(2),
+    isNightShift: isNightShift,
+    overtimeThreshold,
+    halfDayThreshold,
+    workingHoursPerDay,
+  });
+
   // ---------------------------------------------------------
-  // DETERMINE IF WEEKDAY OR WEEKEND AND GET SCHEDULED TIME
+  // DETERMINE IF WEEKDAY OR WEEKEND
   // ---------------------------------------------------------
   const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  const todayDay = dayNames[checkInTime.getDay()];
-  const isWeekend = todayDay === "SAT" || todayDay === "SUN";
+  const checkInDay = dayNames[checkInTime.getDay()];
+  const isWeekend = checkInDay === "SAT" || checkInDay === "SUN";
 
-  // Get the appropriate scheduled knock-in and knock-out times (handle undefined)
+  // Get the appropriate scheduled times
   let scheduledKnockInTime: string | null = null;
   let scheduledKnockOutTime: string | null = null;
 
@@ -234,25 +539,28 @@ async function calculateHoursAndStatus(
   }
 
   if (scheduledKnockInTime && scheduledKnockOutTime) {
-    // Parse time strings (e.g., "09:00" and "17:00")
+    // Parse time strings
     const [startHours, startMinutes] = scheduledKnockInTime
       .split(":")
       .map(Number);
     const [endHours, endMinutes] = scheduledKnockOutTime.split(":").map(Number);
 
-    // --- FIX: ADJUST FOR SOUTH AFRICA TIMEZONE (UTC+2) ---
-    const SAST_OFFSET = 2;
+    console.log(`Schedule: ${scheduledKnockInTime} - ${scheduledKnockOutTime}`);
 
     // Create scheduled times based on check-in date
     const scheduledStartTime = new Date(checkInTime);
-    scheduledStartTime.setHours(startHours - SAST_OFFSET, startMinutes, 0, 0);
+    scheduledStartTime.setHours(startHours, startMinutes, 0, 0);
 
     const scheduledEndTime = new Date(checkInTime);
-    scheduledEndTime.setHours(endHours - SAST_OFFSET, endMinutes, 0, 0);
+    scheduledEndTime.setHours(endHours, endMinutes, 0, 0);
 
-    // Handle overnight shifts (if end time is earlier than start time, add 1 day)
-    if (scheduledEndTime <= scheduledStartTime) {
-      scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
+    // Handle overnight shifts for night workers
+    if (endHours <= startHours || isNightShift) {
+      if (endHours < startHours && endHours < 12) {
+        scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
+      } else if (isNightShift && startHours >= 18) {
+        scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
+      }
     }
 
     // Calculate scheduled hours
@@ -260,124 +568,100 @@ async function calculateHoursAndStatus(
       (scheduledEndTime.getTime() - scheduledStartTime.getTime()) /
       (1000 * 60 * 60);
 
-    // Calculate overtime start time (scheduled end time + 1 hour)
-    const overtimeStartTime = new Date(scheduledEndTime);
-    overtimeStartTime.setHours(overtimeStartTime.getHours() + 1);
+    // ---------------------------------------------------------
+    // OVERTIME LOGIC USING HR SETTINGS
+    // ---------------------------------------------------------
+    const totalHoursWorked = actualHoursWorked;
 
-    // OVERTIME CALCULATION - Count full hours beyond scheduled end time
-    if (checkOutTime > scheduledEndTime) {
-      // Person worked beyond scheduled end time
+    if (totalHoursWorked > overtimeThreshold) {
+      // Person worked beyond overtime threshold
+      regularHours = overtimeThreshold;
+      overtimeHours = totalHoursWorked - overtimeThreshold;
+      newStatus = currentStatus;
+      workedPercentage = 100;
 
-      if (checkOutTime >= overtimeStartTime) {
-        // Person worked beyond the 1-hour mark - count full overtime from scheduled end time
-        regularHours = scheduledHours; // Full scheduled hours as regular
-
-        // Overtime counts from scheduledEndTime, not overtimeStartTime
-        overtimeHours =
-          (checkOutTime.getTime() - scheduledEndTime.getTime()) /
-          (1000 * 60 * 60);
-        overtimeHours = Math.max(overtimeHours, 0);
-
-        // Status remains PRESENT/LATE (worked full schedule + overtime)
-        newStatus = currentStatus;
-        workedPercentage = 100;
-
-        console.log(
-          `Overtime Scenario [${isWeekend ? "WEEKEND" : "WEEKDAY"}]: Scheduled=${scheduledHours.toFixed(2)}h, Regular=${regularHours.toFixed(2)}h, Overtime=${overtimeHours.toFixed(2)}h, Status=${newStatus}`
-        );
-        console.log(
-          `Schedule Used: ${scheduledKnockInTime} - ${scheduledKnockOutTime}`
-        );
-        console.log(
-          `Overtime Details: Scheduled End=${scheduledEndTime.toISOString()}, Checkout=${checkOutTime.toISOString()}, Overtime Hours=${overtimeHours.toFixed(2)}`
-        );
-      } else {
-        // Person worked beyond scheduled end time but less than 1 hour
-        // Count all as regular hours, no overtime
-        regularHours = actualHoursWorked;
-        overtimeHours = 0;
-
-        // Calculate worked percentage for status determination
-        workedPercentage = (actualHoursWorked / scheduledHours) * 100;
-
-        // Apply status logic
-        if (workedPercentage >= 50 && workedPercentage < 90) {
-          newStatus = AttendanceStatus.HALF_DAY;
-        } else if (workedPercentage < 50) {
-          newStatus = AttendanceStatus.ABSENT;
-        } else {
-          newStatus = currentStatus;
-        }
-
-        console.log(
-          `Extended Regular Hours [${isWeekend ? "WEEKEND" : "WEEKDAY"}]: Worked beyond schedule but less than 1 hour overtime`
-        );
-        console.log(
-          `Schedule Used: ${scheduledKnockInTime} - ${scheduledKnockOutTime}`
-        );
-        console.log(
-          `Regular Scenario: Scheduled=${scheduledHours.toFixed(2)}h, Worked=${actualHoursWorked.toFixed(2)}h, Percentage=${workedPercentage.toFixed(1)}%, Regular=${regularHours.toFixed(2)}h, Status=${newStatus}`
-        );
-      }
+      console.log(`Overtime Scenario:`, {
+        totalHours: totalHoursWorked.toFixed(2),
+        overtimeThreshold: overtimeThreshold,
+        regularHours: regularHours.toFixed(2),
+        overtimeHours: overtimeHours.toFixed(2),
+        status: newStatus,
+      });
     } else {
-      // Person checked out AT or BEFORE scheduled end time - NO OVERTIME
+      // No overtime, calculate based on scheduled hours
+      regularHours = totalHoursWorked;
       overtimeHours = 0;
-      regularHours = actualHoursWorked;
 
-      // Calculate worked percentage based on actual hours vs scheduled hours
-      workedPercentage = (actualHoursWorked / scheduledHours) * 100;
+      if (scheduledHours > 0) {
+        workedPercentage = (totalHoursWorked / scheduledHours) * 100;
+      } else {
+        workedPercentage = (totalHoursWorked / workingHoursPerDay) * 100;
+      }
 
-      // Smart status change logic
-      if (workedPercentage >= 50 && workedPercentage < 90) {
-        // Worked 50% to 90% → Change to HALF_DAY
+      // Apply status logic using halfDayThreshold
+      if (
+        totalHoursWorked >= halfDayThreshold &&
+        totalHoursWorked < overtimeThreshold
+      ) {
         newStatus = AttendanceStatus.HALF_DAY;
-      } else if (workedPercentage < 50) {
-        // Worked less than 50% → Change to ABSENT
+      } else if (totalHoursWorked < halfDayThreshold) {
         newStatus = AttendanceStatus.ABSENT;
       } else {
-        // Worked 90% to 100% → Keep original status (PRESENT/LATE)
         newStatus = currentStatus;
       }
 
-      console.log(
-        `Regular Scenario [${isWeekend ? "WEEKEND" : "WEEKDAY"}]: Scheduled=${scheduledHours.toFixed(2)}h, Worked=${actualHoursWorked.toFixed(2)}h, Percentage=${workedPercentage.toFixed(1)}%, Regular=${regularHours.toFixed(2)}h, Status=${newStatus}`
-      );
-      console.log(
-        `Schedule Used: ${scheduledKnockInTime} - ${scheduledKnockOutTime}`
-      );
+      console.log(`Regular Scenario:`, {
+        totalHours: totalHoursWorked.toFixed(2),
+        scheduledHours: scheduledHours.toFixed(2),
+        halfDayThreshold: halfDayThreshold,
+        percentage: workedPercentage.toFixed(1),
+        status: newStatus,
+      });
     }
   } else {
-    // Fallback: calculate based on 8-hour workday
-    const defaultScheduledHours = 8;
-    workedPercentage = (actualHoursWorked / defaultScheduledHours) * 100;
+    // No schedule set, use HR settings defaults
+    const totalHoursWorked = actualHoursWorked;
 
-    // NO OVERTIME in default calculation
-    overtimeHours = 0;
-    regularHours = actualHoursWorked;
-
-    // Apply the same logic for default schedule
-    if (workedPercentage >= 50 && workedPercentage < 90) {
-      newStatus = AttendanceStatus.HALF_DAY;
-    } else if (workedPercentage < 50) {
-      newStatus = AttendanceStatus.ABSENT;
-    } else {
+    if (totalHoursWorked > overtimeThreshold) {
+      regularHours = overtimeThreshold;
+      overtimeHours = totalHoursWorked - overtimeThreshold;
       newStatus = currentStatus;
+      workedPercentage = 100;
+    } else {
+      regularHours = totalHoursWorked;
+      overtimeHours = 0;
+      workedPercentage = (totalHoursWorked / workingHoursPerDay) * 100;
+
+      if (
+        totalHoursWorked >= halfDayThreshold &&
+        totalHoursWorked < overtimeThreshold
+      ) {
+        newStatus = AttendanceStatus.HALF_DAY;
+      } else if (totalHoursWorked < halfDayThreshold) {
+        newStatus = AttendanceStatus.ABSENT;
+      } else {
+        newStatus = currentStatus;
+      }
     }
 
-    console.log(
-      `Default Schedule [${isWeekend ? "WEEKEND" : "WEEKDAY"}]: Worked=${actualHoursWorked.toFixed(2)}h, Percentage=${workedPercentage.toFixed(1)}%, Regular=${regularHours.toFixed(2)}h, Status=${newStatus}`
-    );
+    console.log(`Default Schedule (no person schedule):`, {
+      totalHours: totalHoursWorked.toFixed(2),
+      overtimeThreshold: overtimeThreshold,
+      halfDayThreshold: halfDayThreshold,
+      percentage: workedPercentage.toFixed(1),
+      status: newStatus,
+    });
   }
 
-  // Round hours to 2 decimal places
-  regularHours = Math.round(regularHours * 100) / 100;
-  overtimeHours = Math.round(overtimeHours * 100) / 100;
+  // Round hours to 1 decimal place
+  regularHours = Math.round(regularHours * 10) / 10;
+  overtimeHours = Math.round(overtimeHours * 10) / 10;
 
   return { regularHours, overtimeHours, newStatus, workedPercentage };
 }
 
 // ------------------------------------------------------------------
-// HELPERS (Updated with proper null handling)
+// HELPER FUNCTIONS
 // ------------------------------------------------------------------
 
 async function checkAndCreateAbsentWarning(
@@ -387,12 +671,10 @@ async function checkAndCreateAbsentWarning(
   isAutoCreated: boolean = false
 ): Promise<any> {
   try {
-    // Only create warnings for ABSENT status
     if (status !== AttendanceStatus.ABSENT) {
       return null;
     }
 
-    // Get start of month
     const startOfMonth = new Date(
       currentTime.getFullYear(),
       currentTime.getMonth(),
@@ -400,7 +682,6 @@ async function checkAndCreateAbsentWarning(
     );
     startOfMonth.setHours(0, 0, 0, 0);
 
-    // Count ALL absent days for the month (including auto-created)
     const monthlyAbsentCount = await db.attendanceRecord.count({
       where: {
         employeeId: employeeId,
@@ -421,7 +702,6 @@ async function checkAndCreateAbsentWarning(
     let reason = "";
     let actionPlan = "";
 
-    // Check warning conditions for absences
     if (monthlyAbsentCount === 1) {
       warningType = "Attendance";
       severity = "LOW";
@@ -451,7 +731,6 @@ async function checkAndCreateAbsentWarning(
         "Formal warning for persistent absenteeism. Immediate improvement required.";
     }
 
-    // Create warning AND Notification if conditions met
     if (warningType) {
       const warning = await db.warning.create({
         data: {
@@ -474,7 +753,6 @@ async function checkAndCreateAbsentWarning(
         },
       });
 
-      // --- ADDED NOTIFICATION HERE ---
       await db.employeeNotification.create({
         data: {
           employeeId: employeeId,
@@ -506,7 +784,6 @@ async function checkAndCreateAbsentRecords(
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Check if any employee has already worked more than 50% today
     const employeesWorkedOver50 = await db.attendanceRecord.findMany({
       where: {
         date: today,
@@ -528,9 +805,7 @@ async function checkAndCreateAbsentRecords(
 
     let someoneWorkedOver50 = false;
 
-    // Check if any employee worked more than 50%
     for (const record of employeesWorkedOver50) {
-      // Determine if it was weekend for this record
       const recordDay = new Date(record.date);
       const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
       const recordDayName = dayNames[recordDay.getDay()];
@@ -561,19 +836,11 @@ async function checkAndCreateAbsentRecords(
           .split(":")
           .map(Number);
 
-        // --- FIX: ADJUST FOR SAST TIMEZONE HERE TOO ---
-        const SAST_OFFSET = 2;
-
         const scheduledStartTime = new Date(record.checkIn!);
-        scheduledStartTime.setHours(
-          startHours - SAST_OFFSET,
-          startMinutes,
-          0,
-          0
-        );
+        scheduledStartTime.setHours(startHours, startMinutes, 0, 0);
 
         const scheduledEndTime = new Date(record.checkIn!);
-        scheduledEndTime.setHours(endHours - SAST_OFFSET, endMinutes, 0, 0);
+        scheduledEndTime.setHours(endHours, endMinutes, 0, 0);
 
         if (scheduledEndTime <= scheduledStartTime) {
           scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
@@ -672,7 +939,6 @@ async function createAbsentRecords() {
           continue;
         }
 
-        // Determine if weekend for schedule selection
         const isWeekend = todayDay === "SAT" || todayDay === "SUN";
         let scheduledKnockInTime: string | null = null;
         let scheduledKnockOutTime: string | null = null;
@@ -718,7 +984,7 @@ async function createAbsentRecords() {
           employee.id,
           today,
           AttendanceStatus.ABSENT,
-          true // isAutoCreated = true
+          true
         );
 
         if (warning) {

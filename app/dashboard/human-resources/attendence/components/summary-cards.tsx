@@ -1,13 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Users,
-  CheckCircle,
-  Clock,
-  AlertTriangle,
-  Calendar,
-  UserCog,
-} from "lucide-react";
-import { AttendanceRecord, AttendanceStatus } from "@prisma/client";
+import { AttendanceStatus } from "@prisma/client";
+import { AttendanceRecord } from "../types"; // Import from your local types
 import { safeDecimalToNumber, isLeaveStatus, getDisplayStatus } from "../utils";
 
 interface SummaryCardsProps {
@@ -85,7 +78,7 @@ export function SummaryCards({ attendanceRecords }: SummaryCardsProps) {
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-8">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+          <CardTitle className="text-sm font-medium"> Employees</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{totalEmployees}</div>
@@ -95,9 +88,7 @@ export function SummaryCards({ attendanceRecords }: SummaryCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">
-            Total Freelancers
-          </CardTitle>
+          <CardTitle className="text-sm font-medium">Freelancers</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{totalFreelancers}</div>

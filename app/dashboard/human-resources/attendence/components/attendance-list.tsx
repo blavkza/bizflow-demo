@@ -7,7 +7,15 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { Users, MapPin, Clock, Calendar, UserCog } from "lucide-react";
+import {
+  Users,
+  MapPin,
+  Clock,
+  Calendar,
+  UserCog,
+  Zap,
+  Moon,
+} from "lucide-react";
 import { AttendanceRecord } from "../types";
 import {
   getStatusColor,
@@ -44,6 +52,88 @@ export function AttendanceList({
   const isWeekend = (date: Date): boolean => {
     const day = date.getDay();
     return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+  };
+
+  // Check if record is a night shift (check-in and check-out on different dates)
+  const isNightShift = (record: AttendanceRecord): boolean => {
+    if (!record.checkIn || !record.checkOut) return false;
+
+    const checkInDate = new Date(record.checkIn);
+    const checkOutDate = new Date(record.checkOut);
+
+    return checkInDate.getDate() !== checkOutDate.getDate();
+  };
+
+  // Format date for display
+  const formatDate = (date: Date | string): string => {
+    const d = new Date(date);
+    return d.toLocaleDateString("en-ZA", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  // Calculate overtime pay (using default rate)
+  const calculateOvertimePay = (record: AttendanceRecord): number | null => {
+    if (
+      !record.overtimeHours ||
+      safeDecimalToNumber(record.overtimeHours) <= 0
+    ) {
+      return null;
+    }
+
+    const overtimeHours = safeDecimalToNumber(record.overtimeHours);
+    const overtimeHourRate = 50.0; // Default overtime rate
+    return overtimeHours * overtimeHourRate;
+  };
+
+  // Check if bypass was applied (based on notes or other indicators)
+  const hasBypass = (record: AttendanceRecord): boolean => {
+    // Check if notes contain bypass-related keywords
+    if (
+      record.notes?.toLowerCase().includes("bypass") ||
+      record.notes?.toLowerCase().includes("custom time") ||
+      record.notes?.toLowerCase().includes("restrictions bypassed")
+    ) {
+      return true;
+    }
+
+    // Check if check-in/out times are significantly different from scheduled times
+    if (record.checkIn && record.scheduledKnockIn) {
+      const checkInHour = new Date(record.checkIn).getHours();
+      const scheduledHour = parseInt(record.scheduledKnockIn.split(":")[0]);
+
+      // If check-in is more than 2 hours different from schedule, might be bypass
+      if (Math.abs(checkInHour - scheduledHour) > 2) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  // Extract custom times from notes if available
+  const extractCustomTimes = (record: AttendanceRecord) => {
+    const customTimes = {
+      checkIn: null as string | null,
+      checkOut: null as string | null,
+    };
+
+    if (record.notes) {
+      // Look for patterns like "Custom check-in time 02:00" or "custom time 09:00"
+      const checkInMatch = record.notes.match(
+        /(?:custom|bypass).*?(?:check.in|time).*?(\d{1,2}:\d{2})/i
+      );
+      const checkOutMatch = record.notes.match(
+        /(?:custom|bypass).*?(?:check.out|time).*?(\d{1,2}:\d{2})/i
+      );
+
+      if (checkInMatch) customTimes.checkIn = checkInMatch[1];
+      if (checkOutMatch) customTimes.checkOut = checkOutMatch[1];
+    }
+
+    return customTimes;
   };
 
   // Get the appropriate scheduled times based on weekday/weekend
@@ -213,6 +303,11 @@ export function AttendanceList({
         const personName = `${person.firstName} ${person.lastName}`;
         const regularHours = safeDecimalToNumber(record.regularHours);
         const overtimeHours = safeDecimalToNumber(record.overtimeHours);
+        const overtimePay = calculateOvertimePay(record);
+        const nightShift = isNightShift(record);
+        const bypassApplied = hasBypass(record);
+        const customTimes = extractCustomTimes(record);
+        const hasCustomTime = customTimes.checkIn || customTimes.checkOut;
 
         // Check if this is a virtual record (no actual check-in)
         const isVirtualRecord = record.isVirtualRecord || !record.checkIn;
@@ -269,6 +364,23 @@ export function AttendanceList({
                           Weekend
                         </Badge>
                       )}
+                      {nightShift && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-purple-50 text-purple-700 border-purple-200"
+                        >
+                          <Moon className="w-3 h-3 mr-1" />
+                          Night Shift
+                        </Badge>
+                      )}
+                      {bypassApplied && (
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-green-50 text-green-700 border-green-200"
+                        >
+                          Bypass Applied
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {personId} • {person.position}
@@ -278,6 +390,20 @@ export function AttendanceList({
                         {person.department.name}
                       </p>
                     )}
+
+                    {/* Show record date */}
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      <span>
+                        Record Date: {formatDate(record.date)}
+                        {nightShift && record.checkIn && record.checkOut && (
+                          <span className="ml-2">
+                            ({formatDate(record.checkIn)} →{" "}
+                            {formatDate(record.checkOut)})
+                          </span>
+                        )}
+                      </span>
+                    </div>
 
                     {/* Show scheduled times for both employees and freelancers */}
                     {hasValidSchedule ? (
@@ -296,6 +422,26 @@ export function AttendanceList({
                           {scheduledKnockIn || scheduledKnockOut
                             ? "Invalid schedule format"
                             : "No schedule set"}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Show custom times if detected in notes */}
+                    {hasCustomTime && (
+                      <div className="flex items-center gap-2 mt-1 text-xs text-green-600">
+                        <Zap className="h-3 w-3" />
+                        <span>
+                          Custom times detected
+                          {customTimes.checkIn && (
+                            <span className="ml-1">
+                              • Check-in: {customTimes.checkIn}
+                            </span>
+                          )}
+                          {customTimes.checkOut && (
+                            <span className="ml-1">
+                              • Check-out: {customTimes.checkOut}
+                            </span>
+                          )}
                         </span>
                       </div>
                     )}
@@ -362,6 +508,8 @@ export function AttendanceList({
                       {displayStatusText}
                     </Badge>
                   </div>
+
+                  {/* Check In */}
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">Check In</p>
                     <p className="font-medium text-sm">
@@ -371,7 +519,6 @@ export function AttendanceList({
                         <span className="text-orange-500">-</span>
                       )}
                     </p>
-
                     {record.checkInAddress && (
                       <HoverCard>
                         <HoverCardTrigger asChild>
@@ -388,6 +535,7 @@ export function AttendanceList({
                       </HoverCard>
                     )}
                   </div>
+
                   {/* Check Out */}
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">Check Out</p>
@@ -399,29 +547,31 @@ export function AttendanceList({
                       )}
                     </p>
                   </div>
+
                   {/* Hours */}
                   {(record.regularHours || record.overtimeHours) && (
                     <div className="text-center">
                       <p className="text-sm text-muted-foreground">Hours</p>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <span className="font-medium">
-                          {safeDecimalToNumber(
-                            record.regularHours || 0
-                          ).toFixed(1)}
-                          h
-                        </span>
-                        {safeDecimalToNumber(record.overtimeHours || 0) > 0 && (
-                          <span className="text-orange-600">
-                            +
-                            {safeDecimalToNumber(
-                              record.overtimeHours || 0
-                            ).toFixed(1)}
-                            h OT
+                      <div className="flex flex-col items-center text-sm">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium">
+                            {regularHours.toFixed(1)}h
                           </span>
+                          {overtimeHours > 0 && (
+                            <span className="text-orange-600">
+                              +{overtimeHours.toFixed(1)}h OT
+                            </span>
+                          )}
+                        </div>
+                        {overtimePay && (
+                          <div className="text-xs text-green-600 mt-1">
+                            OT Pay: R{overtimePay.toFixed(2)}
+                          </div>
                         )}
                       </div>
                     </div>
                   )}
+
                   {/* Scheduled Time (if not checked in) */}
                   {!record.checkIn &&
                     isValidScheduledTime(scheduledKnockIn) && (
@@ -468,11 +618,23 @@ export function AttendanceList({
                       </div>
                     )}
 
-                    {/* Notes */}
+                    {/* Notes - Show truncated with hover */}
                     {record.notes && (
-                      <div className="flex items-center">
-                        <span>Notes: {record.notes}</span>
-                      </div>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <div className="flex items-center cursor-help">
+                            <span className="mr-1">Notes:</span>
+                            <span className="truncate max-w-[200px]">
+                              {record.notes}
+                            </span>
+                          </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-auto max-w-md">
+                          <div className="text-sm">
+                            <strong>Notes:</strong> {record.notes}
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
                     )}
                   </div>
 
