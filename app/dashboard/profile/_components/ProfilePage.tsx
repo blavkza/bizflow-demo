@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Camera, Edit, Plus } from "lucide-react";
+import { Camera, Edit, Lock, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { ProfileCard } from "./ProfileCard";
@@ -266,9 +266,13 @@ export function ProfilePage({ user }: ProfilePageProps) {
                   >
                     • {currentUser.status.replace("_", " ")}
                   </span>
-                  <Link className="ml-8" href={"/dashboard/ceo-dashboard"}>
-                    <p className="text-zinc-300 dark:text-zinc-700">.</p>
-                  </Link>
+                  {user.role === UserRole.CHIEF_EXECUTIVE_OFFICER && (
+                    <Link className="ml-8" href={"/dashboard/ceo-dashboard"}>
+                      <p className="text-zinc-300 dark:text-zinc-700">
+                        <Lock className="w-4 h-4 text-muted-foreground" />
+                      </p>
+                    </Link>
+                  )}
                 </motion.div>
               </div>
             </div>
@@ -363,3 +367,4 @@ export function ProfilePage({ user }: ProfilePageProps) {
 
 // Add the Badge component if not already imported
 import { Badge } from "@/components/ui/badge";
+import { UserRole } from "@prisma/client";

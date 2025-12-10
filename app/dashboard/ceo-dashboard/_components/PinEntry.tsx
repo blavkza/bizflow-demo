@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Lock, Shield } from "lucide-react";
+import { Lock, Router, Shield } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface PinEntryProps {
   onSuccess: () => void;
@@ -12,6 +13,7 @@ interface PinEntryProps {
 const PinEntry = ({ onSuccess }: PinEntryProps) => {
   const [pin, setPin] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   // Default PIN for demo - in production this would be properly secured
   const DEMO_PIN = "202520";
@@ -76,6 +78,14 @@ const PinEntry = ({ onSuccess }: PinEntryProps) => {
               />
             </div>
           </div>
+          <Button
+            type="button"
+            onClick={() => router.back()}
+            variant={"outline"}
+            className="w-full hover:shadow-hover transition-all duration-200"
+          >
+            Cancel
+          </Button>
 
           <Button
             type="submit"
