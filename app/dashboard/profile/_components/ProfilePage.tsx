@@ -13,7 +13,7 @@ import { AvatarUploadDialog } from "@/components/AvatarUploadDialog";
 import Link from "next/link";
 import { ProfileEdit } from "./ProfileEdit";
 import { EmailPhoneEdit } from "./EmailPhoneEdit";
-import { useAuth } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs"; // Added useUser
 import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog";
 import { DialogTitle, DialogTrigger } from "@radix-ui/react-dialog";
 
@@ -42,17 +42,52 @@ const circles = [
 ];
 
 export function ProfilePage({ user }: ProfilePageProps) {
+  const { user: clerkUser, isLoaded } = useUser(); // Get Clerk user data
   const [mounted, setMounted] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user.avatar);
-
   const [currentUser, setCurrentUser] = useState<User>(user);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Update user data with Clerk information when available
+  useEffect(() => {
+    if (isLoaded && clerkUser) {
+      const updatedUser = { ...currentUser };
+
+      // Get username from Clerk (could be username, first name, or email)
+      if (clerkUser.username) {
+        updatedUser.userName = clerkUser.username;
+      } else if (clerkUser.firstName) {
+        updatedUser.userName = clerkUser.firstName;
+      } else if (clerkUser.emailAddresses?.[0]?.emailAddress) {
+        updatedUser.userName =
+          clerkUser.emailAddresses[0].emailAddress.split("@")[0];
+      }
+
+      // Update name from Clerk if available
+      if (clerkUser.firstName || clerkUser.lastName) {
+        updatedUser.name =
+          `${clerkUser.firstName || ""} ${clerkUser.lastName || ""}`.trim();
+      }
+
+      // Update email from Clerk if available
+      if (clerkUser.primaryEmailAddress?.emailAddress) {
+        updatedUser.email = clerkUser.primaryEmailAddress.emailAddress;
+      }
+
+      // Update phone from Clerk if available
+      if (clerkUser.primaryPhoneNumber?.phoneNumber) {
+        updatedUser.phone = clerkUser.primaryPhoneNumber.phoneNumber;
+      }
+
+      setCurrentUser(updatedUser);
+    }
+  }, [clerkUser, isLoaded]);
 
   const getInitials = (name: string) => {
     return name
@@ -66,15 +101,51 @@ export function ProfilePage({ user }: ProfilePageProps) {
   const getRoleColor = (role: string) => {
     switch (role.toLowerCase()) {
       case "administrator":
+      case "admin":
         return "bg-blue-500";
       case "teacher":
         return "bg-green-500";
       case "student":
         return "bg-amber-500";
+      case "super_admin":
+        return "bg-red-500";
+      case "manager":
+        return "bg-purple-500";
+      case "employee":
+        return "bg-indigo-500";
+      case "viewer":
+        return "bg-gray-500";
       default:
         return "bg-gray-500";
     }
   };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "active":
+        return "text-green-500";
+      case "inactive":
+        return "text-gray-500";
+      case "suspended":
+        return "text-red-500";
+      case "pending_verification":
+        return "text-yellow-500";
+      default:
+        return "text-gray-500";
+    }
+  };
+
+  if (!isLoaded) {
+    return (
+      <div className="container mx-auto px-6 py-4">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-muted-foreground">Loading user data...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-6 py-4">
@@ -101,7 +172,7 @@ export function ProfilePage({ user }: ProfilePageProps) {
               <DialogHeader>
                 <DialogTitle>Change Your Password</DialogTitle>
               </DialogHeader>
-              <ProfileEdit user={user} />
+              <ProfileEdit user={currentUser} />
             </DialogContent>
           </Dialog>
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -112,7 +183,7 @@ export function ProfilePage({ user }: ProfilePageProps) {
               <DialogHeader>
                 <DialogTitle>Change Contact details</DialogTitle>
               </DialogHeader>
-              <EmailPhoneEdit user={user} />
+              <EmailPhoneEdit user={currentUser} />
             </DialogContent>
           </Dialog>
         </div>
@@ -190,6 +261,11 @@ export function ProfilePage({ user }: ProfilePageProps) {
                   <span className="text-sm font-medium">
                     {currentUser.role}
                   </span>
+                  <span
+                    className={`text-sm ${getStatusColor(currentUser.status)}`}
+                  >
+                    • {currentUser.status.replace("_", " ")}
+                  </span>
                   <Link className="ml-8" href={"/dashboard/ceo-dashboard"}>
                     <p className="text-zinc-300 dark:text-zinc-700">.</p>
                   </Link>
@@ -219,8 +295,12 @@ export function ProfilePage({ user }: ProfilePageProps) {
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Account Information</h3>
               <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-green-500" />
-                <span className="text-sm">Active</span>
+                <div
+                  className={`h-2 w-2 rounded-full ${getStatusColor(currentUser.status).replace("text-", "bg-")}`}
+                />
+                <span className="text-sm capitalize">
+                  {currentUser.status.replace("_", " ")}
+                </span>
               </div>
             </div>
             <Separator className="my-4" />
@@ -230,13 +310,43 @@ export function ProfilePage({ user }: ProfilePageProps) {
                 value={currentUser.createdAt.toLocaleDateString()}
               />
               <InfoField label="Role" value={currentUser.role} />
-              <InfoField label="Status" value={currentUser.status} />
+              <InfoField
+                label="Status"
+                value={
+                  <span
+                    className={`capitalize ${getStatusColor(currentUser.status)}`}
+                  >
+                    {currentUser.status.replace("_", " ")}
+                  </span>
+                }
+              />
               <InfoField
                 label="Phone"
                 value={currentUser.phone || "Not provided"}
               />
             </div>
           </div>
+
+          {/* Clerk Information Section */}
+          {clerkUser && (
+            <div className="mt-12">
+              <Separator className="my-4" />
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <InfoField
+                  label="Last Sign In"
+                  value={
+                    clerkUser.lastSignInAt
+                      ? new Date(clerkUser.lastSignInAt).toLocaleString()
+                      : "Never"
+                  }
+                />
+                <InfoField
+                  label="Created At"
+                  value={new Date(user.createdAt).toLocaleDateString()}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -250,3 +360,6 @@ export function ProfilePage({ user }: ProfilePageProps) {
     </div>
   );
 }
+
+// Add the Badge component if not already imported
+import { Badge } from "@/components/ui/badge";
