@@ -166,11 +166,11 @@ export function ProfilePage({ user }: ProfilePageProps) {
             onOpenChange={setIsPasswordDialogOpen}
           >
             <DialogTrigger asChild>
-              <Button>Change Password</Button>
+              <Button>Change credentials</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Change Your Password</DialogTitle>
+                <DialogTitle>Change Your credentials</DialogTitle>
               </DialogHeader>
               <ProfileEdit user={currentUser} />
             </DialogContent>
