@@ -675,6 +675,73 @@ export const GeneralSettingsSchema = z.object({
 
 export type GeneralSettingsSchemaType = z.infer<typeof GeneralSettingsSchema>;
 
+// Validation Schema
+export const HRSettingsSchema = z.object({
+  // Payroll Settings
+  paymentDay: z.number().min(1).max(31),
+  paymentMonth: z.string(),
+  autoProcessPayroll: z.boolean(),
+  workingDaysPerMonth: z.number().min(1).max(31),
+  overtimeHourRate: z.number().min(1),
+
+  // Attendance Settings
+  workingHoursPerDay: z.number().min(1).max(24),
+  lateThreshold: z.number().min(1),
+  halfDayThreshold: z.number().min(0.5),
+  overtimeThreshold: z.number().min(1),
+
+  // Leave Settings
+  annualLeaveDays: z.number().min(0),
+  sickLeaveDays: z.number().min(0),
+  studyLeaveDays: z.number().min(0),
+  maternityLeaveDays: z.number().min(0),
+  paternityLeaveDays: z.number().min(0),
+  carryOverEnabled: z.boolean(),
+  maxCarryOverDays: z.number().min(0),
+
+  // Bonus Settings
+  annualBonusEnabled: z.boolean(),
+  annualBonusType: z.enum(["DECEMBER", "BIRTH_MONTH"]),
+  annualBonusPercentage: z.number().min(0).max(500),
+  performanceBonusEnabled: z.boolean(),
+  performanceBonusType: z.enum(["INDIVIDUAL", "TEAM"]),
+  profitSharingEnabled: z.boolean(),
+  profitSharingPercentage: z.number().min(0).max(100),
+  thirteenthChequeEnabled: z.boolean(),
+  spotBonusEnabled: z.boolean(),
+  meritBonusEnabled: z.boolean(),
+  appreciationBonusEnabled: z.boolean(),
+  incentivePaymentEnabled: z.boolean(),
+  recognitionAwardEnabled: z.boolean(),
+
+  // Deduction Settings
+  uniformPPEEnabled: z.boolean(),
+  uniformPPEMaxDeduction: z.number().min(0),
+  damageLossEnabled: z.boolean(),
+  damageLossMaxPercentage: z.number().min(0).max(100),
+  uifEnabled: z.boolean(),
+  uifPercentage: z.number().min(0).max(10),
+  pensionEnabled: z.boolean(),
+  pensionPercentage: z.number().min(0).max(50),
+  medicalAidEnabled: z.boolean(),
+  medicalAidMaxDeduction: z.number().min(0),
+  overpaymentEnabled: z.boolean(),
+  overpaymentMaxPercentage: z.number().min(0).max(100),
+  loanRepaymentEnabled: z.boolean(),
+  funeralBenefitEnabled: z.boolean(),
+  funeralBenefitAmount: z.number().min(0),
+  tradeUnionEnabled: z.boolean(),
+  insuranceEnabled: z.boolean(),
+  guaranteeFundEnabled: z.boolean(),
+  savingsEnabled: z.boolean(),
+  savingsMaxPercentage: z.number().min(0).max(100),
+  disciplinaryEnabled: z.boolean(),
+  disciplinaryMaxPercentage: z.number().min(0).max(100),
+  courtOrderEnabled: z.boolean(),
+});
+
+export type HRSettingsSchemaType = z.infer<typeof HRSettingsSchema>;
+
 export const transactionSchema = z.object({
   amount: z.union([
     z.number().positive("Amount must be positive"),
