@@ -60,14 +60,41 @@ export async function POST(request: NextRequest) {
     const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
     const overtimeHourRate = hrSettings?.overtimeHourRate || 50.0;
 
-    // Get current time in South Africa timezone (UTC+2)
-    const nowUTC = new Date();
-    const southAfricaOffset = 2 * 60 * 60 * 1000;
-    const currentTime = new Date(nowUTC.getTime() + southAfricaOffset);
+    // ---------------------------------------------------------
+    // 1. ROBUST DATE CALCULATION (FIXED FOR PROD)
+    // ---------------------------------------------------------
+    // Use Intl to get SAST time regardless of Server Timezone
+    const now = new Date();
+    const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
+      timeZone: "Africa/Johannesburg",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
 
-    // Create today's date in South Africa timezone
-    const today = new Date(currentTime);
-    today.setHours(0, 0, 0, 0);
+    const parts = sastFormatter.formatToParts(now);
+    const getDatePart = (type: string) =>
+      parts.find((p) => p.type === type)?.value;
+
+    const year = getDatePart("year");
+    const month = getDatePart("month");
+    const day = getDatePart("day");
+    const hour = getDatePart("hour");
+    const minute = getDatePart("minute");
+    const second = getDatePart("second");
+
+    // 1. Current Time (This is the exact moment of check-out)
+    const currentTimeString = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+    const currentTime = new Date(currentTimeString);
+
+    // 2. Today's Date (MATCHING CHECK-IN LOGIC)
+    // We add 'Z' to force it to be stored as 00:00:00 UTC, exactly how check-in saves it.
+    const todayString = `${year}-${month}-${day}T00:00:00Z`;
+    const today = new Date(todayString);
 
     // ---------------------------------------------------------
     // CHECK FOR ATTENDANCE BYPASS RULES
@@ -81,14 +108,8 @@ export async function POST(request: NextRequest) {
     console.log(`=== CHECK-OUT BYPASS DEBUG ===`);
     console.log(`Person: ${personType} ${person.id}`);
     console.log(`Current time SAST: ${currentTime.toISOString()}`);
-    console.log(`Today SAST: ${today.toISOString()}`);
+    console.log(`Today (UTC Midnight): ${today.toISOString()}`);
     console.log(`Bypass result:`, bypassResult);
-    console.log(`HR Settings:`, {
-      overtimeThreshold,
-      halfDayThreshold,
-      workingHoursPerDay,
-      overtimeHourRate,
-    });
 
     // ---------------------------------------------------------
     // FIND ACTIVE ATTENDANCE RECORD (SUPPORT NIGHT SHIFTS)
@@ -97,11 +118,10 @@ export async function POST(request: NextRequest) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const yesterdayUTC = new Date(yesterday);
-    yesterdayUTC.setHours(yesterdayUTC.getHours() - 2);
-
-    const todayUTC = new Date(today);
-    todayUTC.setHours(todayUTC.getHours() - 2);
+    // FIX: We no longer need manual offsets (-2 hours) because 'today'
+    // is already set to the correct UTC Midnight matching the DB record.
+    const todayUTC = today;
+    const yesterdayUTC = yesterday;
 
     // Find active records from today OR yesterday (for night shifts)
     const attendanceRecords = await db.attendanceRecord.findMany({
@@ -166,15 +186,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine if this is a night shift (check-in from previous day)
-    const recordDateSAST = new Date(attendanceRecord.date);
-    recordDateSAST.setHours(recordDateSAST.getHours() + 2); // Convert back to SAST
-
-    const isNightShift = recordDateSAST.getDate() !== today.getDate();
+    // We compare the record date vs our calculated today
+    const isNightShift =
+      attendanceRecord.date.toISOString() !== today.toISOString();
 
     console.log(`Record analysis:`, {
       recordDateUTC: attendanceRecord.date,
-      recordDateSAST: recordDateSAST.toISOString(),
-      todaySAST: today.toISOString(),
+      todayUTC: today.toISOString(),
       isNightShift: isNightShift,
     });
 
@@ -220,6 +238,10 @@ export async function POST(request: NextRequest) {
         if (isNightShift && hours < 12) {
           // Night shift ending in the morning, time is correct
           console.log(`Night shift check-out at ${customCheckOutTimeUsed}`);
+        } else if (!isNightShift && hours < 6) {
+          // Rare case: Day shift ending very early next morning?
+          // Usually implies next day
+          checkOutTimeToUse.setDate(checkOutTimeToUse.getDate() + 1);
         }
 
         console.log(`Custom check-out time set:`, {
