@@ -61,40 +61,33 @@ export async function POST(request: NextRequest) {
     const overtimeHourRate = hrSettings?.overtimeHourRate || 50.0;
 
     // ---------------------------------------------------------
-    // 1. ROBUST DATE CALCULATION (FIXED FOR PROD)
+    // 1. TIMEZONE CALCULATION (FIXED)
     // ---------------------------------------------------------
-    // Use Intl to get SAST time regardless of Server Timezone
-    const now = new Date();
+    // FIX A: Use exact Server Time. Do NOT add offsets manually.
+    // 'new Date()' is the universal instant (UTC in Prod, Local in Dev).
+    const currentTime = new Date();
+
+    // FIX B: Calculate "Today" based on South African Calendar
+    // This ensures we save/find records in the correct "Day Bucket" (00:00 - 23:59 SAST)
     const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
       timeZone: "Africa/Johannesburg",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
       hour12: false,
     });
 
-    const parts = sastFormatter.formatToParts(now);
+    const parts = sastFormatter.formatToParts(currentTime);
     const getDatePart = (type: string) =>
       parts.find((p) => p.type === type)?.value;
 
-    const year = getDatePart("year");
-    const month = getDatePart("month");
-    const day = getDatePart("day");
-    const hour = getDatePart("hour");
-    const minute = getDatePart("minute");
-    const second = getDatePart("second");
+    const year = parseInt(getDatePart("year")!);
+    const month = parseInt(getDatePart("month")!);
+    const day = parseInt(getDatePart("day")!);
 
-    // 1. Current Time (This is the exact moment of check-out)
-    const currentTimeString = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
-    const currentTime = new Date(currentTimeString);
-
-    // 2. Today's Date (MATCHING CHECK-IN LOGIC)
-    // We add 'Z' to force it to be stored as 00:00:00 UTC, exactly how check-in saves it.
-    const todayString = `${year}-${month}-${day}T00:00:00Z`;
-    const today = new Date(todayString);
+    // Create a Date object that represents 00:00 UTC on the South African day.
+    // This forces the DB to find the record as "2025-12-11 00:00:00 UTC"
+    const today = new Date(Date.UTC(year, month - 1, day));
 
     // ---------------------------------------------------------
     // CHECK FOR ATTENDANCE BYPASS RULES
@@ -102,13 +95,13 @@ export async function POST(request: NextRequest) {
     const bypassResult = await checkAttendanceBypass(
       person.id,
       personType,
-      currentTime
+      today // Use the corrected Date Bucket
     );
 
     console.log(`=== CHECK-OUT BYPASS DEBUG ===`);
     console.log(`Person: ${personType} ${person.id}`);
-    console.log(`Current time SAST: ${currentTime.toISOString()}`);
-    console.log(`Today (UTC Midnight): ${today.toISOString()}`);
+    console.log(`Current time (Instant): ${currentTime.toISOString()}`);
+    console.log(`Today (Bucket): ${today.toISOString()}`);
     console.log(`Bypass result:`, bypassResult);
 
     // ---------------------------------------------------------
@@ -118,12 +111,8 @@ export async function POST(request: NextRequest) {
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    // FIX: We no longer need manual offsets (-2 hours) because 'today'
-    // is already set to the correct UTC Midnight matching the DB record.
-    const todayUTC = today;
-    const yesterdayUTC = yesterday;
-
     // Find active records from today OR yesterday (for night shifts)
+    // FIX: We use 'today' and 'yesterday' directly as they are already UTC Midnights
     const attendanceRecords = await db.attendanceRecord.findMany({
       where: {
         ...(personType === "employee"
@@ -131,10 +120,10 @@ export async function POST(request: NextRequest) {
           : { freeLancerId: person.id }),
         OR: [
           // Check for record from today
-          { date: todayUTC },
+          { date: today },
           // Also check for record from yesterday (for night shifts)
           {
-            date: yesterdayUTC,
+            date: yesterday,
             checkOut: null, // Only if not checked out yet
           },
         ],
@@ -185,8 +174,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine if this is a night shift (check-in from previous day)
-    // We compare the record date vs our calculated today
+    // Determine if this is a night shift
     const isNightShift =
       attendanceRecord.date.toISOString() !== today.toISOString();
 
@@ -229,18 +217,18 @@ export async function POST(request: NextRequest) {
 
         const [hours, minutes] = customCheckOutTimeUsed.split(":").map(Number);
 
-        // Create check-out time based on the appropriate date
-        // For night shifts ending in the morning, use today's date
-        checkOutTimeToUse = new Date(today);
-        checkOutTimeToUse.setHours(hours, minutes, 0, 0);
+        // Construct custom time string using SAST offset (+02:00)
+        // This ensures consistent interpretation relative to the 'today' bucket
+        const dateStr = today.toISOString().split("T")[0];
+        const timeStr = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
+        checkOutTimeToUse = new Date(`${dateStr}T${timeStr}+02:00`);
 
         // Adjust for night shifts
         if (isNightShift && hours < 12) {
-          // Night shift ending in the morning, time is correct
+          // Night shift ending in the morning, date matches 'today' (correct)
           console.log(`Night shift check-out at ${customCheckOutTimeUsed}`);
         } else if (!isNightShift && hours < 6) {
-          // Rare case: Day shift ending very early next morning?
-          // Usually implies next day
+          // Rare: Day shift ending very early next morning
           checkOutTimeToUse.setDate(checkOutTimeToUse.getDate() + 1);
         }
 
@@ -543,7 +531,10 @@ async function calculateHoursAndStatus(
   // DETERMINE IF WEEKDAY OR WEEKEND
   // ---------------------------------------------------------
   const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  const checkInDay = dayNames[checkInTime.getDay()];
+
+  // FIX: Shift checkInTime to SAST to reliably get the "Name" of the day
+  const checkInSAST = new Date(checkInTime.getTime() + 2 * 60 * 60 * 1000);
+  const checkInDay = dayNames[checkInSAST.getUTCDay()];
   const isWeekend = checkInDay === "SAT" || checkInDay === "SUN";
 
   // Get the appropriate scheduled times
@@ -569,12 +560,14 @@ async function calculateHoursAndStatus(
 
     console.log(`Schedule: ${scheduledKnockInTime} - ${scheduledKnockOutTime}`);
 
-    // Create scheduled times based on check-in date
-    const scheduledStartTime = new Date(checkInTime);
-    scheduledStartTime.setHours(startHours, startMinutes, 0, 0);
+    // FIX: Create scheduled times relative to the Check-In Date
+    // using string construction + offset to ensure UTC compatibility
+    const checkInDateStr = checkInTime.toISOString().split("T")[0];
+    const scheduleStartStr = `${checkInDateStr}T${String(startHours).padStart(2, "0")}:${String(startMinutes).padStart(2, "0")}:00+02:00`;
+    const scheduleEndStr = `${checkInDateStr}T${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}:00+02:00`;
 
-    const scheduledEndTime = new Date(checkInTime);
-    scheduledEndTime.setHours(endHours, endMinutes, 0, 0);
+    const scheduledStartTime = new Date(scheduleStartStr);
+    const scheduledEndTime = new Date(scheduleEndStr);
 
     // Handle overnight shifts for night workers
     if (endHours <= startHours || isNightShift) {
@@ -697,12 +690,11 @@ async function checkAndCreateAbsentWarning(
       return null;
     }
 
+    // FIX: Use Date.UTC logic for consistent "Start of Month"
+    const now = new Date();
     const startOfMonth = new Date(
-      currentTime.getFullYear(),
-      currentTime.getMonth(),
-      1
+      Date.UTC(now.getFullYear(), now.getMonth(), 1)
     );
-    startOfMonth.setHours(0, 0, 0, 0);
 
     const monthlyAbsentCount = await db.attendanceRecord.count({
       where: {
@@ -803,8 +795,20 @@ async function checkAndCreateAbsentRecords(
   currentEmployeeWorkedPercentage: number
 ): Promise<boolean> {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // FIX: Calculate 'today' using Date.UTC logic
+    const now = new Date();
+    const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
+      timeZone: "Africa/Johannesburg",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts = sastFormatter.formatToParts(now);
+    const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
+    const year = parseInt(getPart("year")!);
+    const month = parseInt(getPart("month")!);
+    const day = parseInt(getPart("day")!);
+    const today = new Date(Date.UTC(year, month - 1, day));
 
     const employeesWorkedOver50 = await db.attendanceRecord.findMany({
       where: {
@@ -828,9 +832,13 @@ async function checkAndCreateAbsentRecords(
     let someoneWorkedOver50 = false;
 
     for (const record of employeesWorkedOver50) {
+      // Use standard JS Date methods here since record.date from DB is UTC
       const recordDay = new Date(record.date);
       const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-      const recordDayName = dayNames[recordDay.getDay()];
+
+      // We need to use getUTCDay() because record.date is 00:00 UTC
+      // 00:00 UTC maps to 02:00 SAST, so the day is the same.
+      const recordDayName = dayNames[recordDay.getUTCDay()];
       const isWeekend = recordDayName === "SAT" || recordDayName === "SUN";
 
       let scheduledKnockInTime: string | null = null;
@@ -903,8 +911,20 @@ async function checkAndCreateAbsentRecords(
 
 async function createAbsentRecords() {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // FIX: Calculate 'today' using Date.UTC logic
+    const now = new Date();
+    const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
+      timeZone: "Africa/Johannesburg",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts = sastFormatter.formatToParts(now);
+    const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
+    const year = parseInt(getPart("year")!);
+    const month = parseInt(getPart("month")!);
+    const day = parseInt(getPart("day")!);
+    const today = new Date(Date.UTC(year, month - 1, day));
 
     console.log(
       "Auto-attendance: Creating absent records for EMPLOYEES who didn't check in..."
@@ -945,7 +965,9 @@ async function createAbsentRecords() {
         }
 
         const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-        const todayDay = dayNames[today.getDay()];
+        // FIX: use getUTCDay for the correct day index
+        const todayDay = dayNames[today.getUTCDay()];
+
         const workingDays = Array.isArray(employee.workingDays)
           ? employee.workingDays
           : employee.workingDays

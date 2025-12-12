@@ -69,38 +69,31 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 2. ROBUST TIMEZONE CALCULATION (FIXED)
+    // 2. TIMEZONE CALCULATION (FIXED)
     // ---------------------------------------------------------
-    // This method ensures we get SAST time regardless of server timezone (Localhost vs Cloud)
-    const now = new Date();
+    // FIX A: Use exact Server Time. No manual offsets.
+    const currentTime = new Date();
+
+    // FIX B: Calculate "Today" based on South African Calendar
+    // ensuring we save records in the correct "Day Bucket" (00:00 UTC)
     const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
       timeZone: "Africa/Johannesburg",
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
       hour12: false,
     });
 
-    const parts = sastFormatter.formatToParts(now);
+    const parts = sastFormatter.formatToParts(currentTime);
     const getDatePart = (type: string) =>
       parts.find((p) => p.type === type)?.value;
 
-    const year = getDatePart("year");
-    const month = getDatePart("month");
-    const day = getDatePart("day");
-    const hour = getDatePart("hour");
-    const minute = getDatePart("minute");
-    const second = getDatePart("second");
+    const year = parseInt(getDatePart("year")!);
+    const month = parseInt(getDatePart("month")!);
+    const day = parseInt(getDatePart("day")!);
 
-    // Create Date objects representing SAST wall-clock time
-    const currentTimeString = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
-    const todayString = `${year}-${month}-${day}T00:00:00`;
-
-    const currentTime = new Date(currentTimeString);
-    const today = new Date(todayString); // This represents 00:00:00 SAST
+    // Create a Date object that is EXACTLY 00:00 UTC on the South African day.
+    const today = new Date(Date.UTC(year, month - 1, day));
 
     // ---------------------------------------------------------
     // 3. CHECK FOR ATTENDANCE BYPASS RULES
@@ -108,13 +101,13 @@ export async function POST(request: NextRequest) {
     const bypassResult = await checkAttendanceBypass(
       person.id,
       personType,
-      currentTime
+      today // Pass the corrected 'today' object
     );
 
     console.log(`=== CHECK-IN BYPASS DEBUG ===`);
     console.log(`Person: ${personType} ${person.id}`);
-    console.log(`Current time SAST: ${currentTime.toISOString()}`);
-    console.log(`Today SAST: ${today.toISOString()}`);
+    console.log(`Current Time (Instant): ${currentTime.toISOString()}`);
+    console.log(`Today (Bucket): ${today.toISOString()}`);
     console.log(`Bypass result:`, bypassResult);
     console.log(`HR Settings:`, {
       gracePeriodMinutes,
@@ -126,7 +119,7 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // 4. DETERMINE ATTENDANCE DATE (HANDLE NIGHT SHIFTS)
     // ---------------------------------------------------------
-    let attendanceDate = today; // Default to today
+    let attendanceDate = today;
     let isNightShift = false;
     let customCheckInTimeUsed: string | null = null;
 
@@ -177,9 +170,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if it's a working day for the attendance date
+    // Check if it's a working day
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-    const attendanceDay = dayNames[attendanceDate.getDay()];
+    // FIX: Use the SAST date parts to determine day of week
+    const tempSASTDate = new Date(year, month - 1, day);
+    const attendanceDay = dayNames[tempSASTDate.getDay()];
 
     if (
       person.workingDays &&
@@ -199,13 +194,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if already checked in for this attendance date
+    // Check if already checked in
     const existingRecord =
       personType === "employee"
         ? await db.attendanceRecord.findFirst({
             where: {
               employeeId: person.id,
-              date: attendanceDate, // Matches exact date object
+              date: attendanceDate, // Uses the Date.UTC object
               checkIn: {
                 not: null,
               },
@@ -214,7 +209,7 @@ export async function POST(request: NextRequest) {
         : await db.attendanceRecord.findFirst({
             where: {
               freeLancerId: person.id,
-              date: attendanceDate, // Matches exact date object
+              date: attendanceDate, // Uses the Date.UTC object
               checkIn: {
                 not: null,
               },
@@ -251,7 +246,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 7. STATUS CALCULATION WITH BYPASS & NIGHT SHIFT SUPPORT
+    // 7. STATUS CALCULATION
     // ---------------------------------------------------------
     let status: AttendanceStatus = AttendanceStatus.PRESENT;
     let isLate = false;
@@ -265,19 +260,15 @@ export async function POST(request: NextRequest) {
       if (customCheckInTimeUsed) {
         const [hours, minutes] = customCheckInTimeUsed.split(":").map(Number);
 
-        // Create check-in time based on attendance date
-        checkInTimeToUse = new Date(attendanceDate);
+        // Construct custom time string using SAST offset (+02:00)
+        // so it saves correctly in UTC.
+        const dateStr = attendanceDate.toISOString().split("T")[0];
+        const timeStr = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
+        checkInTimeToUse = new Date(`${dateStr}T${timeStr}+02:00`);
 
-        // Handle night shift date adjustments
-        if (hours >= 18) {
-          // If check-in time is after 6 PM, keep it on the attendance date
-          checkInTimeToUse.setHours(hours, minutes, 0, 0);
-        } else if (hours < 6 && !isNightShift) {
-          // Early morning check-in for current day (not night shift)
-          checkInTimeToUse.setHours(hours, minutes, 0, 0);
-        } else {
-          // Normal day shift or adjusted night shift
-          checkInTimeToUse.setHours(hours, minutes, 0, 0);
+        // Night shift adjustments
+        if (hours < 6 && !isNightShift) {
+          // If custom time is early AM but not night shift, date logic is handled by attendanceDate
         }
 
         customCheckInDateTime = new Date(checkInTimeToUse);
@@ -302,11 +293,16 @@ export async function POST(request: NextRequest) {
         .split(":")
         .map(Number);
 
-      const scheduledDateTime = new Date(attendanceDate);
-      scheduledDateTime.setHours(scheduledHours, scheduledMinutes, 0, 0);
+      // Create Schedule Time in SAST (+02:00)
+      const dateStr = attendanceDate.toISOString().split("T")[0];
+      const timeStr = `${String(scheduledHours).padStart(2, "0")}:${String(scheduledMinutes).padStart(2, "0")}:00`;
+
+      const scheduledDateTime = new Date(`${dateStr}T${timeStr}+02:00`);
 
       // Adjust for night shifts (scheduled time after 6 PM)
       if (scheduledHours >= 18) {
+        // Belongs to current day
+      } else if (isNightShift && scheduledHours < 12) {
         scheduledDateTime.setDate(scheduledDateTime.getDate() + 1);
       }
 
@@ -361,9 +357,7 @@ export async function POST(request: NextRequest) {
       attendanceData.freeLancerId = person.id;
     }
 
-    // (FIXED) USE ATTENDANCE DATE DIRECTLY
-    // We removed the double subtraction logic.
-    // attendanceDate represents SAST Midnight. Prisma handles the storage.
+    // Use the correctly calculated attendanceDate (UTC Midnight)
     const attendanceDateUTC = attendanceDate;
 
     console.log(`Creating attendance record:`, {
@@ -507,26 +501,18 @@ async function checkAttendanceBypass(
   rule?: any;
 }> {
   try {
-    // Get today's date at midnight for date range comparison
     const today = new Date(date);
-    today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Build the where clause based on assignee type
     const where: any = {
       AND: [{ startDate: { lte: tomorrow } }, { endDate: { gte: today } }],
     };
 
-    // Add assignee condition based on type
     if (assigneeType === "employee") {
-      where.employees = {
-        some: { id: assigneeId },
-      };
+      where.employees = { some: { id: assigneeId } };
     } else {
-      where.freelancers = {
-        some: { id: assigneeId },
-      };
+      where.freelancers = { some: { id: assigneeId } };
     }
 
     const bypassRule = await db.attendanceBypassRule.findFirst({
@@ -559,9 +545,7 @@ async function checkAttendanceBypass(
               }
             : false,
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!bypassRule) {
@@ -603,13 +587,11 @@ async function checkIfEmployeeOnLeave(
       const startDate = new Date(leaveRequest.startDate);
       const endDate = new Date(leaveRequest.endDate);
 
-      const normalizedStartDate = new Date(startDate);
-      normalizedStartDate.setHours(0, 0, 0, 0);
+      // Normalize to UTC Midnight for consistency
+      startDate.setUTCHours(0, 0, 0, 0);
+      endDate.setUTCHours(23, 59, 59, 999);
 
-      const normalizedEndDate = new Date(endDate);
-      normalizedEndDate.setHours(23, 59, 59, 999);
-
-      if (date >= normalizedStartDate && date <= normalizedEndDate) {
+      if (date >= startDate && date <= endDate) {
         return {
           leaveType: leaveRequest.leaveType,
           reason: leaveRequest.reason || "Approved Leave",
@@ -682,9 +664,7 @@ async function checkAndCreateLateWarning(
       actionPlan = "Formal warning regarding persistent late attendance.";
     }
 
-    // --- LOGIC ---
     if (warningType) {
-      // 1. Create the Warning
       const warning = await db.warning.create({
         data: {
           employeeId: employeeId,
@@ -706,7 +686,6 @@ async function checkAndCreateLateWarning(
         },
       });
 
-      // 2. Create the Notification
       await db.employeeNotification.create({
         data: {
           employeeId: employeeId,
@@ -724,7 +703,6 @@ async function checkAndCreateLateWarning(
         data: { warningId: warning.id },
       });
 
-      // 3. Return the warning
       return warning;
     }
 
@@ -737,8 +715,20 @@ async function checkAndCreateLateWarning(
 
 async function triggerAutoAttendanceForLeave() {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // FIX: Calculate 'today' using Date.UTC logic
+    const now = new Date();
+    const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
+      timeZone: "Africa/Johannesburg",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    const parts = sastFormatter.formatToParts(now);
+    const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
+    const year = parseInt(getPart("year")!);
+    const month = parseInt(getPart("month")!);
+    const day = parseInt(getPart("day")!);
+    const today = new Date(Date.UTC(year, month - 1, day));
 
     const employees = await db.employee.findMany({
       where: {
@@ -780,7 +770,8 @@ async function triggerAutoAttendanceForLeave() {
 
         if (shouldCreateRecord.shouldCreate) {
           const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-          const todayDay = dayNames[today.getDay()];
+          // FIX: Use getUTCDay()
+          const todayDay = dayNames[today.getUTCDay()];
           const isWeekend = todayDay === "SAT" || todayDay === "SUN";
 
           let scheduledKnockInTime: string | null = null;
@@ -852,10 +843,10 @@ async function shouldCreateLeaveAttendanceRecord(
     const endDate = new Date(leave.endDate);
 
     const normalizedStartDate = new Date(startDate);
-    normalizedStartDate.setHours(0, 0, 0, 0);
+    normalizedStartDate.setUTCHours(0, 0, 0, 0);
 
     const normalizedEndDate = new Date(endDate);
-    normalizedEndDate.setHours(23, 59, 59, 999);
+    normalizedEndDate.setUTCHours(23, 59, 59, 999);
 
     return targetDate >= normalizedStartDate && targetDate <= normalizedEndDate;
   });
