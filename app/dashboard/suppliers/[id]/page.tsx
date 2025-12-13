@@ -44,6 +44,7 @@ import Link from "next/link";
 import { DocumentsTab } from "./components/DocumentsTab";
 import { EditVendorDialog } from "./components/EditVendorDialog";
 import { VendorLoadingSkeleton } from "./components/VendorLoadingSkeleton";
+import { formatCurrency } from "@/lib/formatters";
 
 interface Vendor {
   id: string;
@@ -195,13 +196,6 @@ export default function VendorDetailPage() {
       default:
         return "text-gray-600";
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: "ZAR",
-    }).format(amount);
   };
 
   const formatDate = (dateString: string) => {

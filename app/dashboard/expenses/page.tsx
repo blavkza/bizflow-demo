@@ -92,7 +92,7 @@ export default function ExpensesPage() {
   }
 
   return (
-    <SidebarInset>
+    <div>
       <ExpensesHeader
         onExpenseAdded={fetchExpenses}
         searchQuery={searchQuery}
@@ -114,6 +114,6 @@ export default function ExpensesPage() {
         />
         <ExpensesTable expenses={filteredExpenses} />
       </div>
-    </SidebarInset>
+    </div>
   );
 }
