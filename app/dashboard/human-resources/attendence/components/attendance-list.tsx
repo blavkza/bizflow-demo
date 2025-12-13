@@ -29,12 +29,14 @@ import { useRouter } from "next/navigation";
 interface AttendanceListProps {
   records: AttendanceRecord[];
   loading: boolean;
+  bypassRules?: any[]; // NEW PROP
   onClearFilters: () => void;
 }
 
 export function AttendanceList({
   records,
   loading,
+  bypassRules = [], // NEW DEFAULT
   onClearFilters,
 }: AttendanceListProps) {
   const router = useRouter();
@@ -48,23 +50,18 @@ export function AttendanceList({
     return timeRegex.test(time.trim());
   };
 
-  // Helper function to determine if a date is weekend
   const isWeekend = (date: Date): boolean => {
     const day = date.getDay();
     return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
   };
 
-  // Check if record is a night shift (check-in and check-out on different dates)
   const isNightShift = (record: AttendanceRecord): boolean => {
     if (!record.checkIn || !record.checkOut) return false;
-
     const checkInDate = new Date(record.checkIn);
     const checkOutDate = new Date(record.checkOut);
-
     return checkInDate.getDate() !== checkOutDate.getDate();
   };
 
-  // Format date for display
   const formatDate = (date: Date | string): string => {
     const d = new Date(date);
     return d.toLocaleDateString("en-ZA", {
@@ -74,7 +71,6 @@ export function AttendanceList({
     });
   };
 
-  // Calculate overtime pay (using default rate)
   const calculateOvertimePay = (record: AttendanceRecord): number | null => {
     if (
       !record.overtimeHours ||
@@ -82,15 +78,13 @@ export function AttendanceList({
     ) {
       return null;
     }
-
     const overtimeHours = safeDecimalToNumber(record.overtimeHours);
-    const overtimeHourRate = 50.0; // Default overtime rate
+    const overtimeHourRate = 50.0;
     return overtimeHours * overtimeHourRate;
   };
 
-  // Check if bypass was applied (based on notes or other indicators)
   const hasBypass = (record: AttendanceRecord): boolean => {
-    // Check if notes contain bypass-related keywords
+    if (record.bypassApplied) return true;
     if (
       record.notes?.toLowerCase().includes("bypass") ||
       record.notes?.toLowerCase().includes("custom time") ||
@@ -98,22 +92,9 @@ export function AttendanceList({
     ) {
       return true;
     }
-
-    // Check if check-in/out times are significantly different from scheduled times
-    if (record.checkIn && record.scheduledKnockIn) {
-      const checkInHour = new Date(record.checkIn).getHours();
-      const scheduledHour = parseInt(record.scheduledKnockIn.split(":")[0]);
-
-      // If check-in is more than 2 hours different from schedule, might be bypass
-      if (Math.abs(checkInHour - scheduledHour) > 2) {
-        return true;
-      }
-    }
-
     return false;
   };
 
-  // Extract custom times from notes if available
   const extractCustomTimes = (record: AttendanceRecord) => {
     const customTimes = {
       checkIn: null as string | null,
@@ -121,9 +102,8 @@ export function AttendanceList({
     };
 
     if (record.notes) {
-      // Look for patterns like "Custom check-in time 02:00" or "custom time 09:00"
       const checkInMatch = record.notes.match(
-        /(?:custom|bypass).*?(?:check.in|time).*?(\d{1,2}:\d{2})/i
+        /(?:custom|bypass|schedule changed).*?(?:check.in|time|to).*?(\d{1,2}:\d{2})/i
       );
       const checkOutMatch = record.notes.match(
         /(?:custom|bypass).*?(?:check.out|time).*?(\d{1,2}:\d{2})/i
@@ -132,47 +112,130 @@ export function AttendanceList({
       if (checkInMatch) customTimes.checkIn = checkInMatch[1];
       if (checkOutMatch) customTimes.checkOut = checkOutMatch[1];
     }
-
     return customTimes;
   };
 
-  // Get the appropriate scheduled times based on weekday/weekend
-  const getScheduledTimes = (person: any, date: Date) => {
+  // ----------------------------------------------------------------------
+  // SMART SCHEDULE RETRIEVAL
+  // Priority: Custom Notes > Record Snapshot > Active Bypass Rule > Profile Default
+  // ----------------------------------------------------------------------
+  const getScheduledTimes = (
+    person: any,
+    date: Date,
+    record?: AttendanceRecord,
+    customTimes?: { checkIn: string | null; checkOut: string | null }
+  ) => {
     const weekend = isWeekend(date);
+    let knockIn = null;
+    let knockOut = null;
+    let isBypassSchedule = false;
 
+    // 1. Start with Profile Defaults
     if (weekend) {
-      return {
-        knockIn:
-          person.scheduledWeekendKnockIn ?? person.scheduledKnockIn ?? null,
-        knockOut:
-          person.scheduledWeekendKnockOut ?? person.scheduledKnockOut ?? null,
-        isWeekend: true,
-      };
+      knockIn =
+        person.scheduledWeekendKnockIn ?? person.scheduledKnockIn ?? null;
+      knockOut =
+        person.scheduledWeekendKnockOut ?? person.scheduledKnockOut ?? null;
     } else {
-      return {
-        knockIn: person.scheduledKnockIn ?? null,
-        knockOut: person.scheduledKnockOut ?? null,
-        isWeekend: false,
-      };
+      knockIn = person.scheduledKnockIn ?? null;
+      knockOut = person.scheduledKnockOut ?? null;
     }
+
+    // 2. Check for Active Bypass Rules (Pre-CheckIn Override)
+    // This handles the case where user hasn't checked in yet
+    if (bypassRules && bypassRules.length > 0 && person.id) {
+      const activeRule = bypassRules.find((rule: any) => {
+        // Date Check
+        const ruleStart = new Date(rule.startDate);
+        const ruleEnd = new Date(rule.endDate);
+        ruleStart.setHours(0, 0, 0, 0);
+        ruleEnd.setHours(23, 59, 59, 999);
+        const recordDate = new Date(date);
+        recordDate.setHours(12, 0, 0, 0); // Middle of day to avoid edge cases
+
+        const isDateInRange = recordDate >= ruleStart && recordDate <= ruleEnd;
+
+        // Person Check
+        const hasEmployee = rule.employees?.some(
+          (e: any) => e.id === person.id
+        );
+        const hasFreelancer = rule.freelancers?.some(
+          (f: any) => f.id === person.id
+        );
+
+        return isDateInRange && (hasEmployee || hasFreelancer);
+      });
+
+      if (activeRule) {
+        if (
+          activeRule.customCheckInTime &&
+          activeRule.customCheckInTime !== "none"
+        ) {
+          knockIn = activeRule.customCheckInTime;
+          isBypassSchedule = true;
+        }
+        if (
+          activeRule.customCheckOutTime &&
+          activeRule.customCheckOutTime !== "none"
+        ) {
+          knockOut = activeRule.customCheckOutTime;
+          isBypassSchedule = true;
+        }
+      }
+    }
+
+    // 3. Override with Record Snapshot (Backend Snapshot)
+    // If we have a record, trust what the backend saved, as it might have specific logic
+    if (record?.scheduledKnockIn) {
+      knockIn = record.scheduledKnockIn;
+      if (record.bypassApplied) isBypassSchedule = true;
+    }
+    if (record?.scheduledKnockOut) {
+      knockOut = record.scheduledKnockOut;
+    }
+
+    // 4. Override with Explicit Custom Times from Notes (Highest Priority)
+    if (customTimes?.checkIn) {
+      knockIn = customTimes.checkIn;
+      isBypassSchedule = true;
+    }
+    if (customTimes?.checkOut) {
+      knockOut = customTimes.checkOut;
+      isBypassSchedule = true;
+    }
+
+    return {
+      knockIn,
+      knockOut,
+      isWeekend: weekend,
+      isBypassSchedule,
+    };
   };
+
+  // ... (shouldShowNotCheckedIn, getDisplayStatusText, getStatusBadgeColor updated to use new getScheduledTimes) ...
+  // For brevity, assuming they call getScheduledTimes with same params.
+  // We need to pass the updated params to them.
 
   const shouldShowNotCheckedIn = (record: AttendanceRecord) => {
     if (record.checkIn) return false;
-
     if (
       record.status === "ANNUAL_LEAVE" ||
       record.status === "SICK_LEAVE" ||
       record.status === "UNPAID_LEAVE"
-    ) {
+    )
       return false;
-    }
-
     if (record.displayStatus === "Day Off") return false;
 
     const now = new Date();
     const person = record.employee || record.freeLancer;
-    const { knockIn: scheduledKnockIn } = getScheduledTimes(person, now);
+    const recordDate = new Date(record.date);
+
+    const { knockIn: scheduledKnockIn } = getScheduledTimes(
+      person,
+      recordDate,
+      record,
+      extractCustomTimes(record)
+    );
 
     if (!isValidScheduledTime(scheduledKnockIn)) return false;
 
@@ -185,12 +248,9 @@ export function AttendanceList({
         0,
         0
       );
-
-      const gracePeriod = new Date(todayScheduled.getTime() + 30 * 60000); // 30 minutes grace period
-
+      const gracePeriod = new Date(todayScheduled.getTime() + 30 * 60000);
       return now <= gracePeriod;
     } catch (error) {
-      console.error("Error parsing scheduled time:", error);
       return false;
     }
   };
@@ -198,10 +258,14 @@ export function AttendanceList({
   const getDisplayStatusText = (record: AttendanceRecord) => {
     if (shouldShowNotCheckedIn(record)) {
       const person = record.employee || record.freeLancer;
+      const recordDate = new Date(record.date);
       const { knockIn: scheduledKnockIn } = getScheduledTimes(
         person,
-        new Date()
+        recordDate,
+        record,
+        extractCustomTimes(record)
       );
+
       if (isValidScheduledTime(scheduledKnockIn)) {
         try {
           const scheduledTime = new Date(`1970-01-01T${scheduledKnockIn}`);
@@ -212,30 +276,27 @@ export function AttendanceList({
             0,
             0
           );
-
           const now = new Date();
-          if (now < todayScheduled) {
-            return "Not Checked In";
-          } else {
-            return "Not Checked In - Late";
-          }
-        } catch (error) {
-          console.error("Error parsing scheduled time for status:", error);
-        }
+          if (now < todayScheduled) return "Not Checked In";
+          else return "Not Checked In - Late";
+        } catch (error) {}
       }
       return "Not Checked In";
     }
-
     return record.displayStatus || getStatusDisplayName(record.status);
   };
 
   const getStatusBadgeColor = (record: AttendanceRecord) => {
     if (shouldShowNotCheckedIn(record)) {
       const person = record.employee || record.freeLancer;
+      const recordDate = new Date(record.date);
       const { knockIn: scheduledKnockIn } = getScheduledTimes(
         person,
-        new Date()
+        recordDate,
+        record,
+        extractCustomTimes(record)
       );
+
       if (isValidScheduledTime(scheduledKnockIn)) {
         try {
           const scheduledTime = new Date(`1970-01-01T${scheduledKnockIn}`);
@@ -246,18 +307,13 @@ export function AttendanceList({
             0,
             0
           );
-
           const now = new Date();
-          if (now >= todayScheduled) {
+          if (now >= todayScheduled)
             return "bg-yellow-100 text-yellow-800 border-yellow-200";
-          }
-        } catch (error) {
-          console.error("Error parsing scheduled time for badge color:", error);
-        }
+        } catch (error) {}
       }
       return "bg-gray-100 text-gray-800 border-gray-200";
     }
-
     return getStatusColor(record.status, record.displayStatus);
   };
 
@@ -280,8 +336,7 @@ export function AttendanceList({
             No attendance records found
           </h3>
           <p className="text-muted-foreground text-center mb-4">
-            No attendance records match your current filters. Try adjusting your
-            search criteria.
+            No attendance records match your current filters.
           </p>
           <Button onClick={onClearFilters}>Clear Filters</Button>
         </CardContent>
@@ -308,17 +363,16 @@ export function AttendanceList({
         const bypassApplied = hasBypass(record);
         const customTimes = extractCustomTimes(record);
         const hasCustomTime = customTimes.checkIn || customTimes.checkOut;
-
-        // Check if this is a virtual record (no actual check-in)
         const isVirtualRecord = record.isVirtualRecord || !record.checkIn;
 
-        // Get scheduled times based on weekday/weekend
         const recordDate = new Date(record.date);
         const {
           knockIn: scheduledKnockIn,
           knockOut: scheduledKnockOut,
           isWeekend,
-        } = getScheduledTimes(person, recordDate);
+          isBypassSchedule,
+        } = getScheduledTimes(person, recordDate, record, customTimes);
+
         const hasValidSchedule =
           isValidScheduledTime(scheduledKnockIn) &&
           isValidScheduledTime(scheduledKnockOut);
@@ -331,7 +385,7 @@ export function AttendanceList({
           <Card key={record.id} className="hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                {/* Left Side: Person Info */}
+                {/* Left Side */}
                 <div className="flex items-center space-x-4 flex-1">
                   <Avatar>
                     <AvatarImage
@@ -391,7 +445,6 @@ export function AttendanceList({
                       </p>
                     )}
 
-                    {/* Show record date */}
                     <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />
                       <span>
@@ -405,14 +458,22 @@ export function AttendanceList({
                       </span>
                     </div>
 
-                    {/* Show scheduled times for both employees and freelancers */}
                     {hasValidSchedule ? (
                       <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          Scheduled: {formatTime(scheduledKnockIn!)} -{" "}
+                        {isBypassSchedule ? (
+                          <Zap className="h-3 w-3 text-amber-500" />
+                        ) : (
+                          <Clock className="h-3 w-3" />
+                        )}
+                        <span
+                          className={
+                            isBypassSchedule ? "font-medium text-amber-700" : ""
+                          }
+                        >
+                          {isBypassSchedule ? "Bypass Schedule:" : "Scheduled:"}{" "}
+                          {formatTime(scheduledKnockIn!)} -{" "}
                           {formatTime(scheduledKnockOut!)}
-                          {isWeekend && " (Weekend)"}
+                          {isWeekend && !isBypassSchedule && " (Weekend)"}
                         </span>
                       </div>
                     ) : (
@@ -426,27 +487,25 @@ export function AttendanceList({
                       </div>
                     )}
 
-                    {/* Show custom times if detected in notes */}
-                    {hasCustomTime && (
+                    {hasCustomTime && !isBypassSchedule && (
                       <div className="flex items-center gap-2 mt-1 text-xs text-green-600">
                         <Zap className="h-3 w-3" />
                         <span>
                           Custom times detected
                           {customTimes.checkIn && (
                             <span className="ml-1">
-                              • Check-in: {customTimes.checkIn}
+                              • In: {customTimes.checkIn}
                             </span>
                           )}
                           {customTimes.checkOut && (
                             <span className="ml-1">
-                              • Check-out: {customTimes.checkOut}
+                              • Out: {customTimes.checkOut}
                             </span>
                           )}
                         </span>
                       </div>
                     )}
 
-                    {/* Show time until scheduled check-in for not checked in persons */}
                     {showNotCheckedIn &&
                       !record.checkIn &&
                       isValidScheduledTime(scheduledKnockIn) && (
@@ -466,14 +525,15 @@ export function AttendanceList({
                                   0
                                 );
                                 const now = new Date();
-
                                 if (now < todayScheduled) {
                                   const diffMs =
                                     todayScheduled.getTime() - now.getTime();
                                   const diffMins = Math.floor(diffMs / 60000);
                                   if (diffMins > 60) {
                                     const diffHours = Math.floor(diffMins / 60);
-                                    return `Check-in in ${diffHours}h ${diffMins % 60}m`;
+                                    return `Check-in in ${diffHours}h ${
+                                      diffMins % 60
+                                    }m`;
                                   }
                                   return `Check-in in ${diffMins}m`;
                                 } else {
@@ -482,15 +542,13 @@ export function AttendanceList({
                                   const diffMins = Math.floor(diffMs / 60000);
                                   if (diffMins > 60) {
                                     const diffHours = Math.floor(diffMins / 60);
-                                    return `${diffHours}h ${diffMins % 60}m overdue`;
+                                    return `${diffHours}h ${
+                                      diffMins % 60
+                                    }m overdue`;
                                   }
                                   return `${diffMins}m overdue`;
                                 }
                               } catch (error) {
-                                console.error(
-                                  "Error calculating time difference:",
-                                  error
-                                );
                                 return "Schedule error";
                               }
                             })()}
@@ -500,16 +558,13 @@ export function AttendanceList({
                   </div>
                 </div>
 
-                {/* Right Side: Status and Times */}
+                {/* Right Side */}
                 <div className="flex items-center space-x-6">
-                  {/* Status */}
                   <div className="text-center">
                     <Badge className={statusBadgeColor}>
                       {displayStatusText}
                     </Badge>
                   </div>
-
-                  {/* Check In */}
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">Check In</p>
                     <p className="font-medium text-sm">
@@ -535,8 +590,6 @@ export function AttendanceList({
                       </HoverCard>
                     )}
                   </div>
-
-                  {/* Check Out */}
                   <div className="text-center">
                     <p className="text-sm text-muted-foreground">Check Out</p>
                     <p className="font-medium text-sm">
@@ -547,8 +600,6 @@ export function AttendanceList({
                       )}
                     </p>
                   </div>
-
-                  {/* Hours */}
                   {(record.regularHours || record.overtimeHours) && (
                     <div className="text-center">
                       <p className="text-sm text-muted-foreground">Hours</p>
@@ -571,8 +622,6 @@ export function AttendanceList({
                       </div>
                     </div>
                   )}
-
-                  {/* Scheduled Time (if not checked in) */}
                   {!record.checkIn &&
                     isValidScheduledTime(scheduledKnockIn) && (
                       <div className="text-center">
@@ -592,7 +641,6 @@ export function AttendanceList({
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center space-x-4">
-                    {/* Check-in Method */}
                     {record.checkInMethod && (
                       <div className="flex items-center">
                         <span className="mr-1">Method:</span>
@@ -606,8 +654,6 @@ export function AttendanceList({
                         </Badge>
                       </div>
                     )}
-
-                    {/* GPS Coordinates */}
                     {record.checkInLat && record.checkInLng && (
                       <div className="flex items-center">
                         <MapPin className="w-3 h-3 mr-1" />
@@ -617,8 +663,6 @@ export function AttendanceList({
                         </span>
                       </div>
                     )}
-
-                    {/* Notes - Show truncated with hover */}
                     {record.notes && (
                       <HoverCard>
                         <HoverCardTrigger asChild>
@@ -637,8 +681,6 @@ export function AttendanceList({
                       </HoverCard>
                     )}
                   </div>
-
-                  {/* Virtual Record Indicator */}
                   {isVirtualRecord && !record.checkIn && (
                     <div className="flex items-center text-orange-600">
                       <Calendar className="w-3 h-3 mr-1" />
@@ -646,7 +688,9 @@ export function AttendanceList({
                         {record.status === "ANNUAL_LEAVE" ||
                         record.status === "SICK_LEAVE" ||
                         record.status === "UNPAID_LEAVE"
-                          ? `On ${getStatusDisplayName(record.status).toLowerCase()}`
+                          ? `On ${getStatusDisplayName(
+                              record.status
+                            ).toLowerCase()}`
                           : showNotCheckedIn
                             ? "Not checked in yet"
                             : "No schedule set"}

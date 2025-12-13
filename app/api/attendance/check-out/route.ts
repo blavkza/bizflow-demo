@@ -64,11 +64,10 @@ export async function POST(request: NextRequest) {
     // 1. TIMEZONE CALCULATION (FIXED)
     // ---------------------------------------------------------
     // FIX A: Use exact Server Time. Do NOT add offsets manually.
-    // 'new Date()' is the universal instant (UTC in Prod, Local in Dev).
     const currentTime = new Date();
 
     // FIX B: Calculate "Today" based on South African Calendar
-    // This ensures we save/find records in the correct "Day Bucket" (00:00 - 23:59 SAST)
+    // This ensures we find the correct record bucket in the DB.
     const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
       timeZone: "Africa/Johannesburg",
       year: "numeric",
@@ -86,52 +85,39 @@ export async function POST(request: NextRequest) {
     const day = parseInt(getDatePart("day")!);
 
     // Create a Date object that represents 00:00 UTC on the South African day.
-    // This forces the DB to find the record as "2025-12-11 00:00:00 UTC"
     const today = new Date(Date.UTC(year, month - 1, day));
 
     // ---------------------------------------------------------
-    // CHECK FOR ATTENDANCE BYPASS RULES
+    // 3. CHECK FOR ATTENDANCE BYPASS RULES
     // ---------------------------------------------------------
     const bypassResult = await checkAttendanceBypass(
       person.id,
       personType,
-      today // Use the corrected Date Bucket
+      today
     );
 
     console.log(`=== CHECK-OUT BYPASS DEBUG ===`);
     console.log(`Person: ${personType} ${person.id}`);
-    console.log(`Current time (Instant): ${currentTime.toISOString()}`);
+    console.log(`Current Time (Instant): ${currentTime.toISOString()}`);
     console.log(`Today (Bucket): ${today.toISOString()}`);
     console.log(`Bypass result:`, bypassResult);
 
     // ---------------------------------------------------------
-    // FIND ACTIVE ATTENDANCE RECORD (SUPPORT NIGHT SHIFTS)
+    // 4. FIND ACTIVE ATTENDANCE RECORD
     // ---------------------------------------------------------
-    // Get yesterday's date for night shift checking
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
     // Find active records from today OR yesterday (for night shifts)
-    // FIX: We use 'today' and 'yesterday' directly as they are already UTC Midnights
     const attendanceRecords = await db.attendanceRecord.findMany({
       where: {
         ...(personType === "employee"
           ? { employeeId: person.id }
           : { freeLancerId: person.id }),
-        OR: [
-          // Check for record from today
-          { date: today },
-          // Also check for record from yesterday (for night shifts)
-          {
-            date: yesterday,
-            checkOut: null, // Only if not checked out yet
-          },
-        ],
+        OR: [{ date: today }, { date: yesterday, checkOut: null }],
         checkOut: null, // Must not be checked out already
       },
-      orderBy: {
-        date: "desc", // Get most recent first
-      },
+      orderBy: { date: "desc" },
       include: {
         employee:
           personType === "employee"
@@ -178,12 +164,6 @@ export async function POST(request: NextRequest) {
     const isNightShift =
       attendanceRecord.date.toISOString() !== today.toISOString();
 
-    console.log(`Record analysis:`, {
-      recordDateUTC: attendanceRecord.date,
-      todayUTC: today.toISOString(),
-      isNightShift: isNightShift,
-    });
-
     if (attendanceRecord.checkOut) {
       return NextResponse.json(
         {
@@ -196,58 +176,82 @@ export async function POST(request: NextRequest) {
     const checkInTime = attendanceRecord.checkIn!;
 
     // ---------------------------------------------------------
-    // BYPASS LOGIC FOR CHECK-OUT
+    // 5. DETERMINE SCHEDULE (PRIORITY: BYPASS > WEEKEND > NORMAL)
+    // ---------------------------------------------------------
+    // We need to know if it's a weekend relative to the Check-In date
+    const checkInDayName = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][
+      new Date(checkInTime.getTime() + 2 * 60 * 60 * 1000).getUTCDay()
+    ];
+    const isWeekend = checkInDayName === "SAT" || checkInDayName === "SUN";
+
+    let scheduledKnockInTime: string | null = null;
+    let scheduledKnockOutTime: string | null = null;
+
+    // A. PRIORITY 1: BYPASS TIME (Schedule Override)
+    if (
+      bypassResult.bypassCheckOut &&
+      bypassResult.customCheckOutTime &&
+      bypassResult.customCheckOutTime !== "none"
+    ) {
+      scheduledKnockOutTime = bypassResult.customCheckOutTime;
+      // Use original Knock-In unless it was also bypassed (stored in record)
+      scheduledKnockInTime =
+        attendanceRecord.scheduledKnockIn ||
+        (isWeekend
+          ? person.scheduledWeekendKnockIn || person.scheduledKnockIn
+          : person.scheduledKnockIn);
+
+      console.log(
+        `Schedule Override: Using Bypass Time ${scheduledKnockOutTime} as Knock-Out Schedule`
+      );
+    }
+    // B. PRIORITY 2: STANDARD SCHEDULE
+    else {
+      if (isWeekend) {
+        scheduledKnockInTime =
+          person.scheduledWeekendKnockIn || person.scheduledKnockIn;
+        scheduledKnockOutTime =
+          person.scheduledWeekendKnockOut || person.scheduledKnockOut;
+      } else {
+        scheduledKnockInTime = person.scheduledKnockIn;
+        scheduledKnockOutTime = person.scheduledKnockOut;
+      }
+    }
+
+    // ---------------------------------------------------------
+    // 6. CALCULATE HOURS AND STATUS
     // ---------------------------------------------------------
     let checkOutTimeToUse: Date = currentTime;
     let customCheckOutTimeUsed: string | null = null;
     let bypassApplied = false;
 
-    // If bypass is enabled for check-out, use custom time if specified
     if (bypassResult.bypassCheckOut) {
       bypassApplied = true;
-
       if (
         bypassResult.customCheckOutTime &&
         bypassResult.customCheckOutTime !== "none"
       ) {
         customCheckOutTimeUsed = bypassResult.customCheckOutTime;
-        console.log(
-          `Using custom check-out time: ${customCheckOutTimeUsed} for ${personType} ${person.id}`
-        );
-
-        const [hours, minutes] = customCheckOutTimeUsed.split(":").map(Number);
-
-        // Construct custom time string using SAST offset (+02:00)
-        // This ensures consistent interpretation relative to the 'today' bucket
-        const dateStr = today.toISOString().split("T")[0];
-        const timeStr = `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:00`;
-        checkOutTimeToUse = new Date(`${dateStr}T${timeStr}+02:00`);
-
-        // Adjust for night shifts
-        if (isNightShift && hours < 12) {
-          // Night shift ending in the morning, date matches 'today' (correct)
-          console.log(`Night shift check-out at ${customCheckOutTimeUsed}`);
-        } else if (!isNightShift && hours < 6) {
-          // Rare: Day shift ending very early next morning
-          checkOutTimeToUse.setDate(checkOutTimeToUse.getDate() + 1);
-        }
-
-        console.log(`Custom check-out time set:`, {
-          customTime: customCheckOutTimeUsed,
-          checkOutTime: checkOutTimeToUse.toISOString(),
-          isNightShift: isNightShift,
-        });
-      } else {
-        console.log(
-          `Using current time for check-out with bypass: ${currentTime.toISOString()}`
-        );
+        // We do NOT overwrite checkOutTimeToUse with custom time.
+        // We keep 'currentTime' as the actual check-out time.
+        // The custom time became the 'scheduledKnockOutTime' above.
       }
     }
 
-    // Calculate hours and determine new status USING HR SETTINGS
+    // Temporarily inject the overridden schedule into the person object
+    // so the calculation function uses it.
+    const personWithOverride = {
+      ...person,
+      scheduledKnockIn: scheduledKnockInTime,
+      scheduledKnockOut: scheduledKnockOutTime,
+      // Clear weekend props so logic defaults to the main props we just set
+      scheduledWeekendKnockIn: null,
+      scheduledWeekendKnockOut: null,
+    };
+
     const { regularHours, overtimeHours, newStatus, workedPercentage } =
       await calculateHoursAndStatus(
-        person,
+        personWithOverride,
         checkInTime,
         checkOutTimeToUse,
         attendanceRecord.status,
@@ -255,25 +259,35 @@ export async function POST(request: NextRequest) {
         hrSettings
       );
 
+    // Apply Generic Bypass (Force Present) if no custom time
+    let finalStatus = newStatus;
+    const isGenericBypass =
+      bypassResult.bypassCheckOut &&
+      (!bypassResult.customCheckOutTime ||
+        bypassResult.customCheckOutTime === "none");
+
+    if (isGenericBypass) {
+      finalStatus = AttendanceStatus.PRESENT;
+      console.log("Generic Bypass: Forcing PRESENT status");
+    }
+
     // Calculate overtime pay if applicable
     let overtimePay = 0;
     if (overtimeHours > 0 && personType === "employee") {
       overtimePay = overtimeHours * overtimeHourRate;
       console.log(
-        `Overtime pay calculated: ${overtimeHours}h × ${overtimeHourRate} = R${overtimePay.toFixed(2)}`
+        `Overtime pay: ${overtimeHours}h * R${overtimeHourRate} = R${overtimePay}`
       );
     }
 
-    // Update status based on worked percentage
-    let finalStatus = newStatus;
+    // Prepare Notes
     let statusNotes = notes || attendanceRecord.notes || "";
 
-    // Add bypass info to notes if applied
     if (bypassApplied) {
       if (customCheckOutTimeUsed) {
         statusNotes +=
           (statusNotes ? " | " : "") +
-          `Bypass applied: Custom check-out time ${customCheckOutTimeUsed}`;
+          `Schedule changed to ${customCheckOutTimeUsed} by Bypass`;
       } else {
         statusNotes +=
           (statusNotes ? " | " : "") +
@@ -281,20 +295,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Add auto-status change note
     if (finalStatus !== attendanceRecord.status) {
       if (finalStatus === AttendanceStatus.HALF_DAY) {
         statusNotes +=
           (statusNotes ? " | " : "") +
-          `Auto-status: Half Day (worked ${workedPercentage.toFixed(0)}% of schedule)`;
+          `Auto-status: Half Day (${workedPercentage.toFixed(0)}% of schedule)`;
       } else if (finalStatus === AttendanceStatus.ABSENT) {
         statusNotes +=
           (statusNotes ? " | " : "") +
-          `Auto-status: Absent (worked only ${workedPercentage.toFixed(0)}% of schedule)`;
+          `Auto-status: Absent (${workedPercentage.toFixed(0)}% of schedule)`;
       }
     }
 
-    // Add overtime note if applicable
     if (overtimeHours > 0) {
       statusNotes +=
         (statusNotes ? " | " : "") + `Overtime: ${overtimeHours.toFixed(1)}h`;
@@ -303,12 +315,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check for absent warnings (only for employees, not freelancers)
+    // ---------------------------------------------------------
+    // 7. WARNINGS
+    // ---------------------------------------------------------
     let warningCreated = null;
     if (
       finalStatus === AttendanceStatus.ABSENT &&
       personType === "employee" &&
-      !bypassApplied
+      !isGenericBypass // Don't warn if generic bypass is active
     ) {
       warningCreated = await checkAndCreateAbsentWarning(
         person.id,
@@ -318,7 +332,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update attendance record with check-out and calculated hours
+    // ---------------------------------------------------------
+    // 8. UPDATE RECORD
+    // ---------------------------------------------------------
     const updateData: any = {
       checkOut: checkOutTimeToUse,
       checkOutAddress: location || address,
@@ -331,6 +347,12 @@ export async function POST(request: NextRequest) {
       bypassApplied: bypassApplied || attendanceRecord.bypassApplied,
       bypassRuleId: bypassResult.rule?.id || attendanceRecord.bypassRuleId,
     };
+
+    // If we changed the schedule via bypass, update the record's scheduled time
+    // so the history reflects why they weren't marked early/late
+    if (scheduledKnockOutTime) {
+      updateData.scheduledKnockOut = scheduledKnockOutTime;
+    }
 
     attendanceRecord = await db.attendanceRecord.update({
       where: { id: attendanceRecord.id },
@@ -404,26 +426,18 @@ async function checkAttendanceBypass(
   rule?: any;
 }> {
   try {
-    // Get today's date at midnight for date range comparison
     const today = new Date(date);
-    today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // Build the where clause based on assignee type
     const where: any = {
       AND: [{ startDate: { lte: tomorrow } }, { endDate: { gte: today } }],
     };
 
-    // Add assignee condition based on type
     if (assigneeType === "employee") {
-      where.employees = {
-        some: { id: assigneeId },
-      };
+      where.employees = { some: { id: assigneeId } };
     } else {
-      where.freelancers = {
-        some: { id: assigneeId },
-      };
+      where.freelancers = { some: { id: assigneeId } };
     }
 
     const bypassRule = await db.attendanceBypassRule.findFirst({
@@ -432,33 +446,17 @@ async function checkAttendanceBypass(
         employees:
           assigneeType === "employee"
             ? {
-                select: {
-                  id: true,
-                  employeeNumber: true,
-                  firstName: true,
-                  lastName: true,
-                  position: true,
-                  department: true,
-                },
+                select: { id: true },
               }
             : false,
         freelancers:
           assigneeType === "freelancer"
             ? {
-                select: {
-                  id: true,
-                  freeLancerNumber: true,
-                  firstName: true,
-                  lastName: true,
-                  position: true,
-                  department: true,
-                },
+                select: { id: true },
               }
             : false,
       },
-      orderBy: {
-        createdAt: "desc",
-      },
+      orderBy: { createdAt: "desc" },
     });
 
     if (!bypassRule) {
@@ -488,7 +486,7 @@ async function checkAttendanceBypass(
 }
 
 // ------------------------------------------------------------------
-// CALCULATE HOURS AND STATUS WITH HR SETTINGS
+// CALCULATE HOURS AND STATUS
 // ------------------------------------------------------------------
 async function calculateHoursAndStatus(
   person: any,
@@ -508,12 +506,10 @@ async function calculateHoursAndStatus(
   let newStatus = currentStatus;
   let workedPercentage = 0;
 
-  // Get HR settings or use defaults
   const overtimeThreshold = hrSettings?.overtimeThreshold || 8.0;
   const halfDayThreshold = hrSettings?.halfDayThreshold || 4.0;
   const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
 
-  // Calculate actual hours worked
   const actualHoursWorked =
     (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
@@ -521,23 +517,16 @@ async function calculateHoursAndStatus(
     checkInTime: checkInTime.toISOString(),
     checkOutTime: checkOutTime.toISOString(),
     actualHoursWorked: actualHoursWorked.toFixed(2),
-    isNightShift: isNightShift,
-    overtimeThreshold,
-    halfDayThreshold,
-    workingHoursPerDay,
   });
 
-  // ---------------------------------------------------------
-  // DETERMINE IF WEEKDAY OR WEEKEND
-  // ---------------------------------------------------------
-  const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-
-  // FIX: Shift checkInTime to SAST to reliably get the "Name" of the day
-  const checkInSAST = new Date(checkInTime.getTime() + 2 * 60 * 60 * 1000);
-  const checkInDay = dayNames[checkInSAST.getUTCDay()];
+  // Use the Day Name logic in SAST
+  const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
+    timeZone: "Africa/Johannesburg",
+    weekday: "short",
+  });
+  const checkInDay = sastFormatter.format(checkInTime).toUpperCase();
   const isWeekend = checkInDay === "SAT" || checkInDay === "SUN";
 
-  // Get the appropriate scheduled times
   let scheduledKnockInTime: string | null = null;
   let scheduledKnockOutTime: string | null = null;
 
@@ -552,24 +541,26 @@ async function calculateHoursAndStatus(
   }
 
   if (scheduledKnockInTime && scheduledKnockOutTime) {
-    // Parse time strings
     const [startHours, startMinutes] = scheduledKnockInTime
       .split(":")
       .map(Number);
     const [endHours, endMinutes] = scheduledKnockOutTime.split(":").map(Number);
 
-    console.log(`Schedule: ${scheduledKnockInTime} - ${scheduledKnockOutTime}`);
-
-    // FIX: Create scheduled times relative to the Check-In Date
-    // using string construction + offset to ensure UTC compatibility
-    const checkInDateStr = checkInTime.toISOString().split("T")[0];
-    const scheduleStartStr = `${checkInDateStr}T${String(startHours).padStart(2, "0")}:${String(startMinutes).padStart(2, "0")}:00+02:00`;
-    const scheduleEndStr = `${checkInDateStr}T${String(endHours).padStart(2, "0")}:${String(endMinutes).padStart(2, "0")}:00+02:00`;
+    // FIX: Create Schedule dates relative to CheckIn Time (using SAST offset +02:00)
+    // This ensures consistency regardless of server timezone
+    const dateStr = checkInTime.toISOString().split("T")[0];
+    const scheduleStartStr = `${dateStr}T${String(startHours).padStart(
+      2,
+      "0"
+    )}:${String(startMinutes).padStart(2, "0")}:00+02:00`;
+    const scheduleEndStr = `${dateStr}T${String(endHours).padStart(
+      2,
+      "0"
+    )}:${String(endMinutes).padStart(2, "0")}:00+02:00`;
 
     const scheduledStartTime = new Date(scheduleStartStr);
     const scheduledEndTime = new Date(scheduleEndStr);
 
-    // Handle overnight shifts for night workers
     if (endHours <= startHours || isNightShift) {
       if (endHours < startHours && endHours < 12) {
         scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
@@ -578,32 +569,18 @@ async function calculateHoursAndStatus(
       }
     }
 
-    // Calculate scheduled hours
     const scheduledHours =
       (scheduledEndTime.getTime() - scheduledStartTime.getTime()) /
       (1000 * 60 * 60);
 
-    // ---------------------------------------------------------
-    // OVERTIME LOGIC USING HR SETTINGS
-    // ---------------------------------------------------------
     const totalHoursWorked = actualHoursWorked;
 
     if (totalHoursWorked > overtimeThreshold) {
-      // Person worked beyond overtime threshold
       regularHours = overtimeThreshold;
       overtimeHours = totalHoursWorked - overtimeThreshold;
       newStatus = currentStatus;
       workedPercentage = 100;
-
-      console.log(`Overtime Scenario:`, {
-        totalHours: totalHoursWorked.toFixed(2),
-        overtimeThreshold: overtimeThreshold,
-        regularHours: regularHours.toFixed(2),
-        overtimeHours: overtimeHours.toFixed(2),
-        status: newStatus,
-      });
     } else {
-      // No overtime, calculate based on scheduled hours
       regularHours = totalHoursWorked;
       overtimeHours = 0;
 
@@ -613,7 +590,6 @@ async function calculateHoursAndStatus(
         workedPercentage = (totalHoursWorked / workingHoursPerDay) * 100;
       }
 
-      // Apply status logic using halfDayThreshold
       if (
         totalHoursWorked >= halfDayThreshold &&
         totalHoursWorked < overtimeThreshold
@@ -624,17 +600,9 @@ async function calculateHoursAndStatus(
       } else {
         newStatus = currentStatus;
       }
-
-      console.log(`Regular Scenario:`, {
-        totalHours: totalHoursWorked.toFixed(2),
-        scheduledHours: scheduledHours.toFixed(2),
-        halfDayThreshold: halfDayThreshold,
-        percentage: workedPercentage.toFixed(1),
-        status: newStatus,
-      });
     }
   } else {
-    // No schedule set, use HR settings defaults
+    // No schedule set
     const totalHoursWorked = actualHoursWorked;
 
     if (totalHoursWorked > overtimeThreshold) {
@@ -658,14 +626,6 @@ async function calculateHoursAndStatus(
         newStatus = currentStatus;
       }
     }
-
-    console.log(`Default Schedule (no person schedule):`, {
-      totalHours: totalHoursWorked.toFixed(2),
-      overtimeThreshold: overtimeThreshold,
-      halfDayThreshold: halfDayThreshold,
-      percentage: workedPercentage.toFixed(1),
-      status: newStatus,
-    });
   }
 
   // Round hours to 1 decimal place
@@ -676,9 +636,8 @@ async function calculateHoursAndStatus(
 }
 
 // ------------------------------------------------------------------
-// HELPER FUNCTIONS
+// HELPER: Absent Warning
 // ------------------------------------------------------------------
-
 async function checkAndCreateAbsentWarning(
   employeeId: string,
   currentTime: Date,
@@ -690,11 +649,10 @@ async function checkAndCreateAbsentWarning(
       return null;
     }
 
-    // FIX: Use Date.UTC logic for consistent "Start of Month"
     const now = new Date();
     const startOfMonth = new Date(
       Date.UTC(now.getFullYear(), now.getMonth(), 1)
-    );
+    ); // UTC Midnight Month Start
 
     const monthlyAbsentCount = await db.attendanceRecord.count({
       where: {
@@ -707,10 +665,6 @@ async function checkAndCreateAbsentWarning(
       },
     });
 
-    console.log(
-      `Absent counts for employee ${employeeId}: Month=${monthlyAbsentCount}`
-    );
-
     let warningType = "";
     let severity = "";
     let reason = "";
@@ -719,28 +673,22 @@ async function checkAndCreateAbsentWarning(
     if (monthlyAbsentCount === 1) {
       warningType = "Attendance";
       severity = "LOW";
-      reason = `First absent day this month. Date: ${currentTime.toDateString()}`;
-      if (isAutoCreated) {
-        reason += " (Auto-detected: No check-in recorded)";
-      }
+      reason = `First absent day this month.`;
+      if (isAutoCreated) reason += " (Auto-detected: No check-in recorded)";
       actionPlan =
         "Please ensure regular attendance. Absences should be properly requested as leave.";
     } else if (monthlyAbsentCount === 2) {
       warningType = "Attendance";
       severity = "MEDIUM";
-      reason = `Second absent day this month. Total absent days: ${monthlyAbsentCount}`;
-      if (isAutoCreated) {
-        reason += " (Auto-detected: No check-in recorded)";
-      }
+      reason = `Second absent day this month.`;
+      if (isAutoCreated) reason += " (Auto-detected: No check-in recorded)";
       actionPlan =
         "This is concerning attendance pattern. Please discuss with your manager.";
     } else if (monthlyAbsentCount >= 3) {
       warningType = "Attendance";
       severity = "HIGH";
-      reason = `Third absent day this month. Total absent days: ${monthlyAbsentCount}`;
-      if (isAutoCreated) {
-        reason += " (Auto-detected: No check-in recorded)";
-      }
+      reason = `Third absent day this month.`;
+      if (isAutoCreated) reason += " (Auto-detected: No check-in recorded)";
       actionPlan =
         "Formal warning for persistent absenteeism. Immediate improvement required.";
     }
@@ -778,9 +726,6 @@ async function checkAndCreateAbsentWarning(
         },
       });
 
-      console.log(
-        `Created absent warning and notification for employee ${employeeId}: ${severity}`
-      );
       return warning;
     }
 
@@ -791,11 +736,13 @@ async function checkAndCreateAbsentWarning(
   }
 }
 
+// ------------------------------------------------------------------
+// HELPER: Auto Absent Records
+// ------------------------------------------------------------------
 async function checkAndCreateAbsentRecords(
   currentEmployeeWorkedPercentage: number
 ): Promise<boolean> {
   try {
-    // FIX: Calculate 'today' using Date.UTC logic
     const now = new Date();
     const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
       timeZone: "Africa/Johannesburg",
@@ -804,11 +751,14 @@ async function checkAndCreateAbsentRecords(
       day: "2-digit",
     });
     const parts = sastFormatter.formatToParts(now);
-    const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
-    const year = parseInt(getPart("year")!);
-    const month = parseInt(getPart("month")!);
-    const day = parseInt(getPart("day")!);
-    const today = new Date(Date.UTC(year, month - 1, day));
+    const getP = (t: string) => parts.find((p) => p.type === t)?.value;
+    const today = new Date(
+      Date.UTC(
+        parseInt(getP("year")!),
+        parseInt(getP("month")!) - 1,
+        parseInt(getP("day")!)
+      )
+    );
 
     const employeesWorkedOver50 = await db.attendanceRecord.findMany({
       where: {
@@ -832,12 +782,8 @@ async function checkAndCreateAbsentRecords(
     let someoneWorkedOver50 = false;
 
     for (const record of employeesWorkedOver50) {
-      // Use standard JS Date methods here since record.date from DB is UTC
       const recordDay = new Date(record.date);
       const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-
-      // We need to use getUTCDay() because record.date is 00:00 UTC
-      // 00:00 UTC maps to 02:00 SAST, so the day is the same.
       const recordDayName = dayNames[recordDay.getUTCDay()];
       const isWeekend = recordDayName === "SAT" || recordDayName === "SUN";
 
@@ -911,7 +857,6 @@ async function checkAndCreateAbsentRecords(
 
 async function createAbsentRecords() {
   try {
-    // FIX: Calculate 'today' using Date.UTC logic
     const now = new Date();
     const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
       timeZone: "Africa/Johannesburg",
@@ -920,11 +865,14 @@ async function createAbsentRecords() {
       day: "2-digit",
     });
     const parts = sastFormatter.formatToParts(now);
-    const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
-    const year = parseInt(getPart("year")!);
-    const month = parseInt(getPart("month")!);
-    const day = parseInt(getPart("day")!);
-    const today = new Date(Date.UTC(year, month - 1, day));
+    const getP = (t: string) => parts.find((p) => p.type === t)?.value;
+    const today = new Date(
+      Date.UTC(
+        parseInt(getP("year")!),
+        parseInt(getP("month")!) - 1,
+        parseInt(getP("day")!)
+      )
+    );
 
     console.log(
       "Auto-attendance: Creating absent records for EMPLOYEES who didn't check in..."
@@ -965,9 +913,7 @@ async function createAbsentRecords() {
         }
 
         const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-        // FIX: use getUTCDay for the correct day index
         const todayDay = dayNames[today.getUTCDay()];
-
         const workingDays = Array.isArray(employee.workingDays)
           ? employee.workingDays
           : employee.workingDays

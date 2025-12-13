@@ -148,9 +148,6 @@ export function SettingsDialog({
         axios.get("/api/freelancers?status=ACTIVE"),
       ]);
 
-      console.log("Employees API response:", employeesResponse.data);
-      console.log("Freelancers API response:", freelancersResponse.data);
-
       // Extract data from response - adjust based on actual API structure
       const employeesData = Array.isArray(employeesResponse.data?.employees)
         ? employeesResponse.data.employees
@@ -162,20 +159,10 @@ export function SettingsDialog({
         ? freelancersResponse.data.freelancers
         : freelancersResponse.data?.freelancers?.freelancers || [];
 
-      console.log(
-        `Found ${employeesData.length} employees, ${freelancersData.length} freelancers`
-      );
-
-      // Log first employee to see structure
-      if (employeesData.length > 0) {
-        console.log("First employee:", employeesData[0]);
-      }
-
       setEmployees(employeesData);
       setFreelancers(freelancersData);
     } catch (err: any) {
       console.error("Error fetching assignees:", err);
-      console.error("Error details:", err.response?.data);
       toast.error(`Failed to load assignees: ${err.message}`);
     } finally {
       setIsLoading(false);
@@ -184,20 +171,12 @@ export function SettingsDialog({
 
   const fetchBypassRules = async () => {
     try {
-      console.log("Fetching bypass rules...");
       const response = await axios.get("/api/attendance-bypass");
-      console.log("Full API response:", response.data);
-      console.log("Bypass rules data:", response.data.bypassRules);
-
       if (
         response.data.bypassRules &&
         Array.isArray(response.data.bypassRules)
       ) {
         const rulesWithDates = response.data.bypassRules.map((rule: any) => {
-          console.log("Processing rule:", rule);
-          console.log("Rule employees:", rule.employees);
-          console.log("Rule freelancers:", rule.freelancers);
-
           return {
             ...rule,
             startDate: new Date(rule.startDate),
@@ -235,16 +214,12 @@ export function SettingsDialog({
               : [],
           };
         });
-
-        console.log("Processed rules:", rulesWithDates);
         setRules(rulesWithDates);
       } else {
-        console.warn("No bypass rules found or invalid format");
         setRules([]);
       }
     } catch (err: any) {
       console.error("Error fetching bypass rules:", err);
-      console.error("Error response:", err.response?.data);
       toast.error(`Failed to load existing rules: ${err.message}`);
     }
   };
@@ -310,6 +285,25 @@ export function SettingsDialog({
       );
     } else {
       setSelectedFreelancers([...selectedFreelancers, freelancer]);
+    }
+  };
+
+  // Select All Handlers
+  const handleSelectAllEmployees = () => {
+    if (selectedEmployees.length === filteredEmployees.length) {
+      // If all are selected, deselect all
+      setSelectedEmployees([]);
+    } else {
+      // Select all currently filtered employees
+      setSelectedEmployees(filteredEmployees);
+    }
+  };
+
+  const handleSelectAllFreelancers = () => {
+    if (selectedFreelancers.length === filteredFreelancers.length) {
+      setSelectedFreelancers([]);
+    } else {
+      setSelectedFreelancers(filteredFreelancers);
     }
   };
 
@@ -410,10 +404,7 @@ export function SettingsDialog({
             : null,
       };
 
-      console.log("Creating rule with data:", ruleData);
-
       const response = await axios.post("/api/attendance-bypass", ruleData);
-      console.log("Create rule response:", response.data);
 
       // Process the new rule for state
       const newRuleData = response.data.bypassRule;
@@ -454,7 +445,7 @@ export function SettingsDialog({
 
       setRules([...rules, processedRule]);
 
-      // Reset form
+      // Reset form AND Selection
       setNewRule({
         bypassCheckIn: false,
         bypassCheckOut: false,
@@ -464,8 +455,8 @@ export function SettingsDialog({
         startDate: undefined,
         endDate: undefined,
       });
-      setSelectedEmployees([]);
-      setSelectedFreelancers([]);
+      setSelectedEmployees([]); // Clears employees
+      setSelectedFreelancers([]); // Clears freelancers
       setEmployeeSearch("");
       setFreelancerSearch("");
 
@@ -476,7 +467,6 @@ export function SettingsDialog({
       }
     } catch (error: any) {
       console.error("Error creating bypass rule:", error);
-      console.error("Error details:", error.response?.data);
       toast.error(
         error.response?.data?.error || "Failed to create bypass rule"
       );
@@ -646,29 +636,52 @@ export function SettingsDialog({
                     </button>
                   </div>
 
-                  {/* Search Input */}
-                  <div className="relative">
-                    <Input
-                      placeholder={`Search ${activeTab}...`}
-                      value={
-                        activeTab === "employees"
-                          ? employeeSearch
-                          : freelancerSearch
-                      }
-                      onChange={(e) =>
-                        activeTab === "employees"
-                          ? setEmployeeSearch(e.target.value)
-                          : setFreelancerSearch(e.target.value)
-                      }
-                      className="pl-10"
-                    />
-                    <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
-                      {activeTab === "employees" ? (
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Briefcase className="h-4 w-4 text-muted-foreground" />
-                      )}
+                  {/* Search Input and Select All */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Input
+                        placeholder={`Search ${activeTab}...`}
+                        value={
+                          activeTab === "employees"
+                            ? employeeSearch
+                            : freelancerSearch
+                        }
+                        onChange={(e) =>
+                          activeTab === "employees"
+                            ? setEmployeeSearch(e.target.value)
+                            : setFreelancerSearch(e.target.value)
+                        }
+                        className="pl-10"
+                      />
+                      <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                        {activeTab === "employees" ? (
+                          <User className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Briefcase className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={
+                        activeTab === "employees"
+                          ? handleSelectAllEmployees
+                          : handleSelectAllFreelancers
+                      }
+                    >
+                      {activeTab === "employees"
+                        ? selectedEmployees.length ===
+                            filteredEmployees.length &&
+                          filteredEmployees.length > 0
+                          ? "Deselect All"
+                          : "Select All"
+                        : selectedFreelancers.length ===
+                              filteredFreelancers.length &&
+                            filteredFreelancers.length > 0
+                          ? "Deselect All"
+                          : "Select All"}
+                    </Button>
                   </div>
 
                   {/* Assignee List */}
@@ -1034,7 +1047,7 @@ export function SettingsDialog({
             )}
           </div>
 
-          {/* Existing Rules List - UPDATED WITH DEBUGGING */}
+          {/* Existing Rules List */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Active Bypass Rules</h3>
@@ -1068,13 +1081,6 @@ export function SettingsDialog({
                   const freelancerCount = rule.freelancers?.length || 0;
                   const totalAssignees = employeeCount + freelancerCount;
 
-                  console.log(`Rule ${rule.id}:`, {
-                    employeeCount,
-                    freelancerCount,
-                    employees: rule.employees,
-                    freelancers: rule.freelancers,
-                  });
-
                   return (
                     <div
                       key={rule.id}
@@ -1095,14 +1101,6 @@ export function SettingsDialog({
                               </div>
                             </div>
 
-                            {/* Debug info - remove in production */}
-                            <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded mb-2">
-                              Rule ID: {rule.id}
-                              <br />
-                              Employees: {employeeCount}, Freelancers:{" "}
-                              {freelancerCount}
-                            </div>
-
                             {/* Assignees List */}
                             <div className="space-y-3">
                               {/* Employees Section */}
@@ -1118,13 +1116,6 @@ export function SettingsDialog({
                                     {rule.employees?.map((employee, index) => {
                                       const displayName =
                                         getEmployeeDisplayName(employee);
-                                      console.log(
-                                        `Employee ${index}:`,
-                                        employee,
-                                        "Display name:",
-                                        displayName
-                                      );
-
                                       return (
                                         <div
                                           key={employee.id || index}
@@ -1157,13 +1148,6 @@ export function SettingsDialog({
                                       (freelancer, index) => {
                                         const displayName =
                                           getFreelancerDisplayName(freelancer);
-                                        console.log(
-                                          `Freelancer ${index}:`,
-                                          freelancer,
-                                          "Display name:",
-                                          displayName
-                                        );
-
                                         return (
                                           <div
                                             key={freelancer.id || index}

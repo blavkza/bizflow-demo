@@ -21,6 +21,7 @@ interface AttendanceTabsProps {
   gpsCheckIns: CheckInRecord[];
   recordsLoading: boolean;
   checkinsLoading: boolean;
+  bypassRules: any[]; // NEW PROP
 }
 
 export function AttendanceTabs({
@@ -38,6 +39,7 @@ export function AttendanceTabs({
   gpsCheckIns,
   recordsLoading,
   checkinsLoading,
+  bypassRules, // NEW PROP
 }: AttendanceTabsProps) {
   return (
     <Tabs defaultValue="attendance" className="space-y-4">
@@ -61,6 +63,7 @@ export function AttendanceTabs({
         <AttendanceList
           records={filteredAttendance}
           loading={recordsLoading}
+          bypassRules={bypassRules} // PASS DOWN
           onClearFilters={() => {
             setSearchTerm("");
             setSelectedDepartment("All Departments");

@@ -22,7 +22,6 @@ import {
   ManualCheckInDialog,
   SummaryCards,
 } from "./components";
-import { SettingsDialog } from "./components/settingsDialog";
 
 export default function AttendancePage() {
   const router = useRouter();
@@ -41,7 +40,7 @@ export default function AttendancePage() {
 
   const { userId } = useAuth();
 
-  // Fetch user data for permissions
+  // Fetch user data
   const { data: userData, isLoading: userLoading } = useQuery({
     queryKey: ["user", userId],
     queryFn: () => fetchUserData(userId!),
@@ -75,6 +74,18 @@ export default function AttendancePage() {
   const { data: checkInHistory, isLoading: checkinsLoading } = useQuery({
     queryKey: ["checkin-history", selectedDate],
     queryFn: () => fetchCheckInHistory(selectedDate, selectedDate),
+    enabled: !userLoading,
+  });
+
+  // NEW: Fetch Bypass Rules
+  const { data: bypassRules = [] } = useQuery({
+    queryKey: ["bypass-rules"],
+    queryFn: async () => {
+      const res = await fetch("/api/attendance-bypass");
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.bypassRules || [];
+    },
     enabled: !userLoading,
   });
 
@@ -150,6 +161,7 @@ export default function AttendancePage() {
         gpsCheckIns={gpsCheckIns}
         recordsLoading={recordsLoading}
         checkinsLoading={checkinsLoading}
+        bypassRules={bypassRules} // Passed down
       />
 
       <ManualCheckInDialog
@@ -195,13 +207,11 @@ export default function AttendancePage() {
               throw new Error(error.message || "Failed to record check-in");
             }
 
-            const result = await response.json();
-            const personType = data.employeeId ? "Employee" : "Freelancer";
-            const personId = data.employeeId || data.freelancerId;
-
             toast({
               title: "Success",
-              description: `${personType} ${personId} has been checked ${checkInType === "in" ? "in" : "out"} manually`,
+              description: `Check-${
+                checkInType === "in" ? "in" : "out"
+              } recorded successfully`,
             });
 
             setIsLoading(false);
@@ -233,12 +243,9 @@ export default function AttendancePage() {
                 ? "/api/attendance/check-in"
                 : "/api/attendance/check-out";
 
-            // Extract data from the scanData object passed up from the dialog
             const { id, address, location, coordinates } = scanData;
-
             const isFreelancer = id.startsWith("FRL");
 
-            // Construct full payload including location data
             const payload: any = {
               method: "BARCODE",
               address: address || "Scanned via QR",
@@ -251,7 +258,6 @@ export default function AttendancePage() {
               payload.employeeId = id;
             }
 
-            // Add coordinates if available from the QR code
             if (coordinates) {
               payload.lat = coordinates.latitude;
               payload.lng = coordinates.longitude;
@@ -268,10 +274,11 @@ export default function AttendancePage() {
               throw new Error(error.message || "Failed to record check-in");
             }
 
-            const personType = isFreelancer ? "Freelancer" : "Employee";
             toast({
               title: "Success",
-              description: `${personType} ${id} has been checked ${checkInType === "in" ? "in" : "out"} via barcode`,
+              description: `Check-${
+                checkInType === "in" ? "in" : "out"
+              } recorded successfully`,
             });
 
             setIsBarcodeCheckInOpen(false);
