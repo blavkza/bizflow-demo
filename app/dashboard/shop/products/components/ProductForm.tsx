@@ -113,7 +113,7 @@ export function ProductForm({
       size: product?.size || "",
       brand: product?.brand || "",
       status: product?.status || "ACTIVE",
-      featured: product?.featured || true,
+      featured: product?.featured !== undefined ? product.featured : true,
       images: product?.images || [],
       priceInputMode: product?.priceInputMode || "AFTER_TAX",
 
