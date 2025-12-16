@@ -51,20 +51,14 @@ export async function GET(request: NextRequest) {
         { endDate: { gte: checkDate } },
       ];
     } else if (!showPast || showPast === "false") {
-      // Default: Only show current and future bypass rules (not past)
       where.OR = [
-        // Rules that end today or in the future
+        // Rules that end today or later
         { endDate: { gte: currentDate } },
         // Rules that have no end date (ongoing)
         { endDate: null },
       ];
-
-      // Also ensure start date is today or in the past (for rules that started earlier)
-      where.startDate = { lte: currentDate };
     }
-    // If showPast is true, include all rules without date filtering
 
-    // Filter by employee or freelancer if provided
     if (employeeId) {
       where.employees = {
         some: { id: employeeId },
@@ -106,13 +100,14 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // If no date filter and not showing past, also filter out rules that ended before today
-    // This is a fallback to ensure we don't return past rules even if the database query missed them
     if (!date && (!showPast || showPast === "false")) {
       const filteredRules = bypassRules.filter((rule) => {
         const ruleEndDate = rule.endDate ? new Date(rule.endDate) : null;
-        // Include rules that have no end date or end date is today or in the future
-        return !ruleEndDate || ruleEndDate >= currentDate;
+        if (!ruleEndDate) return true;
+
+        const normalizedEndDate = new Date(ruleEndDate);
+        normalizedEndDate.setHours(0, 0, 0, 0);
+        return normalizedEndDate >= currentDate;
       });
 
       return NextResponse.json({ bypassRules: filteredRules });
