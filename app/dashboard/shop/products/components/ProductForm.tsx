@@ -87,7 +87,7 @@ export function ProductForm({
     "PERCENT"
   );
 
-  // Local state for the Profit Input field (visual only, truth is derived from Price - Cost)
+  // Local state for the Profit Input field (visual only)
   const [profitDisplayValue, setProfitDisplayValue] = useState<number>(0);
 
   // --- MATH UTILS ---
@@ -134,7 +134,6 @@ export function ProductForm({
 
   // --- CALCULATION LOGIC ---
 
-  // Helper: Get active cost/price based on mode
   const getCurrentCost = () => {
     const vals = form.getValues();
     return priceInputMode === "AFTER_TAX"
@@ -151,7 +150,7 @@ export function ProductForm({
 
   /**
    * Sync Tax Fields:
-   * If editing Inclusive, auto-calculate Exclusive (and vice versa).
+   * Updates the counterpart field (Inc vs Ex) based on tax rate.
    */
   const syncTaxFields = (
     baseValue: number,
@@ -159,14 +158,12 @@ export function ProductForm({
     mode: "BEFORE_TAX" | "AFTER_TAX"
   ) => {
     if (mode === "AFTER_TAX") {
-      // Input is Inclusive -> Calc Exclusive
       const excl = removeVat(baseValue);
       form.setValue(
         field === "price" ? "priceBeforeTax" : "costPriceBeforeTax",
         excl
       );
     } else {
-      // Input is Exclusive -> Calc Inclusive
       const incl = addVat(baseValue);
       form.setValue(field === "price" ? "price" : "costPrice", incl);
     }
@@ -174,7 +171,7 @@ export function ProductForm({
 
   /**
    * Sync Profit Display:
-   * Updates the visual profit input based on current Cost vs Price.
+   * Recalculates the visual profit value based on (Selling Price - Cost).
    */
   const syncProfitDisplay = (cost: number, price: number) => {
     if (cost <= 0) {
@@ -194,16 +191,19 @@ export function ProductForm({
 
   /**
    * HANDLER: Cost Changed
-   * Strategy: Update Cost -> Recalculate Selling Price (keeping Margin constant).
+   * Logic:
+   * 1. Update Cost fields.
+   * 2. IF (and only if) Profit Margin is set (> 0), update Price.
+   * 3. IF Profit Margin is 0, DO NOT touch Price.
    */
   const handleCostChange = (valStr: string) => {
     const newCost = parseFloat(valStr) || 0;
 
-    // 1. Sync the other tax field
+    // 1. Sync Tax Fields
     syncTaxFields(newCost, "cost", priceInputMode);
 
-    // 2. Calculate new Selling Price based on existing profit settings
-    if (profitDisplayValue > 0 || newCost > 0) {
+    // 2. Only calculate price if we have a profit margin entered
+    if (profitDisplayValue > 0 && newCost > 0) {
       let newPrice = 0;
 
       if (profitInputMode === "PERCENT") {
@@ -212,7 +212,6 @@ export function ProductForm({
         newPrice = round(newCost + profitDisplayValue);
       }
 
-      // 3. Update Price fields
       if (priceInputMode === "AFTER_TAX") {
         form.setValue("price", newPrice);
         syncTaxFields(newPrice, "price", "AFTER_TAX");
@@ -225,73 +224,38 @@ export function ProductForm({
 
   /**
    * HANDLER: Price Changed
-   * Strategy: Update Price -> Recalculate Profit Margin (Cost stays constant).
+   * Logic: Update Price -> Recalculate Profit Margin.
    */
   const handleSellingPriceChange = (valStr: string) => {
     const newPrice = parseFloat(valStr) || 0;
 
-    // 1. Sync the other tax field
     syncTaxFields(newPrice, "price", priceInputMode);
 
-    // 2. Recalculate Profit
     const cost = getCurrentCost();
-    syncProfitDisplay(cost, newPrice);
+    // Only calculate profit if cost exists
+    if (cost > 0) {
+      syncProfitDisplay(cost, newPrice);
+    }
   };
 
   /**
    * HANDLER: Profit Changed
-   * Strategy: Update Profit -> Recalculate Selling Price (Cost stays constant).
+   * Logic: Cost + New Profit = New Price.
    */
   const handleProfitChange = (valStr: string) => {
     const val = parseFloat(valStr) || 0;
     setProfitDisplayValue(val);
 
     const cost = getCurrentCost();
-    if (cost <= 0) return;
-
-    let newPrice = 0;
-    if (profitInputMode === "PERCENT") {
-      newPrice = round(cost * (1 + val / 100));
-    } else {
-      newPrice = round(cost + val);
-    }
-
-    if (priceInputMode === "AFTER_TAX") {
-      form.setValue("price", newPrice);
-      syncTaxFields(newPrice, "price", "AFTER_TAX");
-    } else {
-      form.setValue("priceBeforeTax", newPrice);
-      syncTaxFields(newPrice, "price", "BEFORE_TAX");
-    }
-  };
-
-  /**
-   * HANDLER: Toggle Profit Mode (% vs R)
-   * Behavior: The number in the box stays the same.
-   * Result: The Selling Price recalculates based on the new interpretation of that number.
-   */
-  const toggleProfitMode = () => {
-    // 1. Swap mode
-    const newMode = profitInputMode === "PERCENT" ? "AMOUNT" : "PERCENT";
-    setProfitInputMode(newMode);
-
-    // 2. Keep profitDisplayValue AS IS.
-    // 3. Recalculate Selling Price based on the current number but new mode.
-
-    const cost = getCurrentCost();
+    // Only calculate price if we have a cost
     if (cost > 0) {
-      const val = profitDisplayValue;
       let newPrice = 0;
-
-      if (newMode === "PERCENT") {
-        // Treat visual number as %
+      if (profitInputMode === "PERCENT") {
         newPrice = round(cost * (1 + val / 100));
       } else {
-        // Treat visual number as Amount
         newPrice = round(cost + val);
       }
 
-      // Update Form
       if (priceInputMode === "AFTER_TAX") {
         form.setValue("price", newPrice);
         syncTaxFields(newPrice, "price", "AFTER_TAX");
@@ -303,16 +267,47 @@ export function ProductForm({
   };
 
   /**
+   * HANDLER: Toggle Profit Mode (% vs R)
+   * Logic: CONVERT the value.
+   * R150 (on 1000 cost) -> Becomes 15%.
+   * 15% (on 1000 cost) -> Becomes R150.
+   */
+  const toggleProfitMode = () => {
+    const cost = getCurrentCost();
+
+    // Safety: If cost is missing, just toggle mode, reset value
+    if (cost <= 0) {
+      setProfitInputMode((prev) => (prev === "PERCENT" ? "AMOUNT" : "PERCENT"));
+      setProfitDisplayValue(0);
+      return;
+    }
+
+    const currentVal = profitDisplayValue;
+
+    if (profitInputMode === "PERCENT") {
+      // Switching FROM Percent TO Amount
+      // Calc: Cost * (Percent / 100)
+      const amount = round(cost * (currentVal / 100));
+      setProfitInputMode("AMOUNT");
+      setProfitDisplayValue(amount);
+    } else {
+      // Switching FROM Amount TO Percent
+      // Calc: (Amount / Cost) * 100
+      const percent = round((currentVal / cost) * 100);
+      setProfitInputMode("PERCENT");
+      setProfitDisplayValue(percent);
+    }
+  };
+
+  /**
    * HANDLER: Toggle Tax Mode
-   * Behavior: The number in the input boxes STAYS THE SAME.
-   * Result: The summary and the other tax fields recalculate.
-   * Example: 100 (Inc) becomes 100 (Ex), so Inc recalculates to 115.
+   * Logic: KEEP the numbers, recalculate the math.
+   * 100 (Inc) -> 100 (Ex).
    */
   const handleInputModeChange = (checked: boolean) => {
     const newMode = checked ? "AFTER_TAX" : "BEFORE_TAX";
     const oldMode = priceInputMode;
 
-    // 1. Capture what the user currently sees in the boxes
     const currentVisibleCost =
       oldMode === "AFTER_TAX"
         ? form.getValues("costPrice")
@@ -322,38 +317,30 @@ export function ProductForm({
         ? form.getValues("price")
         : form.getValues("priceBeforeTax");
 
-    // 2. Update mode state
     setPriceInputMode(newMode);
     form.setValue("priceInputMode", newMode);
 
-    // 3. Apply the captured numbers to the NEW mode fields (preserving the input number)
-    // and recalculate the corresponding tax pairs.
-
     if (newMode === "AFTER_TAX") {
-      // Switching TO After Tax.
-      // User entered 100. They now want 100 to be the Inclusive price.
       if (currentVisibleCost !== null) {
-        form.setValue("costPrice", currentVisibleCost); // Keep 100
-        form.setValue("costPriceBeforeTax", removeVat(currentVisibleCost)); // Recalc Ex-Tax
+        form.setValue("costPrice", currentVisibleCost);
+        form.setValue("costPriceBeforeTax", removeVat(currentVisibleCost));
       }
       if (currentVisiblePrice !== 0) {
-        form.setValue("price", currentVisiblePrice); // Keep 100
-        form.setValue("priceBeforeTax", removeVat(currentVisiblePrice)); // Recalc Ex-Tax
+        form.setValue("price", currentVisiblePrice);
+        form.setValue("priceBeforeTax", removeVat(currentVisiblePrice));
       }
     } else {
-      // Switching TO Before Tax.
-      // User entered 100. They now want 100 to be the Exclusive price.
       if (currentVisibleCost !== null) {
-        form.setValue("costPriceBeforeTax", currentVisibleCost); // Keep 100
-        form.setValue("costPrice", addVat(currentVisibleCost)); // Recalc Inc-Tax
+        form.setValue("costPriceBeforeTax", currentVisibleCost);
+        form.setValue("costPrice", addVat(currentVisibleCost));
       }
       if (currentVisiblePrice !== 0) {
-        form.setValue("priceBeforeTax", currentVisiblePrice); // Keep 100
-        form.setValue("price", addVat(currentVisiblePrice)); // Recalc Inc-Tax
+        form.setValue("priceBeforeTax", currentVisiblePrice);
+        form.setValue("price", addVat(currentVisiblePrice));
       }
     }
 
-    // 4. Recalculate profit display for the new numbers
+    // Sync profit display after update
     setTimeout(() => {
       const vals = form.getValues();
       const cost =
@@ -614,7 +601,7 @@ export function ProductForm({
                     name="costPrice"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
-                        <FormLabel>Cost Price (after VAT)</FormLabel>
+                        <FormLabel>Cost Price (Inc VAT)</FormLabel>
                         <FormControl>
                           <div className="space-y-1">
                             <Input
@@ -693,7 +680,7 @@ export function ProductForm({
                     name="price"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
-                        <FormLabel>Selling Price (after VAT) *</FormLabel>
+                        <FormLabel>Selling Price (Inc VAT) *</FormLabel>
                         <FormControl>
                           <div className="space-y-1">
                             <Input
@@ -728,7 +715,7 @@ export function ProductForm({
                     name="costPriceBeforeTax"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
-                        <FormLabel>Cost Price (before VAT)</FormLabel>
+                        <FormLabel>Cost Price (Ex VAT)</FormLabel>
                         <FormControl>
                           <div className="space-y-1">
                             <Input
@@ -807,7 +794,7 @@ export function ProductForm({
                     name="priceBeforeTax"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
-                        <FormLabel>Selling Price (before VAT) *</FormLabel>
+                        <FormLabel>Selling Price (Ex VAT) *</FormLabel>
                         <FormControl>
                           <div className="space-y-1">
                             <Input
