@@ -153,6 +153,19 @@ export function ProductForm({
     }
   };
 
+  // Helper: Get ACTUAL values (always AFTER TAX) for profit calculations
+  const getActualCost = (): number => {
+    const vals = form.getValues();
+    // Always return cost AFTER tax for profit calculations
+    return vals.costPrice || 0;
+  };
+
+  const getActualPrice = (): number => {
+    const vals = form.getValues();
+    // Always return price AFTER tax for profit calculations
+    return vals.price || 0;
+  };
+
   /**
    * Sync Tax Fields:
    * If editing Inclusive, auto-calculate Exclusive (and vice versa).
@@ -183,7 +196,7 @@ export function ProductForm({
 
   /**
    * Sync Profit Display:
-   * Updates the visual profit input based on current Cost vs Price.
+   * Updates the visual profit input based on ACTUAL Cost vs Price (AFTER TAX).
    */
   const syncProfitDisplay = (cost: number, price: number) => {
     if (cost <= 0 || price <= 0) {
@@ -203,7 +216,7 @@ export function ProductForm({
 
   /**
    * HANDLER: Cost Changed
-   * Strategy: Update Cost -> Recalculate Selling Price (keeping Margin constant).
+   * Strategy: Update Cost -> Recalculate Selling Price (keeping Profit Margin constant).
    */
   const handleCostChange = (valStr: string) => {
     const newCost = parseFloat(valStr) || 0;
@@ -215,27 +228,34 @@ export function ProductForm({
     if (profitDisplayValue > 0 && newCost > 0) {
       let newPrice = 0;
 
+      // Convert visible cost to actual cost for calculation
+      const actualCost =
+        priceInputMode === "AFTER_TAX" ? newCost : addVat(newCost);
+
       if (profitInputMode === "PERCENT") {
-        newPrice = round(newCost * (1 + profitDisplayValue / 100));
+        newPrice = round(actualCost * (1 + profitDisplayValue / 100));
       } else {
-        newPrice = round(newCost + profitDisplayValue);
+        newPrice = round(actualCost + profitDisplayValue);
       }
 
-      // 3. Update Price fields
+      // 3. Update Price fields (visible values)
       if (priceInputMode === "AFTER_TAX") {
         form.setValue("price", newPrice, { shouldValidate: true });
         syncTaxFields(newPrice, "price", "AFTER_TAX");
       } else {
-        form.setValue("priceBeforeTax", newPrice, { shouldValidate: true });
-        syncTaxFields(newPrice, "price", "BEFORE_TAX");
+        const priceBeforeTax = removeVat(newPrice);
+        form.setValue("priceBeforeTax", priceBeforeTax, {
+          shouldValidate: true,
+        });
+        syncTaxFields(priceBeforeTax, "price", "BEFORE_TAX");
       }
     }
 
-    // 4. Recalculate profit display if price exists
-    const price = getVisiblePrice();
-    if (price > 0) {
-      syncProfitDisplay(newCost, price);
-    }
+    // 4. Recalculate profit display using ACTUAL values
+    const actualPrice = getActualPrice();
+    const actualCost =
+      priceInputMode === "AFTER_TAX" ? newCost : addVat(newCost);
+    syncProfitDisplay(actualCost, actualPrice);
   };
 
   /**
@@ -248,9 +268,11 @@ export function ProductForm({
     // 1. Sync the other tax field
     syncTaxFields(newPrice, "price", priceInputMode);
 
-    // 2. Recalculate Profit
-    const cost = getVisibleCost();
-    syncProfitDisplay(cost, newPrice);
+    // 2. Recalculate Profit using ACTUAL values
+    const actualCost = getActualCost();
+    const actualPrice =
+      priceInputMode === "AFTER_TAX" ? newPrice : addVat(newPrice);
+    syncProfitDisplay(actualCost, actualPrice);
   };
 
   /**
@@ -261,22 +283,24 @@ export function ProductForm({
     const val = parseFloat(valStr) || 0;
     setProfitDisplayValue(val);
 
-    const cost = getVisibleCost();
-    if (cost <= 0) return;
+    const actualCost = getActualCost();
+    if (actualCost <= 0) return;
 
-    let newPrice = 0;
+    let newActualPrice = 0;
     if (profitInputMode === "PERCENT") {
-      newPrice = round(cost * (1 + val / 100));
+      newActualPrice = round(actualCost * (1 + val / 100));
     } else {
-      newPrice = round(cost + val);
+      newActualPrice = round(actualCost + val);
     }
 
+    // Update the visible price field based on current mode
     if (priceInputMode === "AFTER_TAX") {
-      form.setValue("price", newPrice, { shouldValidate: true });
-      syncTaxFields(newPrice, "price", "AFTER_TAX");
+      form.setValue("price", newActualPrice, { shouldValidate: true });
+      syncTaxFields(newActualPrice, "price", "AFTER_TAX");
     } else {
-      form.setValue("priceBeforeTax", newPrice, { shouldValidate: true });
-      syncTaxFields(newPrice, "price", "BEFORE_TAX");
+      const priceBeforeTax = removeVat(newActualPrice);
+      form.setValue("priceBeforeTax", priceBeforeTax, { shouldValidate: true });
+      syncTaxFields(priceBeforeTax, "price", "BEFORE_TAX");
     }
   };
 
@@ -285,35 +309,33 @@ export function ProductForm({
    * Behavior: Convert the current profit value to the new mode
    */
   const toggleProfitMode = () => {
-    const cost = getVisibleCost();
-    const price = getVisiblePrice();
+    const actualCost = getActualCost();
+    const actualPrice = getActualPrice();
 
-    if (cost <= 0 || price <= 0) {
+    if (actualCost <= 0 || actualPrice <= 0) {
       // Just toggle the mode if no cost or price
       setProfitInputMode(profitInputMode === "PERCENT" ? "AMOUNT" : "PERCENT");
       return;
     }
 
-    const profitAmt = round(price - cost);
+    const profitAmt = round(actualPrice - actualCost);
 
     if (profitInputMode === "PERCENT") {
       // Switching from % to R
-      const currentPercentage = profitDisplayValue;
-      const calculatedAmount = round(cost * (currentPercentage / 100));
-      setProfitDisplayValue(profitAmt); // Show actual profit amount
+      setProfitDisplayValue(profitAmt);
       setProfitInputMode("AMOUNT");
     } else {
       // Switching from R to %
-      const currentAmount = profitDisplayValue;
-      const calculatedPercentage = round((profitAmt / cost) * 100);
-      setProfitDisplayValue(calculatedPercentage); // Show actual profit percentage
+      const calculatedPercentage = round((profitAmt / actualCost) * 100);
+      setProfitDisplayValue(calculatedPercentage);
       setProfitInputMode("PERCENT");
     }
   };
 
   /**
    * HANDLER: Toggle Tax Mode
-   * FIXED: Keep the VISIBLE value the same, recalculate the other tax field
+   * Behavior: Keep the VISIBLE value the same, recalculate the other tax field
+   * Profit margin should NOT change when switching tax modes
    */
   const handleInputModeChange = (checked: boolean) => {
     const newMode = checked ? "AFTER_TAX" : "BEFORE_TAX";
@@ -371,28 +393,18 @@ export function ProductForm({
       }
     }
 
-    // Recalculate profit display
-    setTimeout(() => {
-      const newCost = getVisibleCost();
-      const newPrice = getVisiblePrice();
-      syncProfitDisplay(newCost, newPrice);
-    }, 0);
+    // Profit margin should NOT change - it's based on actual (after tax) values
+    // No need to recalculate profit display
   };
 
   // --- LIFECYCLE ---
   useEffect(() => {
     loadCategories();
 
-    // Initialize profit display based on existing product data
+    // Initialize profit display based on ACTUAL values (after tax)
     if (product) {
-      const cost =
-        priceInputMode === "AFTER_TAX"
-          ? product.costPrice || 0
-          : product.costPriceBeforeTax || 0;
-      const price =
-        priceInputMode === "AFTER_TAX"
-          ? product.price || 0
-          : product.priceBeforeTax || 0;
+      const cost = product.costPrice || 0;
+      const price = product.price || 0;
 
       if (cost > 0 && price > 0) {
         syncProfitDisplay(cost, price);
@@ -415,36 +427,13 @@ export function ProductForm({
 
   // --- DISPLAY VALUES (Summary Table) - FIXED ---
   const displayValues = useMemo(() => {
-    // Get what the user is CURRENTLY seeing
-    const visiblePrice = getVisiblePrice();
-    const visibleCost = getVisibleCost();
+    // Get actual values (after tax) for profit calculations
+    const sellingAfterTax = form.getValues().price || 0;
+    const sellingBeforeTax = form.getValues().priceBeforeTax || 0;
+    const costAfterTax = form.getValues().costPrice || 0;
+    const costBeforeTax = form.getValues().costPriceBeforeTax || 0;
 
-    // Calculate based on current mode
-    let sellingBeforeTax = 0;
-    let sellingAfterTax = 0;
-    let costBeforeTax = 0;
-    let costAfterTax = 0;
-
-    if (priceInputMode === "AFTER_TAX") {
-      // User sees AFTER TAX values
-      sellingAfterTax = visiblePrice;
-      sellingBeforeTax = removeVat(visiblePrice);
-
-      if (visibleCost > 0) {
-        costAfterTax = visibleCost;
-        costBeforeTax = removeVat(visibleCost);
-      }
-    } else {
-      // User sees BEFORE TAX values
-      sellingBeforeTax = visiblePrice;
-      sellingAfterTax = addVat(visiblePrice);
-
-      if (visibleCost > 0) {
-        costBeforeTax = visibleCost;
-        costAfterTax = addVat(visibleCost);
-      }
-    }
-
+    // Calculate profit based on AFTER TAX values (actual money)
     const profitAmount = round(sellingAfterTax - costAfterTax);
     const profitPercent =
       costAfterTax > 0 ? round((profitAmount / costAfterTax) * 100) : 0;
@@ -460,6 +449,7 @@ export function ProductForm({
       costAfterTax: round(costAfterTax),
       costVatAmount: round(costAfterTax - costBeforeTax),
 
+      // Profit is always based on AFTER TAX values (actual money)
       profitAmount,
       profitPercent,
       markup,
@@ -469,9 +459,6 @@ export function ProductForm({
     watchedValues.priceBeforeTax,
     watchedValues.costPrice,
     watchedValues.costPriceBeforeTax,
-    priceInputMode,
-    profitInputMode,
-    profitDisplayValue,
   ]);
 
   // --- FILE HANDLERS ---
@@ -546,8 +533,8 @@ export function ProductForm({
   };
 
   const getProfitInfoText = () => {
-    const cost = getVisibleCost();
-    const price = getVisiblePrice();
+    const cost = getActualCost();
+    const price = getActualPrice();
 
     if (cost <= 0 || price <= 0) return "-";
 
@@ -969,7 +956,7 @@ export function ProductForm({
               </div>
             </div>
 
-            {/* Profit Summary - INCLUDED AND DYNAMIC */}
+            {/* Profit Summary - Based on ACTUAL values (after tax) */}
             {(displayValues.costAfterTax > 0 ||
               displayValues.profitAmount > 0) && (
               <div className="mt-4 pt-4 border-t">
