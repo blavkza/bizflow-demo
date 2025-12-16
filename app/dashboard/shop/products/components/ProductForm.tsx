@@ -95,7 +95,8 @@ export function ProductForm({
       typeof afterTaxPrice === "string"
         ? parseFloat(afterTaxPrice)
         : afterTaxPrice;
-    return numPrice / (1 + TAX_RATE);
+    const result = numPrice / (1 + TAX_RATE);
+    return Math.round(result * 100) / 100;
   };
 
   const calculateAfterTax = (beforeTaxPrice: any): number => {
@@ -110,7 +111,8 @@ export function ProductForm({
       typeof beforeTaxPrice === "string"
         ? parseFloat(beforeTaxPrice)
         : beforeTaxPrice;
-    return numPrice * (1 + TAX_RATE);
+    const result = numPrice * (1 + TAX_RATE);
+    return Math.round(result * 100) / 100;
   };
 
   // Calculate selling price from cost and profit
@@ -334,39 +336,18 @@ export function ProductForm({
 
   const onFormSubmit = async (values: ShopProductSchemaType) => {
     try {
-      // Calculate final prices based on input mode
-      let finalPrice = Number(values.price) || 0;
-      let finalPriceBeforeTax = Number(values.priceBeforeTax) || 0;
-      let finalCostPrice: number | null = values.costPrice
-        ? Number(values.costPrice)
-        : null;
-      let finalCostPriceBeforeTax: number | null = values.costPriceBeforeTax
-        ? Number(values.costPriceBeforeTax)
-        : null;
-
-      if (values.priceInputMode === "AFTER_TAX") {
-        // User entered after-tax, calculate before-tax
-        finalPriceBeforeTax = calculateBeforeTax(values.price);
-        finalCostPriceBeforeTax = values.costPrice
-          ? calculateBeforeTax(values.costPrice)
-          : null;
-      } else {
-        // User entered before-tax, calculate after-tax
-        finalPrice = calculateAfterTax(values.priceBeforeTax);
-        finalCostPrice = values.costPriceBeforeTax
-          ? calculateAfterTax(values.costPriceBeforeTax)
-          : null;
-      }
-
+      // Use the values directly - they're already correctly calculated and synchronized
       const submitData: ProductFormData = {
         name: values.name,
         description: values.description,
         sku: values.sku,
         category: values.category,
-        price: finalPrice,
-        priceBeforeTax: finalPriceBeforeTax,
-        costPrice: finalCostPrice,
-        costPriceBeforeTax: finalCostPriceBeforeTax,
+        price: Number(values.price) || 0,
+        priceBeforeTax: Number(values.priceBeforeTax) || 0,
+        costPrice: values.costPrice ? Number(values.costPrice) : null,
+        costPriceBeforeTax: values.costPriceBeforeTax
+          ? Number(values.costPriceBeforeTax)
+          : null,
         priceInputMode: values.priceInputMode,
         stock: Number(values.stock),
         minStock: Number(values.minStock),
