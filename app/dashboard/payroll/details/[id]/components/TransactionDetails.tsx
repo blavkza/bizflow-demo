@@ -11,6 +11,11 @@ export default function TransactionDetails({
   payroll,
   formatCurrency,
 }: TransactionDetailsProps) {
+  // If there's no transaction data yet (e.g. DRAFT), don't show or show placeholder
+  if (!payroll.transaction) {
+    return null;
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -44,7 +49,7 @@ export default function TransactionDetails({
           <div>
             <span className="text-muted-foreground">Total Processed:</span>
             <p className="font-bold text-lg">
-              {formatCurrency(payroll.totalAmount)}
+              {formatCurrency(Number(payroll.totalAmount))}
             </p>
           </div>
         </div>

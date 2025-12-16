@@ -127,23 +127,30 @@ export default function VendorDetailPage() {
   // Calculate vendor financial summary
   const financialSummary = vendor
     ? {
-        totalExpenses: vendor.expenses.reduce(
-          (sum, exp) => sum + exp.totalAmount,
-          0
+        totalExpenses: parseFloat(
+          vendor.expenses
+            .reduce((sum, exp) => sum + Number(exp.totalAmount) || 0, 0)
+            .toFixed(2)
         ),
-        totalPaid: vendor.expenses.reduce(
-          (sum, exp) => sum + exp.paidAmount,
-          0
+        totalPaid: parseFloat(
+          vendor.expenses
+            .reduce((sum, exp) => sum + Number(exp.paidAmount) || 0, 0)
+            .toFixed(2)
         ),
-        totalOwed: vendor.expenses.reduce(
-          (sum, exp) => sum + exp.remainingAmount,
-          0
+        totalOwed: parseFloat(
+          vendor.expenses
+            .reduce((sum, exp) => sum + Number(exp.remainingAmount) || 0, 0)
+            .toFixed(2)
         ),
-        overdueAmount: vendor.expenses
-          .filter(
-            (exp) => new Date(exp.dueDate) < new Date() && exp.status !== "PAID"
-          )
-          .reduce((sum, exp) => sum + exp.remainingAmount, 0),
+        overdueAmount: parseFloat(
+          vendor.expenses
+            .filter(
+              (exp) =>
+                new Date(exp.dueDate) < new Date() && exp.status !== "PAID"
+            )
+            .reduce((sum, exp) => sum + Number(exp.remainingAmount) || 0, 0)
+            .toFixed(2)
+        ),
         expenseCount: vendor.expenses.length,
         paidCount: vendor.expenses.filter((exp) => exp.status === "PAID")
           .length,
@@ -203,7 +210,12 @@ export default function VendorDetailPage() {
   };
 
   if (loading) {
-    return <VendorLoadingSkeleton />;
+    return (
+      <div className="py-10">
+        {" "}
+        <VendorLoadingSkeleton />;
+      </div>
+    );
   }
 
   if (!vendor) {
@@ -218,7 +230,6 @@ export default function VendorDetailPage() {
 
             <Button variant={"outline"} onClick={() => router.back()}>
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
             </Button>
           </div>
         </div>
@@ -230,9 +241,8 @@ export default function VendorDetailPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
         <div className="flex items-center gap-2 px-4">
-          <Button onClick={() => router.back()}>
+          <Button variant={"outline"} onClick={() => router.back()}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
           </Button>
 
           <h1 className="text-lg font-semibold">{vendor.name}</h1>

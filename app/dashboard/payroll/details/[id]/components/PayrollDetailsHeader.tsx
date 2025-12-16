@@ -12,58 +12,8 @@ import {
 } from "@/types/payroll-report";
 import { PayrollReportGenerator } from "@/lib/generatePayrollReport";
 
-// Define a more specific interface for the employee with salary fields
-interface EmployeeWithSalary {
-  id: string;
-  employeeNumber: string;
-  firstName: string;
-  lastName: string;
-  position: string;
-  salaryType: string;
-  dailySalary: number | Decimal | null;
-  monthlySalary: number | Decimal | null;
-  department: { name: string; id: string } | null;
-}
-
-interface PaymentWithWorker {
-  id: string;
-  amount: number | Decimal | null;
-  baseAmount: number | Decimal | null;
-  overtimeAmount: number | Decimal | null;
-  overtimeHours: number | Decimal | null;
-  regularHours: number | Decimal | null;
-  daysWorked: number | null;
-  employeeId: string | null;
-  freeLancerId: string | null;
-  payrollId: string;
-  employee?: EmployeeWithSalary;
-  freeLancer?: {
-    id: string;
-    freeLancerNumber: string;
-    firstName: string;
-    lastName: string;
-    position: string;
-    salary: number | Decimal | null;
-    department: { name: string; id: string } | null;
-  };
-}
-
-interface ExtendedPayroll extends Payroll {
-  payments: PaymentWithWorker[];
-  createdByName: string;
-  notes?: string;
-  transaction?: {
-    id: string;
-    reference: string;
-    date: Date;
-    description: string;
-    amount: number | Decimal;
-    currency: string;
-  };
-}
-
 interface PayrollDetailsHeaderProps {
-  payroll: ExtendedPayroll;
+  payroll: any; // Using any here to accommodate extended properties from Prisma
   company: CompanyInfo | null;
   formatMonth: (month: string) => string;
   onBack: () => void;
@@ -86,7 +36,7 @@ export default function PayrollDetailsHeader({
     try {
       // Process the payroll data to match our report generator format
       const processedPayments: ProcessedPayment[] = payroll.payments.map(
-        (payment): ProcessedPayment => {
+        (payment: any): ProcessedPayment => {
           const worker = payment.employee || payment.freeLancer;
           const isFreelancer = !!payment.freeLancerId;
 
@@ -164,7 +114,6 @@ export default function PayrollDetailsHeader({
         transaction: payroll.transaction || null,
       };
 
-      // Convert CompanySettings to CompanyInfo by providing defaults for required fields
       const companyInfo: CompanyInfo | null = company
         ? {
             ...company,
@@ -180,14 +129,12 @@ export default function PayrollDetailsHeader({
           }
         : null;
 
-      // Generate HTML report directly
       const payrollReportHTML =
         PayrollReportGenerator.generatePayrollReportHTML(
           processedPayroll,
           companyInfo
         );
 
-      // Open in new window for printing
       const printWindow = window.open("", "_blank");
       if (printWindow) {
         printWindow.document.write(payrollReportHTML);
@@ -232,7 +179,7 @@ export default function PayrollDetailsHeader({
         disabled={isGeneratingReport}
       >
         <Printer className="h-4 w-4" />
-        {isGeneratingReport ? "Generating Report..." : "Print Report"}
+        {isGeneratingReport ? "Generating..." : "Print Report"}
       </Button>
     </div>
   );

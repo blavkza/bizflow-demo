@@ -138,19 +138,29 @@ model HRSettings {
   overtimeHourRate   Float @default(50.00)
 
   // Bonus Settings
-  annualBonusEnabled       Boolean @default(true)
-  annualBonusType          String  @default("DECEMBER")
-  annualBonusPercentage    Float   @default(100)
-  performanceBonusEnabled  Boolean @default(true)
-  performanceBonusType     String  @default("INDIVIDUAL")
-  profitSharingEnabled     Boolean @default(false)
-  profitSharingPercentage  Float   @default(10)
-  thirteenthChequeEnabled  Boolean @default(false)
-  spotBonusEnabled         Boolean @default(true)
-  meritBonusEnabled        Boolean @default(true)
-  appreciationBonusEnabled Boolean @default(true)
-  incentivePaymentEnabled  Boolean @default(true)
-  recognitionAwardEnabled  Boolean @default(true)
+  annualBonusEnabled         Boolean @default(true)
+  annualBonusType            String  @default("DECEMBER")
+  annualBonusPercentage      Float   @default(100)
+  performanceBonusEnabled    Boolean @default(true)
+  performanceBonusType       String  @default("INDIVIDUAL")
+  performanceBonusPercentage Float   @default(5)
+  profitSharingEnabled       Boolean @default(false)
+  profitSharingPercentage    Float   @default(10)
+  thirteenthChequeEnabled    Boolean @default(false)
+  spotBonusEnabled           Boolean @default(true)
+  spotBonusAmount            Float   @default(500)
+  meritBonusEnabled          Boolean @default(true)
+  meritBonusPercentage       Float   @default(3)
+  appreciationBonusEnabled   Boolean @default(true)
+  appreciationBonusAmount    Float   @default(250)
+  incentivePaymentEnabled    Boolean @default(true)
+  incentivePaymentPercentage Float   @default(4)
+  recognitionAwardEnabled    Boolean @default(true)
+  recognitionAwardAmount     Float   @default(300)
+  attendanceBonusEnabled     Boolean @default(true)
+  attendanceBonusPercentage  Float   @default(2)
+  overtimeBonusEnabled       Boolean @default(true)
+  overtimeBonusPercentage    Float   @default(10)
 
   // Deduction Settings
   uniformPPEEnabled         Boolean @default(true)
@@ -163,14 +173,19 @@ model HRSettings {
   pensionPercentage         Float   @default(7.5)
   medicalAidEnabled         Boolean @default(true)
   medicalAidMaxDeduction    Float   @default(2000)
+  taxEnabled                Boolean @default(true)
+  taxTableYear              String  @default("2025")
   overpaymentEnabled        Boolean @default(true)
   overpaymentMaxPercentage  Float   @default(25)
   loanRepaymentEnabled      Boolean @default(true)
   funeralBenefitEnabled     Boolean @default(true)
   funeralBenefitAmount      Float   @default(100)
   tradeUnionEnabled         Boolean @default(false)
+  tradeUnionAmount          Float   @default(50)
   insuranceEnabled          Boolean @default(true)
+  insurancePercentage       Float   @default(0.5)
   guaranteeFundEnabled      Boolean @default(false)
+  guaranteeFundAmount       Float   @default(20)
   savingsEnabled            Boolean @default(true)
   savingsMaxPercentage      Float   @default(15)
   disciplinaryEnabled       Boolean @default(true)
@@ -779,23 +794,32 @@ model TransactionSplit {
   @@map("transaction_splits")
 }
 
+// Update the Payroll model
 model Payroll {
   id          String        @id @default(cuid())
   month       String
   description String?
   type        PaymentType
   totalAmount Float
+  netAmount   Float // Add this for after deductions/bonuses
   currency    String        @default("ZAR")
   status      PayrollStatus @default(PROCESSED)
 
+  // Original amounts
   baseAmount     Float
   overtimeAmount Float
+
+  // New fields for totals
+  totalBonuses    Float @default(0)
+  totalDeductions Float @default(0)
 
   // Relationships
   transaction   Transaction @relation(fields: [transactionId], references: [id])
   transactionId String      @unique
 
-  payments Payment[]
+  payments          Payment[]
+  payrollBonuses    PayrollBonus[] // Add this relationship
+  payrollDeductions PayrollDeduction[] // Add this relationship
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -803,6 +827,123 @@ model Payroll {
   createdBy String?
 
   @@map("payrolls")
+}
+
+// Update the Payment model
+model Payment {
+  id           String        @id @default(cuid())
+  employeeId   String?
+  freeLancerId String?
+  amount       Decimal       @db.Decimal(15, 2)
+  netAmount    Decimal       @db.Decimal(15, 2) // Add this for after deductions/bonuses
+  currency     String        @default("ZAR")
+  type         PaymentType
+  description  String?
+  payDate      DateTime
+  status       PaymentStatus @default(PAID)
+
+  // Original amounts
+  baseAmount     Decimal @db.Decimal(15, 2)
+  overtimeAmount Decimal @db.Decimal(15, 2)
+
+  // Bonuses and deductions
+  bonusAmount     Decimal @default(0) @db.Decimal(15, 2)
+  deductionAmount Decimal @default(0) @db.Decimal(15, 2)
+
+  overtimeHours Decimal? @db.Decimal(4, 2)
+  regularHours  Decimal? @db.Decimal(4, 2)
+  daysWorked    Int
+
+  createdBy String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  employee   Employee?   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  freeLancer FreeLancer? @relation(fields: [freeLancerId], references: [id], onDelete: Cascade)
+  Payroll    Payroll?    @relation(fields: [payrollId], references: [id])
+  payrollId  String?
+
+  // Relationships for detailed bonuses/deductions
+  paymentBonuses    PaymentBonus[] // Add this
+  paymentDeductions PaymentDeduction[] // Add this
+
+  @@index([employeeId])
+  @@index([freeLancerId])
+  @@index([payDate])
+  @@map("payments")
+}
+
+// Add new models for detailed tracking
+model PayrollBonus {
+  id        String  @id @default(cuid())
+  payrollId String
+  payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  bonusType      String
+  amount         Float
+  description    String?
+  isPercentage   Boolean @default(false)
+  percentageRate Float? // If percentage-based
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payroll_bonuses")
+}
+
+model PaymentBonus {
+  id        String  @id @default(cuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  bonusType      String // e.g., "ANNUAL_BONUS", "PERFORMANCE_BONUS", "THIRTEENTH_CHEQUE"
+  amount         Decimal @db.Decimal(15, 2)
+  description    String?
+  isPercentage   Boolean @default(false)
+  percentageRate Float? // If percentage-based
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payment_bonuses")
+}
+
+model PayrollDeduction {
+  id        String  @id @default(cuid())
+  payrollId String
+  payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  deductionType  String // e.g., "UIF", "PENSION", "MEDICAL_AID", "TAX", "LOAN_REPAYMENT"
+  amount         Float
+  description    String?
+  isPercentage   Boolean @default(false)
+  percentageRate Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payroll_deductions")
+}
+
+model PaymentDeduction {
+  id        String  @id @default(cuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  deductionType  String // e.g., "UIF", "PENSION", "MEDICAL_AID", "TAX", "LOAN_REPAYMENT"
+  amount         Decimal @db.Decimal(15, 2)
+  description    String?
+  isPercentage   Boolean @default(false)
+  percentageRate Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payment_deductions")
 }
 
 enum PayrollStatus {
@@ -1782,8 +1923,12 @@ model ShopProduct {
   category    String
 
   // Pricing
-  price     Decimal  @db.Decimal(10, 2)
-  costPrice Decimal? @db.Decimal(10, 2)
+  price              Decimal  @db.Decimal(10, 2)
+  costPrice          Decimal? @db.Decimal(10, 2)
+  priceBeforeTax     Decimal? @db.Decimal(10, 2)
+  costPriceBeforeTax Decimal? @db.Decimal(10, 2)
+
+  priceInputMode String @default("AFTER_TAX")
 
   // Inventory
   stock    Int  @default(0)
@@ -2051,43 +2196,6 @@ model Customer {
   sales  Sale[]
 
   @@map("customers")
-}
-
-model Payment {
-  id           String        @id @default(cuid())
-  employeeId   String?
-  freeLancerId String?
-  amount       Decimal       @db.Decimal(15, 2)
-  currency     String        @default("ZAR")
-  type         PaymentType
-  description  String?
-  payDate      DateTime
-  status       PaymentStatus @default(PAID)
-
-  baseAmount     Decimal @db.Decimal(15, 2)
-  overtimeAmount Decimal @db.Decimal(15, 2)
-
-  overtimeHours Decimal? @db.Decimal(4, 2)
-  regularHours  Decimal? @db.Decimal(4, 2)
-  daysWorked    Int
-
-  createdBy String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  transactionId String
-  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
-
-  employee   Employee?   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  freeLancer FreeLancer? @relation(fields: [freeLancerId], references: [id], onDelete: Cascade)
-  Payroll    Payroll?    @relation(fields: [payrollId], references: [id])
-  payrollId  String?
-
-  @@index([employeeId])
-  @@index([freeLancerId])
-  @@index([payDate])
-  @@map("payments")
 }
 
 model ChatSession {

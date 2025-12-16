@@ -28,6 +28,14 @@ interface ProductGridProps {
   addToCart: (product: Product) => void;
 }
 
+interface ProductWithTax extends Product {
+  priceBeforeTax?: number | null;
+  costPriceBeforeTax?: number | null;
+  priceInputMode?: "BEFORE_TAX" | "AFTER_TAX";
+}
+
+const TAX_RATE = 0.15; // 15% VAT for South Africa
+
 export function ProductGrid({
   products,
   loading,
@@ -45,6 +53,31 @@ export function ProductGrid({
   const scannerTimeoutRef = useRef<NodeJS.Timeout>();
   const lastKeyTimeRef = useRef<number>(0);
   const isTypingRef = useRef<boolean>(false);
+
+  // Helper to convert to number safely
+  const toNumber = (value: any): number => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const num = parseFloat(value);
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  };
+
+  // Get prices for display
+  const getPriceDisplay = (product: ProductWithTax) => {
+    const priceAfterTax = toNumber(product.price);
+    const priceBeforeTax = product.priceBeforeTax
+      ? toNumber(product.priceBeforeTax)
+      : priceAfterTax / (1 + TAX_RATE);
+
+    return {
+      afterTax: priceAfterTax,
+      beforeTax: priceBeforeTax,
+      vatAmount: priceAfterTax - priceBeforeTax,
+    };
+  };
 
   // Global keydown listener for barcode scanner
   useEffect(() => {
@@ -240,46 +273,67 @@ export function ProductGrid({
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {products.map((product) => (
-            <Card
-              key={product.id}
-              data-product-id={product.id}
-              className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-transparent"
-              onClick={() => addToCart(product)}
-            >
-              <CardContent className="p-4">
-                <div className="aspect-video bg-transparent rounded-lg mb-3 flex items-center justify-center">
-                  {product.images?.[0] ? (
-                    <Image
-                      src={product.images[0]}
-                      alt={product.name || "product image"}
-                      width={800}
-                      height={450}
-                      className="w-full h-full object-contain"
-                    />
-                  ) : (
-                    <Package className="h-12 w-12 text-gray-400" />
-                  )}
-                </div>
-                <h3 className="font-semibold text-sm line-clamp-2 mb-1">
-                  {product.name}
-                </h3>
-                <p className="text-xs text-muted-foreground mb-2">
-                  SKU: {product.sku}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold">
-                    R{Number(product.price).toFixed(2)}
-                  </span>
-                  <Badge
-                    variant={product.stock > 10 ? "secondary" : "destructive"}
-                  >
-                    {product.stock} in stock
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {products.map((product) => {
+            const prices = getPriceDisplay(product);
+
+            return (
+              <Card
+                key={product.id}
+                data-product-id={product.id}
+                className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-transparent"
+                onClick={() => addToCart(product)}
+              >
+                <CardContent className="p-4">
+                  <div className="aspect-video bg-transparent rounded-lg mb-3 flex items-center justify-center">
+                    {product.images?.[0] ? (
+                      <Image
+                        src={product.images[0]}
+                        alt={product.name || "product image"}
+                        width={800}
+                        height={450}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <Package className="h-12 w-12 text-gray-400" />
+                    )}
+                  </div>
+                  <h3 className="font-semibold text-sm line-clamp-2 mb-1">
+                    {product.name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    SKU: {product.sku}
+                  </p>
+
+                  {/* Price Display */}
+                  <div className="space-y-1 mb-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-bold">
+                        R{prices.afterTax.toFixed(2)}
+                      </span>
+                      <Badge
+                        variant={
+                          product.stock > 10 ? "secondary" : "destructive"
+                        }
+                      >
+                        {product.stock} in stock
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Before VAT: R{prices.beforeTax.toFixed(2)}
+                    </div>
+                  </div>
+
+                  {/* Stock Status */}
+                  {product.stock <= (product.minStock || 5) &&
+                    product.stock > 0 && (
+                      <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                        ⚠️ Low stock
+                      </div>
+                    )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

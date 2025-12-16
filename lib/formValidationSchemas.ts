@@ -833,34 +833,99 @@ export const ProjectTeamMemberSchema = z.object({
 export const ProjectTeamCreateSchema = z.array(ProjectTeamMemberSchema);
 export type ProjectTeamCreateSchema = z.infer<typeof ProjectTeamCreateSchema>;
 
-export const ShopProductSchema = z.object({
-  name: z.string().min(1, "Product name is required"),
-  description: z.string().default(""),
-  sku: z.string().min(1, "SKU is required"),
-  category: z.string().min(1, "Category is required"),
-  price: z.coerce.number().min(0, "Price must be a positive number"),
-  costPrice: z.coerce
-    .number()
-    .min(0, "Cost price must be a positive number")
-    .default(0),
-  stock: z.coerce.number().min(0, "Stock must be a positive number"),
-  minStock: z.coerce.number().min(0, "Minimum stock must be a positive number"),
-  maxStock: z.coerce
-    .number()
-    .min(0, "Maximum stock must be a positive number")
-    .default(0),
-  weight: z.coerce
-    .number()
-    .min(0, "Weight must be a positive number")
-    .default(0),
-  dimensions: z.string().default(""),
-  color: z.string().default(""),
-  size: z.string().default(""),
-  brand: z.string().default(""),
-  status: z.enum(["ACTIVE", "INACTIVE", "DISCONTINUED"]),
-  featured: z.boolean().default(false),
-  images: z.array(z.string()).default([]),
-});
+const TAX_RATE = 0.15; // 15% VAT
+
+export const ShopProductSchema = z
+  .object({
+    name: z.string().min(1, "Product name is required"),
+    description: z.string().default(""),
+    sku: z.string().min(1, "SKU is required"),
+    category: z.string().min(1, "Category is required"),
+
+    // Price Input Mode
+    priceInputMode: z.enum(["BEFORE_TAX", "AFTER_TAX"]).default("AFTER_TAX"),
+
+    // Price Fields - ensure they always have values
+    price: z.coerce
+      .number()
+      .min(0, "Price must be a positive number")
+      .default(0),
+    costPrice: z.coerce
+      .number()
+      .min(0, "Cost price must be a positive number")
+      .nullable()
+      .default(null),
+
+    // Price Fields (new before-tax) - with defaults
+    priceBeforeTax: z.coerce
+      .number()
+      .min(0, "Price must be a positive number")
+      .default(0),
+
+    costPriceBeforeTax: z.coerce
+      .number()
+      .min(0, "Cost must be a positive number")
+      .nullable()
+      .default(null),
+
+    // Inventory
+    stock: z.coerce
+      .number()
+      .min(0, "Stock must be a positive number")
+      .default(0),
+    minStock: z.coerce
+      .number()
+      .min(0, "Minimum stock must be a positive number")
+      .default(0),
+    maxStock: z.coerce
+      .number()
+      .min(0, "Maximum stock must be a positive number")
+      .default(0),
+
+    // Product Details
+    weight: z.coerce
+      .number()
+      .min(0, "Weight must be a positive number")
+      .default(0),
+    dimensions: z.string().default(""),
+    color: z.string().default(""),
+    size: z.string().default(""),
+    brand: z.string().default(""),
+
+    // Status
+    status: z.enum(["ACTIVE", "INACTIVE", "DISCONTINUED"]),
+    featured: z.boolean().default(false),
+
+    // Images
+    images: z.array(z.string()).default([]),
+  })
+  .superRefine((data, ctx) => {
+    // Ensure price calculations are correct
+    if (data.priceInputMode === "AFTER_TAX") {
+      const calculatedBeforeTax = data.price / (1 + TAX_RATE);
+
+      if (
+        data.priceBeforeTax !== undefined &&
+        Math.abs(data.priceBeforeTax - calculatedBeforeTax) > 0.01
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Price before tax doesn't match calculated value",
+          path: ["priceBeforeTax"],
+        });
+      }
+    } else {
+      const calculatedAfterTax = (data.priceBeforeTax || 0) * (1 + TAX_RATE);
+
+      if (Math.abs(data.price - calculatedAfterTax) > 0.01) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Price after tax doesn't match calculated value",
+          path: ["price"],
+        });
+      }
+    }
+  });
 
 export type ShopProductSchemaType = z.infer<typeof ShopProductSchema>;
 

@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { TransactionType } from "@prisma/client";
 
 export async function GET(request: Request) {
   try {
@@ -33,7 +32,8 @@ export async function GET(request: Request) {
     // Parse the month
     const [year, monthNum] = month.split("-").map(Number);
     const currentDate = new Date();
-    const payrollMonth = new Date(year, monthNum - 1, 1);
+    // Calculate End Date of the payroll month to filter hire dates correctly
+    const payrollMonthEnd = new Date(year, monthNum, 0);
 
     // Calculate payday for the month
     let payday = new Date(year, monthNum - 1, hrSettings.paymentDay);
@@ -43,23 +43,7 @@ export async function GET(request: Request) {
       payday = new Date(year, monthNum, hrSettings.paymentDay);
     }
 
-    // Check if payroll already exists for this month
-    const existingPayroll = await db.transaction.findFirst({
-      where: {
-        description: {
-          contains: `Payroll for ${month}`,
-        },
-        type: TransactionType.EXPENSE,
-      },
-    });
-
-    if (existingPayroll) {
-      return NextResponse.json({
-        canProcess: false,
-        message: `Payroll for ${month} has already been processed`,
-      });
-    }
-
+    // --- 1. Date Restriction Check ---
     // Calculate 2 days before payday
     const twoDaysBeforePayday = new Date(payday);
     twoDaysBeforePayday.setDate(payday.getDate() - 2);
@@ -72,7 +56,56 @@ export async function GET(request: Request) {
       });
     }
 
-    // If we're after payday, allow processing (since no payroll exists for the month)
+    // --- 2. Unpaid Worker Check (Smart Filtering) ---
+
+    const existingPayments = await db.payment.findMany({
+      where: {
+        Payroll: {
+          month: month,
+        },
+      },
+      select: {
+        employeeId: true,
+        freeLancerId: true,
+      },
+    });
+
+    const paidWorkerIds = new Set(
+      existingPayments
+        .flatMap((p) => [p.employeeId, p.freeLancerId])
+        .filter(Boolean) as string[]
+    );
+
+    // B. Check if there is AT LEAST ONE active Employee who hasn't been paid
+    // AND was hired on or before the end of this payroll month
+    const unpaidEmployee = await db.employee.findFirst({
+      where: {
+        status: "ACTIVE",
+        hireDate: { lte: payrollMonthEnd },
+        id: { notIn: Array.from(paidWorkerIds) },
+      },
+      select: { id: true },
+    });
+
+    // C. Check if there is AT LEAST ONE active Freelancer who hasn't been paid
+    const unpaidFreelancer = await db.freeLancer.findFirst({
+      where: {
+        status: "ACTIVE",
+        hireDate: { lte: payrollMonthEnd },
+        id: { notIn: Array.from(paidWorkerIds) },
+      },
+      select: { id: true },
+    });
+
+    // If NO unpaid workers found, block processing
+    if (!unpaidEmployee && !unpaidFreelancer) {
+      return NextResponse.json({
+        canProcess: false,
+        message: `Payroll for ${month} has already been fully processed for all active workers.`,
+      });
+    }
+
+    // If we have unpaid workers, allow processing (Supplementary Run)
     return NextResponse.json({
       canProcess: true,
       message: `Payroll can be processed. Payday is ${payday.toLocaleDateString()}`,

@@ -7,6 +7,8 @@ interface ProductDetailsGridProps {
   product: Product;
 }
 
+const TAX_RATE = 0.15; // 15% VAT for South Africa
+
 export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
   const getStockStatus = (stock: number, minStock: number) => {
     if (stock === 0)
@@ -32,6 +34,7 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
   const formatPrice = (price: any): string => {
     if (price === null || price === undefined) return "0.00";
     const numPrice = typeof price === "string" ? parseFloat(price) : price;
+    if (isNaN(numPrice)) return "0.00";
     return numPrice.toFixed(2);
   };
 
@@ -43,12 +46,36 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
         : costPrice
       : 0;
 
-    if (!numPrice || !numCostPrice) return 0;
-    return ((numPrice - numCostPrice) / numPrice) * 100;
+    if (!numPrice || !numCostPrice || numCostPrice === 0) return 0;
+    return ((numPrice - numCostPrice) / numCostPrice) * 100;
   };
 
+  // Helper to convert to number safely
+  const toNumber = (value: any): number => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const num = parseFloat(value);
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  };
+
+  // Get prices
+  const priceAfterTax = toNumber(product.price);
+  const priceBeforeTax = product.priceBeforeTax
+    ? toNumber(product.priceBeforeTax)
+    : priceAfterTax / (1 + TAX_RATE);
+
+  const costAfterTax = product.costPrice ? toNumber(product.costPrice) : null;
+  const costBeforeTax = product.costPriceBeforeTax
+    ? toNumber(product.costPriceBeforeTax)
+    : costAfterTax
+      ? costAfterTax / (1 + TAX_RATE)
+      : null;
+
   const stockStatus = getStockStatus(product.stock, product.minStock);
-  const profitMargin = calculateProfitMargin(product.price, product.costPrice);
+  const profitMargin = calculateProfitMargin(priceAfterTax, costAfterTax);
 
   return (
     <div className="space-y-6">
@@ -87,27 +114,57 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
           <CardTitle className="text-xl">Pricing</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="font-medium">Price</span>
-            <span className="text-2xl font-bold text-green-600">
-              R{formatPrice(product.price)}
-            </span>
+          {/* Selling Price */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Selling Price</span>
+              <span className="text-2xl font-bold text-green-600">
+                R{formatPrice(priceAfterTax)}
+              </span>
+            </div>
+            <div className="text-sm text-gray-500">
+              Before VAT: R{formatPrice(priceBeforeTax)}
+              <span className="ml-2 text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                15% VAT
+              </span>
+            </div>
           </div>
-          {product.costPrice && (
-            <>
+
+          {/* Cost Price */}
+          {costAfterTax && (
+            <div className="space-y-2 pt-3 border-t">
               <div className="flex items-center justify-between">
                 <span className="font-medium">Cost Price</span>
-                <span>R{formatPrice(product.costPrice)}</span>
+                <span className="text-lg font-semibold text-gray-700">
+                  R{formatPrice(costAfterTax)}
+                </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-500">
+                Before VAT: R{formatPrice(costBeforeTax)}
+              </div>
+
+              {/* Profit Margin */}
+              <div className="flex items-center justify-between pt-2">
                 <span className="font-medium">Profit Margin</span>
                 <Badge variant="outline" className="bg-blue-50">
                   <TrendingUp className="h-3 w-3 mr-1" />
                   {profitMargin.toFixed(1)}%
                 </Badge>
               </div>
-            </>
+            </div>
           )}
+
+          {/* Tax Info */}
+          <div className="pt-3 border-t">
+            <div className="flex items-center text-sm text-gray-500">
+              <span className="mr-2">Tax mode:</span>
+              <Badge variant="outline" className="text-xs">
+                {product.priceInputMode === "BEFORE_TAX"
+                  ? "Entered before tax"
+                  : "Entered after tax"}
+              </Badge>
+            </div>
+          </div>
         </CardContent>
       </Card>
 

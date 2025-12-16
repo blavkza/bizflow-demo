@@ -7,6 +7,8 @@ import {
   Clock,
   CreditCard,
   DollarSign,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { formatCurrency, formatNumber, formatHours } from "../utils";
 
@@ -14,7 +16,10 @@ interface SummaryCardsProps {
   payrollData: any[];
   totalBaseAmount: number;
   totalOvertimeAmount: number;
+  totalBonusAmount: number;
+  totalDeductionAmount: number;
   totalPayroll: number;
+  netPayroll: number;
   totalPaidDays: number;
   totalRegularHours: number;
   totalOvertimeHours: number;
@@ -25,7 +30,10 @@ export function SummaryCards({
   payrollData,
   totalBaseAmount,
   totalOvertimeAmount,
+  totalBonusAmount = 0,
+  totalDeductionAmount = 0,
   totalPayroll,
+  netPayroll,
   totalPaidDays,
   totalRegularHours,
   totalOvertimeHours,
@@ -65,8 +73,8 @@ export function SummaryCards({
   };
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
-      {/* Workers Card */}
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-8">
+      {" "}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
@@ -85,7 +93,6 @@ export function SummaryCards({
           </div>
         </CardContent>
       </Card>
-
       {/* Paid Days Card */}
       <Card>
         <CardContent className="p-4">
@@ -102,7 +109,6 @@ export function SummaryCards({
           </div>
         </CardContent>
       </Card>
-
       {/* Regular Hours Card */}
       <Card>
         <CardContent className="p-4">
@@ -119,7 +125,6 @@ export function SummaryCards({
           </div>
         </CardContent>
       </Card>
-
       {/* Base Amount Card */}
       <Card>
         <CardContent className="p-4">
@@ -136,7 +141,6 @@ export function SummaryCards({
           </div>
         </CardContent>
       </Card>
-
       {/* Overtime Card */}
       <Card>
         <CardContent className="p-4">
@@ -156,15 +160,49 @@ export function SummaryCards({
           </div>
         </CardContent>
       </Card>
-
-      {/* Total Card */}
+      {/* Bonuses Card */}
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Total</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Bonuses
+              </p>
+              <p className="text-2xl font-bold text-green-600">
+                +{formatCurrency(totalBonusAmount)}
+              </p>
+            </div>
+            <TrendingUp className="h-4 w-4 text-green-600" />
+          </div>
+        </CardContent>
+      </Card>
+      {/* Deductions Card */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Deductions
+              </p>
+              <p className="text-2xl font-bold text-red-600">
+                -{formatCurrency(totalDeductionAmount)}
+              </p>
+            </div>
+            <TrendingDown className="h-4 w-4 text-red-600" />
+          </div>
+        </CardContent>
+      </Card>
+      {/* Net Payroll Card */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Net</p>
               <p className="text-2xl font-bold text-purple-600">
-                {formatCurrency(totalPayroll)}
+                {formatCurrency(netPayroll)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Gross: {formatCurrency(totalPayroll)}
               </p>
             </div>
             <CreditCard className="h-4 w-4 text-purple-600" />

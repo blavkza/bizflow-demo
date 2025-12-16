@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 
+const TAX_RATE = 0.15; // 15% VAT for South Africa
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -75,6 +77,29 @@ export async function PUT(
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
+    // Calculate prices based on input mode
+    let price, priceBeforeTax, costPrice, costPriceBeforeTax;
+
+    if (body.priceInputMode === "AFTER_TAX") {
+      // User entered after-tax prices
+      price = parseFloat(body.price);
+      priceBeforeTax = price / (1 + TAX_RATE);
+
+      costPrice = body.costPrice ? parseFloat(body.costPrice) : null;
+      costPriceBeforeTax = costPrice ? costPrice / (1 + TAX_RATE) : null;
+    } else {
+      // User entered before-tax prices
+      priceBeforeTax = parseFloat(body.priceBeforeTax);
+      price = priceBeforeTax * (1 + TAX_RATE);
+
+      costPriceBeforeTax = body.costPriceBeforeTax
+        ? parseFloat(body.costPriceBeforeTax)
+        : null;
+      costPrice = costPriceBeforeTax
+        ? costPriceBeforeTax * (1 + TAX_RATE)
+        : null;
+    }
+
     const product = await db.shopProduct.update({
       where: { id: params.id },
       data: {
@@ -82,18 +107,31 @@ export async function PUT(
         description: body.description,
         sku: body.sku,
         category: body.category,
-        price: parseFloat(body.price),
-        costPrice: body.costPrice ? parseFloat(body.costPrice) : null,
+
+        // Price fields
+        price: price,
+        priceBeforeTax: priceBeforeTax,
+        costPrice: costPrice,
+        costPriceBeforeTax: costPriceBeforeTax,
+        priceInputMode: body.priceInputMode || currentProduct.priceInputMode,
+
+        // Inventory
         stock: parseInt(body.stock),
         minStock: parseInt(body.minStock),
         maxStock: body.maxStock ? parseInt(body.maxStock) : null,
+
+        // Product Details
         weight: body.weight ? parseFloat(body.weight) : null,
         dimensions: body.dimensions,
         color: body.color,
         size: body.size,
         brand: body.brand,
+
+        // Status
         status: body.status,
         featured: body.featured,
+
+        // Images
         images: body.images || [],
       },
       include: {
@@ -121,7 +159,7 @@ export async function PUT(
   } catch (error) {
     console.error("Failed to update product:", error);
     return NextResponse.json(
-      { error: "Failed to update product" },
+      { error: "Failed to update product: " + (error as Error).message },
       { status: 500 }
     );
   }
@@ -162,7 +200,6 @@ export async function DELETE(
       );
     }
 
-    // Delete related records first
     await db.stockMovement.deleteMany({
       where: { shopProductId: params.id },
     });
@@ -171,7 +208,7 @@ export async function DELETE(
       where: { shopProductId: params.id },
     });
 
-    await db.product.delete({
+    await db.shopProduct.delete({
       where: { id: params.id },
     });
 

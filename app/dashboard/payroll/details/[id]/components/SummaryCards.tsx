@@ -25,12 +25,13 @@ export default function SummaryCards({
   formatMonth,
   getStatusVariant,
 }: SummaryCardsProps) {
-  // Count employees and freelancers
+  // Fix: Check employeeId and freeLancerId directly instead of 'payment.worker'
   const employeesCount = payroll.payments.filter(
-    (payment: any) => !payment.worker?.isFreelancer
+    (payment: any) => payment.employeeId
   ).length;
+
   const freelancersCount = payroll.payments.filter(
-    (payment: any) => payment.worker?.isFreelancer
+    (payment: any) => payment.freeLancerId
   ).length;
 
   const formatCurrency = (amount: number) => {
@@ -87,7 +88,7 @@ export default function SummaryCards({
                 Total Amount
               </p>
               <p className="text-2xl font-bold">
-                {formatCurrency(payroll.totalAmount)}
+                {formatCurrency(Number(payroll.totalAmount))}
               </p>
             </div>
           </div>

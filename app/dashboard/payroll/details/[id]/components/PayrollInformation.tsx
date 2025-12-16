@@ -38,14 +38,15 @@ export default function PayrollInformation({
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="text-muted-foreground">Reference:</span>
+            {/* Added optional chaining just in case transaction is missing */}
             <p className="font-mono font-medium">
-              {payroll.transaction.reference}
+              {payroll.transaction?.reference || "N/A"}
             </p>
           </div>
           <div>
             <span className="text-muted-foreground">Payment Type:</span>
             <p className="font-medium capitalize">
-              {payroll.type.toLowerCase()}
+              {payroll.type?.toLowerCase()}
             </p>
           </div>
           <div>
@@ -78,19 +79,22 @@ export default function PayrollInformation({
             <div className="flex justify-between">
               <span>Base Salaries:</span>
               <span className="font-medium">
-                {formatCurrency(payroll.baseAmount || totalBaseAmount)}
+                {formatCurrency(Number(payroll.baseAmount) || totalBaseAmount)}
               </span>
             </div>
             <div className="flex justify-between">
               <span>Overtime Total:</span>
               <span className="font-medium text-orange-600">
-                +{formatCurrency(payroll.overtimeAmount || totalOvertimeAmount)}
+                +
+                {formatCurrency(
+                  Number(payroll.overtimeAmount) || totalOvertimeAmount
+                )}
               </span>
             </div>
             <div className="flex justify-between border-t pt-1">
               <span className="font-semibold">Grand Total:</span>
               <span className="font-bold text-lg">
-                {formatCurrency(payroll.totalAmount || totalAmount)}
+                {formatCurrency(Number(payroll.totalAmount) || totalAmount)}
               </span>
             </div>
           </div>

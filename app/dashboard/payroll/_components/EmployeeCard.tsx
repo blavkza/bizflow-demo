@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { formatCurrency, formatNumber, formatHours } from "../utils";
+import { Separator } from "@/components/ui/separator";
 
 interface EmployeeCardProps {
   employee: any;
@@ -12,6 +13,9 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
   const paidDays = employee.paidDays || 0;
   const paidPercentage = totalDays > 0 ? (paidDays / totalDays) * 100 : 0;
   const hasOvertime = (employee.overtimeAmount || 0) > 0;
+  const hasBonus = (employee.bonusAmount || 0) > 0;
+  const hasDeduction = (employee.deductionAmount || 0) > 0;
+  const netAmount = employee.netAmount || employee.amount;
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between py-4">
@@ -29,14 +33,19 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
             </p>
           </div>
           <div className="text-right">
-            <p className="font-bold text-lg text-green-600">
-              {formatCurrency(employee.amount)}
+            <p className="font-bold text-lg text-purple-600">
+              {formatCurrency(netAmount)}
             </p>
             <div className="text-sm text-muted-foreground">
-              <p>Base: {formatCurrency(employee.baseAmount)}</p>
-              {hasOvertime && (
-                <p className="text-orange-600">
-                  Overtime: +{formatCurrency(employee.overtimeAmount)}
+              <p>Gross: {formatCurrency(employee.amount)}</p>
+              {hasBonus && (
+                <p className="text-green-600">
+                  Bonus: +{formatCurrency(employee.bonusAmount)}
+                </p>
+              )}
+              {hasDeduction && (
+                <p className="text-red-600">
+                  Deduction: -{formatCurrency(employee.deductionAmount)}
                 </p>
               )}
             </div>
@@ -93,6 +102,48 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
           </div>
         )}
 
+        {/* Bonuses Display */}
+        {hasBonus && employee.bonuses && employee.bonuses.length > 0 && (
+          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm font-medium text-green-800">Bonuses</p>
+                {employee.bonuses.map((bonus: any, index: number) => (
+                  <p key={index} className="text-xs text-green-600">
+                    {bonus.type}: {formatCurrency(bonus.amount)}{" "}
+                    {bonus.description && `- ${bonus.description}`}
+                  </p>
+                ))}
+              </div>
+              <Badge variant="outline" className="bg-green-100 text-green-800">
+                +{formatCurrency(employee.bonusAmount)}
+              </Badge>
+            </div>
+          </div>
+        )}
+
+        {/* Deductions Display */}
+        {hasDeduction &&
+          employee.deductions &&
+          employee.deductions.length > 0 && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium text-red-800">Deductions</p>
+                  {employee.deductions.map((deduction: any, index: number) => (
+                    <p key={index} className="text-xs text-red-600">
+                      {deduction.type}: -{formatCurrency(deduction.amount)}{" "}
+                      {deduction.description && `- ${deduction.description}`}
+                    </p>
+                  ))}
+                </div>
+                <Badge variant="outline" className="bg-red-100 text-red-800">
+                  -{formatCurrency(employee.deductionAmount)}
+                </Badge>
+              </div>
+            </div>
+          )}
+
         {/* Base Salary Calculation */}
         <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex justify-between items-center">
@@ -110,6 +161,35 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
             </div>
             <Badge variant="outline" className="bg-blue-100 text-blue-800">
               {formatCurrency(employee.baseAmount)}
+            </Badge>
+          </div>
+        </div>
+
+        {/* Net Amount Summary */}
+        <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-sm font-medium text-purple-800">
+                Net Amount Summary
+              </p>
+              <div className="text-xs text-purple-600 space-y-1">
+                <p>Base Salary: {formatCurrency(employee.baseAmount)}</p>
+                {hasOvertime && (
+                  <p>Overtime: +{formatCurrency(employee.overtimeAmount)}</p>
+                )}
+                {hasBonus && (
+                  <p>Bonuses: +{formatCurrency(employee.bonusAmount)}</p>
+                )}
+                {hasDeduction && (
+                  <p>Deductions: -{formatCurrency(employee.deductionAmount)}</p>
+                )}
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className="bg-purple-100 text-purple-800 font-bold"
+            >
+              Net: {formatCurrency(netAmount)}
             </Badge>
           </div>
         </div>

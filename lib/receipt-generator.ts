@@ -71,6 +71,8 @@ class ReceiptGenerator {
     taxNumber: "VAT123456",
   };
 
+  private readonly DEFAULT_TAX_RATE = 0.15; // 15% VAT for South Africa
+
   // Convert from your CompanyInfo to ReceiptCompanyInfo format
   setCompanyInfo(companyInfo: CompanyInfo | null) {
     if (!companyInfo) return;
@@ -122,6 +124,23 @@ class ReceiptGenerator {
 
   private getItemSKU(item: SaleItem): string {
     return item.product?.sku || "N/A";
+  }
+
+  // Helper function to calculate tax from total
+  private calculateTaxFromTotal(
+    total: number,
+    taxRate: number = this.DEFAULT_TAX_RATE
+  ): {
+    taxAmount: number;
+    subtotalBeforeTax: number;
+  } {
+    const subtotalBeforeTax = total / (1 + taxRate);
+    const taxAmount = total - subtotalBeforeTax;
+
+    return {
+      taxAmount: Number(taxAmount.toFixed(2)),
+      subtotalBeforeTax: Number(subtotalBeforeTax.toFixed(2)),
+    };
   }
 
   async fetchProductDetails(saleItems: SaleItem[]): Promise<SaleItem[]> {
@@ -180,6 +199,27 @@ class ReceiptGenerator {
       saleData.items || []
     );
 
+    // Calculate tax from total if not provided
+    const taxRate = saleData.taxPercent
+      ? saleData.taxPercent / 100
+      : this.DEFAULT_TAX_RATE;
+
+    let taxAmount = saleData.tax || 0;
+    let subtotalBeforeTax = saleData.subtotal || 0;
+
+    // If tax is not provided or is 0, calculate it from total
+    if (!taxAmount || taxAmount === 0) {
+      const calculated = this.calculateTaxFromTotal(
+        saleData.total || 0,
+        taxRate
+      );
+      taxAmount = calculated.taxAmount;
+      subtotalBeforeTax = calculated.subtotalBeforeTax;
+    } else {
+      // If tax is provided, calculate subtotal before tax
+      subtotalBeforeTax = (saleData.total || 0) - taxAmount;
+    }
+
     const safeData: ReceiptData = {
       id: saleData.id,
       saleNumber: saleData.saleNumber,
@@ -188,27 +228,12 @@ class ReceiptGenerator {
       customerPhone: saleData.customerPhone,
       customerEmail: saleData.customerEmail,
       items: itemsWithProducts,
-      subtotal:
-        typeof saleData.subtotal === "string"
-          ? parseFloat(saleData.subtotal)
-          : saleData.subtotal,
-      discount:
-        typeof saleData.discount === "string"
-          ? parseFloat(saleData.discount)
-          : saleData.discount,
-      discountPercent:
-        typeof saleData.discountPercent === "string"
-          ? parseFloat(saleData.discountPercent)
-          : saleData.discountPercent,
-      tax:
-        typeof saleData.tax === "string"
-          ? parseFloat(saleData.tax)
-          : saleData.tax,
-      taxPercent: saleData.taxPercent || 0,
-      total:
-        typeof saleData.total === "string"
-          ? parseFloat(saleData.total)
-          : saleData.total,
+      subtotal: subtotalBeforeTax,
+      discount: saleData.discount || 0,
+      discountPercent: saleData.discountPercent || 0,
+      tax: taxAmount,
+      taxPercent: taxRate * 100,
+      total: saleData.total || 0,
       paymentMethod: saleData.paymentMethod,
       amountReceived: saleData.amountReceived
         ? typeof saleData.amountReceived === "string"
@@ -234,6 +259,27 @@ class ReceiptGenerator {
       saleData.items || []
     );
 
+    // Calculate tax from total if not provided
+    const taxRate = saleData.taxPercent
+      ? saleData.taxPercent / 100
+      : this.DEFAULT_TAX_RATE;
+
+    let taxAmount = saleData.tax || 0;
+    let subtotalBeforeTax = saleData.subtotal || 0;
+
+    // If tax is not provided or is 0, calculate it from total
+    if (!taxAmount || taxAmount === 0) {
+      const calculated = this.calculateTaxFromTotal(
+        saleData.total || 0,
+        taxRate
+      );
+      taxAmount = calculated.taxAmount;
+      subtotalBeforeTax = calculated.subtotalBeforeTax;
+    } else {
+      // If tax is provided, calculate subtotal before tax
+      subtotalBeforeTax = (saleData.total || 0) - taxAmount;
+    }
+
     const safeData: ReceiptData = {
       id: saleData.id,
       saleNumber: saleData.saleNumber,
@@ -242,27 +288,12 @@ class ReceiptGenerator {
       customerPhone: saleData.customerPhone,
       customerEmail: saleData.customerEmail,
       items: itemsWithProducts,
-      subtotal:
-        typeof saleData.subtotal === "string"
-          ? parseFloat(saleData.subtotal)
-          : saleData.subtotal,
-      discount:
-        typeof saleData.discount === "string"
-          ? parseFloat(saleData.discount)
-          : saleData.discount,
-      discountPercent:
-        typeof saleData.discountPercent === "string"
-          ? parseFloat(saleData.discountPercent)
-          : saleData.discountPercent,
-      tax:
-        typeof saleData.tax === "string"
-          ? parseFloat(saleData.tax)
-          : saleData.tax,
-      taxPercent: saleData.taxPercent || 0,
-      total:
-        typeof saleData.total === "string"
-          ? parseFloat(saleData.total)
-          : saleData.total,
+      subtotal: subtotalBeforeTax,
+      discount: saleData.discount || 0,
+      discountPercent: saleData.discountPercent || 0,
+      tax: taxAmount,
+      taxPercent: taxRate * 100,
+      total: saleData.total || 0,
       paymentMethod: saleData.paymentMethod,
       amountReceived: saleData.amountReceived
         ? typeof saleData.amountReceived === "string"

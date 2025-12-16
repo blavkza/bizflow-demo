@@ -7,6 +7,8 @@ import {
   DollarSign,
   UserCheck,
   Briefcase,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { formatCurrency, formatHours } from "../utils";
 
@@ -14,7 +16,10 @@ interface PayrollSummaryProps {
   payrollData: any[];
   totalBaseAmount: number;
   totalOvertimeAmount: number;
+  totalBonusAmount: number;
+  totalDeductionAmount: number;
   totalPayroll: number;
+  netPayroll: number;
   totalPaidDays: number;
   totalRegularHours: number;
   totalOvertimeHours: number;
@@ -25,7 +30,10 @@ export function PayrollSummary({
   payrollData,
   totalBaseAmount,
   totalOvertimeAmount,
+  totalBonusAmount = 0,
+  totalDeductionAmount = 0,
   totalPayroll,
+  netPayroll,
   totalPaidDays,
   totalRegularHours,
   totalOvertimeHours,
@@ -66,7 +74,8 @@ export function PayrollSummary({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          {/* Workers Card */}
           <div className="text-center p-4 bg-white rounded-lg border">
             {getWorkerIcon()}
             <p className="text-sm text-muted-foreground mt-2">
@@ -81,30 +90,31 @@ export function PayrollSummary({
               </p>
             )}
           </div>
+
+          {/* Bonuses Card */}
           <div className="text-center p-4 bg-white rounded-lg border">
-            <CalendarIcon className="h-8 w-8 text-green-600 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Total Paid Days</p>
-            <p className="text-lg font-bold text-green-600">{totalPaidDays}</p>
-          </div>
-          <div className="text-center p-4 bg-white rounded-lg border">
-            <Clock className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Regular Hours</p>
-            <p className="text-lg font-bold text-blue-500">
-              {formatHours(totalRegularHours)}
+            <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Total Bonuses</p>
+            <p className="text-lg font-bold text-green-600">
+              {formatCurrency(totalBonusAmount)}
             </p>
           </div>
+
+          {/* Deductions Card */}
           <div className="text-center p-4 bg-white rounded-lg border">
-            <Clock className="h-8 w-8 text-orange-600 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Overtime Hours</p>
-            <p className="text-lg font-bold text-orange-600">
-              {formatHours(totalOvertimeHours)}
+            <TrendingDown className="h-8 w-8 text-red-600 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Total Deductions</p>
+            <p className="text-lg font-bold text-red-600">
+              {formatCurrency(totalDeductionAmount)}
             </p>
           </div>
+
+          {/* Net Payroll Card */}
           <div className="text-center p-4 bg-white rounded-lg border">
             <CreditCard className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Total Payroll</p>
+            <p className="text-sm text-muted-foreground">Net Payroll</p>
             <p className="text-lg font-bold text-purple-600">
-              {formatCurrency(totalPayroll)}
+              {formatCurrency(netPayroll)}
             </p>
           </div>
         </div>
@@ -126,6 +136,18 @@ export function PayrollSummary({
               </span>
             </div>
             <div className="flex justify-between">
+              <span>Bonuses Total:</span>
+              <span className="font-medium text-green-600">
+                +{formatCurrency(totalBonusAmount)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Deductions Total:</span>
+              <span className="font-medium text-red-600">
+                -{formatCurrency(totalDeductionAmount)}
+              </span>
+            </div>
+            <div className="flex justify-between">
               <span>Regular Hours:</span>
               <span className="font-medium">
                 {formatHours(totalRegularHours)}{" "}
@@ -137,11 +159,21 @@ export function PayrollSummary({
                 {formatHours(totalOvertimeHours)}
               </span>
             </div>
+            <div className="flex justify-between">
+              <span>Gross Amount:</span>
+              <span className="font-medium">
+                {formatCurrency(totalPayroll)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Total Workers:</span>
+              <span className="font-medium">{payrollData.length}</span>
+            </div>
           </div>
           <div className="mt-4 pt-4 border-t flex justify-between items-center">
-            <span className="font-semibold">Grand Total:</span>
-            <span className="font-bold text-lg">
-              {formatCurrency(totalPayroll)}
+            <span className="font-semibold">Net Amount Payable:</span>
+            <span className="font-bold text-lg text-purple-600">
+              {formatCurrency(netPayroll)}
             </span>
           </div>
         </div>

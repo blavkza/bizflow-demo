@@ -25,10 +25,12 @@ export async function GET(
     if (!user) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
+
     const vendor = await db.vendor.findUnique({
       where: {
         id: params.id,
       },
+
       include: {
         expenses: {
           include: {

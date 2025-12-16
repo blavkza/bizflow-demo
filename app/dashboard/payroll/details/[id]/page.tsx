@@ -55,7 +55,7 @@ export default function PayrollDetailsPage() {
         const data = await response.json();
         setPayroll(data);
 
-        // Fetch company settings using your existing API
+        // Fetch company settings
         const companyResponse = await fetch("/api/settings/general");
         if (companyResponse.ok) {
           const companyData = await companyResponse.json();
@@ -87,6 +87,7 @@ export default function PayrollDetailsPage() {
   };
 
   const formatMonth = (month: string) => {
+    if (!month) return "";
     const [year, monthNum] = month.split("-");
     const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
     return date.toLocaleDateString("en-US", { year: "numeric", month: "long" });
@@ -101,14 +102,15 @@ export default function PayrollDetailsPage() {
     if (amount && typeof amount === "object" && "toNumber" in amount) {
       return amount.toNumber();
     }
-    return 0;
+    // Fallback string conversion
+    return Number(amount) || 0;
   };
 
   if (loading) return <Loading />;
   if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
   if (!payroll) return <div className="p-6">Payroll not found</div>;
 
-  // Calculate totals from individual payments
+  // Calculate totals from individual payments safely
   const totalBaseAmount = payroll.payments.reduce((sum, payment) => {
     return sum + getPaymentAmount(payment.baseAmount);
   }, 0);
@@ -124,11 +126,10 @@ export default function PayrollDetailsPage() {
   return (
     <div className="p-6 space-y-6">
       <PayrollDetailsHeader
-        payroll={payroll}
-        company={company}
+        payroll={payroll as any}
+        company={company as any}
         formatMonth={formatMonth}
         onBack={() => router.back()}
-        payrollId={payrollId}
         getPaymentAmount={getPaymentAmount}
       />
 

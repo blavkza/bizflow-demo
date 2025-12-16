@@ -1,3 +1,4 @@
+// types/payroll.ts
 import {
   PayrollStatus,
   PaymentType,
@@ -6,13 +7,34 @@ import {
 } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
+// --- NEW INTERFACES ---
+export interface BonusCalculation {
+  type: string;
+  amount: number;
+  description: string;
+  isPercentage: boolean;
+  percentageRate?: number;
+}
+
+export interface DeductionCalculation {
+  type: string;
+  amount: number;
+  description: string;
+  isPercentage: boolean;
+  percentageRate?: number;
+}
+
+// Update existing interfaces
 export interface Payment {
   id: string;
   employeeId: string;
   freeLancerId?: string;
   amount: number | Decimal;
+  netAmount: number | Decimal;
   baseAmount: number | Decimal;
   overtimeAmount: number | Decimal;
+  bonusAmount: number | Decimal;
+  deductionAmount: number | Decimal;
   type: PaymentType;
   description?: string;
   payDate: Date;
@@ -22,6 +44,10 @@ export interface Payment {
   createdBy?: string;
   transactionId: string;
   payrollId?: string;
+
+  paymentBonuses?: PaymentBonus[];
+  paymentDeductions?: PaymentDeduction[];
+
   employee?: {
     id: string;
     employeeNumber: string;
@@ -49,23 +75,17 @@ export interface Payment {
   };
 }
 
-export interface Transaction {
-  id: string;
-  reference: string;
-  date: Date;
-  description: string;
-  amount: number | Decimal;
-  currency: string;
-}
-
 export interface Payroll {
   id: string;
   month: string;
   description: string;
   type: PaymentType;
   totalAmount: number;
+  netAmount: number;
   baseAmount: number;
   overtimeAmount: number;
+  totalBonuses: number;
+  totalDeductions: number;
   currency: string;
   status: PayrollStatus;
   createdAt: Date;
@@ -75,9 +95,207 @@ export interface Payroll {
   transaction: Transaction;
   transactionId: string;
   payments: Payment[];
+
+  payrollBonuses?: PayrollBonus[];
+  payrollDeductions?: PayrollDeduction[];
+
   _count: {
     payments: number;
   };
+}
+
+// Add new types
+export interface PaymentBonus {
+  id: string;
+  paymentId: string;
+  bonusType: string;
+  amount: number | Decimal;
+  description?: string;
+  isPercentage: boolean;
+  percentageRate?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PaymentDeduction {
+  id: string;
+  paymentId: string;
+  deductionType: string;
+  amount: number | Decimal;
+  description?: string;
+  isPercentage: boolean;
+  percentageRate?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PayrollBonus {
+  id: string;
+  payrollId: string;
+  bonusType: string;
+  amount: number;
+  description?: string;
+  isPercentage: boolean;
+  percentageRate?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PayrollDeduction {
+  id: string;
+  payrollId: string;
+  deductionType: string;
+  amount: number;
+  description?: string;
+  isPercentage: boolean;
+  percentageRate?: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type BonusType =
+  | "ANNUAL_BONUS"
+  | "PERFORMANCE_BONUS"
+  | "ATTENDANCE_BONUS"
+  | "THIRTEENTH_CHEQUE"
+  | "OVERTIME_BONUS"
+  | "SPOT_BONUS"
+  | "MERIT_BONUS"
+  | "OTHER_BONUS";
+
+export type DeductionType =
+  | "UIF"
+  | "PENSION"
+  | "MEDICAL_AID"
+  | "TAX"
+  | "UNIFORM_PPE"
+  | "LOAN_REPAYMENT"
+  | "FUNERAL_BENEFIT"
+  | "SAVINGS"
+  | "DAMAGE_LOSS"
+  | "OTHER_DEDUCTION";
+
+// Update PayrollCalculationData
+export type PayrollCalculationData = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  salaryType: "DAILY" | "MONTHLY";
+  monthlySalary: number;
+  dailySalary: number;
+  overtimeHourRate: number;
+  department: {
+    id: string;
+    name: string;
+    manager?: {
+      name: string;
+    } | null;
+  } | null;
+  paidDays: number;
+  baseAmount: number;
+  overtimeHours: number;
+  overtimeAmount: number;
+  bonusAmount: number;
+  deductionAmount: number;
+  amount: number;
+  netAmount: number;
+  totalAmount: number;
+  regularHours: number;
+  isFreelancer: boolean;
+  employeeType: "EMPLOYEE" | "FREELANCER";
+  attendanceBreakdown?: AttendanceBreakdown;
+  dailyRate?: number;
+  overtimeFixedRate?: number;
+
+  // Updated to use the new interfaces
+  bonuses?: BonusCalculation[];
+  deductions?: DeductionCalculation[];
+
+  // For manual adjustments
+  manualBonuses?: {
+    type: string;
+    amount: number;
+    description: string;
+  }[];
+  manualDeductions?: {
+    type: string;
+    amount: number;
+    description: string;
+  }[];
+};
+
+// Update PayrollSubmissionData
+export type PayrollSubmissionData = {
+  id: string;
+  amount: number;
+  netAmount: number;
+  baseAmount: number;
+  overtimeAmount: number;
+  bonusAmount: number;
+  deductionAmount: number;
+  daysWorked: number;
+  overtimeHours: number;
+  regularHours: number;
+  description?: string;
+  departmentId?: string;
+  isFreelancer?: boolean;
+
+  bonuses?: {
+    type: string;
+    amount: number;
+    description?: string;
+  }[];
+  deductions?: {
+    type: string;
+    amount: number;
+    description?: string;
+  }[];
+};
+
+// Update PayrollData
+export type PayrollData = {
+  description?: string;
+  type: PaymentType;
+  month: string;
+  workerType: "all" | "employees" | "freelancers";
+  employees: PayrollSubmissionData[];
+  totalAmount: number;
+  netAmount: number;
+  totalBonuses: number;
+  totalDeductions: number;
+};
+
+// Update PayrollStats
+export interface PayrollStats {
+  totalEmployees: number;
+  totalPayroll: number;
+  netPayroll: number;
+  totalBaseAmount: number;
+  totalOvertimeAmount: number;
+  totalBonusAmount: number;
+  totalDeductionAmount: number;
+  totalPaidDays: number;
+  totalRegularHours: number;
+  totalOvertimeHours: number;
+}
+
+// Update PayrollFormValues
+export interface PayrollFormValues {
+  description?: string;
+  type: PaymentType;
+  month: string;
+  workerType: "all" | "employees" | "freelancers";
+}
+
+// Keep existing types...
+export interface Transaction {
+  id: string;
+  reference: string;
+  date: Date;
+  description: string;
+  amount: number | Decimal;
+  currency: string;
 }
 
 export type FreeLancerWithDetails = {
@@ -112,6 +330,9 @@ export type FreeLancerWithDetails = {
     amount: Decimal;
     baseAmount: Decimal;
     overtimeAmount: Decimal;
+    bonusAmount: Decimal;
+    deductionAmount: Decimal;
+    netAmount: Decimal;
     payDate: Date;
     daysWorked: number;
     overtimeHours: Decimal;
@@ -157,8 +378,11 @@ export type EmployeeWithDetails = {
   } | null;
   payments: {
     amount: Decimal;
+    netAmount: Decimal;
     baseAmount: Decimal;
     overtimeAmount: Decimal;
+    bonusAmount: Decimal;
+    deductionAmount: Decimal;
     payDate: Date;
     daysWorked: number;
     overtimeHours: Decimal;
@@ -185,78 +409,9 @@ export interface AttendanceBreakdown {
   totalDays: number;
 }
 
-export type PayrollCalculationData = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email?: string;
-  salaryType: "DAILY" | "MONTHLY";
-  monthlySalary: number;
-  dailySalary: number;
-  overtimeHourRate: number;
-  department: {
-    id: string;
-    name: string;
-    manager?: {
-      name: string;
-    } | null;
-  } | null;
-  paidDays: number;
-  baseAmount: number;
-  overtimeHours: number;
-  overtimeAmount: number;
-  amount: number;
-  totalAmount: number;
-  regularHours: number;
-  isFreelancer: boolean;
-  employeeType: "EMPLOYEE" | "FREELANCER";
-  attendanceBreakdown?: AttendanceBreakdown;
-  dailyRate?: number;
-  overtimeFixedRate?: number;
-};
-
-export type PayrollSubmissionData = {
-  id: string;
-  amount: number;
-  baseAmount: number;
-  overtimeAmount: number;
-  daysWorked: number;
-  overtimeHours: number;
-  regularHours: number;
-  description?: string;
-  departmentId?: string;
-  isFreelancer?: boolean;
-};
-
-export type PayrollData = {
-  description?: string;
-  type: PaymentType;
-  month: string;
-  workerType: "all" | "employees" | "freelancers";
-  employees: PayrollSubmissionData[];
-  totalAmount: number;
-};
-
-export interface PayrollStats {
-  totalEmployees: number;
-  totalPayroll: number;
-  totalBaseAmount: number;
-  totalOvertimeAmount: number;
-  totalPaidDays: number;
-  totalRegularHours: number;
-  totalOvertimeHours: number;
-}
-
 export interface PayrollFilter {
   searchTerm: string;
   statusFilter: string;
   monthFilter: string;
   yearFilter: string;
-}
-
-export interface PayrollFormValues {
-  description?: string;
-  type: PaymentType;
-  month: string;
-  workerType: "all" | "employees" | "freelancers";
 }

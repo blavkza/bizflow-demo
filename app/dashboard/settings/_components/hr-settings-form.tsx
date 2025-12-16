@@ -68,40 +68,79 @@ const HRSettingsSchema = z.object({
   annualBonusEnabled: z.boolean(),
   annualBonusType: z.enum(["DECEMBER", "BIRTH_MONTH"]),
   annualBonusPercentage: z.number().min(0).max(500),
+
   performanceBonusEnabled: z.boolean(),
   performanceBonusType: z.enum(["INDIVIDUAL", "TEAM"]),
+  performanceBonusPercentage: z.number().min(0).max(100),
+
   profitSharingEnabled: z.boolean(),
   profitSharingPercentage: z.number().min(0).max(100),
+
   thirteenthChequeEnabled: z.boolean(),
+
   spotBonusEnabled: z.boolean(),
+  spotBonusAmount: z.number().min(0),
+
   meritBonusEnabled: z.boolean(),
+  meritBonusPercentage: z.number().min(0).max(100),
+
   appreciationBonusEnabled: z.boolean(),
+  appreciationBonusAmount: z.number().min(0),
+
   incentivePaymentEnabled: z.boolean(),
+  incentivePaymentPercentage: z.number().min(0).max(100),
+
   recognitionAwardEnabled: z.boolean(),
+  recognitionAwardAmount: z.number().min(0),
+
+  attendanceBonusEnabled: z.boolean(),
+  attendanceBonusPercentage: z.number().min(0).max(100),
+
+  overtimeBonusEnabled: z.boolean(),
+  overtimeBonusPercentage: z.number().min(0).max(100),
 
   // Deduction Settings
   uniformPPEEnabled: z.boolean(),
   uniformPPEMaxDeduction: z.number().min(0),
+
   damageLossEnabled: z.boolean(),
   damageLossMaxPercentage: z.number().min(0).max(100),
+
   uifEnabled: z.boolean(),
   uifPercentage: z.number().min(0).max(10),
+
   pensionEnabled: z.boolean(),
   pensionPercentage: z.number().min(0).max(50),
+
   medicalAidEnabled: z.boolean(),
   medicalAidMaxDeduction: z.number().min(0),
+
+  taxEnabled: z.boolean(),
+  taxTableYear: z.string(),
+
   overpaymentEnabled: z.boolean(),
   overpaymentMaxPercentage: z.number().min(0).max(100),
+
   loanRepaymentEnabled: z.boolean(),
+
   funeralBenefitEnabled: z.boolean(),
   funeralBenefitAmount: z.number().min(0),
+
   tradeUnionEnabled: z.boolean(),
+  tradeUnionAmount: z.number().min(0),
+
   insuranceEnabled: z.boolean(),
+  insurancePercentage: z.number().min(0).max(100),
+
   guaranteeFundEnabled: z.boolean(),
+  guaranteeFundAmount: z.number().min(0),
+
   savingsEnabled: z.boolean(),
   savingsMaxPercentage: z.number().min(0).max(100),
+
   disciplinaryEnabled: z.boolean(),
   disciplinaryMaxPercentage: z.number().min(0).max(100),
+
   courtOrderEnabled: z.boolean(),
 });
 
@@ -132,14 +171,24 @@ interface HRSettings {
   annualBonusPercentage: number;
   performanceBonusEnabled: boolean;
   performanceBonusType: string;
+  performanceBonusPercentage: number;
   profitSharingEnabled: boolean;
   profitSharingPercentage: number;
   thirteenthChequeEnabled: boolean;
   spotBonusEnabled: boolean;
+  spotBonusAmount: number;
   meritBonusEnabled: boolean;
+  meritBonusPercentage: number;
   appreciationBonusEnabled: boolean;
+  appreciationBonusAmount: number;
   incentivePaymentEnabled: boolean;
+  incentivePaymentPercentage: number;
   recognitionAwardEnabled: boolean;
+  recognitionAwardAmount: number;
+  attendanceBonusEnabled: boolean;
+  attendanceBonusPercentage: number;
+  overtimeBonusEnabled: boolean;
+  overtimeBonusPercentage: number;
 
   // Deduction Settings
   uniformPPEEnabled: boolean;
@@ -152,14 +201,19 @@ interface HRSettings {
   pensionPercentage: number;
   medicalAidEnabled: boolean;
   medicalAidMaxDeduction: number;
+  taxEnabled: boolean;
+  taxTableYear: string;
   overpaymentEnabled: boolean;
   overpaymentMaxPercentage: number;
   loanRepaymentEnabled: boolean;
   funeralBenefitEnabled: boolean;
   funeralBenefitAmount: number;
   tradeUnionEnabled: boolean;
+  tradeUnionAmount: number;
   insuranceEnabled: boolean;
+  insurancePercentage: number;
   guaranteeFundEnabled: boolean;
+  guaranteeFundAmount: number;
   savingsEnabled: boolean;
   savingsMaxPercentage: number;
   disciplinaryEnabled: boolean;
@@ -207,14 +261,24 @@ export default function HRSettingsForm({
       annualBonusPercentage: 100,
       performanceBonusEnabled: true,
       performanceBonusType: "INDIVIDUAL",
+      performanceBonusPercentage: 5,
       profitSharingEnabled: false,
       profitSharingPercentage: 10,
       thirteenthChequeEnabled: false,
       spotBonusEnabled: true,
+      spotBonusAmount: 500,
       meritBonusEnabled: true,
+      meritBonusPercentage: 3,
       appreciationBonusEnabled: true,
+      appreciationBonusAmount: 250,
       incentivePaymentEnabled: true,
+      incentivePaymentPercentage: 4,
       recognitionAwardEnabled: true,
+      recognitionAwardAmount: 300,
+      attendanceBonusEnabled: true,
+      attendanceBonusPercentage: 2,
+      overtimeBonusEnabled: true,
+      overtimeBonusPercentage: 10,
 
       // Deduction Settings Defaults
       uniformPPEEnabled: true,
@@ -227,14 +291,19 @@ export default function HRSettingsForm({
       pensionPercentage: 7.5,
       medicalAidEnabled: true,
       medicalAidMaxDeduction: 2000,
+      taxEnabled: true,
+      taxTableYear: "2024",
       overpaymentEnabled: true,
       overpaymentMaxPercentage: 25,
       loanRepaymentEnabled: true,
       funeralBenefitEnabled: true,
       funeralBenefitAmount: 100,
       tradeUnionEnabled: false,
+      tradeUnionAmount: 50,
       insuranceEnabled: true,
+      insurancePercentage: 0.5,
       guaranteeFundEnabled: false,
+      guaranteeFundAmount: 20,
       savingsEnabled: true,
       savingsMaxPercentage: 15,
       disciplinaryEnabled: true,
@@ -292,14 +361,26 @@ export default function HRSettingsForm({
             annualBonusPercentage: settings.annualBonusPercentage ?? 100,
             performanceBonusEnabled: settings.performanceBonusEnabled ?? true,
             performanceBonusType: settings.performanceBonusType || "INDIVIDUAL",
+            performanceBonusPercentage:
+              settings.performanceBonusPercentage ?? 5,
             profitSharingEnabled: settings.profitSharingEnabled ?? false,
             profitSharingPercentage: settings.profitSharingPercentage ?? 10,
             thirteenthChequeEnabled: settings.thirteenthChequeEnabled ?? false,
             spotBonusEnabled: settings.spotBonusEnabled ?? true,
+            spotBonusAmount: settings.spotBonusAmount ?? 500,
             meritBonusEnabled: settings.meritBonusEnabled ?? true,
+            meritBonusPercentage: settings.meritBonusPercentage ?? 3,
             appreciationBonusEnabled: settings.appreciationBonusEnabled ?? true,
+            appreciationBonusAmount: settings.appreciationBonusAmount ?? 250,
             incentivePaymentEnabled: settings.incentivePaymentEnabled ?? true,
+            incentivePaymentPercentage:
+              settings.incentivePaymentPercentage ?? 4,
             recognitionAwardEnabled: settings.recognitionAwardEnabled ?? true,
+            recognitionAwardAmount: settings.recognitionAwardAmount ?? 300,
+            attendanceBonusEnabled: settings.attendanceBonusEnabled ?? true,
+            attendanceBonusPercentage: settings.attendanceBonusPercentage ?? 2,
+            overtimeBonusEnabled: settings.overtimeBonusEnabled ?? true,
+            overtimeBonusPercentage: settings.overtimeBonusPercentage ?? 10,
 
             // Deduction Settings
             uniformPPEEnabled: settings.uniformPPEEnabled ?? true,
@@ -312,14 +393,19 @@ export default function HRSettingsForm({
             pensionPercentage: settings.pensionPercentage ?? 7.5,
             medicalAidEnabled: settings.medicalAidEnabled ?? true,
             medicalAidMaxDeduction: settings.medicalAidMaxDeduction ?? 2000,
+            taxEnabled: settings.taxEnabled ?? true,
+            taxTableYear: settings.taxTableYear || "2024",
             overpaymentEnabled: settings.overpaymentEnabled ?? true,
             overpaymentMaxPercentage: settings.overpaymentMaxPercentage ?? 25,
             loanRepaymentEnabled: settings.loanRepaymentEnabled ?? true,
             funeralBenefitEnabled: settings.funeralBenefitEnabled ?? true,
             funeralBenefitAmount: settings.funeralBenefitAmount ?? 100,
             tradeUnionEnabled: settings.tradeUnionEnabled ?? false,
+            tradeUnionAmount: settings.tradeUnionAmount ?? 50,
             insuranceEnabled: settings.insuranceEnabled ?? true,
+            insurancePercentage: settings.insurancePercentage ?? 0.5,
             guaranteeFundEnabled: settings.guaranteeFundEnabled ?? false,
+            guaranteeFundAmount: settings.guaranteeFundAmount ?? 20,
             savingsEnabled: settings.savingsEnabled ?? true,
             savingsMaxPercentage: settings.savingsMaxPercentage ?? 15,
             disciplinaryEnabled: settings.disciplinaryEnabled ?? true,
@@ -944,7 +1030,7 @@ export default function HRSettingsForm({
                             />
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            100% of basic salary (double salary)
+                            Percentage of basic salary
                           </div>
                         </div>
                         <FormControl>
@@ -967,8 +1053,8 @@ export default function HRSettingsForm({
                             <div className="flex items-center">
                               <FormLabel>Annual Bonus Payment</FormLabel>
                               <ExplanationPopover
-                                title="Annual Bonus Payment Timing"
-                                content="DECEMBER: Paid as 13th cheque in December. BIRTH_MONTH: Paid during employee's birth month."
+                                title="Annual Bonus Timing"
+                                content="Choose when the annual bonus is paid."
                               />
                             </div>
                             <Select
@@ -1002,8 +1088,8 @@ export default function HRSettingsForm({
                             <div className="flex items-center">
                               <FormLabel>Bonus Percentage (%)</FormLabel>
                               <ExplanationPopover
-                                title="Bonus Percentage"
-                                content="Percentage of basic salary paid as annual bonus. 100% means double salary (basic salary + same amount as bonus)."
+                                title="Annual Bonus Percentage"
+                                content="Percentage of monthly salary to pay as bonus (e.g., 100% is a full double cheque)."
                               />
                             </div>
                             <FormControl>
@@ -1029,184 +1115,109 @@ export default function HRSettingsForm({
                 </div>
 
                 {/* Performance Bonus */}
-                <FormField
-                  control={form.control}
-                  name="performanceBonusEnabled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center">
-                          <FormLabel className="text-base">
-                            Performance Bonus
-                          </FormLabel>
-                          <ExplanationPopover
-                            title="Performance Bonus"
-                            content="Bonus based on individual or team performance against set targets and goals."
-                          />
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Individual/team performance based
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={!hasFullAccess && !canManageSettings}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                {form.watch("performanceBonusEnabled") && (
+                <div className="col-span-2 space-y-2 border p-3 rounded-lg">
                   <FormField
                     control={form.control}
-                    name="performanceBonusType"
+                    name="performanceBonusEnabled"
                     render={({ field }) => (
-                      <FormItem className="space-y-2">
-                        <div className="flex items-center">
-                          <FormLabel>Performance Type</FormLabel>
-                          <ExplanationPopover
-                            title="Performance Bonus Type"
-                            content="INDIVIDUAL: Based on individual performance metrics. TEAM: Based on team/department performance."
-                          />
+                      <FormItem className="flex flex-row items-center justify-between">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center">
+                            <FormLabel className="text-base">
+                              Performance Bonus
+                            </FormLabel>
+                            <ExplanationPopover
+                              title="Performance Bonus"
+                              content="Bonus based on individual or team performance targets."
+                            />
+                          </div>
                         </div>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          disabled={!hasFullAccess && !canManageSettings}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="INDIVIDUAL">
-                              Individual
-                            </SelectItem>
-                            <SelectItem value="TEAM">Team</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
                       </FormItem>
                     )}
                   />
-                )}
+                  {form.watch("performanceBonusEnabled") && (
+                    <div className="grid grid-cols-2 gap-4 mt-2">
+                      <FormField
+                        control={form.control}
+                        name="performanceBonusType"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <FormLabel>Type</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              value={field.value}
+                              disabled={!hasFullAccess && !canManageSettings}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select type" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="INDIVIDUAL">
+                                  Individual
+                                </SelectItem>
+                                <SelectItem value="TEAM">Team</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="performanceBonusPercentage"
+                        render={({ field }) => (
+                          <FormItem className="space-y-2">
+                            <div className="flex items-center">
+                              <FormLabel>Bonus Percentage (%)</FormLabel>
+                              <ExplanationPopover
+                                title="Performance Bonus Percentage"
+                                content="Default percentage of salary for meeting performance goals."
+                              />
+                            </div>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value))
+                                }
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
 
                 {/* Profit Sharing */}
-                <FormField
-                  control={form.control}
-                  name="profitSharingEnabled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center">
-                          <FormLabel className="text-base">
-                            Profit Sharing Bonus
-                          </FormLabel>
-                          <ExplanationPopover
-                            title="Profit Sharing Bonus"
-                            content="Bonus distributed from company profits. Usually a percentage of profits shared among employees."
-                          />
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Based on company profitability
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={!hasFullAccess && !canManageSettings}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                {form.watch("profitSharingEnabled") && (
+                <div className="col-span-2 space-y-2 border p-3 rounded-lg">
                   <FormField
                     control={form.control}
-                    name="profitSharingPercentage"
+                    name="profitSharingEnabled"
                     render={({ field }) => (
-                      <FormItem className="space-y-2">
-                        <div className="flex items-center">
-                          <FormLabel>Profit Sharing %</FormLabel>
-                          <ExplanationPopover
-                            title="Profit Sharing Percentage"
-                            content="Percentage of company profits allocated for distribution to employees."
-                          />
-                        </div>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.1"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(parseFloat(e.target.value))
-                            }
-                            className="w-full"
-                            disabled={!hasFullAccess && !canManageSettings}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {/* 13th Cheque */}
-                <FormField
-                  control={form.control}
-                  name="thirteenthChequeEnabled"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center">
-                          <FormLabel className="text-base">
-                            13th Cheque
-                          </FormLabel>
-                          <ExplanationPopover
-                            title="13th Cheque"
-                            content="Additional month's salary paid in December. Common practice in South Africa as year-end bonus."
-                          />
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Additional month's salary paid in December
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={!hasFullAccess && !canManageSettings}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-
-                {/* Other Bonuses - Grid Layout */}
-                <div className="grid grid-cols-2 gap-4 col-span-2">
-                  <FormField
-                    control={form.control}
-                    name="spotBonusEnabled"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                      <FormItem className="flex flex-row items-center justify-between">
                         <div className="space-y-0.5">
                           <div className="flex items-center">
-                            <FormLabel className="text-sm">
-                              Spot Bonus
+                            <FormLabel className="text-base">
+                              Profit Sharing Bonus
                             </FormLabel>
                             <ExplanationPopover
-                              title="Spot Bonus"
-                              content="Unexpected bonus for exceptional work or achievements outside regular bonus cycles."
+                              title="Profit Sharing Bonus"
+                              content="Bonus distributed based on company profitability."
                             />
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Exceptional work awards
                           </div>
                         </div>
                         <FormControl>
@@ -1219,471 +1230,18 @@ export default function HRSettingsForm({
                       </FormItem>
                     )}
                   />
-
-                  <FormField
-                    control={form.control}
-                    name="meritBonusEnabled"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center">
-                            <FormLabel className="text-sm">
-                              Merit Bonus
-                            </FormLabel>
-                            <ExplanationPopover
-                              title="Merit Bonus"
-                              content="Bonus based on individual merit, skills, and contributions to company success."
-                            />
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Individual performance
-                          </div>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={!hasFullAccess && !canManageSettings}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="appreciationBonusEnabled"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center">
-                            <FormLabel className="text-sm">
-                              Appreciation Bonus
-                            </FormLabel>
-                            <ExplanationPopover
-                              title="Appreciation Bonus"
-                              content="Bonus given to show appreciation for hard work, dedication, or loyalty."
-                            />
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Hard work recognition
-                          </div>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={!hasFullAccess && !canManageSettings}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="incentivePaymentEnabled"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center">
-                            <FormLabel className="text-sm">
-                              Incentive Payment
-                            </FormLabel>
-                            <ExplanationPopover
-                              title="Incentive Payment"
-                              content="Payment to motivate employees to achieve specific goals, targets, or sales objectives."
-                            />
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Target achievement
-                          </div>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={!hasFullAccess && !canManageSettings}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="recognitionAwardEnabled"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center">
-                            <FormLabel className="text-sm">
-                              Recognition Award
-                            </FormLabel>
-                            <ExplanationPopover
-                              title="Recognition Award"
-                              content="Bonus or award for achievements, milestones, or years of service."
-                            />
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Milestones & service
-                          </div>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                            disabled={!hasFullAccess && !canManageSettings}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Deduction Settings */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold border-b pb-2">
-                Deduction Settings
-              </h3>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Mandatory Deductions */}
-                <div className="col-span-2">
-                  <h4 className="font-medium text-sm text-muted-foreground mb-2">
-                    Mandatory Deductions
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="uifEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">UIF</FormLabel>
-                              <ExplanationPopover
-                                title="Unemployment Insurance Fund (UIF)"
-                                content="Mandatory contribution providing benefits to employees who become unemployed or unable to work. 1% employee contribution matched by 1% employer contribution."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Unemployment Insurance
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    {form.watch("uifEnabled") && (
+                  {form.watch("profitSharingEnabled") && (
+                    <div className="mt-2">
                       <FormField
                         control={form.control}
-                        name="uifPercentage"
+                        name="profitSharingPercentage"
                         render={({ field }) => (
                           <FormItem className="space-y-2">
                             <div className="flex items-center">
-                              <FormLabel>UIF %</FormLabel>
+                              <FormLabel>Profit Sharing %</FormLabel>
                               <ExplanationPopover
-                                title="UIF Percentage"
-                                content="Employee contribution percentage for Unemployment Insurance Fund. Employer contributes same percentage."
-                              />
-                            </div>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="10"
-                                step="0.1"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value))
-                                }
-                                className="w-full"
-                                disabled={!hasFullAccess && !canManageSettings}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {/* Insurance & Benefits */}
-                <div className="col-span-2">
-                  <h4 className="font-medium text-sm text-muted-foreground mb-2">
-                    Insurance & Benefits
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="pensionEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">
-                                Pension Fund
-                              </FormLabel>
-                              <ExplanationPopover
-                                title="Pension Fund"
-                                content="Retirement savings plan. Contributions are tax-deductible and accumulate for retirement."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Retirement savings
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    {form.watch("pensionEnabled") && (
-                      <FormField
-                        control={form.control}
-                        name="pensionPercentage"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <div className="flex items-center">
-                              <FormLabel>Pension %</FormLabel>
-                              <ExplanationPopover
-                                title="Pension Contribution Percentage"
-                                content="Percentage of salary contributed to pension fund. Usually 7.5-15% with employer matching."
-                              />
-                            </div>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="50"
-                                step="0.1"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value))
-                                }
-                                className="w-full"
-                                disabled={!hasFullAccess && !canManageSettings}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-
-                    <FormField
-                      control={form.control}
-                      name="medicalAidEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">
-                                Medical Aid
-                              </FormLabel>
-                              <ExplanationPopover
-                                title="Medical Aid"
-                                content="Health insurance coverage for employee and dependents. Premiums may be tax-deductible."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Health coverage
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    {form.watch("medicalAidEnabled") && (
-                      <FormField
-                        control={form.control}
-                        name="medicalAidMaxDeduction"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <div className="flex items-center">
-                              <FormLabel>Max Amount (ZAR)</FormLabel>
-                              <ExplanationPopover
-                                title="Medical Aid Maximum Deduction"
-                                content="Maximum monthly deduction allowed for medical aid contributions."
-                              />
-                            </div>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value))
-                                }
-                                className="w-full"
-                                disabled={!hasFullAccess && !canManageSettings}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-
-                    <FormField
-                      control={form.control}
-                      name="insuranceEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">
-                                Insurance
-                              </FormLabel>
-                              <ExplanationPopover
-                                title="Insurance"
-                                content="Group life insurance, disability insurance, or other insurance benefits."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Life/disability
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-
-                {/* Company Property & Advances */}
-                <div className="col-span-2">
-                  <h4 className="font-medium text-sm text-muted-foreground mb-2">
-                    Company Property & Advances
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="uniformPPEEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">
-                                Uniform/PPE
-                              </FormLabel>
-                              <ExplanationPopover
-                                title="Uniform/PPE Deduction"
-                                content="Cost recovery for uniforms or personal protective equipment provided to employee."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Equipment cost
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    {form.watch("uniformPPEEnabled") && (
-                      <FormField
-                        control={form.control}
-                        name="uniformPPEMaxDeduction"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <div className="flex items-center">
-                              <FormLabel>Max Amount (ZAR)</FormLabel>
-                              <ExplanationPopover
-                                title="Uniform/PPE Maximum Deduction"
-                                content="Maximum amount that can be deducted for uniform/PPE costs."
-                              />
-                            </div>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value))
-                                }
-                                className="w-full"
-                                disabled={!hasFullAccess && !canManageSettings}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-
-                    <FormField
-                      control={form.control}
-                      name="damageLossEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">
-                                Damage/Loss
-                              </FormLabel>
-                              <ExplanationPopover
-                                title="Damage/Loss Deduction"
-                                content="Deduction for damage or loss to company property due to employee negligence."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Property damage
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    {form.watch("damageLossEnabled") && (
-                      <FormField
-                        control={form.control}
-                        name="damageLossMaxPercentage"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <div className="flex items-center">
-                              <FormLabel>Max % of Salary</FormLabel>
-                              <ExplanationPopover
-                                title="Damage/Loss Maximum Percentage"
-                                content="Maximum percentage of salary that can be deducted for damage/loss recovery."
+                                title="Profit Sharing Percentage"
+                                content="Percentage of profits allocated to this bonus pool."
                               />
                             </div>
                             <FormControl>
@@ -1704,25 +1262,1120 @@ export default function HRSettingsForm({
                           </FormItem>
                         )}
                       />
-                    )}
+                    </div>
+                  )}
+                </div>
 
+                {/* 13th Cheque */}
+                <FormField
+                  control={form.control}
+                  name="thirteenthChequeEnabled"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 col-span-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center">
+                          <FormLabel className="text-base">
+                            13th Cheque
+                          </FormLabel>
+                          <ExplanationPopover
+                            title="13th Cheque"
+                            content="Additional month's salary paid in December."
+                          />
+                        </div>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={!hasFullAccess && !canManageSettings}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {/* Dynamic Bonus Section Grid */}
+                <div className="grid grid-cols-2 gap-4 col-span-2">
+                  {/* Spot Bonus */}
+                  <div className="border p-3 rounded-lg space-y-2">
+                    <FormField
+                      control={form.control}
+                      name="spotBonusEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between">
+                          <div className="flex items-center">
+                            <FormLabel className="text-sm font-medium">
+                              Spot Bonus
+                            </FormLabel>
+                            <ExplanationPopover
+                              title="Spot Bonus"
+                              content="Instant reward for specific achievements or exceptional effort."
+                            />
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch("spotBonusEnabled") && (
+                      <FormField
+                        control={form.control}
+                        name="spotBonusAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">
+                              Amount (ZAR)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  {/* Merit Bonus */}
+                  <div className="border p-3 rounded-lg space-y-2">
+                    <FormField
+                      control={form.control}
+                      name="meritBonusEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between">
+                          <div className="flex items-center">
+                            <FormLabel className="text-sm font-medium">
+                              Merit Bonus
+                            </FormLabel>
+                            <ExplanationPopover
+                              title="Merit Bonus"
+                              content="Performance-based reward for sustained excellence and skills."
+                            />
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch("meritBonusEnabled") && (
+                      <FormField
+                        control={form.control}
+                        name="meritBonusPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">
+                              Percentage (%)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  {/* Appreciation Bonus */}
+                  <div className="border p-3 rounded-lg space-y-2">
+                    <FormField
+                      control={form.control}
+                      name="appreciationBonusEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between">
+                          <div className="flex items-center">
+                            <FormLabel className="text-sm font-medium">
+                              Appreciation Bonus
+                            </FormLabel>
+                            <ExplanationPopover
+                              title="Appreciation Bonus"
+                              content="Token of gratitude for loyalty, hard work, or tenure."
+                            />
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch("appreciationBonusEnabled") && (
+                      <FormField
+                        control={form.control}
+                        name="appreciationBonusAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">
+                              Amount (ZAR)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  {/* Incentive Payment */}
+                  <div className="border p-3 rounded-lg space-y-2">
+                    <FormField
+                      control={form.control}
+                      name="incentivePaymentEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between">
+                          <div className="flex items-center">
+                            <FormLabel className="text-sm font-medium">
+                              Incentive Payment
+                            </FormLabel>
+                            <ExplanationPopover
+                              title="Incentive Payment"
+                              content="Target-driven payment for meeting specific goals or quotas."
+                            />
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch("incentivePaymentEnabled") && (
+                      <FormField
+                        control={form.control}
+                        name="incentivePaymentPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">
+                              Percentage (%)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  {/* Recognition Award */}
+                  <div className="border p-3 rounded-lg space-y-2">
+                    <FormField
+                      control={form.control}
+                      name="recognitionAwardEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between">
+                          <div className="flex items-center">
+                            <FormLabel className="text-sm font-medium">
+                              Recognition Award
+                            </FormLabel>
+                            <ExplanationPopover
+                              title="Recognition Award"
+                              content="Formal award for milestones, innovation, or company values."
+                            />
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch("recognitionAwardEnabled") && (
+                      <FormField
+                        control={form.control}
+                        name="recognitionAwardAmount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">
+                              Amount (ZAR)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  {/* Attendance Bonus */}
+                  <div className="border p-3 rounded-lg space-y-2">
+                    <FormField
+                      control={form.control}
+                      name="attendanceBonusEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between">
+                          <div className="flex items-center">
+                            <FormLabel className="text-sm font-medium">
+                              Attendance Bonus
+                            </FormLabel>
+                            <ExplanationPopover
+                              title="Attendance Bonus"
+                              content="Reward for perfect or near-perfect attendance records."
+                            />
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch("attendanceBonusEnabled") && (
+                      <FormField
+                        control={form.control}
+                        name="attendanceBonusPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">
+                              Percentage (%)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+
+                  {/* Overtime Bonus */}
+                  <div className="border p-3 rounded-lg space-y-2">
+                    <FormField
+                      control={form.control}
+                      name="overtimeBonusEnabled"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between">
+                          <div className="flex items-center">
+                            <FormLabel className="text-sm font-medium">
+                              Overtime Bonus
+                            </FormLabel>
+                            <ExplanationPopover
+                              title="Overtime Bonus"
+                              content="Additional bonus percentage on top of standard overtime rates."
+                            />
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch("overtimeBonusEnabled") && (
+                      <FormField
+                        control={form.control}
+                        name="overtimeBonusPercentage"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs">
+                              Percentage (%)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.1"
+                                {...field}
+                                onChange={(e) =>
+                                  field.onChange(parseFloat(e.target.value))
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Deduction Settings */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold border-b pb-2">
+                Deduction Settings
+              </h3>
+
+              {/* Tax Settings */}
+              <div className="border rounded-lg p-4 space-y-4">
+                <h4 className="font-medium text-sm text-muted-foreground">
+                  Tax Settings
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="taxEnabled"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center">
+                            <FormLabel className="text-sm">PAYE Tax</FormLabel>
+                            <ExplanationPopover
+                              title="PAYE Tax"
+                              content="Enable automatic PAYE tax calculations based on SARS tax tables."
+                            />
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            Enable automatic tax calculations
+                          </div>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  {form.watch("taxEnabled") && (
+                    <FormField
+                      control={form.control}
+                      name="taxTableYear"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel>Tax Year Table</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            disabled={!hasFullAccess && !canManageSettings}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select year" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="2024">
+                                2024 (Mar 23 - Feb 24)
+                              </SelectItem>
+                              <SelectItem value="2025">
+                                2025 (Mar 24 - Feb 25)
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Mandatory Deductions */}
+                <div className="col-span-2">
+                  <h4 className="font-medium text-sm text-muted-foreground mb-2">
+                    Mandatory Deductions
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="uifEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">UIF</FormLabel>
+                                <ExplanationPopover
+                                  title="UIF"
+                                  content="Unemployment Insurance Fund contributions."
+                                />
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("uifEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="uifPercentage"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <div className="flex items-center">
+                                <FormLabel>UIF %</FormLabel>
+                                <ExplanationPopover
+                                  title="UIF Percentage"
+                                  content="Employee contribution percentage (standard is 1%)."
+                                />
+                              </div>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="10"
+                                  step="0.1"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                  disabled={
+                                    !hasFullAccess && !canManageSettings
+                                  }
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Insurance & Benefits */}
+                <div className="col-span-2">
+                  <h4 className="font-medium text-sm text-muted-foreground mb-2">
+                    Insurance & Benefits
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Pension */}
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="pensionEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">
+                                  Pension Fund
+                                </FormLabel>
+                                <ExplanationPopover
+                                  title="Pension Fund"
+                                  content="Retirement savings plan contributions."
+                                />
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("pensionEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="pensionPercentage"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <div className="flex items-center">
+                                <FormLabel>Pension %</FormLabel>
+                                <ExplanationPopover
+                                  title="Pension Percentage"
+                                  content="Percentage of salary contributed to pension."
+                                />
+                              </div>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  step="0.1"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                  disabled={
+                                    !hasFullAccess && !canManageSettings
+                                  }
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {/* Medical Aid */}
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="medicalAidEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">
+                                  Medical Aid
+                                </FormLabel>
+                                <ExplanationPopover
+                                  title="Medical Aid"
+                                  content="Employee health insurance contributions."
+                                />
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("medicalAidEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="medicalAidMaxDeduction"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <div className="flex items-center">
+                                <FormLabel>Max Deduction (ZAR)</FormLabel>
+                                <ExplanationPopover
+                                  title="Medical Aid Max"
+                                  content="Maximum allowed monthly deduction for medical aid."
+                                />
+                              </div>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                  disabled={
+                                    !hasFullAccess && !canManageSettings
+                                  }
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {/* Insurance - Updated with Percentage Input */}
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="insuranceEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">
+                                  Insurance
+                                </FormLabel>
+                                <ExplanationPopover
+                                  title="Insurance"
+                                  content="Deductions for group life, disability, or other insurance policies."
+                                />
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Life/disability
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("insuranceEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="insurancePercentage"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <div className="flex items-center">
+                                <FormLabel>Insurance %</FormLabel>
+                                <ExplanationPopover
+                                  title="Insurance Percentage"
+                                  content="Percentage of salary deducted for insurance."
+                                />
+                              </div>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.1"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                  disabled={
+                                    !hasFullAccess && !canManageSettings
+                                  }
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Company Property Deductions */}
+                <div className="col-span-2">
+                  <h4 className="font-medium text-sm text-muted-foreground mb-2">
+                    Company Property
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="uniformPPEEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">
+                                  Uniform/PPE
+                                </FormLabel>
+                                <ExplanationPopover
+                                  title="Uniform/PPE"
+                                  content="Deductions for uniforms or personal protective equipment."
+                                />
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("uniformPPEEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="uniformPPEMaxDeduction"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <div className="flex items-center">
+                                <FormLabel>Max Amount (ZAR)</FormLabel>
+                                <ExplanationPopover
+                                  title="Uniform Max Deduction"
+                                  content="Maximum allowed deduction for uniforms/PPE."
+                                />
+                              </div>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                  disabled={
+                                    !hasFullAccess && !canManageSettings
+                                  }
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="damageLossEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">
+                                  Damage/Loss
+                                </FormLabel>
+                                <ExplanationPopover
+                                  title="Damage/Loss"
+                                  content="Deductions for damages to company property."
+                                />
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("damageLossEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="damageLossMaxPercentage"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <div className="flex items-center">
+                                <FormLabel>Max % of Salary</FormLabel>
+                                <ExplanationPopover
+                                  title="Damage Max Percentage"
+                                  content="Maximum percentage of salary deductible for damages."
+                                />
+                              </div>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.1"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                  disabled={
+                                    !hasFullAccess && !canManageSettings
+                                  }
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Other Deductions (Trade Union, Guarantee Fund, etc) */}
+                <div className="col-span-2">
+                  <h4 className="font-medium text-sm text-muted-foreground mb-2">
+                    Other Deductions
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Trade Union - Updated with Amount Input */}
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="tradeUnionEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">
+                                  Trade Union
+                                </FormLabel>
+                                <ExplanationPopover
+                                  title="Trade Union"
+                                  content="Deduction for union membership fees."
+                                />
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Membership fees
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("tradeUnionEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="tradeUnionAmount"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <FormLabel>Amount (ZAR)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {/* Guarantee Fund - Updated with Amount Input */}
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="guaranteeFundEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">
+                                  Guarantee Fund
+                                </FormLabel>
+                                <ExplanationPopover
+                                  title="Guarantee Fund"
+                                  content="Insurance fund deduction for employees handling cash."
+                                />
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Cash handling
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("guaranteeFundEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="guaranteeFundAmount"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <FormLabel>Amount (ZAR)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {/* Funeral Benefit */}
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="funeralBenefitEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">
+                                  Funeral Benefit
+                                </FormLabel>
+                                <ExplanationPopover
+                                  title="Funeral Benefit"
+                                  content="Contribution for funeral coverage."
+                                />
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("funeralBenefitEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="funeralBenefitAmount"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <FormLabel>Amount (ZAR)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {/* Savings Scheme */}
+                    <div className="col-span-2 grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="savingsEnabled"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center">
+                                <FormLabel className="text-sm">
+                                  Savings
+                                </FormLabel>
+                                <ExplanationPopover
+                                  title="Savings Scheme"
+                                  content="Voluntary savings or stokvel deductions."
+                                />
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                                disabled={!hasFullAccess && !canManageSettings}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      {form.watch("savingsEnabled") && (
+                        <FormField
+                          control={form.control}
+                          name="savingsMaxPercentage"
+                          render={({ field }) => (
+                            <FormItem className="space-y-2">
+                              <div className="flex items-center">
+                                <FormLabel>Max % of Salary</FormLabel>
+                                <ExplanationPopover
+                                  title="Savings Max"
+                                  content="Maximum percentage of salary allowed for savings."
+                                />
+                              </div>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.1"
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(parseFloat(e.target.value))
+                                  }
+                                  className="w-full"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
+
+                    {/* Simple Switches (No extra input needed based on UI design) */}
                     <FormField
                       control={form.control}
                       name="overpaymentEnabled"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 col-span-2">
                           <div className="space-y-0.5">
                             <div className="flex items-center">
                               <FormLabel className="text-sm">
-                                Overpayment
+                                Overpayment Recovery
                               </FormLabel>
                               <ExplanationPopover
                                 title="Overpayment Recovery"
-                                content="Recovery of salary overpayments from previous pay periods, with employee consent."
+                                content="Deductions to recover salary overpayments."
                               />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Salary overpayment
                             </div>
                           </div>
                           <FormControl>
@@ -1740,12 +2393,12 @@ export default function HRSettingsForm({
                         control={form.control}
                         name="overpaymentMaxPercentage"
                         render={({ field }) => (
-                          <FormItem className="space-y-2">
+                          <FormItem className="space-y-2 col-span-2">
                             <div className="flex items-center">
-                              <FormLabel>Max % per Pay</FormLabel>
+                              <FormLabel>Max Recovery % per Pay</FormLabel>
                               <ExplanationPopover
-                                title="Overpayment Recovery Maximum"
-                                content="Maximum percentage of salary that can be deducted per pay period for overpayment recovery."
+                                title="Overpayment Max"
+                                content="Maximum percentage of salary deductible for overpayment recovery."
                               />
                             </div>
                             <FormControl>
@@ -1759,10 +2412,8 @@ export default function HRSettingsForm({
                                   field.onChange(parseFloat(e.target.value))
                                 }
                                 className="w-full"
-                                disabled={!hasFullAccess && !canManageSettings}
                               />
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -1772,7 +2423,7 @@ export default function HRSettingsForm({
                       control={form.control}
                       name="loanRepaymentEnabled"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 col-span-2">
                           <div className="space-y-0.5">
                             <div className="flex items-center">
                               <FormLabel className="text-sm">
@@ -1780,11 +2431,8 @@ export default function HRSettingsForm({
                               </FormLabel>
                               <ExplanationPopover
                                 title="Loan Repayment"
-                                content="Deduction for repayment of loans or salary advances made to employee."
+                                content="Deductions for company loan repayments."
                               />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Employee loans
                             </div>
                           </div>
                           <FormControl>
@@ -1797,212 +2445,21 @@ export default function HRSettingsForm({
                         </FormItem>
                       )}
                     />
-                  </div>
-                </div>
-
-                {/* Voluntary & Other Deductions */}
-                <div className="col-span-2">
-                  <h4 className="font-medium text-sm text-muted-foreground mb-2">
-                    Voluntary & Other Deductions
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="funeralBenefitEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">
-                                Funeral Benefit
-                              </FormLabel>
-                              <ExplanationPopover
-                                title="Funeral Benefit"
-                                content="Contribution to funeral benefit scheme providing financial assistance in case of death."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Death assistance
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    {form.watch("funeralBenefitEnabled") && (
-                      <FormField
-                        control={form.control}
-                        name="funeralBenefitAmount"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <div className="flex items-center">
-                              <FormLabel>Amount (ZAR)</FormLabel>
-                              <ExplanationPopover
-                                title="Funeral Benefit Amount"
-                                content="Monthly contribution amount for funeral benefit scheme."
-                              />
-                            </div>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value))
-                                }
-                                className="w-full"
-                                disabled={!hasFullAccess && !canManageSettings}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-
-                    <FormField
-                      control={form.control}
-                      name="tradeUnionEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">
-                                Trade Union
-                              </FormLabel>
-                              <ExplanationPopover
-                                title="Trade Union Dues"
-                                content="Deduction for trade union membership fees, authorized by employee."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Membership fees
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="guaranteeFundEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">
-                                Guarantee Fund
-                              </FormLabel>
-                              <ExplanationPopover
-                                title="Guarantee Fund"
-                                content="Contribution to fund covering losses from employees who handle cash/valuables."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Cash handling
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="savingsEnabled"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center">
-                              <FormLabel className="text-sm">Savings</FormLabel>
-                              <ExplanationPopover
-                                title="Savings Scheme"
-                                content="Deduction for employee savings plan or stokvel participation."
-                              />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Employee savings
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                    {form.watch("savingsEnabled") && (
-                      <FormField
-                        control={form.control}
-                        name="savingsMaxPercentage"
-                        render={({ field }) => (
-                          <FormItem className="space-y-2">
-                            <div className="flex items-center">
-                              <FormLabel>Max % of Salary</FormLabel>
-                              <ExplanationPopover
-                                title="Savings Maximum Percentage"
-                                content="Maximum percentage of salary that can be deducted for savings."
-                              />
-                            </div>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.1"
-                                {...field}
-                                onChange={(e) =>
-                                  field.onChange(parseFloat(e.target.value))
-                                }
-                                className="w-full"
-                                disabled={!hasFullAccess && !canManageSettings}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
 
                     <FormField
                       control={form.control}
                       name="disciplinaryEnabled"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 col-span-2">
                           <div className="space-y-0.5">
                             <div className="flex items-center">
                               <FormLabel className="text-sm">
-                                Disciplinary
+                                Disciplinary Action
                               </FormLabel>
                               <ExplanationPopover
-                                title="Disciplinary Action Deduction"
-                                content="Deduction for disciplinary actions like suspension without pay."
+                                title="Disciplinary Action"
+                                content="Deductions resulting from disciplinary hearings (e.g. unpaid suspension)."
                               />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Suspension without pay
                             </div>
                           </div>
                           <FormControl>
@@ -2020,12 +2477,12 @@ export default function HRSettingsForm({
                         control={form.control}
                         name="disciplinaryMaxPercentage"
                         render={({ field }) => (
-                          <FormItem className="space-y-2">
+                          <FormItem className="space-y-2 col-span-2">
                             <div className="flex items-center">
-                              <FormLabel>Max % of Salary</FormLabel>
+                              <FormLabel>Max Disciplinary %</FormLabel>
                               <ExplanationPopover
-                                title="Disciplinary Maximum Deduction"
-                                content="Maximum percentage of salary that can be deducted for disciplinary actions."
+                                title="Disciplinary Max"
+                                content="Maximum percentage of salary deductible for disciplinary reasons."
                               />
                             </div>
                             <FormControl>
@@ -2039,10 +2496,8 @@ export default function HRSettingsForm({
                                   field.onChange(parseFloat(e.target.value))
                                 }
                                 className="w-full"
-                                disabled={!hasFullAccess && !canManageSettings}
                               />
                             </FormControl>
-                            <FormMessage />
                           </FormItem>
                         )}
                       />
@@ -2052,19 +2507,16 @@ export default function HRSettingsForm({
                       control={form.control}
                       name="courtOrderEnabled"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 col-span-2">
                           <div className="space-y-0.5">
                             <div className="flex items-center">
                               <FormLabel className="text-sm">
                                 Court Orders
                               </FormLabel>
                               <ExplanationPopover
-                                title="Court Order Deductions"
-                                content="Mandatory deductions for maintenance, garnishee orders, or other court orders."
+                                title="Court Orders"
+                                content="Mandatory deductions like garnishee orders or maintenance."
                               />
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Maintenance/garnish
                             </div>
                           </div>
                           <FormControl>

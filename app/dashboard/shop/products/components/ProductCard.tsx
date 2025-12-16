@@ -22,6 +22,8 @@ interface ProductCardProps {
   onDelete: (productId: string) => void;
 }
 
+const TAX_RATE = 0.15; // 15% VAT for South Africa
+
 export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
   const getStockStatus = (stock: number, minStock: number) => {
     if (stock === 0)
@@ -63,19 +65,36 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
     return description.replace(/\n/g, "<br>");
   };
 
-  // Ensure price is a number
-  const price =
-    typeof product.price === "string"
-      ? parseFloat(product.price)
-      : product.price;
-  const costPrice = product.costPrice
-    ? typeof product.costPrice === "string"
-      ? parseFloat(product.costPrice)
-      : product.costPrice
-    : null;
+  // Helper function to safely convert to number
+  const toNumber = (value: any): number => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return value;
+    if (typeof value === "string") {
+      const num = parseFloat(value);
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  };
+
+  // Get prices - use stored values or calculate if not available
+  const priceAfterTax = toNumber(product.price);
+  const priceBeforeTax = product.priceBeforeTax
+    ? toNumber(product.priceBeforeTax)
+    : priceAfterTax / (1 + TAX_RATE);
+
+  const costAfterTax = product.costPrice ? toNumber(product.costPrice) : null;
+  const costBeforeTax = product.costPriceBeforeTax
+    ? toNumber(product.costPriceBeforeTax)
+    : costAfterTax
+      ? costAfterTax / (1 + TAX_RATE)
+      : null;
 
   const stockStatus = getStockStatus(product.stock, product.minStock);
-  const profitMargin = costPrice ? ((price - costPrice) / price) * 100 : 0;
+
+  // Calculate profit margin (using after-tax values as before)
+  const profitMargin = costAfterTax
+    ? ((priceAfterTax - costAfterTax) / costAfterTax) * 100
+    : 0;
 
   return (
     <Card key={product.id} className="hover:shadow-md transition-shadow">
@@ -156,21 +175,49 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
           </div>
         </div>
 
-        {/* Pricing */}
+        {/* Pricing - Simple and clear like before */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-bold">R{price.toFixed(2)}</span>
-            {costPrice && (
-              <span className="text-sm text-muted-foreground">
-                {profitMargin.toFixed(1)}% margin
+          {/* Selling Price */}
+          <div className="space-y-1">
+            <div className="text-lg font-bold">R{priceAfterTax.toFixed(2)}</div>
+            <div className="text-xs text-gray-500">
+              Before VAT: R{priceBeforeTax.toFixed(2)}
+              <span className="ml-2 text-xs bg-gray-100 px-1 rounded">
+                15% VAT
               </span>
-            )}
+            </div>
           </div>
-          {costPrice && (
-            <div className="text-sm text-muted-foreground">
-              Cost: R{costPrice.toFixed(2)}
+
+          {/* Cost Price (if available) */}
+          {costAfterTax && (
+            <div className="space-y-1 pt-2 border-t">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-gray-600">
+                    Cost: R{costAfterTax.toFixed(2)}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Before VAT: R{costBeforeTax?.toFixed(2) || "0.00"}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-semibold text-green-600">
+                    {profitMargin.toFixed(1)}% margin
+                  </div>
+                </div>
+              </div>
             </div>
           )}
+
+          {/* Simple tax info badge */}
+          <div className="flex items-center text-xs text-gray-500">
+            <span className="mr-2">Tax mode:</span>
+            <Badge variant="outline" className="text-xs">
+              {product.priceInputMode === "BEFORE_TAX"
+                ? "Entered before tax"
+                : "Entered after tax"}
+            </Badge>
+          </div>
         </div>
 
         {/* Stock Status */}
@@ -197,7 +244,7 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
           {product.weight && (
             <div className="flex justify-between">
               <span>Weight:</span>
-              <span>{product.weight}kg</span>
+              <span>{toNumber(product.weight)}kg</span>
             </div>
           )}
           <div className="flex justify-between">

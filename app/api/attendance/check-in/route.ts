@@ -254,29 +254,63 @@ export async function POST(request: NextRequest) {
     let checkInTimeToUse: Date = currentTime;
     let customCheckInDateTime: Date | null = null;
 
-    if (bypassResult.bypassCheckIn) {
+    // If bypass has a custom check-in time, we need to check if they're late relative to THAT time
+    if (
+      bypassResult.bypassCheckIn &&
+      bypassResult.customCheckInTime &&
+      bypassResult.customCheckInTime !== "none"
+    ) {
       bypassApplied = true;
 
-      // If it is a generic bypass (no custom time), simply force present
-      if (
-        !bypassResult.customCheckInTime ||
-        bypassResult.customCheckInTime === "none"
-      ) {
+      // Parse the custom bypass time
+      const [bypassHours, bypassMinutes] = bypassResult.customCheckInTime
+        .split(":")
+        .map(Number);
+
+      // Create a Date object for the bypass schedule time in SAST
+      const dateStr = attendanceDate.toISOString().split("T")[0];
+      const bypassTimeStr = `${String(bypassHours).padStart(2, "0")}:${String(bypassMinutes).padStart(2, "0")}:00`;
+      const bypassScheduledTime = new Date(`${dateStr}T${bypassTimeStr}+02:00`);
+
+      // Adjust for night shifts if needed
+      if (isNightShift && bypassHours < 12) {
+        bypassScheduledTime.setDate(bypassScheduledTime.getDate() + 1);
+      }
+
+      // Calculate late threshold based on bypass time
+      const bypassLateThreshold = new Date(
+        bypassScheduledTime.getTime() + gracePeriodMinutes * 60000
+      );
+
+      // Check if current check-in is late relative to bypass time
+      if (currentTime > bypassLateThreshold) {
+        status = AttendanceStatus.LATE;
+        isLate = true;
+        console.log(
+          `Bypass Late Check: Checked in at ${currentTime.toISOString()}, ` +
+            `Bypass schedule: ${bypassScheduledTime.toISOString()}, ` +
+            `Threshold: ${bypassLateThreshold.toISOString()} -> MARKED LATE`
+        );
+      } else {
         status = AttendanceStatus.PRESENT;
         isLate = false;
-        console.log("Generic Bypass: Forcing PRESENT status");
+        console.log(`Bypass Late Check: On Time for bypass schedule`);
       }
-      // If it HAS a custom time, we let it fall through to the Standard Late Check below.
-      // We already updated 'scheduledKnockInTime' in Step 6 to match the bypass time.
     }
-
-    // Standard Late Check (Runs for Normal OR Custom Bypass Time)
-    if (scheduledKnockInTime) {
+    // If it's a generic bypass (no custom time), simply force present
+    else if (bypassResult.bypassCheckIn) {
+      bypassApplied = true;
+      status = AttendanceStatus.PRESENT;
+      isLate = false;
+      console.log("Generic Bypass: Forcing PRESENT status");
+    }
+    // Standard Late Check (only when no bypass is applied)
+    else if (scheduledKnockInTime) {
       const [scheduledHours, scheduledMinutes] = scheduledKnockInTime
         .split(":")
         .map(Number);
 
-      // Create Schedule Time in SAST (+02:00) so it compares correctly to UTC CheckIn
+      // Create Schedule Time in SAST (+02:00)
       const dateStr = attendanceDate.toISOString().split("T")[0];
       const timeStr = `${String(scheduledHours).padStart(2, "0")}:${String(scheduledMinutes).padStart(2, "0")}:00`;
       const scheduledDateTime = new Date(`${dateStr}T${timeStr}+02:00`);
@@ -292,24 +326,16 @@ export async function POST(request: NextRequest) {
         scheduledDateTime.getTime() + gracePeriodMinutes * 60000
       );
 
-      // Only check if status wasn't already forced to PRESENT by generic bypass
-      const isGenericBypass =
-        bypassResult.bypassCheckIn &&
-        (!bypassResult.customCheckInTime ||
-          bypassResult.customCheckInTime === "none");
-
-      if (!isGenericBypass) {
-        if (currentTime > lateThreshold) {
-          status = AttendanceStatus.LATE;
-          isLate = true;
-          console.log(
-            `Late Check: ${currentTime.toISOString()} > ${lateThreshold.toISOString()} -> MARKED LATE`
-          );
-        } else {
-          status = AttendanceStatus.PRESENT;
-          isLate = false;
-          console.log(`Late Check: On Time`);
-        }
+      if (currentTime > lateThreshold) {
+        status = AttendanceStatus.LATE;
+        isLate = true;
+        console.log(
+          `Standard Late Check: ${currentTime.toISOString()} > ${lateThreshold.toISOString()} -> MARKED LATE`
+        );
+      } else {
+        status = AttendanceStatus.PRESENT;
+        isLate = false;
+        console.log(`Standard Late Check: On Time`);
       }
     }
 
@@ -317,14 +343,9 @@ export async function POST(request: NextRequest) {
     // 8. WARNINGS (For Employees Only)
     // ---------------------------------------------------------
     let warningCreated = null;
-    // Only issue warning if it's NOT a generic bypass.
-    // If it's a "Schedule Override" bypass (Custom Time) and they are late, they get a warning.
-    const isGenericBypass =
-      bypassResult.bypassCheckIn &&
-      (!bypassResult.customCheckInTime ||
-        bypassResult.customCheckInTime === "none");
 
-    if (isLate && personType === "employee" && !isGenericBypass) {
+    // Issue warning if late (now includes custom bypass late checks)
+    if (isLate && personType === "employee") {
       warningCreated = await checkAndCreateLateWarning(person.id, currentTime);
     }
 
