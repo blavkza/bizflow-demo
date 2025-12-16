@@ -71,10 +71,10 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // 2. TIMEZONE CALCULATION (FIXED)
     // ---------------------------------------------------------
-    // FIX A: Use exact Server Time. No manual offsets.
+    // Use exact Server Time
     const currentTime = new Date();
 
-    // FIX B: Calculate "Today" based on South African Calendar
+    // Calculate "Today" based on South African Calendar
     const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
       timeZone: "Africa/Johannesburg",
       year: "numeric",
@@ -159,7 +159,6 @@ export async function POST(request: NextRequest) {
 
     // Check if it's a working day
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-    // Use the SAST date parts to determine day of week
     const tempSASTDate = new Date(year, month - 1, day);
     const attendanceDay = dayNames[tempSASTDate.getDay()];
 
@@ -223,7 +222,6 @@ export async function POST(request: NextRequest) {
       bypassResult.customCheckInTime !== "none"
     ) {
       scheduledKnockInTime = bypassResult.customCheckInTime;
-      // Keep original knock-out unless specifically bypassed (not handled here)
       scheduledKnockOutTime = isWeekend
         ? person.scheduledWeekendKnockOut || person.scheduledKnockOut
         : person.scheduledKnockOut;
@@ -252,9 +250,13 @@ export async function POST(request: NextRequest) {
     let isLate = false;
     let bypassApplied = false;
     let checkInTimeToUse: Date = currentTime;
-    let customCheckInDateTime: Date | null = null;
 
-    // If bypass has a custom check-in time, we need to check if they're late relative to THAT time
+    console.log(`=== STATUS CALCULATION DEBUG ===`);
+    console.log(`Current Time: ${currentTime.toISOString()}`);
+    console.log(`Attendance Date: ${attendanceDate.toISOString()}`);
+    console.log(`Grace Period: ${gracePeriodMinutes} minutes`);
+
+    // If bypass has a custom check-in time, check lateness relative to THAT time
     if (
       bypassResult.bypassCheckIn &&
       bypassResult.customCheckInTime &&
@@ -262,80 +264,107 @@ export async function POST(request: NextRequest) {
     ) {
       bypassApplied = true;
 
-      // Parse the custom bypass time
       const [bypassHours, bypassMinutes] = bypassResult.customCheckInTime
         .split(":")
         .map(Number);
 
-      // Create a Date object for the bypass schedule time in SAST
-      const dateStr = attendanceDate.toISOString().split("T")[0];
-      const bypassTimeStr = `${String(bypassHours).padStart(2, "0")}:${String(bypassMinutes).padStart(2, "0")}:00`;
-      const bypassScheduledTime = new Date(`${dateStr}T${bypassTimeStr}+02:00`);
+      console.log(`Bypass Time: ${bypassHours}:${bypassMinutes}`);
 
-      // Adjust for night shifts if needed
+      // Create bypass schedule time in UTC
+      // Bypass time is in SAST (Africa/Johannesburg, UTC+2)
+      // So 07:00 SAST = 05:00 UTC
+      const bypassScheduleUTC = new Date(attendanceDate);
+      bypassScheduleUTC.setUTCHours(bypassHours - 2, bypassMinutes, 0, 0);
+
+      // Adjust for night shifts
       if (isNightShift && bypassHours < 12) {
-        bypassScheduledTime.setDate(bypassScheduledTime.getDate() + 1);
+        bypassScheduleUTC.setDate(bypassScheduleUTC.getDate() + 1);
       }
 
-      // Calculate late threshold based on bypass time
+      // Calculate late threshold
       const bypassLateThreshold = new Date(
-        bypassScheduledTime.getTime() + gracePeriodMinutes * 60000
+        bypassScheduleUTC.getTime() + gracePeriodMinutes * 60000
       );
 
-      // Check if current check-in is late relative to bypass time
+      console.log(`Bypass Schedule Calculation:`);
+      console.log(`  Bypass Time (SAST): ${bypassHours}:${bypassMinutes}`);
+      console.log(`  Bypass Schedule UTC: ${bypassScheduleUTC.toISOString()}`);
+      console.log(`  Current Time: ${currentTime.toISOString()}`);
+      console.log(`  Late Threshold: ${bypassLateThreshold.toISOString()}`);
+      console.log(
+        `  Is Late? ${currentTime > bypassLateThreshold} (${currentTime.toISOString()} > ${bypassLateThreshold.toISOString()})`
+      );
+
       if (currentTime > bypassLateThreshold) {
         status = AttendanceStatus.LATE;
         isLate = true;
         console.log(
-          `Bypass Late Check: Checked in at ${currentTime.toISOString()}, ` +
-            `Bypass schedule: ${bypassScheduledTime.toISOString()}, ` +
-            `Threshold: ${bypassLateThreshold.toISOString()} -> MARKED LATE`
+          `✓ MARKED AS LATE for bypass schedule ${bypassResult.customCheckInTime}`
         );
       } else {
         status = AttendanceStatus.PRESENT;
         isLate = false;
-        console.log(`Bypass Late Check: On Time for bypass schedule`);
+        console.log(
+          `✓ On time for bypass schedule ${bypassResult.customCheckInTime}`
+        );
       }
     }
-    // If it's a generic bypass (no custom time), simply force present
+    // Generic bypass (no custom time) - force present
     else if (bypassResult.bypassCheckIn) {
       bypassApplied = true;
       status = AttendanceStatus.PRESENT;
       isLate = false;
-      console.log("Generic Bypass: Forcing PRESENT status");
+      console.log("✓ Generic Bypass: Forcing PRESENT status");
     }
-    // Standard Late Check (only when no bypass is applied)
+    // Standard schedule check (no bypass)
     else if (scheduledKnockInTime) {
       const [scheduledHours, scheduledMinutes] = scheduledKnockInTime
         .split(":")
         .map(Number);
 
-      // Create Schedule Time in SAST (+02:00)
-      const dateStr = attendanceDate.toISOString().split("T")[0];
-      const timeStr = `${String(scheduledHours).padStart(2, "0")}:${String(scheduledMinutes).padStart(2, "0")}:00`;
-      const scheduledDateTime = new Date(`${dateStr}T${timeStr}+02:00`);
+      console.log(`Standard Schedule: ${scheduledHours}:${scheduledMinutes}`);
+
+      // Create scheduled time in UTC
+      // Schedule time is in SAST (UTC+2)
+      const scheduledScheduleUTC = new Date(attendanceDate);
+      scheduledScheduleUTC.setUTCHours(
+        scheduledHours - 2,
+        scheduledMinutes,
+        0,
+        0
+      );
 
       // Adjust for night shifts
       if (scheduledHours >= 18) {
         // Belongs to current day
       } else if (isNightShift && scheduledHours < 12) {
-        scheduledDateTime.setDate(scheduledDateTime.getDate() + 1);
+        scheduledScheduleUTC.setDate(scheduledScheduleUTC.getDate() + 1);
       }
 
       const lateThreshold = new Date(
-        scheduledDateTime.getTime() + gracePeriodMinutes * 60000
+        scheduledScheduleUTC.getTime() + gracePeriodMinutes * 60000
+      );
+
+      console.log(`Standard Schedule Calculation:`);
+      console.log(
+        `  Schedule Time (SAST): ${scheduledHours}:${scheduledMinutes}`
+      );
+      console.log(`  Schedule UTC: ${scheduledScheduleUTC.toISOString()}`);
+      console.log(`  Late Threshold: ${lateThreshold.toISOString()}`);
+      console.log(
+        `  Is Late? ${currentTime > lateThreshold} (${currentTime.toISOString()} > ${lateThreshold.toISOString()})`
       );
 
       if (currentTime > lateThreshold) {
         status = AttendanceStatus.LATE;
         isLate = true;
         console.log(
-          `Standard Late Check: ${currentTime.toISOString()} > ${lateThreshold.toISOString()} -> MARKED LATE`
+          `✓ MARKED AS LATE for standard schedule ${scheduledKnockInTime}`
         );
       } else {
         status = AttendanceStatus.PRESENT;
         isLate = false;
-        console.log(`Standard Late Check: On Time`);
+        console.log(`✓ On time for standard schedule ${scheduledKnockInTime}`);
       }
     }
 
@@ -344,7 +373,6 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     let warningCreated = null;
 
-    // Issue warning if late (now includes custom bypass late checks)
     if (isLate && personType === "employee") {
       warningCreated = await checkAndCreateLateWarning(person.id, currentTime);
     }
@@ -367,10 +395,6 @@ export async function POST(request: NextRequest) {
       bypassRuleId: bypassResult.rule?.id || null,
     };
 
-    if (customCheckInDateTime) {
-      attendanceData.customCheckInTime = customCheckInDateTime;
-    }
-
     // Add note about bypass schedule change
     if (
       bypassApplied &&
@@ -387,7 +411,6 @@ export async function POST(request: NextRequest) {
       attendanceData.freeLancerId = person.id;
     }
 
-    // Use the correctly calculated attendanceDate (UTC Midnight)
     const attendanceDateUTC = attendanceDate;
 
     console.log(`Creating attendance record:`, {
@@ -397,7 +420,7 @@ export async function POST(request: NextRequest) {
       checkInTime: checkInTimeToUse.toISOString(),
       status: status,
       bypassApplied: bypassApplied,
-      isNightShift: isNightShift,
+      isLate: isLate,
     });
 
     let attendanceRecord: any = null;
@@ -449,6 +472,7 @@ export async function POST(request: NextRequest) {
         recordId: attendanceRecord.id,
         checkIn: attendanceRecord.checkIn,
         status: attendanceRecord.status,
+        isLate: isLate,
       });
 
       // Send notification
