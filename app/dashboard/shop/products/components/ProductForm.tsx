@@ -746,7 +746,9 @@ export function ProductForm({
                           placeholder="0.00"
                           step="0.01"
                           min="0"
-                          value={profitDisplayValue || ""}
+                          value={
+                            profitDisplayValue === 0 ? "" : profitDisplayValue
+                          }
                           onChange={(e) => handleProfitChange(e.target.value)}
                           className="pl-9"
                         />
@@ -771,17 +773,17 @@ export function ProductForm({
                               placeholder="0.00"
                               step="0.01"
                               min="0"
-                              value={field.value === null ? "" : field.value}
+                              value={field.value === 0 ? "" : field.value}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                field.onChange(
-                                  val === "" ? 0 : parseFloat(val)
-                                );
+                                const numVal = val === "" ? 0 : parseFloat(val);
+                                field.onChange(isNaN(numVal) ? 0 : numVal);
                                 handleSellingPriceChange(val);
                               }}
                             />
                             <p className="text-xs text-gray-500">
-                              Ex VAT: R{formatPrice(removeVat(field.value))}
+                              Ex VAT: R
+                              {formatPrice(removeVat(field.value || 0))}
                             </p>
                           </div>
                         </FormControl>
@@ -860,7 +862,9 @@ export function ProductForm({
                           placeholder="0.00"
                           step="0.01"
                           min="0"
-                          value={profitDisplayValue || ""}
+                          value={
+                            profitDisplayValue === 0 ? "" : profitDisplayValue
+                          }
                           onChange={(e) => handleProfitChange(e.target.value)}
                           className="pl-9"
                         />
@@ -885,22 +889,16 @@ export function ProductForm({
                               placeholder="0.00"
                               step="0.01"
                               min="0"
-                              value={
-                                field.value === undefined ||
-                                field.value === null
-                                  ? ""
-                                  : field.value
-                              }
+                              value={field.value === 0 ? "" : field.value}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                field.onChange(
-                                  val === "" ? 0 : parseFloat(val)
-                                );
+                                const numVal = val === "" ? 0 : parseFloat(val);
+                                field.onChange(isNaN(numVal) ? 0 : numVal);
                                 handleSellingPriceChange(val);
                               }}
                             />
                             <p className="text-xs text-gray-500">
-                              Inc VAT: R{formatPrice(addVat(field.value))}
+                              Inc VAT: R{formatPrice(addVat(field.value || 0))}
                             </p>
                           </div>
                         </FormControl>
@@ -1017,14 +1015,12 @@ export function ProductForm({
                       type="number"
                       placeholder="0"
                       min="0"
-                      value={field.value === undefined ? "" : field.value}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === ""
-                            ? 0
-                            : parseInt(e.target.value) || 0
-                        )
-                      }
+                      value={field.value === 0 ? "" : field.value}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const numVal = val === "" ? 0 : parseInt(val);
+                        field.onChange(isNaN(numVal) ? 0 : numVal);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -1043,14 +1039,12 @@ export function ProductForm({
                       type="number"
                       placeholder="0"
                       min="0"
-                      value={field.value === undefined ? "" : field.value}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === ""
-                            ? 0
-                            : parseInt(e.target.value) || 0
-                        )
-                      }
+                      value={field.value === 0 ? "" : field.value}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const numVal = val === "" ? 0 : parseInt(val);
+                        field.onChange(isNaN(numVal) ? 0 : numVal);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -1069,14 +1063,12 @@ export function ProductForm({
                       type="number"
                       placeholder="0"
                       min="0"
-                      value={field.value === undefined ? "" : field.value}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === ""
-                            ? 0
-                            : parseInt(e.target.value) || 0
-                        )
-                      }
+                      value={field.value === 0 ? "" : field.value}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const numVal = val === "" ? 0 : parseInt(val);
+                        field.onChange(isNaN(numVal) ? 0 : numVal);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
@@ -1113,14 +1105,12 @@ export function ProductForm({
                       placeholder="0.000"
                       step="0.001"
                       min="0"
-                      value={field.value === undefined ? "" : field.value}
-                      onChange={(e) =>
-                        field.onChange(
-                          e.target.value === ""
-                            ? 0
-                            : parseFloat(e.target.value) || 0
-                        )
-                      }
+                      value={field.value === 0 ? "" : field.value}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const numVal = val === "" ? 0 : parseFloat(val);
+                        field.onChange(isNaN(numVal) ? 0 : numVal);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
