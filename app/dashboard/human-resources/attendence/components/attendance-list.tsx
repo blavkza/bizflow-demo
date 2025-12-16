@@ -15,6 +15,7 @@ import {
   UserCog,
   Zap,
   Moon,
+  AlertCircle,
 } from "lucide-react";
 import { AttendanceRecord } from "../types";
 import {
@@ -129,6 +130,8 @@ export function AttendanceList({
     let knockIn = null;
     let knockOut = null;
     let isBypassSchedule = false;
+    let bypassSource: "rule" | "record" | "notes" | null = null;
+    let bypassCheckOutSpecified = false;
 
     // 1. Start with Profile Defaults
     if (weekend) {
@@ -173,6 +176,13 @@ export function AttendanceList({
         ) {
           knockIn = activeRule.customCheckInTime;
           isBypassSchedule = true;
+          bypassSource = "rule";
+
+          // Check if checkout time is specified in bypass rule
+          bypassCheckOutSpecified = !!(
+            activeRule.customCheckOutTime &&
+            activeRule.customCheckOutTime !== "none"
+          );
         }
         if (
           activeRule.customCheckOutTime &&
@@ -180,6 +190,8 @@ export function AttendanceList({
         ) {
           knockOut = activeRule.customCheckOutTime;
           isBypassSchedule = true;
+          bypassSource = "rule";
+          bypassCheckOutSpecified = true;
         }
       }
     }
@@ -188,20 +200,40 @@ export function AttendanceList({
     // If we have a record, trust what the backend saved, as it might have specific logic
     if (record?.scheduledKnockIn) {
       knockIn = record.scheduledKnockIn;
-      if (record.bypassApplied) isBypassSchedule = true;
+      if (record.bypassApplied) {
+        isBypassSchedule = true;
+        bypassSource = "record";
+
+        // Check if checkout time was recorded as bypass
+        if (
+          record.scheduledKnockOut &&
+          record.notes?.toLowerCase().includes("bypass")
+        ) {
+          bypassCheckOutSpecified = true;
+        }
+      }
     }
     if (record?.scheduledKnockOut) {
       knockOut = record.scheduledKnockOut;
+      if (record.bypassApplied) {
+        isBypassSchedule = true;
+        bypassSource = "record";
+        bypassCheckOutSpecified = true;
+      }
     }
 
     // 4. Override with Explicit Custom Times from Notes (Highest Priority)
     if (customTimes?.checkIn) {
       knockIn = customTimes.checkIn;
       isBypassSchedule = true;
+      bypassSource = "notes";
+      bypassCheckOutSpecified = !!customTimes.checkOut;
     }
     if (customTimes?.checkOut) {
       knockOut = customTimes.checkOut;
       isBypassSchedule = true;
+      bypassSource = "notes";
+      bypassCheckOutSpecified = true;
     }
 
     return {
@@ -209,12 +241,10 @@ export function AttendanceList({
       knockOut,
       isWeekend: weekend,
       isBypassSchedule,
+      bypassSource,
+      bypassCheckOutSpecified,
     };
   };
-
-  // ... (shouldShowNotCheckedIn, getDisplayStatusText, getStatusBadgeColor updated to use new getScheduledTimes) ...
-  // For brevity, assuming they call getScheduledTimes with same params.
-  // We need to pass the updated params to them.
 
   const shouldShowNotCheckedIn = (record: AttendanceRecord) => {
     if (record.checkIn) return false;
@@ -371,6 +401,8 @@ export function AttendanceList({
           knockOut: scheduledKnockOut,
           isWeekend,
           isBypassSchedule,
+          bypassSource,
+          bypassCheckOutSpecified,
         } = getScheduledTimes(person, recordDate, record, customTimes);
 
         const hasValidSchedule =
@@ -380,6 +412,42 @@ export function AttendanceList({
         const showNotCheckedIn = shouldShowNotCheckedIn(record);
         const displayStatusText = getDisplayStatusText(record);
         const statusBadgeColor = getStatusBadgeColor(record);
+
+        // Format schedule display text
+        const getScheduleDisplayText = () => {
+          if (!isValidScheduledTime(scheduledKnockIn)) {
+            return "No schedule set";
+          }
+
+          let displayText = "";
+
+          if (isBypassSchedule) {
+            displayText = "Bypass Schedule: ";
+          } else {
+            displayText = "Scheduled: ";
+          }
+
+          displayText += formatTime(scheduledKnockIn!);
+
+          if (isValidScheduledTime(scheduledKnockOut)) {
+            displayText += ` - ${formatTime(scheduledKnockOut!)}`;
+
+            // Add warning if bypass schedule doesn't specify checkout time
+            if (isBypassSchedule && !bypassCheckOutSpecified) {
+              displayText += " (using default checkout)";
+            }
+          } else if (isBypassSchedule) {
+            displayText += " - Not specified";
+          } else {
+            displayText += " - Not set";
+          }
+
+          if (isWeekend && !isBypassSchedule) {
+            displayText += " (Weekend)";
+          }
+
+          return displayText;
+        };
 
         return (
           <Card key={record.id} className="hover:shadow-md transition-shadow">
@@ -458,23 +526,36 @@ export function AttendanceList({
                       </span>
                     </div>
 
-                    {hasValidSchedule ? (
-                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                    {isValidScheduledTime(scheduledKnockIn) ? (
+                      <div className="flex items-center gap-2 mt-1">
                         {isBypassSchedule ? (
-                          <Zap className="h-3 w-3 text-amber-500" />
+                          <Zap className="h-3 w-3 text-amber-500 flex-shrink-0" />
                         ) : (
-                          <Clock className="h-3 w-3" />
+                          <Clock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                         )}
-                        <span
-                          className={
-                            isBypassSchedule ? "font-medium text-amber-700" : ""
-                          }
-                        >
-                          {isBypassSchedule ? "Bypass Schedule:" : "Scheduled:"}{" "}
-                          {formatTime(scheduledKnockIn!)} -{" "}
-                          {formatTime(scheduledKnockOut!)}
-                          {isWeekend && !isBypassSchedule && " (Weekend)"}
-                        </span>
+                        <div className="flex flex-col">
+                          <span
+                            className={`text-xs ${
+                              isBypassSchedule
+                                ? bypassCheckOutSpecified
+                                  ? "font-medium text-amber-700"
+                                  : "font-medium text-amber-700"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {getScheduleDisplayText()}
+                          </span>
+
+                          {/* Warning for bypass without checkout time */}
+                          {isBypassSchedule &&
+                            !bypassCheckOutSpecified &&
+                            isValidScheduledTime(scheduledKnockOut) && (
+                              <div className="flex items-center gap-1 text-xs text-amber-600 mt-0.5">
+                                <AlertCircle className="h-3 w-3" />
+                                <span>Using default checkout time</span>
+                              </div>
+                            )}
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 mt-1 text-xs text-orange-600">
