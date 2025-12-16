@@ -113,7 +113,7 @@ export function ProductForm({
       size: product?.size || "",
       brand: product?.brand || "",
       status: product?.status || "ACTIVE",
-      featured: product?.featured || false,
+      featured: product?.featured || true,
       images: product?.images || [],
       priceInputMode: product?.priceInputMode || "AFTER_TAX",
 
@@ -1185,16 +1185,14 @@ export function ProductForm({
               control={form.control}
               name="featured"
               render={({ field }) => (
-                <FormItem className="space-y-2 flex items-center space-x-2 pt-8">
+                <FormItem className="flex items-center space-x-3 pt-8">
                   <FormControl>
-                    <input
-                      type="checkbox"
+                    <Switch
                       checked={field.value}
-                      onChange={field.onChange}
-                      className="rounded border-gray-300"
+                      onCheckedChange={field.onChange}
                     />
                   </FormControl>
-                  <FormLabel className="!mt-0">Featured Product</FormLabel>
+                  <FormLabel className="!mt-0">Avalable Online</FormLabel>
                   <FormMessage />
                 </FormItem>
               )}
