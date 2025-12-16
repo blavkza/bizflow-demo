@@ -552,7 +552,7 @@ export function AttendanceList({
                             isValidScheduledTime(scheduledKnockOut) && (
                               <div className="flex items-center gap-1 text-xs text-amber-600 mt-0.5">
                                 <AlertCircle className="h-3 w-3" />
-                                <span>Using default checkout time</span>
+                                <span>No check out time</span>
                               </div>
                             )}
                         </div>

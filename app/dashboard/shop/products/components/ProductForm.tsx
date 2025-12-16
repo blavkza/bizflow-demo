@@ -35,7 +35,7 @@ import {
   ShopProductSchemaType,
 } from "@/lib/formValidationSchemas";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Percent, DollarSign, Calculator } from "lucide-react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Switch } from "@/components/ui/switch";
 
@@ -77,8 +77,12 @@ export function ProductForm({
   const [priceInputMode, setPriceInputMode] = useState<
     "BEFORE_TAX" | "AFTER_TAX"
   >(product?.priceInputMode || "AFTER_TAX");
+  const [profitInputMode, setProfitInputMode] = useState<"AMOUNT" | "PERCENT">(
+    "PERCENT"
+  );
+  const [profitValue, setProfitValue] = useState<number>(0);
 
-  // Price calculation functions with better type safety
+  // Price calculation functions
   const calculateBeforeTax = (afterTaxPrice: any): number => {
     if (
       afterTaxPrice === null ||
@@ -107,6 +111,29 @@ export function ProductForm({
         ? parseFloat(beforeTaxPrice)
         : beforeTaxPrice;
     return numPrice * (1 + TAX_RATE);
+  };
+
+  // Calculate selling price from cost and profit
+  const calculateFromCostAndProfit = (
+    cost: number,
+    profit: number,
+    isPercent: boolean,
+    isAfterTax: boolean
+  ): number => {
+    if (cost <= 0) return 0;
+
+    let sellingPrice: number;
+
+    if (isPercent) {
+      // Calculate selling price based on profit percentage
+      sellingPrice = cost * (1 + profit / 100);
+    } else {
+      // Calculate selling price based on profit amount
+      sellingPrice = cost + profit;
+    }
+
+    // Convert to appropriate tax mode
+    return isAfterTax ? sellingPrice : sellingPrice / (1 + TAX_RATE);
   };
 
   const form = useForm<ShopProductSchemaType>({
@@ -143,6 +170,15 @@ export function ProductForm({
 
   useEffect(() => {
     loadCategories();
+
+    // Calculate initial profit value if cost and price exist
+    const initialPrice = product?.price || 0;
+    const initialCost = product?.costPrice || 0;
+    if (initialCost > 0 && initialPrice > 0) {
+      const profit = initialPrice - initialCost;
+      const profitPercent = initialCost > 0 ? (profit / initialCost) * 100 : 0;
+      setProfitValue(profitPercent); // Default to percentage
+    }
   }, []);
 
   const loadCategories = async () => {
@@ -163,26 +199,113 @@ export function ProductForm({
     setPriceInputMode(mode);
     form.setValue("priceInputMode", mode);
 
+    // Get current values
+    const currentPrice = form.getValues("price");
+    const currentPriceBefore = form.getValues("priceBeforeTax");
+    const currentCost = form.getValues("costPrice");
+    const currentCostBefore = form.getValues("costPriceBeforeTax");
+
     if (mode === "BEFORE_TAX") {
-      const currentPrice = form.getValues("price");
-      const beforeTax = calculateBeforeTax(currentPrice);
-      form.setValue("priceBeforeTax", beforeTax);
+      // Convert everything to before tax
+      const priceBeforeTax = currentPrice
+        ? calculateBeforeTax(currentPrice)
+        : 0;
+      form.setValue("priceBeforeTax", priceBeforeTax);
+      form.setValue("price", calculateAfterTax(priceBeforeTax));
 
-      const currentCost = form.getValues("costPrice");
-      const costBeforeTax = currentCost
-        ? calculateBeforeTax(currentCost)
-        : null;
-      form.setValue("costPriceBeforeTax", costBeforeTax);
+      if (currentCost) {
+        const costBeforeTax = calculateBeforeTax(currentCost);
+        form.setValue("costPriceBeforeTax", costBeforeTax);
+        form.setValue("costPrice", calculateAfterTax(costBeforeTax));
+      }
     } else {
-      const currentPriceBefore = form.getValues("priceBeforeTax");
-      const afterTax = calculateAfterTax(currentPriceBefore);
-      form.setValue("price", afterTax);
+      // Convert everything to after tax
+      const priceAfterTax = currentPriceBefore
+        ? calculateAfterTax(currentPriceBefore)
+        : 0;
+      form.setValue("price", priceAfterTax);
+      form.setValue("priceBeforeTax", calculateBeforeTax(priceAfterTax));
 
-      const currentCostBefore = form.getValues("costPriceBeforeTax");
-      const costAfterTax = currentCostBefore
-        ? calculateAfterTax(currentCostBefore)
-        : null;
-      form.setValue("costPrice", costAfterTax);
+      if (currentCostBefore) {
+        const costAfterTax = calculateAfterTax(currentCostBefore);
+        form.setValue("costPrice", costAfterTax);
+        form.setValue("costPriceBeforeTax", calculateBeforeTax(costAfterTax));
+      }
+    }
+  };
+
+  // Handle profit calculation when cost changes
+  const handleCostChange = (value: string) => {
+    const cost = value === "" ? 0 : parseFloat(value) || 0;
+
+    if (cost > 0 && profitValue > 0) {
+      // Recalculate selling price based on cost and profit
+      const sellingPrice = calculateFromCostAndProfit(
+        cost,
+        profitValue,
+        profitInputMode === "PERCENT",
+        priceInputMode === "AFTER_TAX"
+      );
+
+      if (priceInputMode === "AFTER_TAX") {
+        form.setValue("price", sellingPrice);
+        form.setValue("priceBeforeTax", calculateBeforeTax(sellingPrice));
+      } else {
+        form.setValue("priceBeforeTax", sellingPrice);
+        form.setValue("price", calculateAfterTax(sellingPrice));
+      }
+    }
+  };
+
+  // Handle profit input change
+  const handleProfitChange = (value: string) => {
+    const profit = value === "" ? 0 : parseFloat(value) || 0;
+    setProfitValue(profit);
+
+    // Get current cost
+    const cost = form.getValues("costPrice") || 0;
+
+    if (cost > 0 && profit > 0) {
+      // Calculate new selling price
+      const sellingPrice = calculateFromCostAndProfit(
+        cost,
+        profit,
+        profitInputMode === "PERCENT",
+        priceInputMode === "AFTER_TAX"
+      );
+
+      if (priceInputMode === "AFTER_TAX") {
+        form.setValue("price", sellingPrice);
+        form.setValue("priceBeforeTax", calculateBeforeTax(sellingPrice));
+      } else {
+        form.setValue("priceBeforeTax", sellingPrice);
+        form.setValue("price", calculateAfterTax(sellingPrice));
+      }
+    }
+  };
+
+  // Toggle profit input mode
+  const toggleProfitMode = () => {
+    setProfitInputMode((prev) => (prev === "PERCENT" ? "AMOUNT" : "PERCENT"));
+
+    // Convert profit value between percentage and amount
+    const cost = form.getValues("costPrice") || 0;
+    const sellingPrice =
+      priceInputMode === "AFTER_TAX"
+        ? form.getValues("price")
+        : calculateAfterTax(form.getValues("priceBeforeTax") || 0);
+
+    if (cost > 0 && sellingPrice > 0) {
+      if (profitInputMode === "PERCENT") {
+        // Switching from % to amount
+        const profitAmount = sellingPrice - cost;
+        setProfitValue(profitAmount);
+      } else {
+        // Switching from amount to %
+        const profitPercent =
+          cost > 0 ? ((sellingPrice - cost) / cost) * 100 : 0;
+        setProfitValue(profitPercent);
+      }
     }
   };
 
@@ -271,11 +394,8 @@ export function ProductForm({
     }
   };
 
-  // Helper function to safely format prices - FIXED VERSION
+  // Helper function to safely format prices
   const formatPrice = (price: any): string => {
-    // Debug: log what we're receiving
-    console.log("formatPrice received:", price, "type:", typeof price);
-
     if (price === null || price === undefined) {
       return "0.00";
     }
@@ -284,21 +404,17 @@ export function ProductForm({
     const numPrice = typeof price === "string" ? parseFloat(price) : price;
 
     if (typeof numPrice !== "number" || isNaN(numPrice)) {
-      console.warn(
-        "formatPrice: Invalid number value:",
-        price,
-        "converted to:",
-        numPrice
-      );
       return "0.00";
     }
 
     return numPrice.toFixed(2);
   };
 
-  // Get current price breakdown for display - SIMPLIFIED VERSION
+  // Get current price breakdown for display
   const priceValue = form.watch("price");
   const priceBeforeTaxValue = form.watch("priceBeforeTax");
+  const costPriceValue = form.watch("costPrice");
+  const costPriceBeforeTaxValue = form.watch("costPriceBeforeTax");
 
   // Convert to numbers safely
   const priceAfterTax =
@@ -317,9 +433,6 @@ export function ProductForm({
 
   const vatAmount = priceAfterTax - priceBeforeTax;
 
-  const costPriceValue = form.watch("costPrice");
-  const costPriceBeforeTaxValue = form.watch("costPriceBeforeTax");
-
   const costAfterTax = costPriceValue
     ? typeof costPriceValue === "number"
       ? costPriceValue
@@ -337,6 +450,12 @@ export function ProductForm({
     : 0;
 
   const costVatAmount = costAfterTax - costBeforeTax;
+
+  // Calculate current profit
+  const currentProfitAmount =
+    costAfterTax > 0 ? priceAfterTax - costAfterTax : 0;
+  const currentProfitPercent =
+    costAfterTax > 0 ? (currentProfitAmount / costAfterTax) * 100 : 0;
 
   return (
     <Form {...form}>
@@ -451,204 +570,296 @@ export function ProductForm({
           </div>
 
           {/* Dynamic Pricing Fields */}
-          <div className="grid grid-cols-2 gap-4">
-            {priceInputMode === "AFTER_TAX" ? (
-              // AFTER TAX MODE - User enters tax-inclusive prices
-              <>
-                <FormField
-                  control={form.control}
-                  name="price"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel>Selling Price (After 15% VAT) *</FormLabel>
-                      <FormControl>
-                        <div className="space-y-2">
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                            value={
-                              field.value === undefined || field.value === null
-                                ? ""
-                                : field.value
-                            }
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              const afterTax =
-                                value === "" ? 0 : parseFloat(value) || 0;
-                              field.onChange(afterTax);
-                              form.setValue(
-                                "priceBeforeTax",
-                                calculateBeforeTax(afterTax)
-                              );
-                            }}
-                          />
-                          <p className="text-xs text-gray-500">
-                            Before VAT: R
-                            {formatPrice(calculateBeforeTax(field.value))}
-                          </p>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          <div className="space-y-4">
+            {/* Dynamic Pricing Fields - Now in 3 columns */}
+            <div className="grid grid-cols-3 gap-4">
+              {priceInputMode === "AFTER_TAX" ? (
+                // AFTER TAX MODE - User enters tax-inclusive prices
+                <>
+                  {/* Cost Price */}
+                  <FormField
+                    control={form.control}
+                    name="costPrice"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Cost Price (After 15% VAT)</FormLabel>
+                        <FormControl>
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              placeholder="0.00"
+                              step="0.01"
+                              min="0"
+                              value={field.value === null ? "" : field.value}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === "") {
+                                  field.onChange(null);
+                                  form.setValue("costPriceBeforeTax", null);
+                                } else {
+                                  const afterTax = parseFloat(value) || 0;
+                                  field.onChange(afterTax);
+                                  form.setValue(
+                                    "costPriceBeforeTax",
+                                    calculateBeforeTax(afterTax)
+                                  );
+                                  handleCostChange(value);
+                                }
+                              }}
+                            />
+                            <p className="text-xs text-gray-500">
+                              {field.value !== null
+                                ? `Before VAT: R${formatPrice(calculateBeforeTax(field.value))}`
+                                : ""}
+                            </p>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="costPrice"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel>Cost Price (After 15% VAT)</FormLabel>
-                      <FormControl>
-                        <div className="space-y-2">
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                            value={field.value === null ? "" : field.value}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === "") {
-                                field.onChange(null);
-                                form.setValue("costPriceBeforeTax", null);
-                              } else {
-                                const afterTax = parseFloat(value) || 0;
-                                field.onChange(afterTax);
-                                form.setValue(
-                                  "costPriceBeforeTax",
-                                  calculateBeforeTax(afterTax)
-                                );
+                  {/* Profit Input */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-sm font-medium">
+                        Profit Margin
+                      </FormLabel>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-600">%</span>
+                        <Switch
+                          checked={profitInputMode === "AMOUNT"}
+                          onCheckedChange={toggleProfitMode}
+                          className="scale-75"
+                        />
+                        <span className="text-xs text-gray-600">R</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="relative">
+                        {profitInputMode === "PERCENT" ? (
+                          <Percent className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        )}
+                        <Input
+                          type="number"
+                          placeholder={
+                            profitInputMode === "PERCENT" ? "0.00" : "0.00"
+                          }
+                          step="0.01"
+                          min="0"
+                          value={profitValue || ""}
+                          onChange={(e) => handleProfitChange(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {profitInputMode === "PERCENT"
+                          ? `Amount: R${formatPrice(currentProfitAmount)}`
+                          : `Percentage: ${currentProfitPercent.toFixed(1)}%`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Selling Price */}
+                  <FormField
+                    control={form.control}
+                    name="price"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Selling Price (After 15% VAT) *</FormLabel>
+                        <FormControl>
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              placeholder="0.00"
+                              step="0.01"
+                              min="0"
+                              value={field.value === null ? "" : field.value}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === "") {
+                                  field.onChange(null);
+                                  form.setValue("costPriceBeforeTax", null);
+                                } else {
+                                  const afterTax = parseFloat(value) || 0;
+                                  field.onChange(afterTax);
+                                  form.setValue(
+                                    "costPriceBeforeTax",
+                                    calculateBeforeTax(afterTax)
+                                  );
+                                  handleCostChange(value);
+                                }
+                              }}
+                            />
+                            <p className="text-xs text-gray-500">
+                              Before VAT: R
+                              {formatPrice(calculateBeforeTax(field.value))}
+                            </p>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              ) : (
+                // BEFORE TAX MODE - User enters tax-exclusive prices
+                <>
+                  {/* Cost Price */}
+                  <FormField
+                    control={form.control}
+                    name="costPriceBeforeTax"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Cost Price (Before 15% VAT)</FormLabel>
+                        <FormControl>
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              placeholder="0.00"
+                              step="0.01"
+                              min="0"
+                              value={field.value === null ? "" : field.value}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === "") {
+                                  field.onChange(null);
+                                  form.setValue("costPrice", null);
+                                } else {
+                                  const beforeTax = parseFloat(value) || 0;
+                                  field.onChange(beforeTax);
+                                  form.setValue(
+                                    "costPrice",
+                                    calculateAfterTax(beforeTax)
+                                  );
+                                  handleCostChange(value);
+                                }
+                              }}
+                            />
+                            <p className="text-xs text-gray-500">
+                              {field.value !== null
+                                ? `After VAT: R${formatPrice(calculateAfterTax(field.value))}`
+                                : ""}
+                            </p>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Profit Input */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-sm font-medium">
+                        Profit Margin
+                      </FormLabel>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-600">%</span>
+                        <Switch
+                          checked={profitInputMode === "AMOUNT"}
+                          onCheckedChange={toggleProfitMode}
+                          className="scale-75"
+                        />
+                        <span className="text-xs text-gray-600">R</span>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="relative">
+                        {profitInputMode === "PERCENT" ? (
+                          <Percent className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <DollarSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                        )}
+                        <Input
+                          type="number"
+                          placeholder={
+                            profitInputMode === "PERCENT" ? "0.00" : "0.00"
+                          }
+                          step="0.01"
+                          min="0"
+                          value={profitValue || ""}
+                          onChange={(e) => handleProfitChange(e.target.value)}
+                          className="pl-9"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {profitInputMode === "PERCENT"
+                          ? `Amount: R${formatPrice(currentProfitAmount)}`
+                          : `Percentage: ${currentProfitPercent.toFixed(1)}%`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Selling Price */}
+                  <FormField
+                    control={form.control}
+                    name="priceBeforeTax"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Selling Price (Before 15% VAT) *</FormLabel>
+                        <FormControl>
+                          <div className="space-y-1">
+                            <Input
+                              type="number"
+                              placeholder="0.00"
+                              step="0.01"
+                              min="0"
+                              value={
+                                field.value === undefined ||
+                                field.value === null
+                                  ? ""
+                                  : field.value
                               }
-                            }}
-                          />
-                          <p className="text-xs text-gray-500">
-                            {field.value !== null
-                              ? `Before VAT: R${formatPrice(calculateBeforeTax(field.value))}`
-                              : ""}
-                          </p>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            ) : (
-              // BEFORE TAX MODE - User enters tax-exclusive prices
-              <>
-                <FormField
-                  control={form.control}
-                  name="priceBeforeTax"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel>Price (Before 15% VAT) *</FormLabel>
-                      <FormControl>
-                        <div className="space-y-2">
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                            value={
-                              field.value === undefined || field.value === null
-                                ? ""
-                                : field.value
-                            }
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              const beforeTax =
-                                value === "" ? 0 : parseFloat(value) || 0;
-                              field.onChange(beforeTax);
-                              form.setValue(
-                                "price",
-                                calculateAfterTax(beforeTax)
-                              );
-                            }}
-                          />
-                          <p className="text-xs text-gray-500">
-                            After VAT: R
-                            {formatPrice(calculateAfterTax(field.value))}
-                          </p>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="costPriceBeforeTax"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel>Cost Price (Before 15% VAT)</FormLabel>
-                      <FormControl>
-                        <div className="space-y-2">
-                          <Input
-                            type="number"
-                            placeholder="0.00"
-                            step="0.01"
-                            min="0"
-                            value={field.value === null ? "" : field.value}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (value === "") {
-                                field.onChange(null);
-                                form.setValue("costPrice", null);
-                              } else {
-                                const beforeTax = parseFloat(value) || 0;
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                const beforeTax =
+                                  value === "" ? 0 : parseFloat(value) || 0;
                                 field.onChange(beforeTax);
                                 form.setValue(
-                                  "costPrice",
+                                  "price",
                                   calculateAfterTax(beforeTax)
                                 );
-                              }
-                            }}
-                          />
-                          <p className="text-xs text-gray-500">
-                            {field.value !== null
-                              ? `After VAT: R${formatPrice(calculateAfterTax(field.value))}`
-                              : ""}
-                          </p>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
+
+                                // Update profit value
+                                const costBefore =
+                                  form.getValues("costPriceBeforeTax") || 0;
+                                const cost = calculateAfterTax(costBefore);
+                                if (cost > 0) {
+                                  const sellingPrice =
+                                    calculateAfterTax(beforeTax);
+                                  const newProfit = sellingPrice - cost;
+                                  const newProfitPercent =
+                                    (newProfit / cost) * 100;
+                                  setProfitValue(
+                                    profitInputMode === "PERCENT"
+                                      ? newProfitPercent
+                                      : newProfit
+                                  );
+                                }
+                              }}
+                            />
+                            <p className="text-xs text-gray-500">
+                              After VAT: R
+                              {formatPrice(calculateAfterTax(field.value))}
+                            </p>
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
+            </div>
           </div>
 
-          {/* Tax Summary - SIMPLIFIED DISPLAY */}
+          {/* Tax Summary */}
           <div className="p-4 border rounded-lg bg-blue-50">
             <h4 className="font-medium text-sm mb-2">15% VAT Summary</h4>
             <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <h5 className="text-sm font-medium">Selling Price</h5>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-gray-600">Price before VAT:</p>
-                    <p className="font-semibold">
-                      R{formatPrice(priceBeforeTax)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-gray-600">VAT amount (15%):</p>
-                    <p className="font-semibold">R{formatPrice(vatAmount)}</p>
-                  </div>
-                  <div className="col-span-2">
-                    <p className="text-gray-600">Price after VAT:</p>
-                    <p className="font-semibold text-lg">
-                      R{formatPrice(priceAfterTax)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
               <div className="space-y-3">
                 <h5 className="text-sm font-medium">Cost Price</h5>
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -678,41 +889,55 @@ export function ProductForm({
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Profit Margin (only show if cost price is set) */}
-            {costAfterTax > 0 &&
-              costBeforeTax > 0 &&
-              priceAfterTax > 0 &&
-              priceBeforeTax > 0 && (
-                <div className="mt-4 pt-4 border-t">
-                  <h5 className="text-sm font-medium">Profit Margin</h5>
-                  <div className="grid grid-cols-3 gap-4 text-sm mt-2">
-                    <div>
-                      <p className="text-gray-600">Before VAT margin:</p>
-                      <p className="font-semibold text-green-600">
-                        {priceBeforeTax > 0 && costBeforeTax > 0
-                          ? `${(((priceBeforeTax - costBeforeTax) / costBeforeTax) * 100).toFixed(1)}%`
-                          : "0%"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">After VAT margin:</p>
-                      <p className="font-semibold text-green-600">
-                        {priceAfterTax > 0 && costAfterTax > 0
-                          ? `${(((priceAfterTax - costAfterTax) / costAfterTax) * 100).toFixed(1)}%`
-                          : "0%"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Profit after VAT:</p>
-                      <p className="font-semibold text-green-600">
-                        R{formatPrice(priceAfterTax - costAfterTax)}
-                      </p>
-                    </div>
+              <div className="space-y-3">
+                <h5 className="text-sm font-medium">Selling Price</h5>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600">Price before VAT:</p>
+                    <p className="font-semibold">
+                      R{formatPrice(priceBeforeTax)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">VAT amount (15%):</p>
+                    <p className="font-semibold">R{formatPrice(vatAmount)}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-gray-600">Price after VAT:</p>
+                    <p className="font-semibold text-lg">
+                      R{formatPrice(priceAfterTax)}
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
+            </div>
+
+            {/* Profit Summary */}
+            {costAfterTax > 0 && priceAfterTax > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <h5 className="text-sm font-medium">Profit Summary</h5>
+                <div className="grid grid-cols-3 gap-4 text-sm mt-2">
+                  <div>
+                    <p className="text-gray-600">Profit amount:</p>
+                    <p className="font-semibold text-green-600">
+                      R{formatPrice(currentProfitAmount)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Profit percentage:</p>
+                    <p className="font-semibold text-green-600">
+                      {currentProfitPercent.toFixed(1)}%
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-600">Markup:</p>
+                    <p className="font-semibold text-green-600">
+                      {(priceAfterTax / costAfterTax).toFixed(2)}x
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Stock Management */}
