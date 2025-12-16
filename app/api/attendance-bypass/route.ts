@@ -29,36 +29,23 @@ export async function GET(request: NextRequest) {
     if (!creater) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get("employeeId");
     const freelancerId = searchParams.get("freelancerId");
     const date = searchParams.get("date");
-    const showPast = searchParams.get("showPast");
 
     let where: any = {};
-
-    // Get current date for filtering
-    const currentDate = new Date();
-    currentDate.setHours(0, 0, 0, 0); // Start of current day
 
     // If checking for a specific date
     if (date) {
       const checkDate = new Date(date);
-      checkDate.setHours(0, 0, 0, 0);
       where.AND = [
         { startDate: { lte: checkDate } },
         { endDate: { gte: checkDate } },
       ];
-    } else if (!showPast || showPast === "false") {
-      where.OR = [
-        // Rules that end today or later
-        { endDate: { gte: currentDate } },
-        // Rules that have no end date (ongoing)
-        { endDate: null },
-      ];
     }
 
+    // Filter by employee or freelancer if provided
     if (employeeId) {
       where.employees = {
         some: { id: employeeId },
@@ -99,19 +86,6 @@ export async function GET(request: NextRequest) {
         startDate: "desc",
       },
     });
-
-    if (!date && (!showPast || showPast === "false")) {
-      const filteredRules = bypassRules.filter((rule) => {
-        const ruleEndDate = rule.endDate ? new Date(rule.endDate) : null;
-        if (!ruleEndDate) return true;
-
-        const normalizedEndDate = new Date(ruleEndDate);
-        normalizedEndDate.setHours(0, 0, 0, 0);
-        return normalizedEndDate >= currentDate;
-      });
-
-      return NextResponse.json({ bypassRules: filteredRules });
-    }
 
     return NextResponse.json({ bypassRules });
   } catch (error) {
@@ -356,6 +330,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PUT /api/attendance-bypass/:id - Update bypass rule
 export async function PUT(request: NextRequest) {
   try {
     const { userId } = await auth();
