@@ -45,6 +45,15 @@ export default function POSPage() {
   const [loading, setLoading] = useState(true);
   const [isDelivery, setIsDelivery] = useState(false);
   const [deliveryInstructions, setDeliveryInstructions] = useState("");
+  const [scanNotice, setScanNotice] = useState<{
+    message: string;
+    type: "error" | "warning" | "info";
+    visible: boolean;
+  }>({
+    message: "",
+    type: "info",
+    visible: false,
+  });
 
   const categories = [
     "All",
@@ -69,9 +78,8 @@ export default function POSPage() {
       setLoading(true);
       const data = await productApi.getAll();
 
-      const availableProducts = data.filter((product) => product.stock > 0);
-
-      setProducts(availableProducts);
+      // Show all products including out of stock
+      setProducts(data);
     } catch (error) {
       console.error("Error fetching products:", error);
       toast({
@@ -85,6 +93,12 @@ export default function POSPage() {
   };
 
   const addToCart = (product: Product) => {
+    // Check if product is in stock
+    if (product.stock <= 0) {
+      showScanNotice(`${product.name} is out of stock`, "error");
+      return;
+    }
+
     const existingItem = cart.find((item) => item.id === product.id);
     if (existingItem) {
       if (existingItem.quantity < product.stock) {
@@ -95,12 +109,12 @@ export default function POSPage() {
               : item
           )
         );
+        showScanNotice(`Added ${product.name} to cart`, "info");
       } else {
-        toast({
-          title: "Stock Limit Reached",
-          description: `Only ${product.stock} units available`,
-          variant: "destructive",
-        });
+        showScanNotice(
+          `Only ${product.stock} units available of ${product.name}`,
+          "warning"
+        );
       }
     } else {
       setCart([
@@ -115,6 +129,7 @@ export default function POSPage() {
           stock: product.stock,
         },
       ]);
+      showScanNotice(`Added ${product.name} to cart`, "info");
     }
   };
 
@@ -152,6 +167,22 @@ export default function POSPage() {
     setIsDelivery(false);
     setChange(undefined);
     setPaymentMethod(PaymentMethod.CASH); // Reset to default
+  };
+
+  const showScanNotice = (
+    message: string,
+    type: "error" | "warning" | "info"
+  ) => {
+    setScanNotice({
+      message,
+      type,
+      visible: true,
+    });
+
+    // Auto hide after 3 seconds
+    setTimeout(() => {
+      setScanNotice((prev) => ({ ...prev, visible: false }));
+    }, 3000);
   };
 
   // Calculate totals with VAT and delivery
@@ -197,18 +228,33 @@ export default function POSPage() {
   const handleBarcodeSearch = () => {
     const product = products.find((p) => p.sku === barcodeInput.toUpperCase());
     if (product) {
-      addToCart(product);
-      setBarcodeInput("");
-      toast({
-        title: "Product Added",
-        description: `${product.name} added to cart`,
-      });
+      if (product.stock <= 0) {
+        showScanNotice(`${product.name} is out of stock`, "error");
+      } else {
+        addToCart(product);
+        setBarcodeInput("");
+      }
     } else {
-      toast({
-        title: "Product Not Found",
-        description: "No product found with this barcode",
-        variant: "destructive",
-      });
+      showScanNotice("Product not found", "error");
+    }
+  };
+
+  const handleManualBarcodeSearch = () => {
+    if (barcodeInput.trim()) {
+      const product = products.find(
+        (p) => p.sku === barcodeInput.trim().toUpperCase()
+      );
+
+      if (product) {
+        if (product.stock <= 0) {
+          showScanNotice(`${product.name} is out of stock`, "error");
+        } else {
+          addToCart(product);
+          setBarcodeInput("");
+        }
+      } else {
+        showScanNotice("Product not found", "error");
+      }
     }
   };
 
@@ -304,7 +350,7 @@ export default function POSPage() {
 
   return (
     <div className="flex-1 p-4 md:p-8 pt-6">
-      <POSHeader cart={cart} />
+      <POSHeader cart={cart} scanNotice={scanNotice} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <ProductGrid
@@ -317,8 +363,9 @@ export default function POSPage() {
           categories={categories}
           barcodeInput={barcodeInput}
           setBarcodeInput={setBarcodeInput}
-          handleBarcodeSearch={handleBarcodeSearch}
+          handleBarcodeSearch={handleManualBarcodeSearch}
           addToCart={addToCart}
+          showScanNotice={showScanNotice}
         />
 
         <CartSection

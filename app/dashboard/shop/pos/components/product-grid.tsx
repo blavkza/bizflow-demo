@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Barcode, Package, Loader2 } from "lucide-react";
+import { Search, Barcode, Package, Loader2, AlertCircle } from "lucide-react";
 import Image from "next/image";
 import { Product } from "@/types/pos";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -26,6 +26,7 @@ interface ProductGridProps {
   setBarcodeInput: (input: string) => void;
   handleBarcodeSearch: () => void;
   addToCart: (product: Product) => void;
+  showScanNotice: (message: string, type: "error" | "warning" | "info") => void;
 }
 
 interface ProductWithTax extends Product {
@@ -48,6 +49,7 @@ export function ProductGrid({
   setBarcodeInput,
   handleBarcodeSearch,
   addToCart,
+  showScanNotice,
 }: ProductGridProps) {
   const [scannedBarcode, setScannedBarcode] = useState("");
   const scannerTimeoutRef = useRef<NodeJS.Timeout>();
@@ -77,6 +79,50 @@ export function ProductGrid({
       beforeTax: priceBeforeTax,
       vatAmount: priceAfterTax - priceBeforeTax,
     };
+  };
+
+  // Process barcode scanning
+  const processScannedBarcode = (barcode: string) => {
+    // Clean up barcode (remove any trailing newline/enter)
+    const cleanBarcode = barcode.trim().replace(/\r?\n|\r/g, "");
+
+    // Find product by barcode/SKU
+    const productToAdd = products.find(
+      (product) => product.sku === cleanBarcode
+    );
+
+    if (productToAdd) {
+      if (productToAdd.stock <= 0) {
+        showScanNotice(`${productToAdd.name} is out of stock`, "error");
+        flashProductCard(productToAdd.id, "error");
+      } else {
+        addToCart(productToAdd);
+        flashProductCard(productToAdd.id, "success");
+      }
+
+      // Update barcode input field
+      setBarcodeInput(cleanBarcode);
+    } else {
+      showScanNotice(`Product with SKU ${cleanBarcode} not found`, "error");
+      // If product not found in current view, search for it
+      setBarcodeInput(cleanBarcode);
+      setTimeout(() => {
+        // Re-check after search
+        const productAfterSearch = products.find(
+          (product) => product.sku === cleanBarcode
+        );
+        if (productAfterSearch) {
+          if (productAfterSearch.stock <= 0) {
+            showScanNotice(
+              `${productAfterSearch.name} is out of stock`,
+              "error"
+            );
+          } else {
+            addToCart(productAfterSearch);
+          }
+        }
+      }, 100);
+    }
   };
 
   // Global keydown listener for barcode scanner
@@ -130,31 +176,6 @@ export function ProductGrid({
       }
     };
 
-    const processScannedBarcode = (barcode: string) => {
-      // Clean up barcode (remove any trailing newline/enter)
-      const cleanBarcode = barcode.trim().replace(/\r?\n|\r/g, "");
-
-      // Find product by barcode/SKU
-      const productToAdd = products.find(
-        (product) => product.sku === cleanBarcode
-      );
-
-      if (productToAdd) {
-        // Add product to cart
-        addToCart(productToAdd);
-
-        // Optional: Provide visual feedback
-        flashProductCard(productToAdd.id);
-
-        // Update barcode input field (optional)
-        setBarcodeInput(cleanBarcode);
-      } else {
-        // If product not found in current view, search for it
-        setBarcodeInput(cleanBarcode);
-        setTimeout(() => handleBarcodeSearch(), 100);
-      }
-    };
-
     // Add global event listener
     document.addEventListener("keydown", handleKeyDown);
 
@@ -164,38 +185,49 @@ export function ProductGrid({
         clearTimeout(scannerTimeoutRef.current);
       }
     };
-  }, [
-    products,
-    addToCart,
-    handleBarcodeSearch,
-    setBarcodeInput,
-    scannedBarcode,
-  ]);
+  }, [products, addToCart, showScanNotice, setBarcodeInput, scannedBarcode]);
 
   // Function to provide visual feedback when product is scanned
-  const flashProductCard = useCallback((productId: string) => {
-    const element = document.querySelector(`[data-product-id="${productId}"]`);
-    if (element) {
-      element.classList.add("bg-primary/10", "border-primary");
-      setTimeout(() => {
-        element.classList.remove("bg-primary/10", "border-primary");
-      }, 500);
-    }
-  }, []);
+  const flashProductCard = useCallback(
+    (productId: string, type: "success" | "error") => {
+      const element = document.querySelector(
+        `[data-product-id="${productId}"]`
+      );
+      if (element) {
+        if (type === "success") {
+          element.classList.add("bg-green-50", "border-green-500");
+          setTimeout(() => {
+            element.classList.remove("bg-green-50", "border-green-500");
+          }, 500);
+        } else {
+          element.classList.add("bg-red-50", "border-red-500");
+          setTimeout(() => {
+            element.classList.remove("bg-red-50", "border-red-500");
+          }, 500);
+        }
+      }
+    },
+    []
+  );
 
   // Handle manual barcode input (from the input field)
   const handleManualBarcodeSearch = () => {
     if (barcodeInput.trim()) {
       const productToAdd = products.find(
-        (product) => product.sku === barcodeInput.trim()
+        (product) => product.sku === barcodeInput.trim().toUpperCase()
       );
 
       if (productToAdd) {
-        addToCart(productToAdd);
-        flashProductCard(productToAdd.id);
+        if (productToAdd.stock <= 0) {
+          showScanNotice(`${productToAdd.name} is out of stock`, "error");
+          flashProductCard(productToAdd.id, "error");
+        } else {
+          addToCart(productToAdd);
+          flashProductCard(productToAdd.id, "success");
+        }
         setBarcodeInput("");
       } else {
-        handleBarcodeSearch();
+        showScanNotice("Product not found", "error");
       }
     }
   };
@@ -275,15 +307,24 @@ export function ProductGrid({
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {products.map((product) => {
             const prices = getPriceDisplay(product);
+            const isOutOfStock = product.stock <= 0;
 
             return (
               <Card
                 key={product.id}
                 data-product-id={product.id}
-                className="cursor-pointer hover:shadow-lg transition-shadow border-2 border-transparent"
-                onClick={() => addToCart(product)}
+                className={`cursor-pointer hover:shadow-lg transition-shadow border-2 ${isOutOfStock ? "border-gray-200 opacity-60" : "border-transparent"}`}
+                onClick={() => !isOutOfStock && addToCart(product)}
               >
-                <CardContent className="p-4">
+                <CardContent className="p-4 relative">
+                  {isOutOfStock && (
+                    <div className="absolute inset-0 bg-gray-50/80 z-10 flex items-center justify-center rounded-lg">
+                      <Badge variant="destructive" className="text-xs">
+                        Out of Stock
+                      </Badge>
+                    </div>
+                  )}
+
                   <div className="aspect-video bg-transparent rounded-lg mb-3 flex items-center justify-center">
                     {product.images?.[0] ? (
                       <Image
@@ -312,7 +353,11 @@ export function ProductGrid({
                       </span>
                       <Badge
                         variant={
-                          product.stock > 10 ? "secondary" : "destructive"
+                          product.stock > 10
+                            ? "secondary"
+                            : product.stock > 0
+                              ? "default"
+                              : "destructive"
                         }
                       >
                         {product.stock} in stock
@@ -330,6 +375,13 @@ export function ProductGrid({
                         ⚠️ Low stock
                       </div>
                     )}
+
+                  {isOutOfStock && (
+                    <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded mt-2">
+                      <AlertCircle className="h-3 w-3 inline mr-1" />
+                      Currently unavailable
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             );

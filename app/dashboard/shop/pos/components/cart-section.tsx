@@ -3,9 +3,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ShoppingCart, Minus, Plus, Trash2, CreditCard, X } from "lucide-react";
+import {
+  ShoppingCart,
+  Minus,
+  Plus,
+  Trash2,
+  CreditCard,
+  X,
+  AlertCircle,
+} from "lucide-react";
 import Image from "next/image";
 import { CartItem, POSSettings } from "@/types/pos";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useState } from "react";
 
 interface CartSectionProps {
   cart: CartItem[];
@@ -42,6 +52,74 @@ export function CartSection({
   clearCart,
   handleCheckout,
 }: CartSectionProps) {
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountError, setDiscountError] = useState("");
+
+  // Initialize discount input when component mounts or discount changes externally
+  useState(() => {
+    if (discount === 0) {
+      setDiscountInput("");
+    } else {
+      setDiscountInput(discount.toString());
+    }
+  });
+
+  const handleDiscountChange = (value: string) => {
+    // Allow empty string, numbers, and decimal points
+    if (value === "" || /^\d*\.?\d*$/.test(value)) {
+      setDiscountInput(value);
+
+      // If value is empty, set discount to 0
+      if (value === "") {
+        setDiscount(0);
+        setDiscountError("");
+        return;
+      }
+
+      const numValue = Number.parseFloat(value);
+
+      // Validate discount input
+      if (isNaN(numValue)) {
+        setDiscountError("Please enter a valid number");
+        return;
+      }
+
+      if (numValue < 0) {
+        setDiscountError("Discount cannot be negative");
+        setDiscountInput("0");
+        setDiscount(0);
+        return;
+      }
+
+      if (numValue > maxDiscount) {
+        setDiscountError(`Maximum discount allowed is ${maxDiscount}%`);
+        setDiscount(maxDiscount);
+        setDiscountInput(maxDiscount.toString());
+        return;
+      }
+
+      setDiscountError("");
+      setDiscount(numValue);
+    }
+  };
+
+  const handleDiscountBlur = () => {
+    // On blur, if input is empty or just a decimal point, reset to empty
+    if (discountInput === "" || discountInput === ".") {
+      setDiscountInput("");
+      setDiscount(0);
+      return;
+    }
+
+    // Round to 2 decimal places
+    const numValue = Number.parseFloat(discountInput);
+    if (!isNaN(numValue)) {
+      const roundedValue = Math.round(numValue * 100) / 100;
+      setDiscountInput(roundedValue.toString());
+      setDiscount(roundedValue);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -129,14 +207,28 @@ export function CartSection({
               {/* Discount */}
               <div className="space-y-2">
                 <Label>Discount (%)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max={maxDiscount}
-                  value={discount}
-                  onChange={(e) => setDiscount(Number(e.target.value))}
-                  placeholder="0"
-                />
+                <div className="relative">
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={discountInput}
+                    onChange={(e) => handleDiscountChange(e.target.value)}
+                    onBlur={handleDiscountBlur}
+                    onFocus={() => {
+                      if (discountInput === "0") {
+                        setDiscountInput("");
+                      }
+                    }}
+                    placeholder="0"
+                    className={discountError ? "border-red-500" : ""}
+                  />
+                  {discountError && (
+                    <div className="text-red-500 text-xs mt-1 flex items-center">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      {discountError}
+                    </div>
+                  )}
+                </div>
                 {maxDiscount < 100 && (
                   <p className="text-xs text-muted-foreground">
                     Maximum discount: {maxDiscount}%
@@ -155,7 +247,7 @@ export function CartSection({
 
                 {discount > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
-                    <span>Discount ({discount}%):</span>
+                    <span>Discount ({discount.toFixed(2)}%):</span>
                     <span>-R{discountAmount.toFixed(2)}</span>
                   </div>
                 )}
