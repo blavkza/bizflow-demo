@@ -67,6 +67,7 @@ type SearchableItem = {
   category?: string;
   duration?: string;
   features?: string[];
+  sku?: string;
 };
 
 interface QuotationFormProps {
@@ -106,6 +107,7 @@ interface SearchableItemInputProps {
   onFocus: (index: number) => void;
   onBlur: () => void;
   onSelect: (index: number, item: SearchableItem) => void;
+  setShowDropdown: (index: number | null) => void;
 }
 
 const SearchableItemInput = ({
@@ -117,12 +119,56 @@ const SearchableItemInput = ({
   onFocus,
   onBlur,
   onSelect,
+  setShowDropdown,
 }: SearchableItemInputProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
-  const filteredItems = searchableItems.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredItems = searchableItems.filter((item) => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesName = item.name.toLowerCase().includes(searchLower);
+    const matchesSku = item.sku?.toLowerCase().includes(searchLower);
+    return matchesName || matchesSku;
+  });
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showDropdown !== index) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedIndex((prev) =>
+          prev < filteredItems.length - 1 ? prev + 1 : 0
+        );
+        break;
+
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredItems.length - 1
+        );
+        break;
+
+      case "Enter":
+        e.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < filteredItems.length) {
+          onSelect(index, filteredItems[selectedIndex]);
+          setSelectedIndex(-1);
+        }
+        break;
+
+      case "Escape":
+        setSelectedIndex(-1);
+        setShowDropdown(null);
+        break;
+    }
+  };
+
+  // Reset selected index when search term changes
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [searchTerm]);
 
   return (
     <div className="relative">
@@ -130,17 +176,23 @@ const SearchableItemInput = ({
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <input
           ref={inputRef}
-          placeholder="Search products or services..."
+          placeholder="Search products/services by name or SKU..."
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10"
           value={searchTerm}
-          onChange={(e) => onSearchChange(index, e.target.value)}
-          onFocus={() => onFocus(index)}
-          onBlur={onBlur}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && searchTerm && filteredItems.length > 0) {
-              onSelect(index, filteredItems[0]);
-              e.preventDefault();
-            }
+          onChange={(e) => {
+            onSearchChange(index, e.target.value);
+            setSelectedIndex(-1);
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => {
+            onFocus(index);
+            setSelectedIndex(-1);
+          }}
+          onBlur={() => {
+            setTimeout(() => {
+              onBlur();
+              setSelectedIndex(-1);
+            }, 200);
           }}
         />
       </div>
@@ -148,13 +200,18 @@ const SearchableItemInput = ({
       {showDropdown === index && filteredItems.length > 0 && (
         <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-60 overflow-auto">
           <div className="p-1">
-            {filteredItems.slice(0, 5).map((item) => (
+            {filteredItems.slice(0, 10).map((item, itemIndex) => (
               <div
                 key={`${item.type}-${item.id}`}
-                className="flex flex-col p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0"
+                className={cn(
+                  "flex flex-col p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0",
+                  selectedIndex === itemIndex && "bg-accent"
+                )}
+                onMouseEnter={() => setSelectedIndex(itemIndex)}
                 onMouseDown={(e) => {
-                  e.preventDefault(); // Prevent input blur
+                  e.preventDefault();
                   onSelect(index, item);
+                  setSelectedIndex(-1);
                 }}
               >
                 <div className="flex justify-between items-center">
@@ -164,15 +221,21 @@ const SearchableItemInput = ({
                   </span>
                 </div>
                 <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
-                  <span>
-                    {item.type === "product" ? "Product" : "Service"}
-                    {item.category && ` • ${item.category}`}
-                  </span>
-                  {item.duration && <span>{item.duration} </span>}
+                  <div className="flex flex-col">
+                    <span>
+                      {item.type === "product" ? "Product" : "Service"}
+                      {item.category && ` • ${item.category}`}
+                    </span>
+                    {item.sku && (
+                      <span className="text-[10px] font-mono bg-muted px-1 rounded mt-1">
+                        SKU: {item.sku}
+                      </span>
+                    )}
+                  </div>
+                  {item.duration && <span>{item.duration}</span>}
                 </div>
                 {item.features && item.features.length > 0 && (
                   <div className="text-[10px] text-muted-foreground mt-1 italic truncate">
-                    {" "}
                     • Includes: {item.features.join(", ")}
                   </div>
                 )}
@@ -184,7 +247,6 @@ const SearchableItemInput = ({
     </div>
   );
 };
-
 // --- Main Component ---
 
 export function QuotationForm({
@@ -459,6 +521,7 @@ export function QuotationForm({
           type: "product" as const,
           price: Number(product.price || 0),
           category: product.category,
+          sku: product.sku,
         })),
         ...services.map((service) => ({
           id: service.id,
@@ -506,6 +569,11 @@ export function QuotationForm({
 
   const handleItemSelect = (index: number, item: SearchableItem) => {
     let description = `${item.name}`;
+
+    if (item.sku) {
+      description = `${description}`;
+    }
+
     if (item.category) {
       description += ` - ${item.category}`;
     }
@@ -513,7 +581,6 @@ export function QuotationForm({
       description += ` (${item.duration})`;
     }
 
-    // APPEND FEATURES
     if (item.type === "service" && item.features && item.features.length > 0) {
       description += `\nIncludes: ${item.features.join(", ")}`;
     }
@@ -929,6 +996,7 @@ export function QuotationForm({
                     onFocus={handleSearchFocus}
                     onBlur={handleSearchBlur}
                     onSelect={handleItemSelect}
+                    setShowDropdown={setShowDropdown}
                   />
                 </div>
 
