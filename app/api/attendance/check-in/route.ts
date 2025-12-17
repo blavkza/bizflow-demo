@@ -3,6 +3,45 @@ import db from "@/lib/db";
 import { CheckInMethod, AttendanceStatus, LeaveStatus } from "@prisma/client";
 import { sendPushNotification } from "@/lib/expo";
 
+// Utility function to get SAST time as UTC
+function getSASTDateTime(date: Date = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-ZA", {
+    timeZone: "Africa/Johannesburg",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
+
+  return {
+    year: parseInt(getPart("year")!),
+    month: parseInt(getPart("month")!) - 1, // Month is 0-indexed in Date
+    day: parseInt(getPart("day")!),
+    hours: parseInt(getPart("hour")!),
+    minutes: parseInt(getPart("minute")!),
+    seconds: parseInt(getPart("second")!),
+    // Convert SAST time to UTC (SAST is UTC+2)
+    toUTCDate: () => {
+      return new Date(
+        Date.UTC(
+          parseInt(getPart("year")!),
+          parseInt(getPart("month")!) - 1,
+          parseInt(getPart("day")!),
+          parseInt(getPart("hour")!) - 2, // SAST to UTC conversion
+          parseInt(getPart("minute")!),
+          parseInt(getPart("second")!)
+        )
+      );
+    },
+  };
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -69,30 +108,22 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 2. TIMEZONE CALCULATION (FIXED)
+    // 2. TIMEZONE CALCULATION (FIXED - ALWAYS USE UTC)
     // ---------------------------------------------------------
-    // Use exact Server Time
-    const currentTime = new Date();
+    // Get current time in SAST and convert to UTC
+    const sastNow = getSASTDateTime();
+    const currentTimeUTC = sastNow.toUTCDate();
 
-    // Calculate "Today" based on South African Calendar
-    const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
-      timeZone: "Africa/Johannesburg",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour12: false,
-    });
+    // Today's date in SAST (as UTC midnight)
+    const today = new Date(Date.UTC(sastNow.year, sastNow.month, sastNow.day));
 
-    const parts = sastFormatter.formatToParts(currentTime);
-    const getDatePart = (type: string) =>
-      parts.find((p) => p.type === type)?.value;
-
-    const year = parseInt(getDatePart("year")!);
-    const month = parseInt(getDatePart("month")!);
-    const day = parseInt(getDatePart("day")!);
-
-    // Create a Date object that is EXACTLY 00:00 UTC on the South African day.
-    const today = new Date(Date.UTC(year, month - 1, day));
+    console.log(`=== TIME CONVERSION DEBUG ===`);
+    console.log(`Server Time: ${new Date().toISOString()}`);
+    console.log(
+      `SAST Time: ${sastNow.year + 1}-${sastNow.month + 1}-${sastNow.day} ${sastNow.hours}:${sastNow.minutes}`
+    );
+    console.log(`Current UTC: ${currentTimeUTC.toISOString()}`);
+    console.log(`Today UTC (SAST day): ${today.toISOString()}`);
 
     // ---------------------------------------------------------
     // 3. CHECK FOR ATTENDANCE BYPASS RULES
@@ -105,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     console.log(`=== CHECK-IN BYPASS DEBUG ===`);
     console.log(`Person: ${personType} ${person.id}`);
-    console.log(`Current Time: ${currentTime.toISOString()}`);
+    console.log(`Current UTC Time: ${currentTimeUTC.toISOString()}`);
     console.log(`Today Bucket: ${today.toISOString()}`);
     console.log(`Bypass result:`, bypassResult);
 
@@ -128,10 +159,11 @@ export async function POST(request: NextRequest) {
       if (hours >= 18 || hours < 6) {
         isNightShift = true;
         if (hours < 6) {
+          // For times before 6 AM SAST, shift to previous calendar day
           attendanceDate = new Date(today);
-          attendanceDate.setDate(attendanceDate.getDate() - 1);
+          attendanceDate.setUTCDate(attendanceDate.getUTCDate() - 1);
           console.log(
-            `Night shift detected via bypass: shifted to previous day`
+            `Night shift detected via bypass: shifted to previous day ${attendanceDate.toISOString()}`
           );
         }
       }
@@ -159,8 +191,7 @@ export async function POST(request: NextRequest) {
 
     // Check if it's a working day
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-    const tempSASTDate = new Date(year, month - 1, day);
-    const attendanceDay = dayNames[tempSASTDate.getDay()];
+    const attendanceDay = dayNames[today.getUTCDay()]; // Use UTC day
 
     if (
       person.workingDays &&
@@ -244,15 +275,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 7. STATUS CALCULATION
+    // 7. STATUS CALCULATION (ALL TIMES IN UTC)
     // ---------------------------------------------------------
     let status: AttendanceStatus = AttendanceStatus.PRESENT;
     let isLate = false;
     let bypassApplied = false;
-    let checkInTimeToUse: Date = currentTime;
+    let checkInTimeToUse: Date = currentTimeUTC; // Use UTC time
 
     console.log(`=== STATUS CALCULATION DEBUG ===`);
-    console.log(`Current Time: ${currentTime.toISOString()}`);
+    console.log(`Current UTC Time: ${currentTimeUTC.toISOString()}`);
     console.log(`Attendance Date: ${attendanceDate.toISOString()}`);
     console.log(`Grace Period: ${gracePeriodMinutes} minutes`);
 
@@ -268,7 +299,7 @@ export async function POST(request: NextRequest) {
         .split(":")
         .map(Number);
 
-      console.log(`Bypass Time: ${bypassHours}:${bypassMinutes}`);
+      console.log(`Bypass Time (SAST): ${bypassHours}:${bypassMinutes}`);
 
       // Create bypass schedule time in UTC
       // Bypass time is in SAST (Africa/Johannesburg, UTC+2)
@@ -276,10 +307,9 @@ export async function POST(request: NextRequest) {
       const bypassScheduleUTC = new Date(attendanceDate);
       bypassScheduleUTC.setUTCHours(bypassHours - 2, bypassMinutes, 0, 0);
 
-      // Adjust for night shifts
-      if (isNightShift && bypassHours < 12) {
-        bypassScheduleUTC.setDate(bypassScheduleUTC.getDate() + 1);
-      }
+      // Adjust for night shifts (if bypass time < 6 AM and we've already adjusted the date)
+      // Note: attendanceDate was already adjusted in section 4 if bypassHours < 6
+      // So bypassScheduleUTC is already on the correct date
 
       // Calculate late threshold
       const bypassLateThreshold = new Date(
@@ -289,13 +319,13 @@ export async function POST(request: NextRequest) {
       console.log(`Bypass Schedule Calculation:`);
       console.log(`  Bypass Time (SAST): ${bypassHours}:${bypassMinutes}`);
       console.log(`  Bypass Schedule UTC: ${bypassScheduleUTC.toISOString()}`);
-      console.log(`  Current Time: ${currentTime.toISOString()}`);
-      console.log(`  Late Threshold: ${bypassLateThreshold.toISOString()}`);
+      console.log(`  Current UTC Time: ${currentTimeUTC.toISOString()}`);
+      console.log(`  Late Threshold UTC: ${bypassLateThreshold.toISOString()}`);
       console.log(
-        `  Is Late? ${currentTime > bypassLateThreshold} (${currentTime.toISOString()} > ${bypassLateThreshold.toISOString()})`
+        `  Is Late? ${currentTimeUTC > bypassLateThreshold} (${currentTimeUTC.toISOString()} > ${bypassLateThreshold.toISOString()})`
       );
 
-      if (currentTime > bypassLateThreshold) {
+      if (currentTimeUTC > bypassLateThreshold) {
         status = AttendanceStatus.LATE;
         isLate = true;
         console.log(
@@ -334,11 +364,10 @@ export async function POST(request: NextRequest) {
         0
       );
 
-      // Adjust for night shifts
-      if (scheduledHours >= 18) {
-        // Belongs to current day
-      } else if (isNightShift && scheduledHours < 12) {
-        scheduledScheduleUTC.setDate(scheduledScheduleUTC.getDate() + 1);
+      // Adjust for night shifts - only if not already adjusted
+      if (isNightShift && scheduledHours < 6) {
+        // This time belongs to the next day
+        scheduledScheduleUTC.setUTCDate(scheduledScheduleUTC.getUTCDate() + 1);
       }
 
       const lateThreshold = new Date(
@@ -351,20 +380,21 @@ export async function POST(request: NextRequest) {
       );
       console.log(`  Schedule UTC: ${scheduledScheduleUTC.toISOString()}`);
       console.log(`  Late Threshold: ${lateThreshold.toISOString()}`);
+      console.log(`  Current UTC: ${currentTimeUTC.toISOString()}`);
       console.log(
-        `  Is Late? ${currentTime > lateThreshold} (${currentTime.toISOString()} > ${lateThreshold.toISOString()})`
+        `  Is Late? ${currentTimeUTC > lateThreshold} (${currentTimeUTC.toISOString()} > ${lateThreshold.toISOString()})`
       );
 
-      if (currentTime > lateThreshold) {
+      if (currentTimeUTC > lateThreshold) {
         status = AttendanceStatus.LATE;
         isLate = true;
         console.log(
-          `✓ MARKED AS LATE for standard schedule ${scheduledKnockInTime}`
+          `MARKED AS LATE for standard schedule ${scheduledKnockInTime}`
         );
       } else {
         status = AttendanceStatus.PRESENT;
         isLate = false;
-        console.log(`✓ On time for standard schedule ${scheduledKnockInTime}`);
+        console.log(`On time for standard schedule ${scheduledKnockInTime}`);
       }
     }
 
@@ -374,7 +404,10 @@ export async function POST(request: NextRequest) {
     let warningCreated = null;
 
     if (isLate && personType === "employee") {
-      warningCreated = await checkAndCreateLateWarning(person.id, currentTime);
+      warningCreated = await checkAndCreateLateWarning(
+        person.id,
+        currentTimeUTC
+      );
     }
 
     // ---------------------------------------------------------
@@ -551,7 +584,7 @@ async function checkAttendanceBypass(
   try {
     const today = new Date(date);
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
 
     const where: any = {
       AND: [{ startDate: { lte: tomorrow } }, { endDate: { gte: today } }],
@@ -659,15 +692,14 @@ async function checkAndCreateLateWarning(
 ): Promise<any> {
   try {
     const startOfWeek = new Date(currentTime);
-    startOfWeek.setDate(currentTime.getDate() - currentTime.getDay() + 1);
-    startOfWeek.setHours(0, 0, 0, 0);
+    startOfWeek.setUTCDate(
+      currentTime.getUTCDate() - currentTime.getUTCDay() + 1
+    );
+    startOfWeek.setUTCHours(0, 0, 0, 0);
 
     const startOfMonth = new Date(
-      currentTime.getFullYear(),
-      currentTime.getMonth(),
-      1
+      Date.UTC(currentTime.getUTCFullYear(), currentTime.getUTCMonth(), 1)
     );
-    startOfMonth.setHours(0, 0, 0, 0);
 
     const weeklyLateCount = await db.attendanceRecord.count({
       where: {
@@ -763,20 +795,9 @@ async function checkAndCreateLateWarning(
 
 async function triggerAutoAttendanceForLeave() {
   try {
-    // Calculate 'today' using Date.UTC logic
-    const now = new Date();
-    const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
-      timeZone: "Africa/Johannesburg",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    const parts = sastFormatter.formatToParts(now);
-    const getPart = (type: string) => parts.find((p) => p.type === type)?.value;
-    const year = parseInt(getPart("year")!);
-    const month = parseInt(getPart("month")!);
-    const day = parseInt(getPart("day")!);
-    const today = new Date(Date.UTC(year, month - 1, day));
+    // Get current SAST time
+    const sastNow = getSASTDateTime();
+    const today = new Date(Date.UTC(sastNow.year, sastNow.month, sastNow.day));
 
     const employees = await db.employee.findMany({
       where: {

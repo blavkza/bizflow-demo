@@ -73,12 +73,12 @@ export function POSHeader({ cart, scanNotice }: POSHeaderProps) {
         </div>
       </div>
 
-      {scanNotice?.visible && (
+      {/*  {scanNotice?.visible && (
         <Alert variant={getNoticeVariant(scanNotice.type)} className="mb-4">
           {getNoticeIcon(scanNotice.type)}
           <AlertDescription>{scanNotice.message}</AlertDescription>
         </Alert>
-      )}
+      )} */}
     </>
   );
 }

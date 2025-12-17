@@ -9,7 +9,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Barcode, Package, Loader2, AlertCircle } from "lucide-react";
+import {
+  Search,
+  Barcode,
+  Package,
+  Loader2,
+  AlertCircle,
+  Ban,
+} from "lucide-react";
 import Image from "next/image";
 import { Product } from "@/types/pos";
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -92,12 +99,18 @@ export function ProductGrid({
     );
 
     if (productToAdd) {
-      if (productToAdd.stock <= 0) {
-        showScanNotice(`${productToAdd.name} is out of stock`, "error");
+      if (productToAdd.status !== "ACTIVE") {
+        showScanNotice(
+          `${productToAdd.name} is not available for sale`,
+          "error"
+        );
         flashProductCard(productToAdd.id, "error");
       } else {
         addToCart(productToAdd);
-        flashProductCard(productToAdd.id, "success");
+        flashProductCard(
+          productToAdd.id,
+          productToAdd.stock > 0 ? "success" : "warning"
+        );
       }
 
       // Update barcode input field
@@ -112,9 +125,9 @@ export function ProductGrid({
           (product) => product.sku === cleanBarcode
         );
         if (productAfterSearch) {
-          if (productAfterSearch.stock <= 0) {
+          if (productAfterSearch.status !== "ACTIVE") {
             showScanNotice(
-              `${productAfterSearch.name} is out of stock`,
+              `${productAfterSearch.name} is not available for sale`,
               "error"
             );
           } else {
@@ -189,7 +202,7 @@ export function ProductGrid({
 
   // Function to provide visual feedback when product is scanned
   const flashProductCard = useCallback(
-    (productId: string, type: "success" | "error") => {
+    (productId: string, type: "success" | "warning" | "error") => {
       const element = document.querySelector(
         `[data-product-id="${productId}"]`
       );
@@ -198,6 +211,11 @@ export function ProductGrid({
           element.classList.add("bg-green-50", "border-green-500");
           setTimeout(() => {
             element.classList.remove("bg-green-50", "border-green-500");
+          }, 500);
+        } else if (type === "warning") {
+          element.classList.add("bg-yellow-50", "border-yellow-500");
+          setTimeout(() => {
+            element.classList.remove("bg-yellow-50", "border-yellow-500");
           }, 500);
         } else {
           element.classList.add("bg-red-50", "border-red-500");
@@ -218,12 +236,18 @@ export function ProductGrid({
       );
 
       if (productToAdd) {
-        if (productToAdd.stock <= 0) {
-          showScanNotice(`${productToAdd.name} is out of stock`, "error");
+        if (productToAdd.status !== "ACTIVE") {
+          showScanNotice(
+            `${productToAdd.name} is not available for sale`,
+            "error"
+          );
           flashProductCard(productToAdd.id, "error");
         } else {
           addToCart(productToAdd);
-          flashProductCard(productToAdd.id, "success");
+          flashProductCard(
+            productToAdd.id,
+            productToAdd.stock > 0 ? "success" : "warning"
+          );
         }
         setBarcodeInput("");
       } else {
@@ -308,19 +332,27 @@ export function ProductGrid({
           {products.map((product) => {
             const prices = getPriceDisplay(product);
             const isOutOfStock = product.stock <= 0;
+            const isInactive = product.status !== "ACTIVE";
 
             return (
               <Card
                 key={product.id}
                 data-product-id={product.id}
-                className={`cursor-pointer hover:shadow-lg transition-shadow border-2 ${isOutOfStock ? "border-gray-200 opacity-60" : "border-transparent"}`}
-                onClick={() => !isOutOfStock && addToCart(product)}
+                className={`cursor-pointer hover:shadow-lg transition-shadow border-2 ${
+                  isInactive
+                    ? "border-gray-300 opacity-70"
+                    : isOutOfStock
+                      ? "border-amber-200"
+                      : "border-transparent"
+                }`}
+                onClick={() => !isInactive && addToCart(product)}
               >
                 <CardContent className="p-4 relative">
-                  {isOutOfStock && (
-                    <div className="absolute inset-0 bg-gray-50/80 z-10 flex items-center justify-center rounded-lg">
-                      <Badge variant="destructive" className="text-xs">
-                        Out of Stock
+                  {isInactive && (
+                    <div className="absolute inset-0 bg-gray-100/80 z-10 flex flex-col items-center justify-center rounded-lg p-4">
+                      <Ban className="h-8 w-8 text-gray-500 mb-2" />
+                      <Badge variant="outline" className="text-xs">
+                        Not Available
                       </Badge>
                     </div>
                   )}
@@ -368,19 +400,27 @@ export function ProductGrid({
                     </div>
                   </div>
 
-                  {/* Stock Status */}
-                  {product.stock <= (product.minStock || 5) &&
-                    product.stock > 0 && (
+                  {/* Status Indicators */}
+                  {isInactive ? (
+                    <div className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded mt-2">
+                      <Ban className="h-3 w-3 inline mr-1" />
+                      {product.status === "DRAFT"
+                        ? "Draft"
+                        : product.status === "DISCONTINUED"
+                          ? "Discontinued"
+                          : "Inactive"}
+                    </div>
+                  ) : isOutOfStock ? (
+                    <div className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded mt-2">
+                      <AlertCircle className="h-3 w-3 inline mr-1" />
+                      Out of stock (Can still be sold)
+                    </div>
+                  ) : (
+                    product.stock <= (product.minStock || 5) && (
                       <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
                         ⚠️ Low stock
                       </div>
-                    )}
-
-                  {isOutOfStock && (
-                    <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded mt-2">
-                      <AlertCircle className="h-3 w-3 inline mr-1" />
-                      Currently unavailable
-                    </div>
+                    )
                   )}
                 </CardContent>
               </Card>

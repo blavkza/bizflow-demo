@@ -15,7 +15,8 @@ import {
 import Image from "next/image";
 import { CartItem, POSSettings } from "@/types/pos";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Added useEffect import
+import { Badge } from "@/components/ui/badge";
 
 interface CartSectionProps {
   cart: CartItem[];
@@ -33,6 +34,7 @@ interface CartSectionProps {
   removeFromCart: (id: string) => void;
   clearCart: () => void;
   handleCheckout: () => void;
+  products?: any[]; // Optional: If you want to pass products for stock checking
 }
 
 export function CartSection({
@@ -51,18 +53,19 @@ export function CartSection({
   removeFromCart,
   clearCart,
   handleCheckout,
+  products = [],
 }: CartSectionProps) {
   const [discountInput, setDiscountInput] = useState("");
   const [discountError, setDiscountError] = useState("");
 
-  // Initialize discount input when component mounts or discount changes externally
-  useState(() => {
+  // Fixed: Use useEffect to initialize discount input
+  useEffect(() => {
     if (discount === 0) {
       setDiscountInput("");
     } else {
       setDiscountInput(discount.toString());
     }
-  });
+  }, [discount]);
 
   const handleDiscountChange = (value: string) => {
     // Allow empty string, numbers, and decimal points
@@ -120,6 +123,13 @@ export function CartSection({
     }
   };
 
+  // Check if any items exceed stock
+  const getStockExceededItems = () => {
+    return cart.filter((item) => item.quantity > item.stock);
+  };
+
+  const stockExceededItems = getStockExceededItems();
+
   return (
     <div className="space-y-4">
       <Card>
@@ -135,8 +145,29 @@ export function CartSection({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Stock Warning */}
+          {stockExceededItems.length > 0 && (
+            <Alert variant={"destructive"} className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <div className="font-medium mb-1">
+                  Stock Exceeded for {stockExceededItems.length} item(s):
+                </div>
+                <ul className="text-xs space-y-1">
+                  {stockExceededItems.map((item) => (
+                    <li key={item.id}>
+                      {" "}
+                      {/* Fixed: Added key prop */}• {item.name}: Ordered{" "}
+                      {item.quantity}, Available {item.stock}
+                    </li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Cart Items */}
-          <div className="space-y-3 max-h-[300px] overflow-y-auto">
+          <div className="space-y-3 max-h-[500px] overflow-y-auto">
             {cart.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <ShoppingCart className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -144,59 +175,85 @@ export function CartSection({
                 <p className="text-sm">Add products to start a sale</p>
               </div>
             ) : (
-              cart.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center space-x-3 p-2 border rounded-lg"
-                >
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      width={50}
-                      height={50}
-                      className="rounded"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                      <ShoppingCart className="h-6 w-6 text-gray-400" />
+              cart.map((item) => {
+                const exceedsStock = item.quantity > item.stock;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center space-x-3 p-2 border rounded-lg ${
+                      exceedsStock ? "border-amber-200 bg-amber-50" : ""
+                    }`}
+                  >
+                    <div className="flex items-start justify-center gap-2 flex-col">
+                      {item.image ? (
+                        <Image
+                          src={item.image}
+                          alt={item.name}
+                          width={50}
+                          height={50}
+                          className="rounded"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                          <ShoppingCart className="h-6 w-6 text-gray-400" />
+                        </div>
+                      )}
+                      <p className="text-sm">R{item.price.toFixed(2)}</p>
+                      <p className="text-sm font-semibold">
+                        Total ({item.quantity}): R
+                        {(item.price * item.quantity).toFixed(2)}
+                      </p>
+                      {exceedsStock && (
+                        <p className="text-xs text-amber-600">
+                          Available: {item.stock}
+                        </p>
+                      )}
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{item.name}</p>
-                    <p className="text-xs text-muted-foreground">{item.sku}</p>
-                    <p className="text-sm font-semibold">
-                      R{item.price.toFixed(2)}
-                    </p>
+
+                    <div className="flex-1 min-w-0">
+                      {/*    <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm truncate">
+                          {item.name}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {item.sku}
+                      </p> */}
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity - 1)
+                        }
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <span className="w-8 text-center text-sm font-medium">
+                        {item.quantity}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateQuantity(item.id, item.quantity + 1)
+                        }
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFromCart(item.id)}
+                      >
+                        <Trash2 className="h-3 w-3 text-red-600" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <span className="w-8 text-center text-sm font-medium">
-                      {item.quantity}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    >
-                      <Plus className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeFromCart(item.id)}
-                    >
-                      <Trash2 className="h-3 w-3 text-red-600" />
-                    </Button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -280,7 +337,13 @@ export function CartSection({
                 </div>
               </div>
 
-              <Button onClick={handleCheckout} className="w-full" size="lg">
+              <Button
+                onClick={handleCheckout}
+                className="w-full"
+                size="lg"
+                /*                 disabled={stockExceededItems.length > 0}
+                 */
+              >
                 <CreditCard className="mr-2 h-4 w-4" />
                 Checkout
               </Button>

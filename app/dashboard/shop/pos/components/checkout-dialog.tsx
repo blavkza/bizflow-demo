@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Dialog,
   DialogContent,
@@ -28,6 +30,7 @@ import {
   Banknote,
   MapPin,
   MessageCircle,
+  AlertCircle,
 } from "lucide-react";
 import { POSSettings } from "@/types/pos";
 import { useEffect, useState } from "react";
@@ -60,7 +63,7 @@ interface CheckoutDialogProps {
   setDeliveryInstructions: (instructions: string) => void;
   isDelivery: boolean;
   setIsDelivery: (delivery: boolean) => void;
-  completeTransaction: () => void;
+  completeTransaction: () => Promise<void> | void;
   posSettings: POSSettings | null;
 }
 
@@ -122,10 +125,39 @@ export function CheckoutDialog({
   completeTransaction,
   posSettings,
 }: CheckoutDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (paymentMethod === PaymentMethod.CASH && amountReceived) {
+      const received = parseFloat(amountReceived) || 0;
+      const calculatedChange = received - total;
+      setChange(calculatedChange >= 0 ? calculatedChange : undefined);
+    } else {
+      setChange(undefined);
+    }
+  }, [amountReceived, total, paymentMethod, setChange]);
+
   const handleAmountChange = (value: string) => {
-    setAmountReceived(value);
-    const received = Number.parseFloat(value) || 0;
-    setChange(received >= total ? received - total : undefined);
+    // Allow empty string, numbers, and decimal points
+    if (value === "" || /^\d*\.?\d*$/.test(value)) {
+      setAmountReceived(value);
+    }
+  };
+
+  const handleAmountBlur = () => {
+    // On blur, if input is empty or just a decimal point, reset to empty
+    if (amountReceived === "" || amountReceived === ".") {
+      setAmountReceived("");
+      return;
+    }
+
+    // Round to 2 decimal places
+    const numValue = Number.parseFloat(amountReceived);
+    if (!isNaN(numValue)) {
+      const roundedValue = Math.round(numValue * 100) / 100;
+      setAmountReceived(roundedValue.toString());
+    }
   };
 
   const getPaymentMethodIcon = (method: string) => {
@@ -168,6 +200,43 @@ export function CheckoutDialog({
     return convertToFrontendPaymentMethod(paymentMethod as PaymentMethod);
   };
 
+  const validateForm = (): boolean => {
+    const errors: string[] = [];
+
+    // Validate cash payment
+    if (paymentMethod === PaymentMethod.CASH) {
+      const received = parseFloat(amountReceived) || 0;
+      if (received < total) {
+        errors.push(
+          `Amount received (R${received.toFixed(2)}) is less than total (R${total.toFixed(2)})`
+        );
+      }
+    }
+
+    // Validate delivery address if delivery is enabled
+    if (isDelivery && (!customerAddress || customerAddress.trim() === "")) {
+      errors.push("Delivery address is required for delivery orders");
+    }
+
+    setValidationErrors(errors);
+    return errors.length === 0;
+  };
+
+  const handleCompleteTransaction = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      await completeTransaction();
+    } catch (error) {
+      console.error("Error completing transaction:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[900px] max-h-[95vh] overflow-y-auto">
@@ -182,6 +251,23 @@ export function CheckoutDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Validation Errors */}
+          {validationErrors.length > 0 && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2 text-red-700 mb-2">
+                <AlertCircle className="h-5 w-5" />
+                <span className="font-semibold">
+                  Please fix the following errors:
+                </span>
+              </div>
+              <ul className="text-sm text-red-600 space-y-1">
+                {validationErrors.map((error, index) => (
+                  <li key={index}>• {error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Order Summary */}
           <div className="space-y-2 p-4 bg-gray-50 rounded-lg border">
             <div className="flex justify-between text-sm">
@@ -266,6 +352,7 @@ export function CheckoutDialog({
                       onChange={(e) => setCustomerAddress(e.target.value)}
                       rows={3}
                       className="resize-none"
+                      required={isDelivery}
                     />
                   </div>
 
@@ -318,7 +405,7 @@ export function CheckoutDialog({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-2">
-                <Label htmlFor="customer-name">Full Name</Label>
+                <Label htmlFor="customer-name">Full Name (Optional)</Label>
                 <Input
                   id="customer-name"
                   placeholder="Customer full name"
@@ -328,7 +415,7 @@ export function CheckoutDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="customer-phone">Phone Number</Label>
+                <Label htmlFor="customer-phone">Phone Number (Optional)</Label>
                 <Input
                   id="customer-phone"
                   placeholder="Phone number"
@@ -338,7 +425,7 @@ export function CheckoutDialog({
               </div>
 
               <div className="space-y-2 md:col-span-2">
-                <Label htmlFor="customer-email">Email Address</Label>
+                <Label htmlFor="customer-email">Email Address (Optional)</Label>
                 <Input
                   id="customer-email"
                   type="email"
@@ -384,18 +471,24 @@ export function CheckoutDialog({
             {/* Amount Received (for cash) */}
             {paymentMethod === PaymentMethod.CASH && (
               <div className="space-y-2 pt-2">
-                <Label>Amount Received</Label>
+                <Label htmlFor="amount-received">Amount Received</Label>
                 <div className="space-y-2">
                   <Input
-                    type="number"
-                    step="0.01"
-                    min={total}
+                    id="amount-received"
+                    type="text"
+                    inputMode="decimal"
                     value={amountReceived}
                     onChange={(e) => handleAmountChange(e.target.value)}
+                    onBlur={handleAmountBlur}
+                    onFocus={() => {
+                      if (amountReceived === "0") {
+                        setAmountReceived("");
+                      }
+                    }}
                     placeholder="0.00"
                     className="w-full"
                   />
-                  {change !== undefined && amountReceived && (
+                  {change !== undefined && change >= 0 && (
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-muted-foreground">
                         Change to give:
@@ -426,10 +519,6 @@ export function CheckoutDialog({
                       "Provide EFT payment details to customer"}
                     {paymentMethod === PaymentMethod.MOBILE_PAYMENT &&
                       "Process mobile payment through your system"}
-                    {paymentMethod === PaymentMethod.BANK_TRANSFER &&
-                      "Process bank transfer payment"}
-                    {paymentMethod === PaymentMethod.CHEQUE &&
-                      "Process cheque payment"}
                   </span>
                 </div>
               </div>
@@ -481,20 +570,31 @@ export function CheckoutDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             className="w-full sm:w-auto"
+            disabled={isSubmitting}
           >
             Cancel
           </Button>
           <Button
-            onClick={completeTransaction}
+            onClick={handleCompleteTransaction}
             disabled={
+              isSubmitting ||
               (paymentMethod === PaymentMethod.CASH &&
                 (!amountReceived || parseFloat(amountReceived) < total)) ||
               (isDelivery && !customerAddress.trim())
             }
             className="w-full sm:w-auto"
           >
-            <Check className="mr-2 h-4 w-4" />
-            {isDelivery ? "Complete Sale & Create Order" : "Complete Sale"}
+            {isSubmitting ? (
+              <>
+                <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                {isDelivery ? "Complete Sale & Create Order" : "Complete Sale"}
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

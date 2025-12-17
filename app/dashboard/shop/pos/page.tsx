@@ -32,12 +32,9 @@ export default function POSPage() {
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
-
-  // Fix: Explicitly type the state as PaymentMethod to allow all enum values
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
     PaymentMethod.CASH
   );
-
   const [amountReceived, setAmountReceived] = useState("");
   const [discount, setDiscount] = useState(0);
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -54,6 +51,7 @@ export default function POSPage() {
     type: "info",
     visible: false,
   });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const categories = [
     "All",
@@ -77,8 +75,6 @@ export default function POSPage() {
     try {
       setLoading(true);
       const data = await productApi.getAll();
-
-      // Show all products including out of stock
       setProducts(data);
     } catch (error) {
       console.error("Error fetching products:", error);
@@ -93,26 +89,35 @@ export default function POSPage() {
   };
 
   const addToCart = (product: Product) => {
-    // Check if product is in stock
-    if (product.stock <= 0) {
-      showScanNotice(`${product.name} is out of stock`, "error");
+    // Check if product status is not ACTIVE
+    if (product.status !== "ACTIVE") {
+      showScanNotice(`${product.name} is not available for sale`, "error");
       return;
     }
 
     const existingItem = cart.find((item) => item.id === product.id);
     if (existingItem) {
-      if (existingItem.quantity < product.stock) {
-        setCart(
-          cart.map((item) =>
-            item.id === product.id
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
-          )
+      // Check if we exceed stock for warning only
+      if (existingItem.quantity >= product.stock) {
+        showScanNotice(
+          `Only ${product.stock} units available of ${product.name}. You can still add more, but this exceeds current stock.`,
+          "warning"
         );
+      }
+
+      setCart(
+        cart.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      );
+
+      if (product.stock > 0) {
         showScanNotice(`Added ${product.name} to cart`, "info");
       } else {
         showScanNotice(
-          `Only ${product.stock} units available of ${product.name}`,
+          `Added ${product.name} to cart (Out of stock)`,
           "warning"
         );
       }
@@ -129,26 +134,47 @@ export default function POSPage() {
           stock: product.stock,
         },
       ]);
-      showScanNotice(`Added ${product.name} to cart`, "info");
+
+      if (product.stock > 0) {
+        showScanNotice(`Added ${product.name} to cart`, "info");
+      } else {
+        showScanNotice(
+          `Added ${product.name} to cart (Out of stock)`,
+          "warning"
+        );
+      }
     }
   };
 
   const updateQuantity = (id: string, newQuantity: number) => {
     const product = products.find((p) => p.id === id);
+
+    // Check if product is still active
+    if (product && product.status !== "ACTIVE") {
+      showScanNotice(
+        `${product.name} is no longer available for sale`,
+        "error"
+      );
+      removeFromCart(id);
+      return;
+    }
+
     if (newQuantity <= 0) {
       removeFromCart(id);
-    } else if (product && newQuantity <= product.stock) {
+    } else {
+      // Check stock only for warning
+      if (product && newQuantity > product.stock) {
+        showScanNotice(
+          `Only ${product.stock} units available. You can still proceed, but this exceeds current stock.`,
+          "warning"
+        );
+      }
+
       setCart(
         cart.map((item) =>
           item.id === id ? { ...item, quantity: newQuantity } : item
         )
       );
-    } else {
-      toast({
-        title: "Stock Limit Reached",
-        description: `Only ${product?.stock} units available`,
-        variant: "destructive",
-      });
     }
   };
 
@@ -166,7 +192,8 @@ export default function POSPage() {
     setDeliveryInstructions("");
     setIsDelivery(false);
     setChange(undefined);
-    setPaymentMethod(PaymentMethod.CASH); // Reset to default
+    setPaymentMethod(PaymentMethod.CASH);
+    setAmountReceived("");
   };
 
   const showScanNotice = (
@@ -179,7 +206,6 @@ export default function POSPage() {
       visible: true,
     });
 
-    // Auto hide after 3 seconds
     setTimeout(() => {
       setScanNotice((prev) => ({ ...prev, visible: false }));
     }, 3000);
@@ -222,21 +248,33 @@ export default function POSPage() {
       });
       return;
     }
-    setIsCheckoutOpen(true);
-  };
 
-  const handleBarcodeSearch = () => {
-    const product = products.find((p) => p.sku === barcodeInput.toUpperCase());
-    if (product) {
-      if (product.stock <= 0) {
-        showScanNotice(`${product.name} is out of stock`, "error");
-      } else {
-        addToCart(product);
-        setBarcodeInput("");
-      }
-    } else {
-      showScanNotice("Product not found", "error");
+    // Check for inactive products in cart
+    const inactiveProducts = cart.filter((item) => {
+      const product = products.find((p) => p.id === item.id);
+      return product && product.status !== "ACTIVE";
+    });
+
+    if (inactiveProducts.length > 0) {
+      toast({
+        title: "Inactive Products",
+        description:
+          "Some products in your cart are no longer active and will be removed",
+        variant: "destructive",
+      });
+
+      // Remove inactive products
+      setCart(
+        cart.filter((item) => {
+          const product = products.find((p) => p.id === item.id);
+          return product && product.status === "ACTIVE";
+        })
+      );
+
+      return;
     }
+
+    setIsCheckoutOpen(true);
   };
 
   const handleManualBarcodeSearch = () => {
@@ -246,8 +284,8 @@ export default function POSPage() {
       );
 
       if (product) {
-        if (product.stock <= 0) {
-          showScanNotice(`${product.name} is out of stock`, "error");
+        if (product.status !== "ACTIVE") {
+          showScanNotice(`${product.name} is not available for sale`, "error");
         } else {
           addToCart(product);
           setBarcodeInput("");
@@ -259,17 +297,40 @@ export default function POSPage() {
   };
 
   const completeTransaction = async () => {
-    const received = Number.parseFloat(amountReceived) || 0;
-    if (paymentMethod === PaymentMethod.CASH && received < total) {
-      toast({
-        title: "Insufficient Amount",
-        description: "Amount received is less than total",
-        variant: "destructive",
-      });
-      return;
-    }
+    setIsProcessing(true);
 
     try {
+      // Debug logging
+      console.log("Cart items:", cart);
+      console.log("Payment method:", paymentMethod);
+      console.log("Amount received:", amountReceived);
+      console.log("Is delivery:", isDelivery);
+      console.log("Delivery address:", customerAddress);
+
+      const received = Number.parseFloat(amountReceived) || 0;
+
+      // Validate cash payment
+      if (paymentMethod === PaymentMethod.CASH && received < total) {
+        toast({
+          title: "Insufficient Amount",
+          description: `Amount received (R${received.toFixed(2)}) is less than total (R${total.toFixed(2)})`,
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
+
+      // Validate delivery address if delivery is enabled
+      if (isDelivery && (!customerAddress || customerAddress.trim() === "")) {
+        toast({
+          title: "Delivery Address Required",
+          description: "Please enter a delivery address for delivery orders",
+          variant: "destructive",
+        });
+        setIsProcessing(false);
+        return;
+      }
+
       const saleData: SaleData = {
         customerName: customerName || undefined,
         customerPhone: customerPhone || undefined,
@@ -299,7 +360,11 @@ export default function POSPage() {
         deliveryInstructions: isDelivery ? deliveryInstructions : undefined,
       };
 
+      console.log("Submitting sale data:", JSON.stringify(saleData, null, 2));
+
       const sale = await saleApi.create(saleData);
+
+      console.log("Sale created:", sale);
 
       setCompletedSale({
         ...sale,
@@ -319,6 +384,7 @@ export default function POSPage() {
               taxNumber: "9876543210",
             },
       });
+
       setReceiptEmail(customerEmail);
       setIsCheckoutOpen(false);
       setIsReceiptDialogOpen(true);
@@ -327,13 +393,41 @@ export default function POSPage() {
         title: "Transaction Complete",
         description: `Sale ${sale.saleNumber} completed successfully${isDelivery ? " with delivery order" : ""}`,
       });
-    } catch (error) {
+
+      // Check for warnings in the response
+      if (sale.warnings && sale.warnings.negativeStock) {
+        sale.warnings.negativeStock.forEach((warning: any) => {
+          toast({
+            title: "Stock Warning",
+            description: warning.message,
+            variant: "default",
+            className: "bg-yellow-50 text-yellow-900 border-yellow-200",
+          });
+        });
+      }
+
+      // Clear cart after successful transaction
+      clearCart();
+    } catch (error: any) {
       console.error("Error completing sale:", error);
+
+      let errorMessage = "Could not complete the sale";
+      if (error.message?.includes("inactive products")) {
+        errorMessage = "Cannot process sale with inactive products";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       toast({
         title: "Transaction Failed",
-        description: "Could not complete the sale",
+        description: errorMessage,
         variant: "destructive",
       });
+
+      // Re-fetch products to get updated stock status
+      await fetchProducts();
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -384,6 +478,7 @@ export default function POSPage() {
           removeFromCart={removeFromCart}
           clearCart={clearCart}
           handleCheckout={handleCheckout}
+          products={products}
         />
       </div>
 
