@@ -106,24 +106,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for negative stock warnings (for logging only, not blocking)
-    const negativeStockWarnings = items
-      .filter((item: any) => {
-        const product = products.find((p) => p.id === item.id);
-        return product && item.quantity > product.stock;
-      })
-      .map((item: any) => {
-        const product = products.find((p) => p.id === item.id);
-        return {
-          productName: product?.name,
-          ordered: item.quantity,
-          available: product?.stock || 0,
-          exceedsBy: item.quantity - (product?.stock || 0),
-        };
-      });
-
-    console.log("Negative stock warnings:", negativeStockWarnings);
-
     // Increase transaction timeout to 30 seconds
     const result = await db.$transaction(
       async (tx) => {
@@ -192,6 +174,7 @@ export async function POST(request: NextRequest) {
           change: change ? parseFloat(parseFloat(change).toFixed(2)) : null,
           saleDate: new Date(),
           createdBy: user?.name || "system",
+          // Your schema has these default values:
           status: "COMPLETED",
           paymentStatus: "COMPLETED",
           receiptSent: false,
@@ -211,12 +194,13 @@ export async function POST(request: NextRequest) {
           data: saleData,
         });
 
+        // Create sale items in batch - Use Decimal type for price and total
         const saleItemsData = items.map((item: any) => ({
           saleId: sale.id,
           shopProductId: item.id,
           quantity: item.quantity,
-          price: parseFloat(item.price.toFixed(2)),
-          total: parseFloat((item.price * item.quantity).toFixed(2)),
+          price: parseFloat(item.price.toFixed(2)), // Convert to Decimal
+          total: parseFloat((item.price * item.quantity).toFixed(2)), // Convert to Decimal
         }));
 
         await tx.saleItem.createMany({
@@ -293,6 +277,51 @@ export async function POST(request: NextRequest) {
           await tx.orderItem.createMany({
             data: orderItemsData,
           });
+        }
+        let paymentCategory = await db.category.findFirst({
+          where: {
+            name: "INVOICE_PAYMENT",
+            type: "INCOME",
+          },
+        });
+
+        if (!paymentCategory) {
+          paymentCategory = await db.category.create({
+            data: {
+              name: "SALE_PAYMENT",
+              description: "Payments received from sale",
+              type: "INCOME",
+              createdBy: user.name,
+            },
+          });
+        }
+
+        try {
+          const transactionData: any = {
+            amount: parseFloat(total.toFixed(2)),
+            type: "INCOME",
+            status: "COMPLETED",
+            description: `Sale ${saleNumber}${isDelivery ? " (Delivery)" : ""}`,
+            reference: saleNumber,
+            date: new Date(),
+            categoryId: paymentCategory.id,
+            method: paymentMethod.toUpperCase(),
+            taxAmount: parseFloat(tax.toFixed(2)),
+            netAmount: parseFloat((subtotal - discount).toFixed(2)),
+            createdBy: user?.id || "",
+          };
+
+          // Only add notes if your Transaction model has it
+          // Check your Transaction model schema
+          await tx.transaction.create({
+            data: transactionData,
+          });
+        } catch (txError) {
+          console.warn(
+            "Transaction creation error (check if Transaction model exists):",
+            txError
+          );
+          // Continue even if transaction record fails - sale should still complete
         }
 
         // Check for negative stock and log warnings

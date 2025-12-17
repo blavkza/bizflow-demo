@@ -1039,9 +1039,9 @@ model Client {
   id           String  @id @default(cuid())
   clientNumber String  @unique
   name         String
-  email        String  @unique
+  email        String?
   phone        String  @unique
-  phone2       String? @unique
+  phone2       String?
   company      String?
 
   // Address Information
@@ -1908,6 +1908,7 @@ model ProductCategory {
   id          String        @id @default(cuid())
   name        String        @unique
   description String?
+  images      String?
   products    ShopProduct[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -1967,6 +1968,20 @@ model ShopProduct {
   @@map("shopProducts")
 }
 
+model ProductDocument {
+  id            String       @id @default(cuid())
+  name          String
+  url           String
+  type          DocumentType
+  size          Int
+  mimeType      String
+  shopProductId String
+  shopProduct   ShopProduct  @relation(fields: [shopProductId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+
+  @@map("product_documents")
+}
+
 model StockMovement {
   id            String            @id @default(cuid())
   shopProductId String
@@ -1983,20 +1998,6 @@ model StockMovement {
   shopProduct ShopProduct @relation(fields: [shopProductId], references: [id])
 
   @@map("stock_movements")
-}
-
-model ProductDocument {
-  id            String       @id @default(cuid())
-  name          String
-  url           String
-  type          DocumentType
-  size          Int
-  mimeType      String
-  shopProductId String
-  shopProduct   ShopProduct  @relation(fields: [shopProductId], references: [id], onDelete: Cascade)
-  createdAt     DateTime     @default(now())
-
-  @@map("product_documents")
 }
 
 model Order {

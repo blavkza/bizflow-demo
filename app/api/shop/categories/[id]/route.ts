@@ -17,8 +17,18 @@ export async function GET(
       where: { id: params.id },
       include: {
         products: {
-          include: {
-            productDocuments: true,
+          select: {
+            id: true,
+            name: true,
+            price: true,
+            status: true,
+            images: true,
+            description: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+          orderBy: {
+            createdAt: "desc",
           },
         },
         _count: {
@@ -64,6 +74,7 @@ export async function PUT(
       data: {
         name: body.name,
         description: body.description,
+        images: body.images,
       },
       include: {
         _count: {
@@ -120,7 +131,7 @@ export async function DELETE(
       );
     }
 
-    await db.category.delete({
+    await db.productCategory.delete({
       where: { id: params.id },
     });
 

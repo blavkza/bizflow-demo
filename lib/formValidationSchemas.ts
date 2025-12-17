@@ -98,7 +98,11 @@ export const clientSchema = z
   .object({
     // Basic Information
     name: z.string().min(1, "Name is required"),
-    email: z.string().email("Invalid email address"),
+    email: z
+      .string()
+      .email("Invalid email address")
+      .optional()
+      .or(z.literal("")),
     phone: z.string().min(1, "Phone is required"),
     phone2: z.string().optional().or(z.literal("")),
     type: z.nativeEnum(ClientType),

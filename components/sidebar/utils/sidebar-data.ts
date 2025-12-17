@@ -237,6 +237,7 @@ export const getSidebarData = (
                 },
               ]
             : []),
+
           ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.Product_VIEW)
             ? [
@@ -245,6 +246,17 @@ export const getSidebarData = (
                   url: "/dashboard/shop/products",
                   icon: ScanBarcode,
                   color: "text-pink-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Product_VIEW)
+            ? [
+                {
+                  title: "Shop Categories",
+                  url: "/dashboard/shop/categories",
+                  icon: Building2,
+                  color: "text-green-500",
                 },
               ]
             : []),

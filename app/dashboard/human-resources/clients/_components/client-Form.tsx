@@ -202,12 +202,14 @@ export default function ClientForm({
               name="email"
               render={({ field }) => (
                 <FormItem className="space-y-2">
-                  <FormLabel>Email *</FormLabel>
+                  <FormLabel>Email (Optional)</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="Enter email"
+                      placeholder="Enter email (optional)"
                       type="email"
                       {...field}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value || null)}
                       className="w-full"
                     />
                   </FormControl>
