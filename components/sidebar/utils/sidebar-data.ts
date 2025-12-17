@@ -249,22 +249,22 @@ export const getSidebarData = (
                 },
               ]
             : []),
+        ].filter((item) => item !== null),
+      },
+      {
+        title: "Business",
+        items: [
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Product_VIEW)
+          hasPermission(permissions, UserPermission.CATEGORY_VIEW)
             ? [
                 {
-                  title: "Shop Categories",
+                  title: "Products Categories",
                   url: "/dashboard/shop/categories",
                   icon: Building2,
                   color: "text-green-500",
                 },
               ]
             : []),
-        ].filter((item) => item !== null),
-      },
-      {
-        title: "Business",
-        items: [
           ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.Service_VIEW)
             ? [

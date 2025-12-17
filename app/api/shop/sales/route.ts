@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
         }
         let paymentCategory = await db.category.findFirst({
           where: {
-            name: "INVOICE_PAYMENT",
+            name: "SALE_PAYMENT",
             type: "INCOME",
           },
         });

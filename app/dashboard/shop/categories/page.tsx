@@ -6,6 +6,7 @@ import Image from "next/image";
 import {
   Plus,
   Edit,
+  Trash2,
   Search,
   Filter,
   Eye,
@@ -45,6 +46,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Local components
 import CategoryForm from "./CategoryForm";
@@ -59,7 +70,8 @@ interface ProductCategory {
   images: string | null;
   createdAt: string;
   updatedAt: string;
-  _count: {
+  _count?: {
+    // Make _count optional
     products: number;
   };
 }
@@ -76,6 +88,10 @@ export default function CategoriesPage() {
     useState<ProductCategory | null>(null);
   const [viewingCategory, setViewingCategory] =
     useState<ProductCategory | null>(null);
+  const [categoryToDelete, setCategoryToDelete] =
+    useState<ProductCategory | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set()
   );
@@ -175,6 +191,35 @@ export default function CategoriesPage() {
     }
   };
 
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+
+    try {
+      setDeleteLoading(true);
+      const response = await fetch(
+        `/api/shop/categories/${categoryToDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        await loadCategories();
+        // Don't close dialog here yet - wait for the final state
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete category: ${error.error}`);
+      }
+    } catch (error) {
+      alert("Failed to delete category");
+    } finally {
+      setDeleteLoading(false);
+      // Only close dialog and clear state after everything is done
+      setCategoryToDelete(null);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   const toggleCategoryExpand = (categoryId: string) => {
     const newExpanded = new Set(expandedCategories);
     if (newExpanded.has(categoryId)) {
@@ -183,6 +228,16 @@ export default function CategoriesPage() {
       newExpanded.add(categoryId);
     }
     setExpandedCategories(newExpanded);
+  };
+
+  const openDeleteDialog = (category: ProductCategory) => {
+    setCategoryToDelete(category);
+    setDeleteDialogOpen(true);
+  };
+
+  // Get product count safely
+  const getProductCount = (category: ProductCategory) => {
+    return category._count?.products || 0;
   };
 
   // Pagination handlers
@@ -195,14 +250,14 @@ export default function CategoriesPage() {
     setCurrentPage(1); // Reset to first page when items per page changes
   };
 
-  // Calculate statistics
+  // Calculate statistics safely
   const totalCategories = filteredCategories.length;
   const totalProducts = filteredCategories.reduce(
-    (sum, cat) => sum + cat._count.products,
+    (sum, cat) => sum + getProductCount(cat),
     0
   );
   const categoriesWithProducts = filteredCategories.filter(
-    (cat) => cat._count.products > 0
+    (cat) => getProductCount(cat) > 0
   ).length;
   const categoriesWithImages = filteredCategories.filter(
     (cat) => cat.images
@@ -412,113 +467,133 @@ export default function CategoriesPage() {
                       <TableHead>Description</TableHead>
                       <TableHead className="w-[120px]">Products</TableHead>
                       <TableHead className="w-[120px]">Created</TableHead>
-                      <TableHead className="w-[100px] text-right">
+                      <TableHead className="w-[150px] text-right">
                         Actions
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {currentCategories.map((category) => (
-                      <TableRow key={category.id} className="hover:bg-muted/50">
-                        {/* Image Column - First */}
-                        <TableCell>
-                          {category.images ? (
-                            <div className="relative w-12 h-12 rounded-md overflow-hidden border">
-                              <Image
-                                src={category.images}
-                                alt={category.name}
-                                fill
-                                className="object-cover"
-                                sizes="48px"
-                              />
+                    {currentCategories.map((category) => {
+                      const productCount = getProductCount(category);
+                      return (
+                        <TableRow
+                          key={category.id}
+                          className="hover:bg-muted/50"
+                        >
+                          {/* Image Column - First */}
+                          <TableCell>
+                            {category.images ? (
+                              <div className="relative w-12 h-12 rounded-md overflow-hidden border">
+                                <Image
+                                  src={category.images}
+                                  alt={category.name}
+                                  fill
+                                  className="object-cover"
+                                  sizes="48px"
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center">
+                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
+                          </TableCell>
+
+                          {/* Category Name */}
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-3">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() =>
+                                  toggleCategoryExpand(category.id)
+                                }
+                                className="h-6 w-6"
+                              ></Button>
+                              <span className="font-semibold">
+                                {category.name}
+                              </span>
                             </div>
-                          ) : (
-                            <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center">
-                              <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                          </TableCell>
+
+                          {/* Description */}
+                          <TableCell>
+                            <p className="text-muted-foreground line-clamp-2 max-w-md">
+                              {category.description || "No description"}
+                            </p>
+                          </TableCell>
+
+                          {/* Products Count */}
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant={
+                                  productCount > 0 ? "default" : "secondary"
+                                }
+                                className="gap-1"
+                              >
+                                <Box className="h-3 w-3" />
+                                {productCount}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                product{productCount !== 1 ? "s" : ""}
+                              </span>
                             </div>
-                          )}
-                        </TableCell>
+                          </TableCell>
 
-                        {/* Category Name */}
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-3">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => toggleCategoryExpand(category.id)}
-                              className="h-6 w-6"
-                            >
-                              {expandedCategories.has(category.id) ? (
-                                <ChevronDown className="h-4 w-4" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4" />
-                              )}
-                            </Button>
-                            <span className="font-semibold">
-                              {category.name}
-                            </span>
-                          </div>
-                        </TableCell>
-
-                        {/* Description */}
-                        <TableCell>
-                          <p className="text-muted-foreground line-clamp-2 max-w-md">
-                            {category.description || "No description"}
-                          </p>
-                        </TableCell>
-
-                        {/* Products Count */}
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant={
-                                category._count.products > 0
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="gap-1"
-                            >
-                              <Box className="h-3 w-3" />
-                              {category._count.products}
-                            </Badge>
+                          {/* Created Date */}
+                          <TableCell>
                             <span className="text-sm text-muted-foreground">
-                              product{category._count.products !== 1 ? "s" : ""}
+                              {new Date(
+                                category.createdAt
+                              ).toLocaleDateString()}
                             </span>
-                          </div>
-                        </TableCell>
+                          </TableCell>
 
-                        {/* Created Date */}
-                        <TableCell>
-                          <span className="text-sm text-muted-foreground">
-                            {new Date(category.createdAt).toLocaleDateString()}
-                          </span>
-                        </TableCell>
-
-                        {/* Actions */}
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setViewingCategory(category)}
-                              className="h-8 px-2"
-                              title="View details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setEditingCategory(category)}
-                              className="h-8 px-2"
-                              title="Edit category"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          {/* Actions */}
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setViewingCategory(category)}
+                                className="h-8 px-2"
+                                title="View details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingCategory(category)}
+                                className="h-8 px-2"
+                                title="Edit category"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => openDeleteDialog(category)}
+                                disabled={productCount > 0}
+                                className={`h-8 px-2 ${
+                                  productCount > 0
+                                    ? "text-gray-400 cursor-not-allowed"
+                                    : "text-destructive hover:text-destructive/80"
+                                }`}
+                                title={
+                                  productCount > 0
+                                    ? "Cannot delete category with products"
+                                    : "Delete category"
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -581,6 +656,78 @@ export default function CategoriesPage() {
           category={viewingCategory}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          // Only allow closing if not loading and user clicks cancel
+          if (!open && !deleteLoading) {
+            setDeleteDialogOpen(false);
+            setCategoryToDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Category</AlertDialogTitle>
+            <AlertDialogDescription>
+              {categoryToDelete &&
+              (categoryToDelete._count?.products || 0) > 0 ? (
+                <>
+                  This category contains{" "}
+                  {categoryToDelete._count?.products || 0} product
+                  {(categoryToDelete._count?.products || 0) !== 1
+                    ? "s"
+                    : ""}.{" "}
+                  <span className="font-semibold text-destructive">
+                    You cannot delete a category that has products.
+                  </span>{" "}
+                  Please remove or reassign all products before deleting this
+                  category.
+                </>
+              ) : (
+                <>
+                  Are you sure you want to delete the category{" "}
+                  <span className="font-semibold">
+                    "{categoryToDelete?.name}"
+                  </span>
+                  ? This action cannot be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setCategoryToDelete(null);
+                setDeleteDialogOpen(false);
+              }}
+              disabled={deleteLoading}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteCategory}
+              disabled={
+                (categoryToDelete &&
+                  (categoryToDelete._count?.products || 0) > 0) ||
+                deleteLoading
+              }
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteLoading ? (
+                <>
+                  <span className="mr-2">Deleting...</span>
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                </>
+              ) : (
+                "Delete Category"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
