@@ -182,12 +182,12 @@ export default function EmployeesList({
                 <MapPin className="h-4 w-4" />
                 <span>{employee.location}</span>
               </div>
-              <div className="flex items-center space-x-2 text-muted-foreground">
+              {/*    <div className="flex items-center space-x-2 text-muted-foreground">
                 <DollarSign className="h-4 w-4" />
                 <span>
                   {getSalaryDisplay(employee.salary, employee.salaryType)}
                 </span>
-              </div>
+              </div> */}
               <div className="flex items-center space-x-2 text-muted-foreground">
                 <Calendar className="h-4 w-4" />
                 <span>Started {employee.startDate}</span>

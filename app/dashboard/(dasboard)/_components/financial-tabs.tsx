@@ -113,7 +113,7 @@ export default function FinancialTabs({
                 Project progress and budget utilization
               </CardDescription>
             </CardHeader>
-            <CardContent className="min-h-[530px]">
+            <CardContent className="h-[530px] overflow-y-auto sidebar-scroll">
               {isLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (

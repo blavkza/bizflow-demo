@@ -198,12 +198,12 @@ export default function FreelancersList({
                   <span>{freelancer.department || "No Department"}</span>
                 </div>
 
-                <div className="flex items-center space-x-2 text-muted-foreground">
+                {/*   <div className="flex items-center space-x-2 text-muted-foreground">
                   <DollarSign className="h-4 w-4" />
                   <span>
                     R{(freelancer.salary || 0).toLocaleString()} Per Day
                   </span>
-                </div>
+                </div> */}
               </div>
 
               <div className="pt-2 border-t">
