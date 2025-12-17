@@ -3,12 +3,11 @@ import db from "@/lib/db";
 import { CheckInMethod, AttendanceStatus, LeaveStatus } from "@prisma/client";
 import { sendPushNotification } from "@/lib/expo";
 
-// SIMPLER AND MORE RELIABLE UTILITY FUNCTION
+// SIMPLIFIED TIMEZONE FUNCTION
 function getCurrentSASTAsUTC() {
-  // Get current time in SAST and convert to UTC
   const now = new Date();
 
-  // Format to get SAST date components
+  // Get SAST date components (Africa/Johannesburg is UTC+2)
   const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
     timeZone: "Africa/Johannesburg",
     year: "numeric",
@@ -31,21 +30,14 @@ function getCurrentSASTAsUTC() {
   const minute = parseInt(getPart("minute"));
   const second = parseInt(getPart("second"));
 
-  // SAST is UTC+2, so convert to UTC
+  // SAST is UTC+2, so subtract 2 hours to get UTC
   const utcDate = new Date(
     Date.UTC(year, month, day, hour - 2, minute, second)
   );
 
-  // Handle case where hour < 2 (would make hour negative)
-  if (hour < 2) {
-    // The UTC time is actually on the previous day
-    utcDate.setUTCDate(utcDate.getUTCDate() - 1);
-    utcDate.setUTCHours(utcDate.getUTCHours() + 24);
-  }
-
   return {
     utcDate,
-    sastDate: new Date(Date.UTC(year, month, day)), // SAST date at midnight
+    sastDate: new Date(Date.UTC(year, month, day)), // SAST date at midnight UTC
     sastHour: hour,
     sastMinute: minute,
     sastYear: year,
@@ -120,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 2. TIMEZONE CALCULATION (SIMPLIFIED)
+    // 2. TIMEZONE CALCULATION
     // ---------------------------------------------------------
     const { utcDate: currentTimeUTC, sastDate: today } = getCurrentSASTAsUTC();
 
@@ -130,48 +122,32 @@ export async function POST(request: NextRequest) {
     console.log(`Today SAST (as UTC): ${today.toISOString()}`);
 
     // ---------------------------------------------------------
-    // 3. CHECK FOR ATTENDANCE BYPASS RULES (FIXED)
+    // 3. CHECK FOR ATTENDANCE BYPASS RULES
     // ---------------------------------------------------------
-    // We need to check bypass for the SAST date, not UTC date
-    const bypassResult = await checkAttendanceBypass(
+    const bypassResult = await checkAttendanceBypassSimple(
       person.id,
       personType,
-      today // Pass the SAST date
+      today
     );
 
     console.log(`=== CHECK-IN BYPASS DEBUG ===`);
     console.log(`Person: ${personType} ${person.id}`);
-    console.log(`Current UTC Time: ${currentTimeUTC.toISOString()}`);
     console.log(`Today SAST: ${today.toISOString()}`);
     console.log(`Bypass result:`, bypassResult);
 
     // ---------------------------------------------------------
-    // 4. DETERMINE ATTENDANCE DATE (HANDLE NIGHT SHIFTS)
+    // 4. ATTENDANCE DATE (NO NIGHT SHIFT LOGIC)
     // ---------------------------------------------------------
-    let attendanceDate = today;
-    let isNightShift = false;
+    const attendanceDate = today; // Always use today's date
     let customCheckInTimeUsed: string | null = null;
 
-    // Pre-check bypass for shift logic
+    // Just record if bypass has custom time
     if (
       bypassResult.bypassCheckIn &&
       bypassResult.customCheckInTime &&
       bypassResult.customCheckInTime !== "none"
     ) {
       customCheckInTimeUsed = bypassResult.customCheckInTime;
-      const [hours] = customCheckInTimeUsed.split(":").map(Number);
-
-      if (hours >= 18 || hours < 6) {
-        isNightShift = true;
-        if (hours < 6) {
-          // For times before 6 AM SAST, shift to previous calendar day
-          attendanceDate = new Date(today);
-          attendanceDate.setUTCDate(attendanceDate.getUTCDate() - 1);
-          console.log(
-            `Night shift detected via bypass: shifted to previous day ${attendanceDate.toISOString()}`
-          );
-        }
-      }
     }
 
     // ---------------------------------------------------------
@@ -529,7 +505,6 @@ export async function POST(request: NextRequest) {
         warning: warningCreated,
         personType,
         isWeekend,
-        isNightShift: isNightShift,
         scheduledTimeUsed: scheduledKnockInTime,
         bypassApplied: bypassApplied,
         customCheckInTime: customCheckInTimeUsed,
@@ -559,12 +534,12 @@ export async function POST(request: NextRequest) {
 }
 
 // ---------------------------------------------------------
-// ATTENDANCE BYPASS CHECK FUNCTION
+// SIMPLIFIED BYPASS CHECK FUNCTION
 // ---------------------------------------------------------
-async function checkAttendanceBypass(
+async function checkAttendanceBypassSimple(
   assigneeId: string,
   assigneeType: "employee" | "freelancer",
-  date: Date // This should be the SAST date
+  date: Date
 ): Promise<{
   hasBypass: boolean;
   bypassCheckIn: boolean;
@@ -574,24 +549,35 @@ async function checkAttendanceBypass(
   rule?: any;
 }> {
   try {
-    // The date passed is already the SAST date at midnight UTC
-    const today = new Date(date);
-    const tomorrow = new Date(today);
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+    // Convert date to YYYY-MM-DD format for comparison
+    const dateStr = date.toISOString().split("T")[0];
+    const checkDate = new Date(dateStr + "T00:00:00.000Z");
 
-    console.log(
-      `Bypass Check Dates: Today=${today.toISOString()}, Tomorrow=${tomorrow.toISOString()}`
-    );
+    console.log(`\n=== SIMPLE BYPASS CHECK ===`);
+    console.log(`Date: ${dateStr}, Check Date: ${checkDate.toISOString()}`);
+    console.log(`Assignee: ${assigneeType} ${assigneeId}`);
 
+    // Build query EXACTLY like the GET endpoint
     const where: any = {
-      AND: [{ startDate: { lte: tomorrow } }, { endDate: { gte: today } }],
+      AND: [
+        { startDate: { lte: checkDate } },
+        { endDate: { gte: checkDate } },
+        { bypassCheckIn: true },
+      ],
     };
 
+    // Add employee/freelancer filter
     if (assigneeType === "employee") {
-      where.employees = { some: { id: assigneeId } };
+      where.employees = {
+        some: { id: assigneeId },
+      };
     } else {
-      where.freelancers = { some: { id: assigneeId } };
+      where.freelancers = {
+        some: { id: assigneeId },
+      };
     }
+
+    console.log(`Query WHERE:`, JSON.stringify(where, null, 2));
 
     const bypassRule = await db.attendanceBypassRule.findFirst({
       where,
@@ -604,8 +590,6 @@ async function checkAttendanceBypass(
                   employeeNumber: true,
                   firstName: true,
                   lastName: true,
-                  position: true,
-                  department: true,
                 },
               }
             : false,
@@ -617,8 +601,6 @@ async function checkAttendanceBypass(
                   freeLancerNumber: true,
                   firstName: true,
                   lastName: true,
-                  position: true,
-                  department: true,
                 },
               }
             : false,
@@ -626,26 +608,31 @@ async function checkAttendanceBypass(
       orderBy: { createdAt: "desc" },
     });
 
-    console.log(`Bypass Query Result:`, bypassRule ? "Found" : "Not found");
+    if (bypassRule) {
+      console.log(`✓ Found bypass rule: ${bypassRule.id}`);
+      console.log(`  Start: ${bypassRule.startDate}`);
+      console.log(`  End: ${bypassRule.endDate}`);
+      console.log(`  Custom Time: ${bypassRule.customCheckInTime}`);
+      console.log(`  Employees: ${bypassRule.employees?.length || 0}`);
 
-    if (!bypassRule) {
       return {
-        hasBypass: false,
-        bypassCheckIn: false,
-        bypassCheckOut: false,
+        hasBypass: true,
+        bypassCheckIn: bypassRule.bypassCheckIn,
+        bypassCheckOut: bypassRule.bypassCheckOut || false,
+        customCheckInTime: bypassRule.customCheckInTime,
+        customCheckOutTime: bypassRule.customCheckOutTime,
+        rule: bypassRule,
       };
     }
 
+    console.log(`✗ No bypass rule found`);
     return {
-      hasBypass: true,
-      bypassCheckIn: bypassRule.bypassCheckIn,
-      bypassCheckOut: bypassRule.bypassCheckOut,
-      customCheckInTime: bypassRule.customCheckInTime,
-      customCheckOutTime: bypassRule.customCheckOutTime,
-      rule: bypassRule,
+      hasBypass: false,
+      bypassCheckIn: false,
+      bypassCheckOut: false,
     };
-  } catch (error) {
-    console.error("Error checking attendance bypass:", error);
+  } catch (error: any) {
+    console.error("Error in simple bypass check:", error.message);
     return {
       hasBypass: false,
       bypassCheckIn: false,
