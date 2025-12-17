@@ -3,11 +3,12 @@ import db from "@/lib/db";
 import { CheckInMethod, AttendanceStatus, LeaveStatus } from "@prisma/client";
 import { sendPushNotification } from "@/lib/expo";
 
-// SIMPLIFIED TIMEZONE FUNCTION
+// SIMPLER AND MORE RELIABLE UTILITY FUNCTION
 function getCurrentSASTAsUTC() {
+  // Get current time in SAST and convert to UTC
   const now = new Date();
 
-  // Get SAST date components (Africa/Johannesburg is UTC+2)
+  // Format to get SAST date components
   const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
     timeZone: "Africa/Johannesburg",
     year: "numeric",
@@ -30,14 +31,21 @@ function getCurrentSASTAsUTC() {
   const minute = parseInt(getPart("minute"));
   const second = parseInt(getPart("second"));
 
-  // SAST is UTC+2, so subtract 2 hours to get UTC
+  // SAST is UTC+2, so convert to UTC
   const utcDate = new Date(
     Date.UTC(year, month, day, hour - 2, minute, second)
   );
 
+  // Handle case where hour < 2 (would make hour negative)
+  if (hour < 2) {
+    // The UTC time is actually on the previous day
+    utcDate.setUTCDate(utcDate.getUTCDate() - 1);
+    utcDate.setUTCHours(utcDate.getUTCHours() + 24);
+  }
+
   return {
     utcDate,
-    sastDate: new Date(Date.UTC(year, month, day)), // SAST date at midnight UTC
+    sastDate: new Date(Date.UTC(year, month, day)), // SAST date at midnight
     sastHour: hour,
     sastMinute: minute,
     sastYear: year,
@@ -112,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // 2. TIMEZONE CALCULATION
+    // 2. TIMEZONE CALCULATION (SIMPLIFIED)
     // ---------------------------------------------------------
     const { utcDate: currentTimeUTC, sastDate: today } = getCurrentSASTAsUTC();
 
@@ -122,16 +130,18 @@ export async function POST(request: NextRequest) {
     console.log(`Today SAST (as UTC): ${today.toISOString()}`);
 
     // ---------------------------------------------------------
-    // 3. CHECK FOR ATTENDANCE BYPASS RULES (SIMPLIFIED)
+    // 3. CHECK FOR ATTENDANCE BYPASS RULES (FIXED)
     // ---------------------------------------------------------
-    const bypassResult = await checkAttendanceBypassSimple(
+    // We need to check bypass for the SAST date, not UTC date
+    const bypassResult = await checkAttendanceBypass(
       person.id,
       personType,
-      today
+      today // Pass the SAST date
     );
 
     console.log(`=== CHECK-IN BYPASS DEBUG ===`);
     console.log(`Person: ${personType} ${person.id}`);
+    console.log(`Current UTC Time: ${currentTimeUTC.toISOString()}`);
     console.log(`Today SAST: ${today.toISOString()}`);
     console.log(`Bypass result:`, bypassResult);
 
@@ -549,120 +559,12 @@ export async function POST(request: NextRequest) {
 }
 
 // ---------------------------------------------------------
-// SIMPLIFIED BYPASS CHECK FUNCTION
-// ---------------------------------------------------------
-async function checkAttendanceBypassSimple(
-  assigneeId: string,
-  assigneeType: "employee" | "freelancer",
-  date: Date
-): Promise<{
-  hasBypass: boolean;
-  bypassCheckIn: boolean;
-  bypassCheckOut: boolean;
-  customCheckInTime?: string | null;
-  customCheckOutTime?: string | null;
-  rule?: any;
-}> {
-  try {
-    // Convert date to YYYY-MM-DD format for comparison
-    const dateStr = date.toISOString().split("T")[0];
-    const checkDate = new Date(dateStr + "T00:00:00.000Z");
-
-    console.log(`\n=== SIMPLE BYPASS CHECK ===`);
-    console.log(`Date: ${dateStr}, Check Date: ${checkDate.toISOString()}`);
-    console.log(`Assignee: ${assigneeType} ${assigneeId}`);
-
-    // Build query EXACTLY like the GET endpoint
-    const where: any = {
-      AND: [
-        { startDate: { lte: checkDate } },
-        { endDate: { gte: checkDate } },
-        { bypassCheckIn: true },
-      ],
-    };
-
-    // Add employee/freelancer filter
-    if (assigneeType === "employee") {
-      where.employees = {
-        some: { id: assigneeId },
-      };
-    } else {
-      where.freelancers = {
-        some: { id: assigneeId },
-      };
-    }
-
-    console.log(`Query WHERE:`, JSON.stringify(where, null, 2));
-
-    const bypassRule = await db.attendanceBypassRule.findFirst({
-      where,
-      include: {
-        employees:
-          assigneeType === "employee"
-            ? {
-                select: {
-                  id: true,
-                  employeeNumber: true,
-                  firstName: true,
-                  lastName: true,
-                },
-              }
-            : false,
-        freelancers:
-          assigneeType === "freelancer"
-            ? {
-                select: {
-                  id: true,
-                  freeLancerNumber: true,
-                  firstName: true,
-                  lastName: true,
-                },
-              }
-            : false,
-      },
-      orderBy: { createdAt: "desc" },
-    });
-
-    if (bypassRule) {
-      console.log(`✓ Found bypass rule: ${bypassRule.id}`);
-      console.log(`  Start: ${bypassRule.startDate}`);
-      console.log(`  End: ${bypassRule.endDate}`);
-      console.log(`  Custom Time: ${bypassRule.customCheckInTime}`);
-      console.log(`  Employees: ${bypassRule.employees?.length || 0}`);
-
-      return {
-        hasBypass: true,
-        bypassCheckIn: bypassRule.bypassCheckIn,
-        bypassCheckOut: bypassRule.bypassCheckOut || false,
-        customCheckInTime: bypassRule.customCheckInTime,
-        customCheckOutTime: bypassRule.customCheckOutTime,
-        rule: bypassRule,
-      };
-    }
-
-    console.log(`✗ No bypass rule found`);
-    return {
-      hasBypass: false,
-      bypassCheckIn: false,
-      bypassCheckOut: false,
-    };
-  } catch (error: any) {
-    console.error("Error in simple bypass check:", error.message);
-    return {
-      hasBypass: false,
-      bypassCheckIn: false,
-      bypassCheckOut: false,
-    };
-  }
-}
-
-// ---------------------------------------------------------
-// ORIGINAL BYPASS CHECK FUNCTION (FOR REFERENCE)
+// ATTENDANCE BYPASS CHECK FUNCTION
 // ---------------------------------------------------------
 async function checkAttendanceBypass(
   assigneeId: string,
   assigneeType: "employee" | "freelancer",
-  date: Date
+  date: Date // This should be the SAST date
 ): Promise<{
   hasBypass: boolean;
   bypassCheckIn: boolean;
@@ -672,9 +574,14 @@ async function checkAttendanceBypass(
   rule?: any;
 }> {
   try {
+    // The date passed is already the SAST date at midnight UTC
     const today = new Date(date);
     const tomorrow = new Date(today);
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+
+    console.log(
+      `Bypass Check Dates: Today=${today.toISOString()}, Tomorrow=${tomorrow.toISOString()}`
+    );
 
     const where: any = {
       AND: [{ startDate: { lte: tomorrow } }, { endDate: { gte: today } }],
@@ -718,6 +625,8 @@ async function checkAttendanceBypass(
       },
       orderBy: { createdAt: "desc" },
     });
+
+    console.log(`Bypass Query Result:`, bypassRule ? "Found" : "Not found");
 
     if (!bypassRule) {
       return {
