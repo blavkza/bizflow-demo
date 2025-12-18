@@ -52,6 +52,7 @@ export async function GET(
                 invoiceNumber: true,
               },
             },
+            category: true,
           },
           orderBy: {
             dueDate: "asc",

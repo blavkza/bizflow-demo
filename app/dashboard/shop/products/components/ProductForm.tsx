@@ -56,7 +56,6 @@ export function ProductForm({
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
 
-  // --- STATE ---
   const [images, setImages] = useState<UploadedFile[]>(
     product?.images?.map((url) => ({
       url,
@@ -68,7 +67,7 @@ export function ProductForm({
   );
 
   const [documents, setDocuments] = useState<UploadedFile[]>(
-    product?.documents?.map((doc) => ({
+    product?.productDocuments?.map((doc) => ({
       url: doc.url,
       name: doc.name,
       type: doc.type,
@@ -485,7 +484,6 @@ export function ProductForm({
     setDocuments((prev) => prev.filter((doc) => doc.url !== url));
   };
 
-  // --- SUBMIT ---
   const onFormSubmit = async (values: ShopProductSchemaType) => {
     try {
       const submitData: ProductFormData = {
@@ -511,7 +509,14 @@ export function ProductForm({
         status: values.status,
         featured: values.featured,
         images: images.map((img) => img.url),
-        documents: documents.map((doc) => doc.url),
+        // Send documents data properly
+        documents: documents.map((doc) => ({
+          url: doc.url,
+          name: doc.name,
+          type: doc.type,
+          size: doc.size,
+          mimeType: doc.mimeType,
+        })),
       };
 
       await onSubmit(submitData);

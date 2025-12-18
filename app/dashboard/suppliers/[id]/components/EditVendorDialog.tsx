@@ -32,7 +32,6 @@ interface Vendor {
   paymentTerms: string | null;
   notes: string | null;
   status: string;
-  tags: string[];
 }
 
 interface EditVendorDialogProps {
@@ -110,7 +109,6 @@ export function EditVendorDialog({
             ? null
             : data.paymentTerms?.trim(),
         notes: data.notes?.trim() || null,
-        tags: vendor.tags || [], // Keep existing tags
       };
 
       const response = await fetch(`/api/vendors/${vendor.id}`, {

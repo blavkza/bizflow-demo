@@ -30,7 +30,8 @@ export interface Product {
 
   // Media
   images: string[] | null;
-  documents: ProductDocument[] | null;
+
+  productDocuments: ProductDocument[] | null;
 
   // Metadata
   createdAt: Date;
@@ -71,7 +72,13 @@ export interface ProductFormData {
 
   // Media
   images: string[];
-  documents: string[];
+  documents?: Array<{
+    url: string;
+    name: string;
+    type: string;
+    size: number;
+    mimeType: string;
+  }>;
 }
 
 export interface ProductDocument {

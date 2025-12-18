@@ -89,8 +89,6 @@ export async function POST(request: NextRequest) {
           }
         : undefined;
 
-    console.log("Category connections:", categoryConnections);
-
     const vendor = await db.vendor.create({
       data: {
         name: data.name,

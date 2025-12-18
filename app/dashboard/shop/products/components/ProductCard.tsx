@@ -104,7 +104,9 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
             <Badge className={getStatusColor(product.status)}>
               {product.status.toLowerCase()}
             </Badge>
-            {product.featured && <Badge variant="secondary">Featured</Badge>}
+            {product.featured && (
+              <Badge variant="secondary">Avalable Online</Badge>
+            )}
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

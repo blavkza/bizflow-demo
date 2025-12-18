@@ -48,6 +48,7 @@ import { formatCurrency } from "@/lib/formatters";
 import { toast } from "sonner";
 import axios from "axios";
 import AddExpenseDialog from "../../expenses/Components/AddExpenseDialog";
+import { Category } from "@prisma/client";
 
 interface Vendor {
   id: string;
@@ -78,7 +79,7 @@ interface Vendor {
 interface Expense {
   id: string;
   description: string;
-  category: string;
+  category: Category;
   totalAmount: number;
   paidAmount: number;
   remainingAmount: number;
@@ -495,7 +496,6 @@ export default function VendorDetailPage() {
                 id: "documents",
                 label: `Documents `,
               },
-              { id: "payments", label: "Payment History" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -614,7 +614,9 @@ export default function VendorDetailPage() {
                           {expense.description}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{expense.category}</Badge>
+                          <Badge variant="outline">
+                            {expense.category.name}
+                          </Badge>
                         </TableCell>
                         <TableCell className="text-right font-medium">
                           {formatCurrency(expense.totalAmount)}
@@ -683,7 +685,7 @@ export default function VendorDetailPage() {
                     <TableRow key={expense.id}>
                       <TableCell>{expense.description}</TableCell>
                       <TableCell>
-                        <Badge variant="outline">{expense.category}</Badge>
+                        <Badge variant="outline">{expense.category.name}</Badge>
                       </TableCell>
                       <TableCell className="font-medium">
                         {formatCurrency(expense.totalAmount)}
@@ -737,22 +739,6 @@ export default function VendorDetailPage() {
 
         {activeTab === "documents" && (
           <DocumentsTab vendor={vendor} fetchVendor={fetchVendor} />
-        )}
-
-        {activeTab === "payments" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Payment History</CardTitle>
-              <CardDescription>
-                All payments made to {vendor.name}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Payment history feature coming soon...
-              </div>
-            </CardContent>
-          </Card>
         )}
       </div>
 

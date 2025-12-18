@@ -129,8 +129,8 @@ export default function ProductDetailPage() {
       )}
 
       {/* Documents */}
-      {product.documents && product.documents.length > 0 && (
-        <ProductDocuments documents={product.documents} />
+      {product.productDocuments && product.productDocuments.length > 0 && (
+        <ProductDocuments documents={product.productDocuments} />
       )}
 
       {/* Edit Modal */}

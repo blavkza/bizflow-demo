@@ -70,8 +70,7 @@ export function ProductDocuments({ documents }: ProductDocumentsProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <Download className="h-4 w-4 mr-1" />
-                  Download
+                  view
                 </a>
               </Button>
             </div>
