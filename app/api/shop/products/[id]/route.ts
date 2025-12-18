@@ -68,7 +68,6 @@ export async function PUT(
 
     const body = await request.json();
 
-    // Get current product to track stock changes
     const currentProduct = await db.shopProduct.findUnique({
       where: { id: params.id },
     });
@@ -77,18 +76,15 @@ export async function PUT(
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    // Calculate prices based on input mode
     let price, priceBeforeTax, costPrice, costPriceBeforeTax;
 
     if (body.priceInputMode === "AFTER_TAX") {
-      // User entered after-tax prices
       price = parseFloat(body.price);
       priceBeforeTax = price / (1 + TAX_RATE);
 
       costPrice = body.costPrice ? parseFloat(body.costPrice) : null;
       costPriceBeforeTax = costPrice ? costPrice / (1 + TAX_RATE) : null;
     } else {
-      // User entered before-tax prices
       priceBeforeTax = parseFloat(body.priceBeforeTax);
       price = priceBeforeTax * (1 + TAX_RATE);
 
@@ -100,6 +96,40 @@ export async function PUT(
         : null;
     }
 
+    if (body.documents && Array.isArray(body.documents)) {
+      console.log(`Processing ${body.documents.length} document(s)`);
+
+      await db.productDocument.deleteMany({
+        where: { shopProductId: params.id },
+      });
+      console.log("Deleted existing documents");
+
+      if (body.documents.length > 0) {
+        const documentPromises = body.documents.map(
+          async (doc: any, index: number) => {
+            console.log(
+              `Creating document ${index + 1}:`,
+              doc.name || `Document_${index + 1}`
+            );
+
+            return db.productDocument.create({
+              data: {
+                name: doc.name || `Document_${index + 1}`,
+                url: doc.url,
+                type: "OTHER",
+                size: doc.size || 0,
+                mimeType: doc.mimeType || "application/octet-stream",
+                shopProductId: params.id,
+              },
+            });
+          }
+        );
+
+        await Promise.all(documentPromises);
+      }
+    }
+
+    // Update product
     const product = await db.shopProduct.update({
       where: { id: params.id },
       data: {
@@ -139,7 +169,6 @@ export async function PUT(
       },
     });
 
-    // Create stock movement if stock changed
     if (parseInt(body.stock) !== currentProduct.stock) {
       const quantity = parseInt(body.stock) - currentProduct.stock;
       await db.stockMovement.create({
@@ -155,11 +184,17 @@ export async function PUT(
       });
     }
 
+    console.log(
+      `Update completed. Product now has ${product.productDocuments.length} document(s)`
+    );
     return NextResponse.json(product);
   } catch (error) {
     console.error("Failed to update product:", error);
     return NextResponse.json(
-      { error: "Failed to update product: " + (error as Error).message },
+      {
+        error: "Failed to update product",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

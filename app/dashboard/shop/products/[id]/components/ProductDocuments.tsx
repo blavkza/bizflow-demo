@@ -56,9 +56,6 @@ export function ProductDocuments({ documents }: ProductDocumentsProps) {
                 <div>
                   <div className="font-medium">{document.name}</div>
                   <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Badge variant="outline">
-                      {document.type.toLowerCase()}
-                    </Badge>
                     <span>{formatFileSize(document.size)}</span>
                   </div>
                 </div>

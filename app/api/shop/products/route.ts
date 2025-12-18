@@ -33,8 +33,6 @@ export async function GET() {
   }
 }
 
-// ... existing imports ...
-
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -56,18 +54,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log(
+      "Creating product with documents:",
+      body.documents?.length || 0
+    );
 
     // Calculate prices based on input mode
     let price, priceBeforeTax, costPrice, costPriceBeforeTax;
 
     if (body.priceInputMode === "AFTER_TAX") {
+      // User entered after-tax prices
       price = parseFloat(body.price);
       priceBeforeTax = price / (1 + TAX_RATE);
+
       costPrice = body.costPrice ? parseFloat(body.costPrice) : null;
       costPriceBeforeTax = costPrice ? costPrice / (1 + TAX_RATE) : null;
     } else {
+      // User entered before-tax prices
       priceBeforeTax = parseFloat(body.priceBeforeTax);
       price = priceBeforeTax * (1 + TAX_RATE);
+
       costPriceBeforeTax = body.costPriceBeforeTax
         ? parseFloat(body.costPriceBeforeTax)
         : null;
@@ -76,7 +82,7 @@ export async function POST(request: NextRequest) {
         : null;
     }
 
-    // Create product without documents first
+    // Create product with documents
     const product = await db.shopProduct.create({
       data: {
         name: body.name,
@@ -112,33 +118,27 @@ export async function POST(request: NextRequest) {
 
         // Creator
         creater: user?.name || null,
+
+        // Create documents in the same transaction
+        productDocuments:
+          body.documents &&
+          Array.isArray(body.documents) &&
+          body.documents.length > 0
+            ? {
+                create: body.documents.map((doc: any, index: number) => ({
+                  name: doc.name || `Document_${index + 1}`,
+                  url: doc.url,
+                  type: doc.type || "OTHER",
+                  size: doc.size || 0,
+                  mimeType: doc.mimeType || "application/octet-stream",
+                })),
+              }
+            : undefined,
+      },
+      include: {
+        productDocuments: true,
       },
     });
-
-    // Create product documents if provided
-    if (
-      body.documents &&
-      Array.isArray(body.documents) &&
-      body.documents.length > 0
-    ) {
-      const documentPromises = body.documents.map(
-        async (doc: any, index: number) => {
-          // Assuming doc is an object with url, name, type, size, mimeType
-          return db.productDocument.create({
-            data: {
-              name: doc.name || `Document_${index + 1}`,
-              url: doc.url,
-              type: "OTHER",
-              size: doc.size || 0,
-              mimeType: doc.mimeType || "application/octet-stream",
-              shopProductId: product.id,
-            },
-          });
-        }
-      );
-
-      await Promise.all(documentPromises);
-    }
 
     // Create initial stock movement
     if (body.stock > 0) {
@@ -155,16 +155,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Fetch the complete product with documents
-    const completeProduct = await db.shopProduct.findUnique({
-      where: { id: product.id },
-      include: {
-        productDocuments: true,
-        stockMovements: true,
-      },
-    });
-
-    return NextResponse.json(completeProduct, { status: 201 });
+    console.log(
+      "Product created with",
+      product.productDocuments.length,
+      "documents"
+    );
+    return NextResponse.json(product, { status: 201 });
   } catch (error) {
     console.error("Create product error:", error);
     return NextResponse.json(
@@ -195,13 +191,14 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log(
+      "Updating product with documents:",
+      body.documents?.length || 0
+    );
 
     // Get existing product
     const existingProduct = await db.shopProduct.findUnique({
       where: { id: body.id },
-      include: {
-        productDocuments: true,
-      },
     });
 
     if (!existingProduct) {
@@ -212,13 +209,17 @@ export async function PUT(request: NextRequest) {
     let price, priceBeforeTax, costPrice, costPriceBeforeTax;
 
     if (body.priceInputMode === "AFTER_TAX") {
+      // User entered after-tax prices
       price = parseFloat(body.price);
       priceBeforeTax = price / (1 + TAX_RATE);
+
       costPrice = body.costPrice ? parseFloat(body.costPrice) : null;
       costPriceBeforeTax = costPrice ? costPrice / (1 + TAX_RATE) : null;
     } else {
+      // User entered before-tax prices
       priceBeforeTax = parseFloat(body.priceBeforeTax);
       price = priceBeforeTax * (1 + TAX_RATE);
+
       costPriceBeforeTax = body.costPriceBeforeTax
         ? parseFloat(body.costPriceBeforeTax)
         : null;
@@ -227,30 +228,43 @@ export async function PUT(request: NextRequest) {
         : null;
     }
 
-    // First, delete existing documents if we have new ones
+    // First, handle documents separately
     if (body.documents && Array.isArray(body.documents)) {
+      console.log("Processing", body.documents.length, "documents");
+
       // Delete existing documents
       await db.productDocument.deleteMany({
         where: { shopProductId: body.id },
       });
+      console.log("Deleted existing documents");
 
-      // Create new documents
-      const documentPromises = body.documents.map(
-        async (doc: any, index: number) => {
-          return db.productDocument.create({
-            data: {
-              name: doc.name || `Document_${index + 1}`,
-              url: doc.url,
-              type: "OTHER",
-              size: doc.size || 0,
-              mimeType: doc.mimeType || "application/octet-stream",
-              shopProductId: body.id,
-            },
-          });
-        }
-      );
+      // Create new documents if any
+      if (body.documents.length > 0) {
+        const documentPromises = body.documents.map(
+          async (doc: any, index: number) => {
+            try {
+              const result = await db.productDocument.create({
+                data: {
+                  name: doc.name || `Document_${index + 1}`,
+                  url: doc.url,
+                  type: doc.type || "OTHER",
+                  size: doc.size || 0,
+                  mimeType: doc.mimeType || "application/octet-stream",
+                  shopProductId: body.id,
+                },
+              });
+              console.log("Created document:", result.name);
+              return result;
+            } catch (error) {
+              console.error("Error creating document:", error);
+              throw error;
+            }
+          }
+        );
 
-      await Promise.all(documentPromises);
+        await Promise.all(documentPromises);
+        console.log("All documents created successfully");
+      }
     }
 
     // Update product
@@ -296,6 +310,11 @@ export async function PUT(request: NextRequest) {
       },
     });
 
+    console.log(
+      "Product updated with",
+      updatedProduct.productDocuments.length,
+      "documents"
+    );
     return NextResponse.json(updatedProduct);
   } catch (error) {
     console.error("Update product error:", error);
