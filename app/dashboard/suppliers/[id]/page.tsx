@@ -493,7 +493,7 @@ export default function VendorDetailPage() {
               { id: "expenses", label: `Expenses (${vendor.expenses.length})` },
               {
                 id: "documents",
-                label: `Documents (${vendor._count.documents})`,
+                label: `Documents `,
               },
               { id: "payments", label: "Payment History" },
             ].map((tab) => (
