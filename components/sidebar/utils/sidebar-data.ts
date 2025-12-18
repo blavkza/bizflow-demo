@@ -261,7 +261,7 @@ export const getSidebarData = (
                   title: "Products Categories",
                   url: "/dashboard/shop/categories",
                   icon: Building2,
-                  color: "text-green-500",
+                  color: "text-red-500",
                 },
               ]
             : []),

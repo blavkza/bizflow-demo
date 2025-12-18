@@ -9,10 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -22,43 +20,52 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  DollarSign,
-  FileText,
-  Building,
   Mail,
   Phone,
   Globe,
   MapPin,
   Calendar,
-  Download,
-  Plus,
-  Eye,
+  FileText,
   Edit,
   ArrowLeft,
+  Tag,
+  Package,
+  Building,
+  CreditCard,
+  Receipt,
+  Clock,
   AlertCircle,
   CheckCircle2,
-  Clock,
-  Tag,
+  DollarSign,
+  Plus,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { DocumentsTab } from "./components/DocumentsTab";
 import { EditVendorDialog } from "./components/EditVendorDialog";
 import { VendorLoadingSkeleton } from "./components/VendorLoadingSkeleton";
 import { formatCurrency } from "@/lib/formatters";
+import { toast } from "sonner";
+import axios from "axios";
+import AddExpenseDialog from "../../expenses/Components/AddExpenseDialog";
 
 interface Vendor {
   id: string;
   name: string;
   email: string | null;
   phone: string | null;
+  phone2?: string | null;
   website: string | null;
   address: string | null;
   taxNumber: string | null;
-  category: string | null;
+  registrationNumber?: string | null;
+  categories:
+    | string[]
+    | { id: string; name: string; description: string | null }[];
+  type: string;
   paymentTerms: string | null;
   notes: string | null;
   status: string;
-  tags: string[];
   createdAt: string;
   updatedAt: string;
   expenses: Expense[];
@@ -91,6 +98,18 @@ interface Expense {
   };
 }
 
+interface CategoryOption {
+  label: string;
+  value: string;
+  type: string;
+  color?: string;
+}
+
+interface VendorOption {
+  label: string;
+  value: string;
+}
+
 export default function VendorDetailPage() {
   const params = useParams();
   const vendorId = params.id as string;
@@ -99,11 +118,18 @@ export default function VendorDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [categoriesOptions, setCategoriesOptions] = useState<CategoryOption[]>(
+    []
+  );
+  const [vendorsOptions, setVendorsOptions] = useState<VendorOption[]>([]);
 
   const router = useRouter();
 
   useEffect(() => {
     fetchVendor();
+    fetchCategories();
+    fetchVendors();
   }, [vendorId]);
 
   const fetchVendor = async () => {
@@ -120,11 +146,68 @@ export default function VendorDetailPage() {
     }
   };
 
-  const handleVendorUpdated = () => {
-    fetchVendor(); // Refresh vendor data after update
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get("/api/category");
+      const categories: any[] = response?.data || [];
+
+      const expenseCategories = categories.filter(
+        (category) =>
+          category.id && category.name && category.type === "EXPENSE"
+      );
+
+      const options = expenseCategories.map((category) => ({
+        label: category.name || "",
+        value: category.id,
+        type: category.type,
+        color: category.color,
+      }));
+
+      setCategoriesOptions(options);
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+      toast.error("Failed to load categories");
+    }
   };
 
-  // Calculate vendor financial summary
+  const fetchVendors = async () => {
+    try {
+      const response = await fetch("/api/vendors");
+      if (!response.ok) throw new Error("Failed to fetch vendors");
+      const data = await response.json();
+
+      const options = data.map((vendor: any) => ({
+        label: vendor.name,
+        value: vendor.id,
+      }));
+
+      setVendorsOptions(options);
+    } catch (error) {
+      console.error("Failed to fetch vendors:", error);
+    }
+  };
+
+  const handleVendorUpdated = () => {
+    fetchVendor();
+  };
+
+  const handleExpenseAdded = () => {
+    fetchVendor(); // Refresh vendor data to show new expense
+  };
+
+  const getCategoryNames = (categories: Vendor["categories"]): string[] => {
+    if (!categories) return [];
+    if (Array.isArray(categories)) {
+      if (categories.length === 0) return [];
+      if (typeof categories[0] === "string") {
+        return categories as string[];
+      } else {
+        return (categories as { name: string }[]).map((cat) => cat.name);
+      }
+    }
+    return [];
+  };
+
   const financialSummary = vendor
     ? {
         totalExpenses: parseFloat(
@@ -167,41 +250,28 @@ export default function VendorDetailPage() {
   const getStatusColor = (status: string) => {
     switch (status.toUpperCase()) {
       case "PAID":
-        return "default";
+        return "bg-green-100 text-green-800";
       case "PARTIAL":
-        return "secondary";
+        return "bg-blue-100 text-blue-800";
       case "PENDING":
-        return "outline";
+        return "bg-yellow-100 text-yellow-800";
       case "OVERDUE":
-        return "destructive";
+        return "bg-red-100 text-red-800";
       default:
-        return "outline";
+        return "bg-gray-100 text-gray-800";
     }
   };
 
   const getVendorStatusColor = (status: string) => {
     switch (status.toUpperCase()) {
       case "ACTIVE":
-        return "default";
+        return "bg-green-100 text-green-800";
       case "INACTIVE":
-        return "secondary";
+        return "bg-red-100 text-red-800";
       case "PENDING":
-        return "outline";
+        return "bg-yellow-100 text-yellow-800";
       default:
-        return "outline";
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority.toUpperCase()) {
-      case "HIGH":
-        return "text-red-600";
-      case "MEDIUM":
-        return "text-orange-600";
-      case "LOW":
-        return "text-green-600";
-      default:
-        return "text-gray-600";
+        return "bg-gray-100 text-gray-800";
     }
   };
 
@@ -209,33 +279,39 @@ export default function VendorDetailPage() {
     return new Date(dateString).toLocaleDateString("en-ZA");
   };
 
+  const formatEnumValue = (value: string) => {
+    return value
+      .replace(/_/g, " ")
+      .toLowerCase()
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+  };
+
   if (loading) {
-    return (
-      <div className="py-10">
-        {" "}
-        <VendorLoadingSkeleton />;
-      </div>
-    );
+    return <VendorLoadingSkeleton />;
   }
 
   if (!vendor) {
     return (
-      <div>
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold mb-2">Vendor Not Found</h2>
-            <p className="text-muted-foreground mb-4">
-              The vendor you're looking for doesn't exist.
-            </p>
-
-            <Button variant={"outline"} onClick={() => router.back()}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-            </Button>
-          </div>
+      <div className="container mx-auto px-4 py-8">
+        <Button
+          variant="outline"
+          onClick={() => router.back()}
+          className="mb-6"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <div className="text-center py-12">
+          <h2 className="text-xl font-semibold mb-2">Vendor Not Found</h2>
+          <p className="text-gray-500">
+            The vendor you're looking for doesn't exist.
+          </p>
         </div>
       </div>
     );
   }
+
+  const categoryNames = getCategoryNames(vendor.categories);
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -246,9 +322,11 @@ export default function VendorDetailPage() {
           </Button>
 
           <h1 className="text-lg font-semibold">{vendor.name}</h1>
-          <Badge variant={getVendorStatusColor(vendor.status)}>
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-medium ${getVendorStatusColor(vendor.status)}`}
+          >
             {vendor.status}
-          </Badge>
+          </span>
         </div>
       </header>
 
@@ -262,25 +340,27 @@ export default function VendorDetailPage() {
                   <div>
                     <h2 className="text-2xl font-bold">{vendor.name}</h2>
                     <div className="flex items-center gap-2 mt-2">
-                      {vendor.category && (
-                        <Badge variant="outline">{vendor.category}</Badge>
-                      )}
-                      {vendor.tags && vendor.tags.length > 0 && (
+                      <span className="text-sm text-gray-500">
+                        {formatEnumValue(vendor.type)}
+                      </span>
+                      {categoryNames.length > 0 && (
                         <div className="flex items-center gap-1">
                           <Tag className="h-3 w-3 text-muted-foreground" />
                           <div className="flex flex-wrap gap-1">
-                            {vendor.tags.slice(0, 3).map((tag, index) => (
-                              <Badge
-                                key={index}
-                                variant="secondary"
-                                className="text-xs"
-                              >
-                                {tag}
-                              </Badge>
-                            ))}
-                            {vendor.tags.length > 3 && (
+                            {categoryNames
+                              .slice(0, 3)
+                              .map((categoryName, index) => (
+                                <Badge
+                                  key={index}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
+                                  {categoryName}
+                                </Badge>
+                              ))}
+                            {categoryNames.length > 3 && (
                               <Badge variant="secondary" className="text-xs">
-                                +{vendor.tags.length - 3} more
+                                +{categoryNames.length - 3} more
                               </Badge>
                             )}
                           </div>
@@ -288,13 +368,19 @@ export default function VendorDetailPage() {
                       )}
                     </div>
                   </div>
-                  <Button
-                    onClick={() => setIsEditDialogOpen(true)}
-                    variant="outline"
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Vendor
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => setIsEditDialogOpen(true)}
+                      variant="outline"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Vendor
+                    </Button>
+                    <Button onClick={() => setIsAddDialogOpen(true)}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Expense
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -308,6 +394,12 @@ export default function VendorDetailPage() {
                     <div className="flex items-center gap-3">
                       <Phone className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">{vendor.phone}</span>
+                    </div>
+                  )}
+                  {vendor.phone2 && (
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{vendor.phone2}</span>
                     </div>
                   )}
                   {vendor.website && (
@@ -333,6 +425,14 @@ export default function VendorDetailPage() {
                     <div className="flex items-center gap-3">
                       <FileText className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">Tax: {vendor.taxNumber}</span>
+                    </div>
+                  )}
+                  {vendor.registrationNumber && (
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">
+                        Reg: {vendor.registrationNumber}
+                      </span>
                     </div>
                   )}
                   {vendor.paymentTerms && (
@@ -443,16 +543,6 @@ export default function VendorDetailPage() {
                   <div className="text-2xl font-bold text-green-600">
                     {formatCurrency(financialSummary?.totalPaid || 0)}
                   </div>
-                  <Progress
-                    value={
-                      financialSummary && financialSummary.totalExpenses > 0
-                        ? (financialSummary.totalPaid /
-                            financialSummary.totalExpenses) *
-                          100
-                        : 0
-                    }
-                    className="mt-2"
-                  />
                   <p className="text-xs text-muted-foreground mt-1">
                     {financialSummary?.paidCount} paid expenses
                   </p>
@@ -470,16 +560,6 @@ export default function VendorDetailPage() {
                   <div className="text-2xl font-bold text-orange-600">
                     {formatCurrency(financialSummary?.totalOwed || 0)}
                   </div>
-                  <Progress
-                    value={
-                      financialSummary && financialSummary.totalExpenses > 0
-                        ? (financialSummary.totalOwed /
-                            financialSummary.totalExpenses) *
-                          100
-                        : 0
-                    }
-                    className="mt-2"
-                  />
                   <p className="text-xs text-muted-foreground mt-1">
                     {financialSummary
                       ? financialSummary.pendingCount +
@@ -543,13 +623,15 @@ export default function VendorDetailPage() {
                           {formatCurrency(expense.paidAmount)}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={getStatusColor(expense.status)}>
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${getStatusColor(expense.status)}`}
+                          >
                             {expense.status}
-                          </Badge>
+                          </span>
                         </TableCell>
                         <TableCell>{formatDate(expense.dueDate)}</TableCell>
                         <TableCell>
-                          <Link href={`/expenses/${expense.id}`}>
+                          <Link href={`/dashboard/expenses/${expense.id}`}>
                             <Button variant="ghost" size="sm">
                               <Eye className="h-4 w-4" />
                             </Button>
@@ -579,77 +661,64 @@ export default function VendorDetailPage() {
                     Complete expense history with {vendor.name}
                   </CardDescription>
                 </div>
-                <Link href={`/expenses?vendorId=${vendor.id}`}>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Expense
-                  </Button>
-                </Link>
               </div>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Total Amount</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Remaining</TableHead>
+                    <TableHead>Total Amount</TableHead>
+                    <TableHead>Paid</TableHead>
+                    <TableHead>Remaining</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Due Date</TableHead>
                     <TableHead>Priority</TableHead>
-                    <TableHead>Project</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {vendor.expenses.map((expense) => (
                     <TableRow key={expense.id}>
-                      <TableCell className="font-medium">
-                        {expense.id}
-                      </TableCell>
                       <TableCell>{expense.description}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{expense.category}</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="font-medium">
                         {formatCurrency(expense.totalAmount)}
                       </TableCell>
-                      <TableCell className="text-right text-green-600">
+                      <TableCell className="text-green-600">
                         {formatCurrency(expense.paidAmount)}
                       </TableCell>
-                      <TableCell className="text-right text-orange-600">
+                      <TableCell className="text-orange-600">
                         {formatCurrency(expense.remainingAmount)}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusColor(expense.status)}>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs ${getStatusColor(expense.status)}`}
+                        >
                           {expense.status}
-                        </Badge>
+                        </span>
                       </TableCell>
                       <TableCell>{formatDate(expense.dueDate)}</TableCell>
                       <TableCell>
                         <span
-                          className={`font-medium ${getPriorityColor(expense.priority)}`}
+                          className={`font-medium ${
+                            expense.priority === "HIGH"
+                              ? "text-red-600"
+                              : expense.priority === "MEDIUM"
+                                ? "text-orange-600"
+                                : "text-green-600"
+                          }`}
                         >
                           {expense.priority}
                         </span>
                       </TableCell>
                       <TableCell>
-                        {expense.project ? (
-                          <Badge variant="secondary">
-                            <Building className="h-3 w-3 mr-1" />
-                            {expense.project.projectNumber}
-                          </Badge>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell>
                         <Link href={`/expenses/${expense.id}`}>
                           <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
+                            View
                           </Button>
                         </Link>
                       </TableCell>
@@ -694,6 +763,18 @@ export default function VendorDetailPage() {
           open={isEditDialogOpen}
           onOpenChange={setIsEditDialogOpen}
           onVendorUpdated={handleVendorUpdated}
+        />
+      )}
+
+      {/* Add Expense Dialog */}
+      {isAddDialogOpen && (
+        <AddExpenseDialog
+          open={isAddDialogOpen}
+          onOpenChange={setIsAddDialogOpen}
+          onExpenseAdded={handleExpenseAdded}
+          categoriesOptions={categoriesOptions}
+          vendorsOptions={vendorsOptions}
+          defaultVendorId={vendorId}
         />
       )}
     </div>

@@ -52,38 +52,34 @@ import { toast } from "sonner";
 import { ExpenseFormValues, expenseSchema } from "@/lib/formValidationSchemas";
 import { ComboboxOption } from "../types";
 import { useState, useEffect, useRef } from "react";
-import { VendorFormData } from "../../suppliers/type";
-import {
-  NO_CATEGORY_VALUE,
-  NO_PAYMENT_TERMS_VALUE,
-} from "../../suppliers/utils";
 import { VendorForm } from "../../suppliers/components/VendorForm";
 
-// --- Add Vendor Dialog Component ---
+// AddVendorDialog Component
 function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (data: VendorFormData) => {
+  const handleSubmit = async (data: any) => {
     setLoading(true);
 
     try {
       const apiData = {
         name: data.name.trim(),
         email: data.email?.trim() || null,
-        phone: data.phone?.trim() || null,
+        phone: data.phone?.trim(),
+        phone2: data.phone2?.trim() || null,
         website: data.website?.trim() || null,
         address: data.address?.trim() || null,
         taxNumber: data.taxNumber?.trim() || null,
-        category:
-          data.category === NO_CATEGORY_VALUE ? null : data.category?.trim(),
+        registrationNumber: data.registrationNumber?.trim() || null,
+        categoryIds: data.categoryIds || [],
+        type: data.type || "SUPPLIER",
+        status: data.status || "ACTIVE",
         paymentTerms:
-          data.paymentTerms === NO_PAYMENT_TERMS_VALUE
+          data.paymentTerms === "no-payment-terms"
             ? null
             : data.paymentTerms?.trim(),
         notes: data.notes?.trim() || null,
-        status: "ACTIVE",
-        tags: [],
       };
 
       const response = await fetch("/api/vendors", {
@@ -129,7 +125,6 @@ function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* Use the imported VendorForm component */}
         <VendorForm onSubmit={handleSubmit} loading={loading} />
 
         <DialogFooter>
@@ -147,14 +142,14 @@ function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
   );
 }
 
-// --- Main Add Expense Dialog Component ---
-
+// Main Add Expense Dialog Component
 interface AddExpenseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onExpenseAdded: () => void;
   categoriesOptions: ComboboxOption[];
   vendorsOptions: ComboboxOption[];
+  defaultVendorId?: string; // Add this
 }
 
 export default function AddExpenseDialog({
@@ -163,6 +158,7 @@ export default function AddExpenseDialog({
   onExpenseAdded,
   categoriesOptions,
   vendorsOptions,
+  defaultVendorId, // Add this
 }: AddExpenseDialogProps) {
   const [invoicesOptions, setInvoicesOptions] = useState<ComboboxOption[]>([]);
   const [projectsOptions, setProjectsOptions] = useState<ComboboxOption[]>([]);
@@ -178,7 +174,7 @@ export default function AddExpenseDialog({
     defaultValues: {
       description: "",
       categoryId: "",
-      vendorId: "",
+      vendorId: defaultVendorId || "", // Set default vendor ID here
       totalAmount: 0,
       paidAmount: 0,
       expenseDate: new Date(),
@@ -188,9 +184,32 @@ export default function AddExpenseDialog({
       paymentMethod: "",
       invoiceId: "",
       projectId: "",
-      attachments: [], // Ensure your schema allows this array
+      attachments: [],
     },
   });
+
+  // Reset form when dialog opens with new defaultVendorId
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        description: "",
+        categoryId: "",
+        vendorId: defaultVendorId || "",
+        totalAmount: 0,
+        paidAmount: 0,
+        expenseDate: new Date(),
+        dueDate: new Date(),
+        priority: "MEDIUM",
+        status: "PENDING",
+        paymentMethod: "",
+        invoiceId: "",
+        projectId: "",
+        attachments: [],
+      });
+      fetchInvoicesAndProjects();
+      refreshVendors();
+    }
+  }, [open, defaultVendorId]);
 
   // Watchers
   const totalAmount = form.watch("totalAmount");
@@ -240,19 +259,12 @@ export default function AddExpenseDialog({
     }
   };
 
-  useEffect(() => {
-    if (open) {
-      fetchInvoicesAndProjects();
-      refreshVendors();
-    }
-  }, [open]);
-
   const handleInvoiceChange = (invoiceId: string) => {
     form.setValue("invoiceId", invoiceId);
     form.setValue("projectId", "");
   };
 
-  // --- File Upload Logic ---
+  // File Upload Logic
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -260,7 +272,7 @@ export default function AddExpenseDialog({
     setIsUploading(true);
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("expenseId", "temp"); // Temp ID until expense is created
+    formData.append("expenseId", "temp");
 
     try {
       const uploadResponse = await axios.post(

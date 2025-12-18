@@ -62,6 +62,8 @@ import CategoryForm from "./CategoryForm";
 import CategoryDetailModal from "./CategoryDetailModal";
 import { PaginationControls } from "@/components/PaginationControls";
 import CategoriesLoading from "./loading";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 interface ProductCategory {
   id: string;
@@ -282,14 +284,20 @@ export default function CategoriesPage() {
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Product Categories
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Manage your product categories and organize your inventory
-          </p>
+        <div className="flex items-center gap-2">
+          {" "}
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              Product Categories
+            </h1>
+            <p className="text-muted-foreground mt-2">
+              Manage your product categories and organize your inventory
+            </p>
+          </div>
         </div>
+
         <Button onClick={() => setShowForm(true)} className="gap-2">
           <Plus className="h-4 w-4" />
           Add Category

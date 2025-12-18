@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-
 import { auth } from "@clerk/nextjs/server";
 
 export async function GET(request: NextRequest) {
@@ -13,10 +12,7 @@ export async function GET(request: NextRequest) {
 
     const user = await db.user.findUnique({
       where: { userId },
-      select: {
-        id: true,
-        name: true,
-      },
+      select: { id: true, name: true },
     });
 
     if (!user) {
@@ -24,7 +20,15 @@ export async function GET(request: NextRequest) {
     }
 
     const vendors = await db.vendor.findMany({
+      where: { userId: user.id },
       include: {
+        categories: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
         _count: {
           select: {
             expenses: true,
@@ -32,10 +36,18 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: {
-        name: "asc",
-      },
+      orderBy: { name: "asc" },
     });
+
+    console.log(
+      "Fetched vendors with categories:",
+      vendors.map((v) => ({
+        id: v.id,
+        name: v.name,
+        categoryCount: v.categories.length,
+        categories: v.categories,
+      }))
+    );
 
     return NextResponse.json(vendors);
   } catch (error) {
@@ -57,10 +69,7 @@ export async function POST(request: NextRequest) {
 
     const user = await db.user.findUnique({
       where: { userId },
-      select: {
-        id: true,
-        name: true,
-      },
+      select: { id: true, name: true },
     });
 
     if (!user) {
@@ -68,17 +77,71 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
+
+    console.log("Received data for vendor creation:", data);
+    console.log("Category IDs to connect:", data.categoryIds);
+
+    // Validate and prepare category connections
+    const categoryConnections =
+      Array.isArray(data.categoryIds) && data.categoryIds.length > 0
+        ? {
+            connect: data.categoryIds.map((id: string) => ({ id })),
+          }
+        : undefined;
+
+    console.log("Category connections:", categoryConnections);
+
     const vendor = await db.vendor.create({
       data: {
-        ...data,
+        name: data.name,
+        email: data.email || null,
+        phone: data.phone,
+        phone2: data.phone2 || null,
+        website: data.website || null,
+        address: data.address || null,
+        taxNumber: data.taxNumber || null,
+        registrationNumber: data.registrationNumber || null,
+        type: data.type,
+        status: data.status,
+        paymentTerms:
+          data.paymentTerms === "no-payment-terms" ? null : data.paymentTerms,
+        notes: data.notes || null,
         userId: user.id,
+        categories: categoryConnections,
       },
+      include: {
+        categories: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
+      },
+    });
+
+    console.log("Created vendor with categories:", {
+      id: vendor.id,
+      name: vendor.name,
+      categories: vendor.categories,
     });
 
     return NextResponse.json(vendor);
   } catch (error) {
+    console.error("Failed to create vendor:", error);
+
+    if (error instanceof Error) {
+      console.error("Error details:", {
+        message: error.message,
+        stack: error.stack,
+      });
+    }
+
     return NextResponse.json(
-      { error: "Failed to create vendor" },
+      {
+        error: "Failed to create vendor",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }

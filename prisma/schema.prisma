@@ -1541,6 +1541,8 @@ model Invoice {
   Transaction  Transaction[]
   toolRentals  ToolRental[]
   Expense      Expense[]
+  package      Package?          @relation(fields: [packageId], references: [id])
+  packageId    String?
 
   @@index([clientId])
   @@index([status])
@@ -1692,6 +1694,8 @@ model Quotation {
   Department   Department?     @relation(fields: [departmentId], references: [id])
   departmentId String?
   toolRentals  ToolRental[]
+  package      Package?        @relation(fields: [packageId], references: [id])
+  packageId    String?
 
   @@index([clientId])
   @@index([status])
@@ -1776,23 +1780,23 @@ model QuotationItem {
 // =============================================================================
 
 model Vendor {
-  id           String  @id @default(cuid())
-  name         String
-  email        String?
-  phone        String?
-  website      String?
-  address      String?
-  taxNumber    String?
-  currency     String  @default("ZAR")
-  paymentTerms String? // e.g., "Net 30", "Due on receipt"
-  notes        String?
+  id                 String  @id @default(cuid())
+  name               String
+  email              String?
+  phone              String
+  phone2             String?
+  website            String?
+  address            String?
+  taxNumber          String?
+  registrationNumber String?
+  type               String  @default("SUPPLIER")
+  currency           String  @default("ZAR")
+  paymentTerms       String?
+  notes              String?
 
-  // Categories
-  category String?
-  tags     String[]
-
-  // Status
   status VendorStatus @default(ACTIVE)
+
+  categories ProductCategory[] @relation("VendorCategories")
 
   // System
   createdAt DateTime @default(now())
@@ -1801,16 +1805,11 @@ model Vendor {
   user      User     @relation(fields: [userId], references: [id])
 
   // Relations
-  expenses Expense[]
-  Document Document[]
+  expenses          Expense[]
+  Document          Document[]
+  productCategories ProductCategory[]
 
   @@map("vendors")
-}
-
-enum VendorStatus {
-  ACTIVE
-  INACTIVE
-  PENDING
 }
 
 model Expense {
@@ -1905,13 +1904,18 @@ model Product {
 }
 
 model ProductCategory {
-  id          String        @id @default(cuid())
-  name        String        @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
   description String?
   images      String?
-  products    ShopProduct[]
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+
+  products ShopProduct[]
+  vendors  Vendor[]      @relation("VendorCategories")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  vendor    Vendor?  @relation(fields: [vendorId], references: [id])
+  vendorId  String?
 
   @@map("Productcategories")
 }
@@ -1964,6 +1968,8 @@ model ShopProduct {
   productCategoryId String?
   quotationItems    QuotationItem[]
   invoiceItems      InvoiceItem[]
+  package           Package?          @relation(fields: [packageId], references: [id])
+  packageId         String?
 
   @@map("shopProducts")
 }
@@ -2022,6 +2028,8 @@ model Order {
   OrderItem  OrderItem[]
   Customer   Customer?   @relation(fields: [customerId], references: [id])
   customerId String?
+  package    Package?    @relation(fields: [packageId], references: [id])
+  packageId  String?
 
   @@map("orders")
 }
@@ -2167,6 +2175,54 @@ model RefundItem {
   taxAmount Float @default(0)
 
   @@map("refund_items")
+}
+
+model Package {
+  id               String  @id @default(cuid())
+  name             String
+  description      String?
+  shortDescription String?
+
+  classification String?
+  category       String?
+
+  price         Decimal  @db.Decimal(10, 2)
+  originalPrice Decimal? @db.Decimal(10, 2)
+  discount      Int?
+
+  // Package Details
+  duration    String?
+  packageType PackageType @default(BUNDLE)
+
+  // Status
+  status   PackageStatus @default(ACTIVE)
+  featured Boolean       @default(false)
+  isPublic Boolean       @default(true)
+
+  // Media
+  images    Json?
+  thumbnail String?
+
+  // Stats
+  salesCount   Int     @default(0)
+  totalRevenue Decimal @default(0) @db.Decimal(12, 2)
+
+  // Metadata
+  tags     String[]
+  features String[]
+  benefits String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  packageProducts ShopProduct[]
+  packageServices Service[]
+  orders          Order[]
+  quotations      Quotation[]
+  invoices        Invoice[]
+
+  @@map("packages")
 }
 
 model Customer {
@@ -2365,6 +2421,8 @@ model Service {
   projects       Project[]
   quotationItems QuotationItem[]
   invoiceItems   InvoiceItem[]
+  package        Package?        @relation(fields: [packageId], references: [id])
+  packageId      String?
 
   @@map("services")
 }
@@ -3075,6 +3133,15 @@ enum ClientStatus {
   INACTIVE
   SUSPENDED
   PROSPECT
+  BLACKLISTED
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PROSPECT
+  BLACKLISTED
 }
 
 enum ClientType {
@@ -3493,4 +3560,17 @@ enum SalaryType {
 enum UserType {
   ADMIN
   EMPLOYEE
+}
+
+enum PackageType {
+  BUNDLE
+  PRODUCT_ONLY
+  SERVICE_ONLY
+}
+
+enum PackageStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  ARCHIVED
 }

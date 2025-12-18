@@ -15,7 +15,7 @@ import { VendorForm } from "./VendorForm";
 import { VendorFormData } from "../type";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
-import { NO_CATEGORY_VALUE, NO_PAYMENT_TERMS_VALUE } from "../utils";
+import { NO_PAYMENT_TERMS_VALUE } from "../utils";
 
 interface AddVendorDialogProps {
   onVendorAdded: () => void;
@@ -32,19 +32,20 @@ export function AddVendorDialog({ onVendorAdded }: AddVendorDialogProps) {
       const apiData = {
         name: data.name.trim(),
         email: data.email?.trim() || null,
-        phone: data.phone?.trim() || null,
+        phone: data.phone?.trim(),
+        phone2: data.phone2?.trim() || null,
         website: data.website?.trim() || null,
         address: data.address?.trim() || null,
         taxNumber: data.taxNumber?.trim() || null,
-        category:
-          data.category === NO_CATEGORY_VALUE ? null : data.category?.trim(),
+        registrationNumber: data.registrationNumber?.trim() || null,
+        categoryIds: data.categoryIds || [],
+        type: data.type,
         paymentTerms:
           data.paymentTerms === NO_PAYMENT_TERMS_VALUE
             ? null
             : data.paymentTerms?.trim(),
         notes: data.notes?.trim() || null,
-        status: "ACTIVE",
-        tags: [],
+        status: data.status || "ACTIVE",
       };
 
       const response = await fetch("/api/vendors", {

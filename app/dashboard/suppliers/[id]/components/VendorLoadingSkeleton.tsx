@@ -4,7 +4,7 @@ import { Separator } from "@/components/ui/separator";
 
 export function VendorLoadingSkeleton() {
   return (
-    <div className="flex flex-1 flex-col gap-6  pt-0 p-10 py-10">
+    <div className="flex flex-1 flex-col gap-6   p-10 py-10">
       {/* Vendor Header Skeleton */}
       <Card>
         <CardContent className="p-6">
