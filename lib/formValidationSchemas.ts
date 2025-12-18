@@ -873,10 +873,7 @@ export const ShopProductSchema = z
       .default(null),
 
     // Inventory
-    stock: z.coerce
-      .number()
-      .min(0, "Stock must be a positive number")
-      .default(0),
+    stock: z.coerce.number().default(0),
     minStock: z.coerce
       .number()
       .min(0, "Minimum stock must be a positive number")

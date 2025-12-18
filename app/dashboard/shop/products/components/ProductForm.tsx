@@ -1006,7 +1006,6 @@ export function ProductForm({
                     <Input
                       type="number"
                       placeholder="0"
-                      min="0"
                       value={field.value === 0 ? "" : field.value}
                       onChange={(e) => {
                         const val = e.target.value;
