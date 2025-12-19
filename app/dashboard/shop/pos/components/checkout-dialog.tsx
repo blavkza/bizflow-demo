@@ -31,6 +31,7 @@ import {
   MapPin,
   MessageCircle,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { POSSettings } from "@/types/pos";
 import { useEffect, useState } from "react";
@@ -65,9 +66,9 @@ interface CheckoutDialogProps {
   setIsDelivery: (delivery: boolean) => void;
   completeTransaction: () => Promise<void> | void;
   posSettings: POSSettings | null;
+  title?: string; // Add this line
 }
 
-// Create payment methods that map to Prisma enum values
 const paymentMethods = [
   {
     value: PaymentMethod.CASH,
@@ -124,6 +125,7 @@ export function CheckoutDialog({
   setIsDelivery,
   completeTransaction,
   posSettings,
+  title = "Complete Transaction", // Add default value
 }: CheckoutDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -243,7 +245,7 @@ export function CheckoutDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5" />
-            Complete Transaction
+            {title}
           </DialogTitle>
           <DialogDescription>
             Process payment and complete the sale
@@ -586,7 +588,7 @@ export function CheckoutDialog({
           >
             {isSubmitting ? (
               <>
-                <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 Processing...
               </>
             ) : (

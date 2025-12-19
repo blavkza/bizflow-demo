@@ -1,4 +1,6 @@
-export interface SaleItem {
+"use client";
+
+export interface SaleQuoteItem {
   id: string;
   shopProductId: string;
   quantity: number;
@@ -8,8 +10,6 @@ export interface SaleItem {
     name: string;
     sku: string;
   };
-  hadNegativeStock?: boolean;
-  awaitedQuantity?: number;
 }
 
 export interface CompanyInfo {
@@ -34,59 +34,55 @@ export interface CompanyInfo {
   email: string;
 }
 
-export interface ReceiptCompanyInfo {
+export interface QuotationCompanyInfo {
   name: string;
   address: string;
   phone: string;
   email: string;
   taxNumber?: string;
   logo?: string;
+  website?: string;
 }
 
-export interface ReceiptData {
+export interface QuotationData {
   id: string;
-  saleNumber: string;
+  quoteNumber: string;
   date: string;
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
-  items: SaleItem[];
+  items: SaleQuoteItem[];
   subtotal: number;
   discount: number;
   discountPercent: number;
-  tax: number;
-  taxPercent: number;
+  tax?: number;
+  taxPercent?: number;
+  deliveryFee: number;
   total: number;
-  paymentMethod: string;
-  amountReceived?: number;
-  change?: number;
-  company: ReceiptCompanyInfo;
+  company: QuotationCompanyInfo;
   createdBy?: string;
-  status?: string;
-  stockAwaitItems?: Array<{
-    id: string;
-    shopProduct: {
-      name: string;
-      sku: string;
-    };
-    quantity: number;
-  }>;
+  expiryDate?: string;
+  notes?: string;
+  isDelivery?: boolean;
+  deliveryAddress?: string;
+  deliveryInstructions?: string;
 }
 
-export type ReceiptSize = "A4" | "thermal";
+export type QuotationSize = "A4" | "thermal";
 
-class ReceiptGenerator {
-  private companyInfo: ReceiptCompanyInfo = {
+class QuotationGenerator {
+  private companyInfo: QuotationCompanyInfo = {
     name: "Your Company",
     address: "123 Business St",
     phone: "(123) 456-7890",
     email: "info@company.com",
     taxNumber: "VAT123456",
+    website: "www.company.com",
   };
 
   private readonly DEFAULT_TAX_RATE = 0.15; // 15% VAT for South Africa
 
-  // Convert from your CompanyInfo to ReceiptCompanyInfo format
+  // Convert from your CompanyInfo to QuotationCompanyInfo format
   setCompanyInfo(companyInfo: CompanyInfo | null) {
     if (!companyInfo) return;
 
@@ -97,6 +93,7 @@ class ReceiptGenerator {
       email: companyInfo.email || "info@company.com",
       taxNumber: companyInfo.taxId || undefined,
       logo: companyInfo.logo || undefined,
+      website: companyInfo.website || undefined,
     };
   }
 
@@ -128,12 +125,25 @@ class ReceiptGenerator {
     }
   }
 
-  // REMOVED truncate parameter - always show full name
-  private getItemName(item: SaleItem): string {
+  private formatExpiryDate(dateString: string | undefined): string {
+    if (!dateString) return "No expiry date";
+
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "No expiry date";
+      }
+      return date.toLocaleString();
+    } catch (error) {
+      return "No expiry date";
+    }
+  }
+
+  private getItemName(item: SaleQuoteItem): string {
     return item.product?.name || "Product";
   }
 
-  private getItemSKU(item: SaleItem): string {
+  private getItemSKU(item: SaleQuoteItem): string {
     return item.product?.sku || "N/A";
   }
 
@@ -154,10 +164,12 @@ class ReceiptGenerator {
     };
   }
 
-  async fetchProductDetails(saleItems: SaleItem[]): Promise<SaleItem[]> {
+  async fetchProductDetails(
+    quoteItems: SaleQuoteItem[]
+  ): Promise<SaleQuoteItem[]> {
     try {
       const itemsWithProducts = await Promise.all(
-        saleItems.map(async (item) => {
+        quoteItems.map(async (item) => {
           try {
             const response = await fetch(
               `/api/shop/products/${item.shopProductId}`
@@ -192,7 +204,7 @@ class ReceiptGenerator {
       return itemsWithProducts;
     } catch (error) {
       console.error("Error fetching product details:", error);
-      return saleItems.map((item) => ({
+      return quoteItems.map((item) => ({
         ...item,
         product: {
           name: "Product",
@@ -202,152 +214,121 @@ class ReceiptGenerator {
     }
   }
 
-  async fetchStockAwaitItems(saleId: string): Promise<any[]> {
-    try {
-      const response = await fetch(`/api/shop/sales/${saleId}/stock-awaits`);
-      if (response.ok) {
-        return await response.json();
-      }
-      return [];
-    } catch (error) {
-      console.error("Error fetching stock await items:", error);
-      return [];
-    }
-  }
-
-  async generateReceiptHTML(
-    saleData: any,
-    size: ReceiptSize = "thermal"
+  async generateQuotationHTML(
+    quoteData: any,
+    size: QuotationSize = "thermal"
   ): Promise<string> {
     const itemsWithProducts = await this.fetchProductDetails(
-      saleData.items || []
+      quoteData.items || []
     );
 
-    // Fetch stock await items if sale status is AWAITING_STOCK
-    let stockAwaitItems: any[] = [];
-    if (saleData.status === "AWAITING_STOCK") {
-      stockAwaitItems = await this.fetchStockAwaitItems(saleData.id);
-    }
-
     // Calculate tax from total if not provided
-    const taxRate = saleData.taxPercent
-      ? saleData.taxPercent / 100
+    const taxRate = quoteData.taxPercent
+      ? quoteData.taxPercent / 100
       : this.DEFAULT_TAX_RATE;
 
-    let taxAmount = saleData.tax || 0;
-    let subtotalBeforeTax = saleData.subtotal || 0;
+    let taxAmount = quoteData.tax || 0;
+    let subtotalBeforeTax = quoteData.subtotal || 0;
 
     // If tax is not provided or is 0, calculate it from total
     if (!taxAmount || taxAmount === 0) {
+      const totalWithoutDelivery =
+        quoteData.total - (quoteData.deliveryFee || 0);
       const calculated = this.calculateTaxFromTotal(
-        saleData.total || 0,
+        totalWithoutDelivery,
         taxRate
       );
       taxAmount = calculated.taxAmount;
       subtotalBeforeTax = calculated.subtotalBeforeTax;
     } else {
       // If tax is provided, calculate subtotal before tax
-      subtotalBeforeTax = (saleData.total || 0) - taxAmount;
+      const totalWithoutDelivery =
+        quoteData.total - (quoteData.deliveryFee || 0);
+      subtotalBeforeTax = totalWithoutDelivery - taxAmount;
     }
 
-    const safeData: ReceiptData = {
-      id: saleData.id,
-      saleNumber: saleData.saleNumber,
-      date: saleData.saleDate || saleData.createdAt,
-      customerName: saleData.customerName,
-      customerPhone: saleData.customerPhone,
-      customerEmail: saleData.customerEmail,
+    const safeData: QuotationData = {
+      id: quoteData.id,
+      quoteNumber: quoteData.quoteNumber,
+      date: quoteData.createdAt || new Date().toISOString(),
+      customerName: quoteData.customerName,
+      customerPhone: quoteData.customerPhone,
+      customerEmail: quoteData.customerEmail,
       items: itemsWithProducts,
       subtotal: subtotalBeforeTax,
-      discount: saleData.discount || 0,
-      discountPercent: saleData.discountPercent || 0,
+      discount: quoteData.discount || 0,
+      discountPercent: quoteData.discountPercent || 0,
       tax: taxAmount,
       taxPercent: taxRate * 100,
-      total: saleData.total || 0,
-      paymentMethod: saleData.paymentMethod,
-      amountReceived: saleData.amountReceived
-        ? typeof saleData.amountReceived === "string"
-          ? parseFloat(saleData.amountReceived)
-          : saleData.amountReceived
-        : undefined,
-      change: saleData.change
-        ? typeof saleData.change === "string"
-          ? parseFloat(saleData.change)
-          : saleData.change
-        : undefined,
+      deliveryFee: quoteData.deliveryFee || 0,
+      total: quoteData.total || 0,
       company: this.companyInfo,
-      createdBy: saleData.createdBy,
-      status: saleData.status,
-      stockAwaitItems: stockAwaitItems,
+      createdBy: quoteData.createdBy,
+      expiryDate: quoteData.expiryDate,
+      notes: quoteData.notes,
+      isDelivery: quoteData.isDelivery,
+      deliveryAddress: quoteData.deliveryAddress,
+      deliveryInstructions: quoteData.deliveryInstructions,
     };
 
     if (size === "A4") {
-      return this.generateA4Receipt(safeData);
+      return this.generateA4Quotation(safeData);
     }
-    return this.generateThermalReceipt(safeData);
+    return this.generateThermalQuotation(safeData);
   }
 
-  async generateReceiptForEmail(saleData: any): Promise<string> {
+  async generateQuotationForEmail(quoteData: any): Promise<string> {
     const itemsWithProducts = await this.fetchProductDetails(
-      saleData.items || []
+      quoteData.items || []
     );
 
-    // Fetch stock await items if sale status is AWAITING_STOCK
-    let stockAwaitItems: any[] = [];
-    if (saleData.status === "AWAITING_STOCK") {
-      stockAwaitItems = await this.fetchStockAwaitItems(saleData.id);
-    }
-
     // Calculate tax from total if not provided
-    const taxRate = saleData.taxPercent
-      ? saleData.taxPercent / 100
+    const taxRate = quoteData.taxPercent
+      ? quoteData.taxPercent / 100
       : this.DEFAULT_TAX_RATE;
 
-    let taxAmount = saleData.tax || 0;
-    let subtotalBeforeTax = saleData.subtotal || 0;
+    let taxAmount = quoteData.tax || 0;
+    let subtotalBeforeTax = quoteData.subtotal || 0;
 
     // If tax is not provided or is 0, calculate it from total
     if (!taxAmount || taxAmount === 0) {
+      const totalWithoutDelivery =
+        quoteData.total - (quoteData.deliveryFee || 0);
       const calculated = this.calculateTaxFromTotal(
-        saleData.total || 0,
+        totalWithoutDelivery,
         taxRate
       );
       taxAmount = calculated.taxAmount;
       subtotalBeforeTax = calculated.subtotalBeforeTax;
     } else {
       // If tax is provided, calculate subtotal before tax
-      subtotalBeforeTax = (saleData.total || 0) - taxAmount;
+      const totalWithoutDelivery =
+        quoteData.total - (quoteData.deliveryFee || 0);
+      subtotalBeforeTax = totalWithoutDelivery - taxAmount;
     }
 
-    const safeData: ReceiptData = {
-      id: saleData.id,
-      saleNumber: saleData.saleNumber,
-      date: saleData.saleDate || saleData.createdAt,
-      customerName: saleData.customerName,
-      customerPhone: saleData.customerPhone,
-      customerEmail: saleData.customerEmail,
+    const safeData: QuotationData = {
+      id: quoteData.id,
+      quoteNumber: quoteData.quoteNumber,
+      date: quoteData.createdAt || new Date().toISOString(),
+      customerName: quoteData.customerName,
+      customerPhone: quoteData.customerPhone,
+      customerEmail: quoteData.customerEmail,
       items: itemsWithProducts,
       subtotal: subtotalBeforeTax,
-      discount: saleData.discount || 0,
-      discountPercent: saleData.discountPercent || 0,
+      discount: quoteData.discount || 0,
+      discountPercent: quoteData.discountPercent || 0,
       tax: taxAmount,
       taxPercent: taxRate * 100,
-      total: saleData.total || 0,
-      paymentMethod: saleData.paymentMethod,
-      amountReceived: saleData.amountReceived
-        ? typeof saleData.amountReceived === "string"
-          ? parseFloat(saleData.amountReceived)
-          : saleData.amountReceived
-        : undefined,
-      change: saleData.change
-        ? typeof saleData.change === "string"
-          ? parseFloat(saleData.change)
-          : saleData.change
-        : undefined,
+      deliveryFee: quoteData.deliveryFee || 0,
+      total: quoteData.total || 0,
       company: this.companyInfo,
-      createdBy: saleData.createdBy,
-      status: saleData.status,
-      stockAwaitItems: stockAwaitItems,
+      createdBy: quoteData.createdBy,
+      expiryDate: quoteData.expiryDate,
+      notes: quoteData.notes,
+      isDelivery: quoteData.isDelivery,
+      deliveryAddress: quoteData.deliveryAddress,
+      deliveryInstructions: quoteData.deliveryInstructions,
     };
 
     return `
@@ -367,18 +348,33 @@ class ReceiptGenerator {
         <div style="text-align: center; color: #666; margin-bottom: 20px;">
           ${this.companyInfo.address}<br>
           Tel: ${this.companyInfo.phone} | Email: ${this.companyInfo.email}<br>
-          ${this.companyInfo.taxNumber ? `VAT: ${this.companyInfo.taxNumber}` : ""}
+          ${this.companyInfo.taxNumber ? `VAT: ${this.companyInfo.taxNumber}<br>` : ""}
+          ${this.companyInfo.website ? `Website: ${this.companyInfo.website}` : ""}
         </div>
 
         <h3 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
-          SALES RECEIPT: ${safeData.saleNumber}
+          QUOTATION: ${safeData.quoteNumber}
         </h3>
         
         <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
           <div><strong>Date:</strong> ${this.formatDate(safeData.date)}</div>
+          <div><strong>Valid Until:</strong> ${this.formatExpiryDate(safeData.expiryDate)}</div>
           ${safeData.customerName ? `<div><strong>Customer:</strong> ${safeData.customerName}</div>` : ""}
           ${safeData.customerPhone ? `<div><strong>Phone:</strong> ${safeData.customerPhone}</div>` : ""}
-          ${safeData.createdBy ? `<div><strong>Assisted by:</strong> ${safeData.createdBy}</div>` : ""}
+          ${safeData.customerEmail ? `<div><strong>Email:</strong> ${safeData.customerEmail}</div>` : ""}
+          ${safeData.createdBy ? `<div><strong>Prepared by:</strong> ${safeData.createdBy}</div>` : ""}
+          ${
+            safeData.isDelivery && safeData.deliveryAddress
+              ? `
+            <div><strong>Delivery Address:</strong> ${safeData.deliveryAddress}</div>
+            ${
+              safeData.deliveryInstructions
+                ? `<div><strong>Delivery Instructions:</strong> ${safeData.deliveryInstructions}</div>`
+                : ""
+            }
+          `
+              : ""
+          }
         </div>
 
         <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
@@ -400,15 +396,6 @@ class ReceiptGenerator {
                   <div style="font-weight: bold; word-wrap: break-word; white-space: normal;">
                     ${this.getItemName(item)}
                   </div>
-                  ${
-                    item.hadNegativeStock
-                      ? `
-                    <div style="font-size: 12px; color: #dc2626; font-style: italic;">
-                      (Awaiting stock: ${item.awaitedQuantity})
-                    </div>
-                  `
-                      : ""
-                  }
                 </td>
                 <td style="padding: 12px; border: 1px solid #ddd; vertical-align: top;">${this.getItemSKU(item)}</td>
                 <td style="padding: 12px; text-align: right; border: 1px solid #ddd; vertical-align: top;">${item.quantity}</td>
@@ -422,19 +409,11 @@ class ReceiptGenerator {
         </table>
 
         ${
-          stockAwaitItems.length > 0
+          safeData.notes
             ? `
           <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 5px; padding: 15px; margin: 20px 0;">
-            <h4 style="color: #92400e; margin: 0 0 10px 0;">⚠ Items Awaiting Stock</h4>
-            ${stockAwaitItems
-              .map(
-                (item) => `
-              <div style="margin: 5px 0;">
-                <strong>${item.shopProduct?.name}</strong> (SKU: ${item.shopProduct?.sku}) - Awaiting: ${item.quantity}
-              </div>
-            `
-              )
-              .join("")}
+            <h4 style="color: #92400e; margin: 0 0 10px 0;">Notes & Terms</h4>
+            <div style="white-space: pre-line;">${safeData.notes}</div>
           </div>
         `
             : ""
@@ -456,11 +435,21 @@ class ReceiptGenerator {
               : ""
           }
           ${
-            safeData.tax > 0
+            safeData.tax && safeData.tax > 0
               ? `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
-              <span>VAT (${this.formatNumber(safeData.taxPercent, 0)}%):</span>
+              <span>VAT (${this.formatNumber(safeData.taxPercent || 15, 0)}%):</span>
               <span>R${this.formatNumber(safeData.tax)}</span>
+            </div>
+          `
+              : ""
+          }
+          ${
+            safeData.deliveryFee > 0
+              ? `
+            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+              <span>Delivery Fee:</span>
+              <span>R${this.formatNumber(safeData.deliveryFee)}</span>
             </div>
           `
               : ""
@@ -472,28 +461,19 @@ class ReceiptGenerator {
         </div>
 
         <div style="clear: both; margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 5px;">
-          <div><strong>Payment Method:</strong> ${safeData.paymentMethod.toUpperCase()}</div>
-          ${
-            safeData.amountReceived
-              ? `<div><strong>Amount Received:</strong> R${this.formatNumber(safeData.amountReceived)}</div>`
-              : ""
-          }
-          ${
-            safeData.change && safeData.change > 0
-              ? `<div><strong>Change:</strong> R${this.formatNumber(safeData.change)}</div>`
-              : ""
-          }
+          <div><strong>Quotation Expiry:</strong> ${this.formatExpiryDate(safeData.expiryDate)}</div>
+          <div><strong>To accept this quotation:</strong> Please contact us at ${this.companyInfo.phone} or reply to this email</div>
         </div>
 
         <div style="clear: both; margin-top: 30px; padding-top: 20px; border-top: 2px solid #333; text-align: center;">
-          <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px;">Thank You for Your Business!</div>
+          <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px;">Thank You for Considering Our Services!</div>
           <div style="color: #666;">For any queries, please contact us at ${this.companyInfo.phone}</div>
         </div>
       </div>
     `;
   }
 
-  private generateThermalReceipt(data: ReceiptData): string {
+  private generateThermalQuotation(data: QuotationData): string {
     const hasLogo = data.company.logo;
 
     return `
@@ -501,7 +481,7 @@ class ReceiptGenerator {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Receipt ${data.saleNumber}</title>
+        <title>Quotation ${data.quoteNumber}</title>
         <style>
           @media print {
             @page { margin: 0; size: 80mm auto; }
@@ -535,17 +515,12 @@ class ReceiptGenerator {
           .header { margin-bottom: 8px; }
           .footer { margin-top: 8px; font-size: 10px; }
           .text-small { font-size: 10px; }
+          .text-xsmall { font-size: 9px; }
           .logo { 
             max-width: 100%; 
             height: auto; 
             margin-bottom: 5px;
-            max-height: 50px; /* Increased logo size */
-          }
-          .awaiting-stock { 
-            color: #dc2626; 
-            font-style: italic; 
-            font-size: 9px;
-            margin-top: 1px;
+            max-height: 50px;
           }
           .column-layout {
             display: flex;
@@ -564,23 +539,33 @@ class ReceiptGenerator {
           <div class="bold" style="font-size: 14px;">${data.company.name}</div>
           <div class="text-small">${data.company.address}</div>
           <div class="text-small">Tel: ${data.company.phone}</div>
+          <div class="text-small">Email: ${data.company.email}</div>
           ${data.company.taxNumber ? `<div class="text-small">VAT: ${data.company.taxNumber}</div>` : ""}
         </div>
         
         <div class="line"></div>
         
         <div class="center">
-          <div class="bold">RECEIPT</div>
-          <div>${data.saleNumber}</div>
+          <div class="bold">QUOTATION</div>
+          <div>${data.quoteNumber}</div>
           <div class="text-small">${this.formatDate(data.date)}</div>
         </div>
         
         <div class="line"></div>
         
         <div class="text-small">
-          ${data.customerName ? `<div>Customer: ${data.customerName}</div>` : ""}
-          ${data.customerPhone ? `<div>Phone: ${data.customerPhone}</div>` : ""}
-          ${data.createdBy ? `<div>Assisted by: ${data.createdBy}</div>` : ""}
+          <div class="column-layout">
+            <div>Valid Until:</div>
+            <div>${this.formatExpiryDate(data.expiryDate)}</div>
+          </div>
+          ${data.customerName ? `<div class="column-layout"><div>Customer:</div><div>${data.customerName}</div></div>` : ""}
+          ${data.customerPhone ? `<div class="column-layout"><div>Phone:</div><div>${data.customerPhone}</div></div>` : ""}
+          ${data.createdBy ? `<div class="column-layout"><div>Prepared by:</div><div>${data.createdBy}</div></div>` : ""}
+          ${
+            data.isDelivery && data.deliveryAddress
+              ? `<div class="column-layout"><div>Delivery:</div><div>${data.deliveryAddress}</div></div>`
+              : ""
+          }
         </div>
         
         <div class="line"></div>
@@ -599,15 +584,6 @@ class ReceiptGenerator {
                 <div></div>
                 <div>R${this.formatNumber(item.total)}</div>
               </div>
-              ${
-                item.hadNegativeStock
-                  ? `
-                <div class="awaiting-stock">
-                  Awaiting stock: ${item.awaitedQuantity}
-                </div>
-              `
-                  : ""
-              }
             </div>
           `
             )
@@ -615,19 +591,14 @@ class ReceiptGenerator {
         </div>
         
         ${
-          data.stockAwaitItems && data.stockAwaitItems.length > 0
+          data.notes
             ? `
           <div class="line"></div>
-          <div style="color: #dc2626; font-size: 10px; margin-bottom: 5px;">
-            <div class="bold">⚠ Items awaiting stock:</div>
-            ${data.stockAwaitItems
-              .map(
-                (item) => `
-              <div>${item.shopProduct?.name}: ${item.quantity}</div>
-            `
-              )
-              .join("")}
+          <div class="text-xsmall">
+            <div class="bold">Notes:</div>
+            <div>${data.notes}</div>
           </div>
+          <div class="line"></div>
         `
             : ""
         }
@@ -650,11 +621,21 @@ class ReceiptGenerator {
               : ""
           }
           ${
-            data.tax > 0
+            data.tax && data.tax > 0
               ? `
             <div class="column-layout">
-              <div>VAT (${this.formatNumber(data.taxPercent, 0)}%):</div>
+              <div>VAT (${this.formatNumber(data.taxPercent || 15, 0)}%):</div>
               <div>R${this.formatNumber(data.tax)}</div>
+            </div>
+          `
+              : ""
+          }
+          ${
+            data.deliveryFee > 0
+              ? `
+            <div class="column-layout">
+              <div>Delivery Fee:</div>
+              <div>R${this.formatNumber(data.deliveryFee)}</div>
             </div>
           `
               : ""
@@ -670,45 +651,29 @@ class ReceiptGenerator {
         
         <div class="line"></div>
         
-        <div>
+        <div class="text-small">
           <div class="column-layout">
-            <div>Payment Method:</div>
-            <div>${data.paymentMethod}</div>
+            <div>Valid Until:</div>
+            <div>${this.formatExpiryDate(data.expiryDate)}</div>
           </div>
-          ${
-            data.amountReceived
-              ? `
-            <div class="column-layout">
-              <div>Amount Received:</div>
-              <div>R${this.formatNumber(data.amountReceived)}</div>
-            </div>
-          `
-              : ""
-          }
-          ${
-            data.change && data.change > 0
-              ? `
-            <div class="column-layout">
-              <div>Change:</div>
-              <div>R${this.formatNumber(data.change)}</div>
-            </div>
-          `
-              : ""
-          }
+          <div class="column-layout">
+            <div>Contact:</div>
+            <div>${data.company.phone}</div>
+          </div>
         </div>
         
         <div class="line"></div>
         
         <div class="footer center">
-          <div>Thank you for your business!</div>
-          <div>Please come again</div>
+          <div>Thank you for considering our services!</div>
+          <div>Please contact us to accept this quotation</div>
         </div>
       </body>
       </html>
     `;
   }
 
-  private generateA4Receipt(data: ReceiptData): string {
+  private generateA4Quotation(data: QuotationData): string {
     const hasLogo = data.company.logo;
 
     return `
@@ -716,7 +681,7 @@ class ReceiptGenerator {
       <html>
       <head>
         <meta charset="utf-8">
-        <title>Receipt ${data.saleNumber}</title>
+        <title>Quotation ${data.quoteNumber}</title>
         <style>
           @media print {
             @page { margin: 20mm; size: A4; }
@@ -734,90 +699,89 @@ class ReceiptGenerator {
             padding-bottom: 20px;
           }
           .company-name { 
-            font-size: 24px; 
-            font-weight: bold; 
-            margin-bottom: 10px;
-          }
-          .receipt-title {
-            font-size: 20px;
-            font-weight: bold;
-            margin: 20px 0;
-          }
-          .info-section {
-            margin: 20px 0;
-            padding: 15px;
-            background: #f5f5f5;
-            border-radius: 5px;
-          }
-          .items-table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin: 20px 0; 
-          }
-          .items-table th, .items-table td { 
-            border: 1px solid #ddd; 
-            padding: 12px; 
-            text-align: left; 
-            vertical-align: top;
-          }
-          .items-table th { 
-            background-color: #333; 
-            color: white;
-            font-weight: bold;
-          }
-          .items-table tr:nth-child(even) {
-            background-color: #f9f9f9;
-          }
-          .product-name {
-            word-wrap: break-word;
-            white-space: normal;
-            max-width: 200px;
-          }
-          .totals { 
-            margin-top: 20px;
-            float: right;
-            width: 300px;
-          }
-          .totals-row { 
-            display: flex; 
-            justify-content: space-between; 
-            padding: 8px 0;
-            border-bottom: 1px solid #ddd;
-          }
-          .total-row { 
-            font-weight: bold; 
-            font-size: 18px;
-            border-top: 2px solid #333;
-            border-bottom: 2px solid #333;
-            margin-top: 10px;
-            padding-top: 10px;
-          }
-          .footer {
-            clear: both;
-            margin-top: 50px;
-            text-align: center;
-            padding-top: 20px;
-            border-top: 2px solid #333;
-          }
-          .payment-info {
-            margin: 20px 0;
-            padding: 15px;
-            background: #e8f5e9;
-            border-radius: 5px;
-          }
-          .awaiting-stock-note {
-            background: #fef3c7;
-            border: 1px solid #fbbf24;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 20px 0;
-          }
-          .logo {
-            max-height: 100px; /* Increased logo size */
-            max-width: 300px; /* Increased logo size */
-            margin-bottom: 10px;
-            object-fit: contain;
-          }
+              font-size: 24px; 
+              font-weight: bold; 
+              margin-bottom: 10px;
+            }
+            .quotation-title {
+              font-size: 20px;
+              font-weight: bold;
+              margin: 20px 0;
+            }
+            .info-section {
+              margin: 20px 0;
+              padding: 15px;
+              background: #f5f5f5;
+              border-radius: 5px;
+            }
+            .items-table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin: 20px 0; 
+            }
+            .items-table th, .items-table td { 
+              border: 1px solid #ddd; 
+              padding: 12px; 
+              text-align: left; 
+            }
+            .items-table th { 
+              background-color: #333; 
+              color: white;
+              font-weight: bold;
+            }
+            .items-table tr:nth-child(even) {
+              background-color: #f9f9f9;
+            }
+            .totals { 
+              margin-top: 20px;
+              float: right;
+              width: 300px;
+            }
+            .totals-row { 
+              display: flex; 
+              justify-content: space-between; 
+              padding: 8px 0;
+              border-bottom: 1px solid #ddd;
+            }
+            .total-row { 
+              font-weight: bold; 
+              font-size: 18px;
+              border-top: 2px solid #333;
+              border-bottom: 2px solid #333;
+              margin-top: 10px;
+              padding-top: 10px;
+            }
+            .footer {
+              clear: both;
+              margin-top: 50px;
+              text-align: center;
+              padding-top: 20px;
+              border-top: 2px solid #333;
+            }
+            .quotation-info {
+              margin: 20px 0;
+              padding: 15px;
+              background: #e8f5e9;
+              border-radius: 5px;
+            }
+            .notes-section {
+              background: #fef3c7;
+              border: 1px solid #fbbf24;
+              border-radius: 5px;
+              padding: 15px;
+              margin: 20px 0;
+            }
+            .logo {
+              max-height: 100px;
+              max-width: 300px;
+              margin-bottom: 10px;
+              object-fit: contain;
+            }
+            .product-name {
+              word-wrap: break-word;
+              white-space: normal;
+              max-width: 200px;
+            }
         </style>
       </head>
       <body>
@@ -827,16 +791,31 @@ class ReceiptGenerator {
           <div>${data.company.address}</div>
           <div>Tel: ${data.company.phone} | Email: ${data.company.email}</div>
           ${data.company.taxNumber ? `<div>VAT Number: ${data.company.taxNumber}</div>` : ""}
+          ${data.company.website ? `<div>Website: ${data.company.website}</div>` : ""}
         </div>
 
-        <div class="receipt-title">SALES RECEIPT</div>
+        <div class="quotation-title">QUOTATION</div>
         
         <div class="info-section">
-          <div><strong>Receipt Number:</strong> ${data.saleNumber}</div>
+          <div><strong>Quotation Number:</strong> ${data.quoteNumber}</div>
           <div><strong>Date:</strong> ${this.formatDate(data.date)}</div>
+          <div><strong>Valid Until:</strong> ${this.formatExpiryDate(data.expiryDate)}</div>
           ${data.customerName ? `<div><strong>Customer:</strong> ${data.customerName}</div>` : ""}
           ${data.customerPhone ? `<div><strong>Phone:</strong> ${data.customerPhone}</div>` : ""}
-          ${data.createdBy ? `<div><strong>Assisted by:</strong> ${data.createdBy}</div>` : ""}
+          ${data.customerEmail ? `<div><strong>Email:</strong> ${data.customerEmail}</div>` : ""}
+          ${data.createdBy ? `<div><strong>Prepared by:</strong> ${data.createdBy}</div>` : ""}
+          ${
+            data.isDelivery && data.deliveryAddress
+              ? `
+            <div><strong>Delivery Address:</strong> ${data.deliveryAddress}</div>
+            ${
+              data.deliveryInstructions
+                ? `<div><strong>Delivery Instructions:</strong> ${data.deliveryInstructions}</div>`
+                : ""
+            }
+          `
+              : ""
+          }
         </div>
 
         <table class="items-table">
@@ -856,15 +835,6 @@ class ReceiptGenerator {
               <tr>
                 <td class="product-name">
                   ${this.getItemName(item)}
-                  ${
-                    item.hadNegativeStock
-                      ? `
-                    <div style="color: #dc2626; font-style: italic; font-size: 12px;">
-                      (Awaiting stock: ${item.awaitedQuantity})
-                    </div>
-                  `
-                      : ""
-                  }
                 </td>
                 <td>${this.getItemSKU(item)}</td>
                 <td style="text-align: right;">${item.quantity}</td>
@@ -878,25 +848,14 @@ class ReceiptGenerator {
         </table>
 
         ${
-          data.stockAwaitItems && data.stockAwaitItems.length > 0
+          data.notes
             ? `
-          <div class="awaiting-stock-note">
+          <div class="notes-section">
             <div style="font-weight: bold; color: #92400e; margin-bottom: 10px;">
-              ⚠ Items Awaiting Stock
+              Notes & Terms
             </div>
-            <div style="font-size: 14px;">
-              ${data.stockAwaitItems
-                .map(
-                  (item) => `
-                <div style="margin: 5px 0;">
-                  <strong>${item.shopProduct?.name}</strong> (SKU: ${item.shopProduct?.sku}) - Awaiting: ${item.quantity} units
-                </div>
-              `
-                )
-                .join("")}
-            </div>
-            <div style="margin-top: 10px; font-size: 12px; color: #92400e;">
-              These items will be fulfilled once stock is available.
+            <div style="white-space: pre-line;">
+              ${data.notes}
             </div>
           </div>
         `
@@ -919,11 +878,21 @@ class ReceiptGenerator {
               : ""
           }
           ${
-            data.tax > 0
+            data.tax && data.tax > 0
               ? `
             <div class="totals-row">
-              <span>VAT (${this.formatNumber(data.taxPercent, 0)}%):</span>
+              <span>VAT (${this.formatNumber(data.taxPercent || 15, 0)}%):</span>
               <span>R${this.formatNumber(data.tax)}</span>
+            </div>
+          `
+              : ""
+          }
+          ${
+            data.deliveryFee > 0
+              ? `
+            <div class="totals-row">
+              <span>Delivery Fee:</span>
+              <span>R${this.formatNumber(data.deliveryFee)}</span>
             </div>
           `
               : ""
@@ -934,14 +903,13 @@ class ReceiptGenerator {
           </div>
         </div>
 
-        <div class="payment-info">
-          <div><strong>Payment Method:</strong> ${data.paymentMethod}</div>
-          ${data.amountReceived ? `<div><strong>Amount Received:</strong> R${this.formatNumber(data.amountReceived)}</div>` : ""}
-          ${data.change && data.change > 0 ? `<div><strong>Change:</strong> R${this.formatNumber(data.change)}</div>` : ""}
+        <div class="quotation-info">
+          <div><strong>Quotation Expiry:</strong> ${this.formatExpiryDate(data.expiryDate)}</div>
+          <div><strong>To accept this quotation:</strong> Please contact us at ${data.company.phone} or email ${data.company.email}</div>
         </div>
 
         <div class="footer">
-          <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Thank You for Your Business!</div>
+          <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Thank You for Considering Our Services!</div>
           <div>For any queries, please contact us at ${data.company.phone} or ${data.company.email}</div>
         </div>
       </body>
@@ -949,16 +917,16 @@ class ReceiptGenerator {
     `;
   }
 
-  async generateReceiptPDF(
-    saleData: any,
-    size: ReceiptSize = "thermal"
+  async generateQuotationPDF(
+    quoteData: any,
+    size: QuotationSize = "thermal"
   ): Promise<Blob> {
-    const htmlContent = await this.generateReceiptHTML(saleData, size);
+    const htmlContent = await this.generateQuotationHTML(quoteData, size);
     const blob = new Blob([htmlContent], { type: "text/html" });
     return blob;
   }
 
-  async downloadReceipt(blob: Blob, filename: string): Promise<void> {
+  async downloadQuotation(blob: Blob, filename: string): Promise<void> {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -969,11 +937,11 @@ class ReceiptGenerator {
     URL.revokeObjectURL(url);
   }
 
-  async printReceipt(
-    saleData: any,
-    size: ReceiptSize = "thermal"
+  async printQuotation(
+    quoteData: any,
+    size: QuotationSize = "thermal"
   ): Promise<void> {
-    const htmlContent = await this.generateReceiptHTML(saleData, size);
+    const htmlContent = await this.generateQuotationHTML(quoteData, size);
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(htmlContent);
@@ -987,4 +955,4 @@ class ReceiptGenerator {
   }
 }
 
-export const receiptGenerator = new ReceiptGenerator();
+export const quotationGenerator = new QuotationGenerator();

@@ -12,6 +12,12 @@ import { CartSection } from "./components/cart-section";
 import { ReceiptDialog } from "./components/receipt-dialog";
 import { PaymentMethod } from "@prisma/client";
 import { CheckoutDialog } from "./components/checkout-dialog";
+import { QuotationDialog } from "./components/quotation-dialog";
+import { SearchQuotationDialog } from "./components/search-quotation-dialog";
+import { Button } from "@/components/ui/button";
+import { FileText, Search, Edit, ShoppingCart } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { QuotationReceiptDialog } from "./components/quotation-receipt-dialog";
 
 export default function POSPage() {
   const { toast } = useToast();
@@ -52,6 +58,21 @@ export default function POSPage() {
     visible: false,
   });
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Quotation states
+  const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
+  const [isSearchQuotationDialogOpen, setIsSearchQuotationDialogOpen] =
+    useState(false);
+  const [activeQuotation, setActiveQuotation] = useState<any>(null);
+  const [isCreatingQuotation, setIsCreatingQuotation] = useState(false);
+  const [isUpdatingQuotation, setIsUpdatingQuotation] = useState(false);
+  const [isQuotationReceiptDialogOpen, setIsQuotationReceiptDialogOpen] =
+    useState(false);
+  const [completedQuotation, setCompletedQuotation] = useState<any>(null);
+  const [quotationReceiptSize, setQuotationReceiptSize] = useState<
+    "A4" | "thermal"
+  >("thermal");
+  const [quotationReceiptEmail, setQuotationReceiptEmail] = useState("");
 
   const categories = [
     "All",
@@ -128,7 +149,7 @@ export default function POSPage() {
           id: product.id,
           name: product.name,
           sku: product.sku,
-          price: Number(product.price),
+          price: Number(product.price) || 0,
           quantity: 1,
           image: product.images?.[0],
           stock: product.stock,
@@ -194,6 +215,7 @@ export default function POSPage() {
     setChange(undefined);
     setPaymentMethod(PaymentMethod.CASH);
     setAmountReceived("");
+    setActiveQuotation(null);
   };
 
   const showScanNotice = (
@@ -213,7 +235,7 @@ export default function POSPage() {
 
   // Calculate totals with VAT and delivery
   const subtotal = cart.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + (Number(item.price) || 0) * item.quantity,
     0
   );
 
@@ -296,118 +318,366 @@ export default function POSPage() {
     }
   };
 
+  // Function to create quotation
+  const createQuotation = async (quotationData: any) => {
+    setIsCreatingQuotation(true);
+
+    try {
+      const response = await fetch("/api/shop/quotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(quotationData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create quotation");
+      }
+
+      const quotation = await response.json();
+
+      toast({
+        title: "Quotation Created",
+        description: `Quotation ${quotation.quoteNumber} created successfully`,
+      });
+
+      // Set completed quotation and open receipt dialog
+      setCompletedQuotation(quotation);
+      setIsQuotationDialogOpen(false);
+      setIsQuotationReceiptDialogOpen(true);
+
+      return quotation;
+    } catch (error: any) {
+      console.error("Error creating quotation:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create quotation",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsCreatingQuotation(false);
+    }
+  };
+
+  const handleFinishQuotation = () => {
+    clearCart();
+    setIsQuotationReceiptDialogOpen(false);
+    setCompletedQuotation(null);
+    setQuotationReceiptEmail("");
+    setQuotationReceiptSize("A4");
+  };
+
+  // Function to update quotation
+  const updateQuotation = async (quotationData: any) => {
+    setIsUpdatingQuotation(true);
+
+    try {
+      const response = await fetch(`/api/shop/quotations/${quotationData.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(quotationData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to update quotation");
+      }
+
+      const quotation = await response.json();
+
+      toast({
+        title: "Quotation Updated",
+        description: `Quotation ${quotation.quoteNumber} updated successfully`,
+      });
+
+      setIsQuotationDialogOpen(false);
+
+      return quotation;
+    } catch (error: any) {
+      console.error("Error updating quotation:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update quotation",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setIsUpdatingQuotation(false);
+    }
+  };
+
+  // Function to load quotation into cart
+  const loadQuotation = (quotation: any) => {
+    setActiveQuotation(quotation);
+
+    // Add items to cart
+    const cartItems: CartItem[] = quotation.items.map((item: any) => ({
+      id: item.shopProduct.id,
+      name: item.shopProduct.name,
+      sku: item.shopProduct.sku,
+      price: Number(item.price) || 0,
+      quantity: item.quantity,
+      image: item.shopProduct.images?.[0],
+      stock: item.shopProduct.stock,
+    }));
+
+    setCart(cartItems);
+
+    // Set customer info
+    setCustomerName(quotation.customerName || "");
+    setCustomerPhone(quotation.customerPhone || "");
+    setCustomerEmail(quotation.customerEmail || "");
+    setCustomerAddress(quotation.customerAddress || "");
+    setIsDelivery(quotation.isDelivery || false);
+    setDeliveryInstructions(quotation.deliveryInstructions || "");
+    setDiscount(quotation.discountPercent || 0);
+
+    toast({
+      title: "Quotation Loaded",
+      description: `Quotation ${quotation.quoteNumber} loaded successfully`,
+    });
+  };
+
+  // Function to edit quotation
+  const editQuotation = (quotation: any) => {
+    // Load quotation into cart and open edit dialog
+    loadQuotation(quotation);
+    setIsQuotationDialogOpen(true);
+  };
+
+  // Function to convert quotation to sale
+  const convertQuotationToSale = (quotation: any) => {
+    loadQuotation(quotation);
+    setIsCheckoutOpen(true);
+  };
+
+  // Function to open quotation dialog from cart
+  const openQuotationDialog = () => {
+    if (cart.length === 0) {
+      toast({
+        title: "Cart is Empty",
+        description: "Add items to cart before creating quotation",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsQuotationDialogOpen(true);
+  };
+
   const completeTransaction = async () => {
     setIsProcessing(true);
 
     try {
-      // Debug logging
-      console.log("Cart items:", cart);
-      console.log("Payment method:", paymentMethod);
-      console.log("Amount received:", amountReceived);
-      console.log("Is delivery:", isDelivery);
-      console.log("Delivery address:", customerAddress);
+      // If we have an active quotation, use the conversion endpoint
+      if (activeQuotation) {
+        const received = Number.parseFloat(amountReceived) || 0;
 
-      const received = Number.parseFloat(amountReceived) || 0;
-
-      // Validate cash payment
-      if (paymentMethod === PaymentMethod.CASH && received < total) {
-        toast({
-          title: "Insufficient Amount",
-          description: `Amount received (R${received.toFixed(2)}) is less than total (R${total.toFixed(2)})`,
-          variant: "destructive",
-        });
-        setIsProcessing(false);
-        return;
-      }
-
-      // Validate delivery address if delivery is enabled
-      if (isDelivery && (!customerAddress || customerAddress.trim() === "")) {
-        toast({
-          title: "Delivery Address Required",
-          description: "Please enter a delivery address for delivery orders",
-          variant: "destructive",
-        });
-        setIsProcessing(false);
-        return;
-      }
-
-      const saleData: SaleData = {
-        customerName: customerName || undefined,
-        customerPhone: customerPhone || undefined,
-        customerEmail: customerEmail || undefined,
-        customerAddress: isDelivery ? customerAddress : undefined,
-        items: cart.map((item) => ({
-          id: item.id,
-          name: item.name,
-          sku: item.sku,
-          quantity: item.quantity,
-          price: item.price,
-          total: item.price * item.quantity,
-        })),
-        subtotal,
-        discount: discountAmount,
-        discountPercent: actualDiscount,
-        tax,
-        deliveryAmount,
-        total,
-        paymentMethod,
-        amountReceived:
-          paymentMethod === PaymentMethod.CASH ? received : undefined,
-        change:
-          paymentMethod === PaymentMethod.CASH ? received - total : undefined,
-        isDelivery,
-        deliveryAddress: isDelivery ? customerAddress : undefined,
-        deliveryInstructions: isDelivery ? deliveryInstructions : undefined,
-      };
-
-      console.log("Submitting sale data:", JSON.stringify(saleData, null, 2));
-
-      const sale = await saleApi.create(saleData);
-
-      console.log("Sale created:", sale);
-
-      setCompletedSale({
-        ...sale,
-        company: companyInfo
-          ? {
-              name: companyInfo.companyName,
-              address: `${companyInfo.address}, ${companyInfo.city}, ${companyInfo.province}, ${companyInfo.postCode}`,
-              phone: companyInfo.phone,
-              email: companyInfo.email,
-              taxNumber: companyInfo.taxId,
-            }
-          : {
-              name: "FinanceFlow Solutions",
-              address: "456 Corporate Ave, Sandton, 2196, South Africa",
-              phone: "+27 11 987 6543",
-              email: "sales@financeflow.co.za",
-              taxNumber: "9876543210",
-            },
-      });
-
-      setReceiptEmail(customerEmail);
-      setIsCheckoutOpen(false);
-      setIsReceiptDialogOpen(true);
-
-      toast({
-        title: "Transaction Complete",
-        description: `Sale ${sale.saleNumber} completed successfully${isDelivery ? " with delivery order" : ""}`,
-      });
-
-      // Check for warnings in the response
-      if (sale.warnings && sale.warnings.negativeStock) {
-        sale.warnings.negativeStock.forEach((warning: any) => {
+        // Validate cash payment
+        if (paymentMethod === PaymentMethod.CASH && received < total) {
           toast({
-            title: "Stock Warning",
-            description: warning.message,
+            title: "Insufficient Amount",
+            description: `Amount received (R${received.toFixed(2)}) is less than total (R${total.toFixed(2)})`,
+            variant: "destructive",
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        // Validate delivery address if delivery is enabled
+        if (isDelivery && (!customerAddress || customerAddress.trim() === "")) {
+          toast({
+            title: "Delivery Address Required",
+            description: "Please enter a delivery address for delivery orders",
+            variant: "destructive",
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        const response = await fetch(
+          `/api/shop/quotations/${activeQuotation.id}/convert`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              paymentMethod,
+              amountReceived:
+                paymentMethod === PaymentMethod.CASH ? received : undefined,
+              change:
+                paymentMethod === PaymentMethod.CASH
+                  ? received - total
+                  : undefined,
+              isDelivery,
+              deliveryAddress: customerAddress,
+              deliveryInstructions,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to convert quotation");
+        }
+
+        const sale = await response.json();
+
+        setCompletedSale({
+          ...sale,
+          company: companyInfo
+            ? {
+                name: companyInfo.companyName,
+                address: `${companyInfo.address}, ${companyInfo.city}, ${companyInfo.province}, ${companyInfo.postCode}`,
+                phone: companyInfo.phone,
+                email: companyInfo.email,
+                taxNumber: companyInfo.taxId,
+              }
+            : {
+                name: "FinanceFlow Solutions",
+                address: "456 Corporate Ave, Sandton, 2196, South Africa",
+                phone: "+27 11 987 6543",
+                email: "sales@financeflow.co.za",
+                taxNumber: "9876543210",
+              },
+        });
+
+        setReceiptEmail(customerEmail);
+        setIsCheckoutOpen(false);
+        setIsReceiptDialogOpen(true);
+
+        // Show appropriate message based on sale status
+        if (sale.status === "AWAITING_STOCK") {
+          toast({
+            title: "Sale Created - Awaiting Stock",
+            description: `Sale ${sale.saleNumber} created with stock shortages`,
             variant: "default",
             className: "bg-yellow-50 text-yellow-900 border-yellow-200",
           });
-        });
-      }
+        } else {
+          toast({
+            title: "Transaction Complete",
+            description: `Sale ${sale.saleNumber} completed successfully${isDelivery ? " with delivery order" : ""}`,
+          });
+        }
 
-      // Clear cart after successful transaction
-      clearCart();
+        // Check for warnings in the response
+        if (sale.warnings && sale.warnings.negativeStock) {
+          sale.warnings.negativeStock.forEach((warning: any) => {
+            toast({
+              title: "Stock Warning",
+              description: warning.message,
+              variant: "default",
+              className: "bg-yellow-50 text-yellow-900 border-yellow-200",
+            });
+          });
+        }
+
+        // Clear cart after successful transaction
+        clearCart();
+      } else {
+        // Original sale creation logic for non-quotation sales
+        const received = Number.parseFloat(amountReceived) || 0;
+
+        // Validate cash payment
+        if (paymentMethod === PaymentMethod.CASH && received < total) {
+          toast({
+            title: "Insufficient Amount",
+            description: `Amount received (R${received.toFixed(2)}) is less than total (R${total.toFixed(2)})`,
+            variant: "destructive",
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        // Validate delivery address if delivery is enabled
+        if (isDelivery && (!customerAddress || customerAddress.trim() === "")) {
+          toast({
+            title: "Delivery Address Required",
+            description: "Please enter a delivery address for delivery orders",
+            variant: "destructive",
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        const saleData: SaleData = {
+          customerName: customerName || undefined,
+          customerPhone: customerPhone || undefined,
+          customerEmail: customerEmail || undefined,
+          customerAddress: isDelivery ? customerAddress : undefined,
+          items: cart.map((item) => ({
+            id: item.id,
+            name: item.name,
+            sku: item.sku,
+            quantity: item.quantity,
+            price: Number(item.price) || 0,
+            total: (Number(item.price) || 0) * item.quantity,
+          })),
+          subtotal,
+          discount: discountAmount,
+          discountPercent: actualDiscount,
+          tax,
+          deliveryAmount,
+          total,
+          paymentMethod,
+          amountReceived:
+            paymentMethod === PaymentMethod.CASH ? received : undefined,
+          change:
+            paymentMethod === PaymentMethod.CASH ? received - total : undefined,
+          isDelivery,
+          deliveryAddress: isDelivery ? customerAddress : undefined,
+          deliveryInstructions: isDelivery ? deliveryInstructions : undefined,
+        };
+
+        console.log("Submitting sale data:", JSON.stringify(saleData, null, 2));
+
+        const sale = await saleApi.create(saleData);
+
+        console.log("Sale created:", sale);
+
+        setCompletedSale({
+          ...sale,
+          company: companyInfo
+            ? {
+                name: companyInfo.companyName,
+                address: `${companyInfo.address}, ${companyInfo.city}, ${companyInfo.province}, ${companyInfo.postCode}`,
+                phone: companyInfo.phone,
+                email: companyInfo.email,
+                taxNumber: companyInfo.taxId,
+              }
+            : {
+                name: "FinanceFlow Solutions",
+                address: "456 Corporate Ave, Sandton, 2196, South Africa",
+                phone: "+27 11 987 6543",
+                email: "sales@financeflow.co.za",
+                taxNumber: "9876543210",
+              },
+        });
+
+        setReceiptEmail(customerEmail);
+        setIsCheckoutOpen(false);
+        setIsReceiptDialogOpen(true);
+
+        toast({
+          title: "Transaction Complete",
+          description: `Sale ${sale.saleNumber} completed successfully${isDelivery ? " with delivery order" : ""}`,
+        });
+
+        // Check for warnings in the response
+        if (sale.warnings && sale.warnings.negativeStock) {
+          sale.warnings.negativeStock.forEach((warning: any) => {
+            toast({
+              title: "Stock Warning",
+              description: warning.message,
+              variant: "default",
+              className: "bg-yellow-50 text-yellow-900 border-yellow-200",
+            });
+          });
+        }
+
+        // Clear cart after successful transaction
+        clearCart();
+      }
     } catch (error: any) {
       console.error("Error completing sale:", error);
 
@@ -444,7 +714,63 @@ export default function POSPage() {
 
   return (
     <div className="flex-1 p-4 md:p-8 pt-6">
-      <POSHeader cart={cart} scanNotice={scanNotice} />
+      {/* Active Quotation Banner */}
+      {activeQuotation && (
+        <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5 text-blue-600" />
+              <div>
+                <div className="font-semibold text-blue-700">
+                  Active Quotation: {activeQuotation.quoteNumber}
+                </div>
+                <div className="text-sm text-blue-600">
+                  {activeQuotation.customerName || "No customer name"} • R
+                  {activeQuotation.total.toFixed(2)} •
+                  {activeQuotation.expiryDate
+                    ? ` Expires: ${new Date(activeQuotation.expiryDate).toLocaleDateString()}`
+                    : " No expiry"}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => editQuotation(activeQuotation)}
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setActiveQuotation(null)}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <POSHeader
+        cart={cart}
+        scanNotice={scanNotice}
+        activeQuotation={activeQuotation}
+      />
+
+      {/* Search Quotation Button */}
+      <div className="mb-4">
+        <Button
+          onClick={() => setIsSearchQuotationDialogOpen(true)}
+          variant="secondary"
+          className="w-full"
+        >
+          <Search className="mr-2 h-4 w-4" />
+          Search Quotations
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <ProductGrid
@@ -478,9 +804,59 @@ export default function POSPage() {
           removeFromCart={removeFromCart}
           clearCart={clearCart}
           handleCheckout={handleCheckout}
+          onCreateQuotation={openQuotationDialog}
           products={products}
         />
       </div>
+
+      {/* Quotation Dialog */}
+      <QuotationDialog
+        isOpen={isQuotationDialogOpen}
+        onOpenChange={setIsQuotationDialogOpen}
+        cart={cart}
+        subtotal={subtotal}
+        discountAmount={discountAmount}
+        discountPercent={actualDiscount}
+        tax={tax}
+        deliveryAmount={deliveryAmount}
+        total={total}
+        customerName={customerName}
+        setCustomerName={setCustomerName}
+        customerPhone={customerPhone}
+        setCustomerPhone={setCustomerPhone}
+        customerEmail={customerEmail}
+        setCustomerEmail={setCustomerEmail}
+        customerAddress={customerAddress}
+        setCustomerAddress={setCustomerAddress}
+        isDelivery={isDelivery}
+        setIsDelivery={setIsDelivery}
+        deliveryInstructions={deliveryInstructions}
+        setDeliveryInstructions={setDeliveryInstructions}
+        onCreateQuotation={createQuotation}
+        onUpdateQuotation={updateQuotation}
+        isLoading={isCreatingQuotation || isUpdatingQuotation}
+        isEditing={!!activeQuotation}
+        quotation={activeQuotation}
+        updateQuantity={updateQuantity}
+        removeFromCart={removeFromCart}
+        discount={discount}
+        setDiscount={setDiscount}
+        onClose={() => {
+          // Optionally clear cart after creating quotation
+          if (!isCreatingQuotation && !activeQuotation) {
+            clearCart();
+          }
+        }}
+      />
+
+      {/* Search Quotation Dialog */}
+      <SearchQuotationDialog
+        isOpen={isSearchQuotationDialogOpen}
+        onOpenChange={setIsSearchQuotationDialogOpen}
+        onLoadQuotation={loadQuotation}
+        onEditQuotation={editQuotation}
+        onConvertToSale={convertQuotationToSale}
+      />
 
       <CheckoutDialog
         isOpen={isCheckoutOpen}
@@ -511,6 +887,11 @@ export default function POSPage() {
         setIsDelivery={setIsDelivery}
         completeTransaction={completeTransaction}
         posSettings={posSettings}
+        title={
+          activeQuotation
+            ? `Convert Quotation ${activeQuotation.quoteNumber}`
+            : "Complete Transaction"
+        }
       />
 
       <ReceiptDialog
@@ -524,6 +905,19 @@ export default function POSPage() {
         isSendingEmail={isSendingEmail}
         setIsSendingEmail={setIsSendingEmail}
         handleFinishSale={handleFinishSale}
+      />
+
+      <QuotationReceiptDialog
+        isOpen={isQuotationReceiptDialogOpen}
+        onOpenChange={setIsQuotationReceiptDialogOpen}
+        completedQuotation={completedQuotation}
+        receiptSize={quotationReceiptSize}
+        setReceiptSize={setQuotationReceiptSize}
+        receiptEmail={quotationReceiptEmail}
+        setReceiptEmail={setQuotationReceiptEmail}
+        isSendingEmail={isSendingEmail}
+        setIsSendingEmail={setIsSendingEmail}
+        handleFinishQuotation={handleFinishQuotation}
       />
     </div>
   );

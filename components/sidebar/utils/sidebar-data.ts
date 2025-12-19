@@ -25,6 +25,7 @@ import {
   CircleDollarSign,
   HandCoins,
   Wrench,
+  Box,
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
 import { CgArrowsExchange } from "react-icons/cg";
@@ -234,6 +235,17 @@ export const getSidebarData = (
                   url: "/dashboard/shop/sales",
                   icon: CircleDollarSign,
                   color: "text-blue-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Sale_VIEW)
+            ? [
+                {
+                  title: "Sales Quotations",
+                  url: "/dashboard/shop/qoutations",
+                  icon: Box,
+                  color: "text-yellow-500",
                 },
               ]
             : []),

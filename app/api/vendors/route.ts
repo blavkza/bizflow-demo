@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
     }
 
     const vendors = await db.vendor.findMany({
-      where: { userId: user.id },
       include: {
         categories: {
           select: {
@@ -77,9 +76,6 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-
-    console.log("Received data for vendor creation:", data);
-    console.log("Category IDs to connect:", data.categoryIds);
 
     // Validate and prepare category connections
     const categoryConnections =

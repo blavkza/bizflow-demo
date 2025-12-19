@@ -1,3 +1,5 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,11 +13,12 @@ import {
   CreditCard,
   X,
   AlertCircle,
+  FileText,
 } from "lucide-react";
 import Image from "next/image";
 import { CartItem, POSSettings } from "@/types/pos";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useState, useEffect } from "react"; // Added useEffect import
+import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 
 interface CartSectionProps {
@@ -34,7 +37,8 @@ interface CartSectionProps {
   removeFromCart: (id: string) => void;
   clearCart: () => void;
   handleCheckout: () => void;
-  products?: any[]; // Optional: If you want to pass products for stock checking
+  onCreateQuotation: () => void;
+  products?: any[];
 }
 
 export function CartSection({
@@ -53,12 +57,12 @@ export function CartSection({
   removeFromCart,
   clearCart,
   handleCheckout,
+  onCreateQuotation,
   products = [],
 }: CartSectionProps) {
   const [discountInput, setDiscountInput] = useState("");
   const [discountError, setDiscountError] = useState("");
 
-  // Fixed: Use useEffect to initialize discount input
   useEffect(() => {
     if (discount === 0) {
       setDiscountInput("");
@@ -68,11 +72,9 @@ export function CartSection({
   }, [discount]);
 
   const handleDiscountChange = (value: string) => {
-    // Allow empty string, numbers, and decimal points
     if (value === "" || /^\d*\.?\d*$/.test(value)) {
       setDiscountInput(value);
 
-      // If value is empty, set discount to 0
       if (value === "") {
         setDiscount(0);
         setDiscountError("");
@@ -81,7 +83,6 @@ export function CartSection({
 
       const numValue = Number.parseFloat(value);
 
-      // Validate discount input
       if (isNaN(numValue)) {
         setDiscountError("Please enter a valid number");
         return;
@@ -107,14 +108,12 @@ export function CartSection({
   };
 
   const handleDiscountBlur = () => {
-    // On blur, if input is empty or just a decimal point, reset to empty
     if (discountInput === "" || discountInput === ".") {
       setDiscountInput("");
       setDiscount(0);
       return;
     }
 
-    // Round to 2 decimal places
     const numValue = Number.parseFloat(discountInput);
     if (!isNaN(numValue)) {
       const roundedValue = Math.round(numValue * 100) / 100;
@@ -123,7 +122,6 @@ export function CartSection({
     }
   };
 
-  // Check if any items exceed stock
   const getStockExceededItems = () => {
     return cart.filter((item) => item.quantity > item.stock);
   };
@@ -156,9 +154,8 @@ export function CartSection({
                 <ul className="text-xs space-y-1">
                   {stockExceededItems.map((item) => (
                     <li key={item.id}>
-                      {" "}
-                      {/* Fixed: Added key prop */}• {item.name}: Ordered{" "}
-                      {item.quantity}, Available {item.stock}
+                      • {item.name}: Ordered {item.quantity}, Available{" "}
+                      {item.stock}
                     </li>
                   ))}
                 </ul>
@@ -177,6 +174,7 @@ export function CartSection({
             ) : (
               cart.map((item) => {
                 const exceedsStock = item.quantity > item.stock;
+                const itemPrice = Number(item.price) || 0;
 
                 return (
                   <div
@@ -199,10 +197,10 @@ export function CartSection({
                           <ShoppingCart className="h-6 w-6 text-gray-400" />
                         </div>
                       )}
-                      <p className="text-sm">R{item.price.toFixed(2)}</p>
+                      <p className="text-sm">R{itemPrice.toFixed(2)}</p>
                       <p className="text-sm font-semibold">
                         Total ({item.quantity}): R
-                        {(item.price * item.quantity).toFixed(2)}
+                        {(itemPrice * item.quantity).toFixed(2)}
                       </p>
                       {exceedsStock && (
                         <p className="text-xs text-amber-600">
@@ -212,14 +210,12 @@ export function CartSection({
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      {/*    <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm truncate">
-                          {item.name}
-                        </p>
+                      <div className="font-medium text-sm truncate">
+                        {item.name}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {item.sku}
-                      </p> */}
+                      </p>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Button
@@ -337,16 +333,23 @@ export function CartSection({
                 </div>
               </div>
 
-              <Button
-                onClick={handleCheckout}
-                className="w-full"
-                size="lg"
-                /*                 disabled={stockExceededItems.length > 0}
-                 */
-              >
-                <CreditCard className="mr-2 h-4 w-4" />
-                Checkout
-              </Button>
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button onClick={handleCheckout} className="w-full" size="lg">
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Checkout
+                </Button>
+
+                <Button
+                  onClick={onCreateQuotation}
+                  variant="outline"
+                  className="w-full"
+                  size="lg"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Create Quote
+                </Button>
+              </div>
             </>
           )}
         </CardContent>

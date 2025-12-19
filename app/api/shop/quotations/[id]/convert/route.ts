@@ -1,38 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { PaymentMethod } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
 
-export async function GET(request: NextRequest) {
-  try {
-    const { userId } = await auth();
-
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    const sales = await db.sale.findMany({
-      include: {
-        items: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: sales,
-    });
-  } catch (error) {
-    console.error("Error fetching sales:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch sales" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const { userId } = await auth();
 
@@ -50,109 +24,84 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const {
-      customerName,
-      customerPhone,
-      customerEmail,
-      customerAddress,
-      items,
-      subtotal,
-      tax,
-      discount,
-      discountPercent,
-      deliveryAmount,
-      total,
-      paymentMethod,
-      amountReceived,
-      change,
-      isDelivery,
-      deliveryAddress,
-      deliveryInstructions,
-    } = body;
+    const { paymentMethod = PaymentMethod.CASH, amountReceived, change } = body;
 
-    const lastSale = await db.sale.findFirst({
-      orderBy: { createdAt: "desc" },
-      select: { saleNumber: true },
-    });
+    const { id } = params;
 
-    const saleNumber = lastSale
-      ? `SALE-${(parseInt(lastSale.saleNumber.split("-")[1]) + 1).toString().padStart(4, "0")}`
-      : "SALE-0001";
-
-    // First, check product statuses and get current stock levels
-    const productIds = items.map((item: any) => item.id);
-    const products = await db.shopProduct.findMany({
+    const quotation = await db.saleQuote.findUnique({
       where: {
-        id: { in: productIds },
+        id,
+        status: "PENDING",
       },
-      select: {
-        id: true,
-        name: true,
-        stock: true,
-        status: true,
+      include: {
+        items: {
+          include: {
+            shopProduct: true,
+          },
+        },
+        customer: true,
       },
     });
 
-    // Check for inactive products
-    const inactiveProducts = products.filter((p) => p.status !== "ACTIVE");
-    if (inactiveProducts.length > 0) {
+    if (!quotation) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Cannot process sale with inactive products",
-          inactiveProducts: inactiveProducts.map((p) => p.name),
-        },
+        { error: "Quotation not found or already converted" },
+        { status: 404 }
+      );
+    }
+
+    // Check if quotation is expired
+    if (quotation.expiryDate && new Date() > quotation.expiryDate) {
+      return NextResponse.json(
+        { error: "Quotation has expired" },
         { status: 400 }
       );
     }
 
+    // Increase transaction timeout to 30 seconds
     const result = await db.$transaction(
       async (tx) => {
-        let customer = null;
-        if (customerEmail || customerName) {
-          const nameParts = (customerName || "").split(" ");
-          const firstName = nameParts[0] || "";
-          const lastName = nameParts.slice(1).join(" ") || "";
+        // Generate sale number
+        const lastSale = await tx.sale.findFirst({
+          orderBy: { createdAt: "desc" },
+          select: { saleNumber: true },
+        });
 
-          if (customerEmail) {
-            customer = await tx.customer.upsert({
-              where: { email: customerEmail },
-              update: {
-                firstName: firstName || undefined,
-                lastName: lastName || undefined,
-                phone: customerPhone || undefined,
-                address: customerAddress || undefined,
-              },
-              create: {
-                firstName,
-                lastName,
-                email: customerEmail,
-                phone: customerPhone || undefined,
-                address: customerAddress || undefined,
-                createdBy: user?.name || "system",
-              },
-            });
-          } else if (customerName) {
-            // Create customer without email if only name is provided
-            customer = await tx.customer.create({
-              data: {
-                firstName,
-                lastName,
-                phone: customerPhone || undefined,
-                address: customerAddress || undefined,
-                createdBy: user?.name || "system",
-              },
-            });
-          }
+        const saleNumber = lastSale
+          ? `SALE-${(parseInt(lastSale.saleNumber.split("-")[1]) + 1).toString().padStart(4, "0")}`
+          : "SALE-0001";
+
+        // Check product statuses and get current stock levels
+        const productIds = quotation.items.map(
+          (item: any) => item.shopProductId
+        );
+        const products = await tx.shopProduct.findMany({
+          where: {
+            id: { in: productIds },
+          },
+          select: {
+            id: true,
+            name: true,
+            stock: true,
+            status: true,
+          },
+        });
+
+        // Check for inactive products
+        const inactiveProducts = products.filter((p) => p.status !== "ACTIVE");
+        if (inactiveProducts.length > 0) {
+          throw new Error(
+            `Cannot process sale with inactive products: ${inactiveProducts.map((p) => p.name).join(", ")}`
+          );
         }
 
-        // Check stock levels and track negative quantities
+        // Check stock levels and track negative quantities - SAME LOGIC AS REGULAR SALE
         const stockAwaits = [];
         const itemsWithStockInfo = [];
         const stockUpdates = [];
 
-        for (const item of items) {
-          const product = products.find((p) => p.id === item.id);
+        for (const item of quotation.items) {
+          const product = products.find((p) => p.id === item.shopProductId);
           if (!product) continue;
 
           const quantityNeeded = item.quantity;
@@ -171,7 +120,7 @@ export async function POST(request: NextRequest) {
                 shopProductId: product.id,
                 quantity: shortage, // Only the NEW shortage
                 status: "PENDING",
-                notes: `From sale ${saleNumber} - Need ${shortage} more units`,
+                notes: `From quotation ${quotation.quoteNumber} - Need ${shortage} more units`,
               },
             });
             stockAwaits.push(stockAwait);
@@ -206,8 +155,8 @@ export async function POST(request: NextRequest) {
                     quantity: quantityNeeded,
                     reason:
                       shortage > 0
-                        ? `Sale ${saleNumber} - Stock shortage (awaiting ${shortage} units)`
-                        : `Sale ${saleNumber}`,
+                        ? `Sale ${saleNumber} from quotation ${quotation.quoteNumber} - Stock shortage (awaiting ${shortage} units)`
+                        : `Sale ${saleNumber} from quotation ${quotation.quoteNumber}`,
                     reference: saleNumber,
                     previousStock,
                     newStock,
@@ -224,25 +173,33 @@ export async function POST(request: NextRequest) {
         const saleStatus = hasNegativeStock ? "AWAITING_STOCK" : "COMPLETED";
         const paymentStatus = hasNegativeStock ? "PENDING" : "COMPLETED";
 
-        // Create sale - Match your exact Prisma schema
+        // Create sale from quotation
         const saleData: any = {
           saleNumber,
-          customerName: customerName || null,
-          customerPhone: customerPhone || null,
-          customerEmail: customerEmail || null,
-          customerAddress: customerAddress || null,
-          isDelivery: isDelivery || false,
-          deliveryFee: isDelivery ? deliveryAmount : 0,
-          deliveryAddress: isDelivery ? deliveryAddress : null,
-          deliveryInstructions: isDelivery ? deliveryInstructions : null,
-          subtotal: parseFloat(subtotal.toFixed(2)),
-          tax: parseFloat(tax?.toFixed(2) || "0"),
-          discount: parseFloat(discount?.toFixed(2) || "0"),
-          discountPercent: parseFloat((discountPercent || 0).toFixed(2)),
-          deliveryAmount: isDelivery
-            ? parseFloat(deliveryAmount?.toFixed(2) || "0")
+          quoteId: quotation.id,
+          customerName: quotation.customerName || null,
+          customerPhone: quotation.customerPhone || null,
+          customerEmail: quotation.customerEmail || null,
+          customerAddress: quotation.customerAddress || null,
+          status: saleStatus,
+          isDelivery: quotation.isDelivery || false,
+          deliveryFee: quotation.isDelivery ? quotation.deliveryFee : 0,
+          deliveryAddress: quotation.isDelivery
+            ? quotation.deliveryAddress
+            : null,
+          deliveryInstructions: quotation.isDelivery
+            ? quotation.deliveryInstructions
+            : null,
+          subtotal: parseFloat(quotation.subtotal.toFixed(2)),
+          tax: parseFloat(quotation.tax?.toFixed(2) || "0"),
+          discount: parseFloat(quotation.discount?.toFixed(2) || "0"),
+          discountPercent: parseFloat(
+            quotation.discountPercent?.toFixed(2) || "0"
+          ),
+          deliveryAmount: quotation.isDelivery
+            ? parseFloat(quotation.deliveryFee?.toFixed(2) || "0")
             : 0,
-          total: parseFloat(total.toFixed(2)),
+          total: parseFloat(quotation.total.toFixed(2)),
           paymentMethod,
           paymentStatus,
           amountReceived: amountReceived
@@ -250,8 +207,7 @@ export async function POST(request: NextRequest) {
             : null,
           change: change ? parseFloat(parseFloat(change).toFixed(2)) : null,
           saleDate: new Date(),
-          createdBy: user?.name || "system",
-          status: saleStatus,
+          createdBy: user.name,
           receiptSent: false,
           receiptEmail: null,
           refundedAmount: 0,
@@ -259,9 +215,9 @@ export async function POST(request: NextRequest) {
         };
 
         // Add customer relation if customer exists
-        if (customer) {
+        if (quotation.customer) {
           saleData.customer = {
-            connect: { id: customer.id },
+            connect: { id: quotation.customer.id },
           };
         }
 
@@ -277,6 +233,7 @@ export async function POST(request: NextRequest) {
                 where: { id: stockAwait.id },
                 data: {
                   saleId: sale.id,
+                  quoteId: null, // Remove quote reference
                 },
               })
             )
@@ -286,10 +243,10 @@ export async function POST(request: NextRequest) {
         // Create sale items in batch with stock info
         const saleItemsData = itemsWithStockInfo.map((item: any) => ({
           saleId: sale.id,
-          shopProductId: item.id,
+          shopProductId: item.shopProductId,
           quantity: item.quantity,
           price: parseFloat(item.price.toFixed(2)),
-          total: parseFloat((item.price * item.quantity).toFixed(2)),
+          total: parseFloat(item.total.toFixed(2)),
           hadNegativeStock: item.hadNegativeStock || false,
           awaitedQuantity: item.awaitedQuantity || 0,
         }));
@@ -301,17 +258,17 @@ export async function POST(request: NextRequest) {
         // Execute all stock updates
         await Promise.all(stockUpdates);
 
-        const lastOrder = await db.order.findFirst({
-          orderBy: { createdAt: "desc" },
-          select: { orderNumber: true },
-        });
+        // Create order if it's a delivery
+        if (quotation.isDelivery) {
+          const lastOrder = await tx.order.findFirst({
+            orderBy: { createdAt: "desc" },
+            select: { orderNumber: true },
+          });
 
-        const orderNumber = lastOrder
-          ? `ORDER-${(parseInt(lastOrder.orderNumber.split("-")[1]) + 1).toString().padStart(4, "0")}`
-          : "ORDER-0001";
+          const orderNumber = lastOrder
+            ? `ORDER-${(parseInt(lastOrder.orderNumber.split("-")[1]) + 1).toString().padStart(4, "0")}`
+            : "ORDER-0001";
 
-        // Create order and order items if it's a delivery
-        if (isDelivery) {
           const orderData: any = {
             orderNumber,
             saleId: sale.id,
@@ -322,8 +279,8 @@ export async function POST(request: NextRequest) {
           };
 
           // Add customer relation to order if customer exists
-          if (customer) {
-            orderData.customerId = customer.id;
+          if (quotation.customer) {
+            orderData.customerId = quotation.customer.id;
           }
 
           const order = await tx.order.create({
@@ -333,10 +290,10 @@ export async function POST(request: NextRequest) {
           // Create order items in batch
           const orderItemsData = itemsWithStockInfo.map((item: any) => ({
             orderId: order.id,
-            shopProductId: item.id,
+            shopProductId: item.shopProductId,
             quantity: item.quantity,
             price: parseFloat(item.price.toFixed(2)),
-            total: parseFloat((item.price * item.quantity).toFixed(2)),
+            total: parseFloat(item.total.toFixed(2)),
           }));
 
           await tx.orderItem.createMany({
@@ -344,7 +301,8 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        let paymentCategory = await db.category.findFirst({
+        // Create transaction record for payment
+        let paymentCategory = await tx.category.findFirst({
           where: {
             name: "SALE_PAYMENT",
             type: "INCOME",
@@ -352,7 +310,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (!paymentCategory) {
-          paymentCategory = await db.category.create({
+          paymentCategory = await tx.category.create({
             data: {
               name: "SALE_PAYMENT",
               description: "Payments received from sale",
@@ -364,17 +322,19 @@ export async function POST(request: NextRequest) {
 
         try {
           const transactionData: any = {
-            amount: parseFloat(total.toFixed(2)),
+            amount: parseFloat(quotation.total.toFixed(2)),
             type: "INCOME",
-            status: paymentStatus,
-            description: `Sale ${saleNumber}${isDelivery ? " (Delivery)" : ""}`,
+            status: paymentStatus === "COMPLETED" ? "COMPLETED" : "PENDING",
+            description: `Sale ${saleNumber} from quotation ${quotation.quoteNumber}${quotation.isDelivery ? " (Delivery)" : ""}`,
             reference: saleNumber,
             date: new Date(),
             categoryId: paymentCategory.id,
             method: paymentMethod.toUpperCase(),
-            taxAmount: parseFloat(tax?.toFixed(2) || "0"),
-            netAmount: parseFloat((subtotal - (discount || 0)).toFixed(2)),
-            createdBy: user?.id || "",
+            taxAmount: parseFloat(quotation.tax?.toFixed(2) || "0"),
+            netAmount: parseFloat(
+              (quotation.subtotal - (quotation.discount || 0)).toFixed(2)
+            ),
+            createdBy: user.id,
           };
 
           await tx.transaction.create({
@@ -382,10 +342,21 @@ export async function POST(request: NextRequest) {
           });
         } catch (txError) {
           console.warn("Transaction creation error:", txError);
-          // Continue even if transaction record fails - sale should still complete
+          // Continue even if transaction record fails
         }
 
-        // Check for negative stock and log warnings
+        // Update quotation status
+        await tx.saleQuote.update({
+          where: { id: quotation.id },
+          data: {
+            status: "CONVERTED",
+            convertedTo: {
+              connect: { id: sale.id },
+            },
+          },
+        });
+
+        // Get updated products to check for negative stock
         const updatedProducts = await tx.shopProduct.findMany({
           where: {
             id: { in: productIds },
@@ -459,9 +430,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("Error creating sale:", error);
+    console.error("Error converting quotation:", error);
     return NextResponse.json(
-      { error: "Failed to create sale: " + (error as Error).message },
+      { error: "Failed to convert quotation: " + (error as Error).message },
       { status: 500 }
     );
   }

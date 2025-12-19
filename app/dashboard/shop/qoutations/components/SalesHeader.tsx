@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import SalesExport from "./SalesExport";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 interface SalesHeaderProps {
   onRefresh: () => void;
@@ -19,18 +21,21 @@ export default function SalesHeader({
   paymentFilter = "All",
 }: SalesHeaderProps) {
   return (
-    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between px-2 py-4">
-      {/* Title and Description */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Sales History</h2>
-        <p className="text-sm text-muted-foreground">
-          Manage, track, and review your completed transactions and sales
-          performance.
-        </p>
+    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-4 py-4">
+      {/* Left Side: Navigation, Title, and Description */}
+      <div className="flex items-center gap-2">
+        <SidebarTrigger className="-ml-1" />
+        <Separator orientation="vertical" className="mr-2 h-4" />
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Sales History</h2>
+          <p className="text-sm text-muted-foreground">
+            Manage, track, and review your completed transactions.
+          </p>
+        </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex items-center space-x-2">
+      {/* Right Side: Action Buttons */}
+      <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon"

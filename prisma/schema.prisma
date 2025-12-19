@@ -1970,6 +1970,8 @@ model ShopProduct {
   invoiceItems      InvoiceItem[]
   package           Package?          @relation(fields: [packageId], references: [id])
   packageId         String?
+  saleQuoteItems    SaleQuoteItem[]
+  stockAwaits       StockAwait[]
 
   @@map("shopProducts")
 }
@@ -2034,11 +2036,101 @@ model Order {
   @@map("orders")
 }
 
+model SaleQuote {
+  id          String    @id @default(cuid())
+  quoteNumber String    @unique
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id])
+
+  // Customer info
+  customerName    String?
+  customerPhone   String?
+  customerEmail   String?
+  customerAddress String?
+
+  // Quote Details
+  status     QuoteStatus @default(PENDING)
+  expiryDate DateTime?
+  notes      String?
+
+  // Delivery
+  isDelivery           Boolean @default(false)
+  deliveryAddress      String?
+  deliveryInstructions String?
+
+  // Amounts
+  subtotal        Float
+  discount        Float @default(0)
+  discountPercent Float @default(0)
+  tax             Float @default(0)
+  deliveryFee     Float @default(0)
+  total           Float
+
+  // Relations
+  items       SaleQuoteItem[]
+  convertedTo Sale?           @relation("QuoteToSale")
+
+  // Dates
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  createdBy   String
+  stockAwaits StockAwait[]
+
+  @@map("sale_quotes")
+}
+
+model SaleQuoteItem {
+  id            String      @id @default(cuid())
+  quoteId       String
+  quote         SaleQuote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  shopProductId String
+  shopProduct   ShopProduct @relation(fields: [shopProductId], references: [id])
+
+  quantity Int
+  price    Decimal @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
+
+  // Track if product had negative stock when converted
+  hadNegativeStock Boolean @default(false)
+  awaitedQuantity  Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("sale_quote_items")
+}
+
+model StockAwait {
+  id            String      @id @default(cuid())
+  saleId        String?
+  sale          Sale?       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  quoteId       String?
+  quote         SaleQuote?  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  shopProductId String
+  shopProduct   ShopProduct @relation(fields: [shopProductId], references: [id])
+
+  quantity Int
+  status   StockAwaitStatus @default(PENDING)
+  notes    String?
+
+  resolvedAt DateTime?
+  resolvedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([saleId, shopProductId])
+  @@unique([quoteId, shopProductId])
+  @@map("stock_awaits")
+}
+
 model Sale {
-  id         String    @id @default(cuid())
-  saleNumber String    @unique
+  id         String     @id @default(cuid())
+  saleNumber String     @unique
+  quoteId    String?    @unique
+  quote      SaleQuote? @relation("QuoteToSale", fields: [quoteId], references: [id])
   customerId String?
-  customer   Customer? @relation(fields: [customerId], references: [id])
+  customer   Customer?  @relation(fields: [customerId], references: [id])
 
   // Customer info for walk-in customers
   customerName    String?
@@ -2085,10 +2177,11 @@ model Sale {
   createdBy String
 
   // Relations
-  items   SaleItem[]
-  orderId String?
-  Order   Order?
-  Refund  Refund[]
+  items      SaleItem[]
+  orderId    String?
+  Order      Order?
+  Refund     Refund[]
+  StockAwait StockAwait[]
 
   @@map("sales")
 }
@@ -2101,9 +2194,14 @@ model SaleItem {
   shopProductId String
   ShopProduct   ShopProduct @relation(fields: [shopProductId], references: [id])
 
-  quantity   Int
-  price      Decimal      @db.Decimal(10, 2)
-  total      Decimal      @db.Decimal(10, 2)
+  quantity Int
+  price    Decimal @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
+
+  // Track stock information
+  hadNegativeStock Boolean @default(false)
+  awaitedQuantity  Int     @default(0)
+
   RefundItem RefundItem[]
 
   @@map("sale_items")
@@ -2249,8 +2347,9 @@ model Customer {
   updatedAt DateTime @updatedAt
 
   // Relations
-  orders Order[]
-  sales  Sale[]
+  orders     Order[]
+  sales      Sale[]
+  saleQuotes SaleQuote[]
 
   @@map("customers")
 }
@@ -3456,14 +3555,29 @@ enum StockMovementType {
   RETURN
 }
 
+enum QuoteStatus {
+  PENDING
+  CONVERTED
+  EXPIRED
+  CANCELLED
+}
+
+enum StockAwaitStatus {
+  PENDING
+  RESOLVED
+  CANCELLED
+}
+
 enum SaleStatus {
   COMPLETED
   REFUNDED
   PARTIALLY_REFUNDED
   CANCELLED
+  AWAITING_STOCK
 }
 
 enum OrderStatus {
+  PENDING_STOCK
   PENDING
   CONFIRMED
   PREPARING

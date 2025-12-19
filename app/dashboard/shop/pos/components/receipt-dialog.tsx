@@ -13,11 +13,21 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Printer, FileText, Mail, Check, Loader2 } from "lucide-react";
+import {
+  Printer,
+  FileText,
+  Mail,
+  Check,
+  Loader2,
+  User,
+  Package,
+  AlertTriangle,
+} from "lucide-react";
 import { receiptGenerator } from "@/lib/receipt-generator";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { useCompanyInfo } from "@/hooks/use-company-info";
+import { Badge } from "@/components/ui/badge";
 
 interface ReceiptDialogProps {
   isOpen: boolean;
@@ -48,12 +58,33 @@ export function ReceiptDialog({
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const { companyInfo } = useCompanyInfo();
+  const [stockAwaitItems, setStockAwaitItems] = useState<any[]>([]);
 
   useEffect(() => {
     if (companyInfo) {
       receiptGenerator.setCompanyInfo(companyInfo);
     }
   }, [companyInfo]);
+
+  useEffect(() => {
+    if (completedSale && completedSale.status === "AWAITING_STOCK") {
+      fetchStockAwaitItems();
+    }
+  }, [completedSale]);
+
+  const fetchStockAwaitItems = async () => {
+    try {
+      const response = await fetch(
+        `/api/shop/sales/${completedSale.id}/stock-awaits`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setStockAwaitItems(data);
+      }
+    } catch (error) {
+      console.error("Error fetching stock await items:", error);
+    }
+  };
 
   const handlePrintReceipt = async () => {
     if (completedSale) {
@@ -170,25 +201,45 @@ export function ReceiptDialog({
       CREDIT_CARD: "Credit Card",
       DEBIT_CARD: "Debit Card",
       EFT: "EFT",
-      MOBILE: "Mobile Payment",
+      MOBILE_PAYMENT: "Mobile Payment",
     };
     return methods[method] || method;
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Sale Completed Successfully!</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {completedSale?.status === "AWAITING_STOCK" ? (
+              <>
+                <AlertTriangle className="h-5 w-5 text-yellow-500" />
+                Sale Created - Awaiting Stock
+              </>
+            ) : (
+              <>
+                <Check className="h-5 w-5 text-green-500" />
+                Sale Completed Successfully!
+              </>
+            )}
+          </DialogTitle>
           <DialogDescription>
-            Choose how you would like to handle the receipt
+            {completedSale?.status === "AWAITING_STOCK"
+              ? "Some items are out of stock. Please handle receipt options below."
+              : "Choose how you would like to handle the receipt"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           {/* Sale Summary */}
           {completedSale && (
-            <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+            <div
+              className={`p-4 rounded-lg border ${
+                completedSale.status === "AWAITING_STOCK"
+                  ? "bg-yellow-50 border-yellow-200"
+                  : "bg-green-50 border-green-200"
+              }`}
+            >
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold">Sale Number:</span>
                 <span className="font-mono">{completedSale.saleNumber}</span>
@@ -196,6 +247,13 @@ export function ReceiptDialog({
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold">Payment Method:</span>
                 <span>{formatPaymentMethod(completedSale.paymentMethod)}</span>
+              </div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold flex items-center gap-1">
+                  <User className="h-4 w-4" />
+                  Assisted by:
+                </span>
+                <span>{completedSale.createdBy || "Staff"}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-semibold">Total Amount:</span>
@@ -211,6 +269,55 @@ export function ReceiptDialog({
                   </span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Stock Await Warning */}
+          {completedSale?.status === "AWAITING_STOCK" && (
+            <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+              <div className="flex items-center gap-2 mb-3">
+                <Package className="h-5 w-5 text-yellow-600" />
+                <span className="font-semibold text-yellow-700">
+                  Items Awaiting Stock
+                </span>
+                <Badge
+                  variant="outline"
+                  className="bg-yellow-100 text-yellow-700"
+                >
+                  {stockAwaitItems.length} items
+                </Badge>
+              </div>
+
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {stockAwaitItems.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-2 bg-white rounded border"
+                  >
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">
+                        {item.shopProduct?.name || "Product"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        SKU: {item.shopProduct?.sku || "N/A"}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="destructive" className="text-xs">
+                        Awaiting: {item.quantity}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-3 text-sm text-yellow-700">
+                <p className="font-medium">Note:</p>
+                <p className="text-xs">
+                  These items will need to be restocked before they can be
+                  fulfilled.
+                </p>
+              </div>
             </div>
           )}
 
@@ -304,9 +411,19 @@ export function ReceiptDialog({
         </div>
 
         <DialogFooter>
-          <Button onClick={handleFinishSale} className="w-full">
+          <Button
+            onClick={handleFinishSale}
+            className="w-full"
+            variant={
+              completedSale?.status === "AWAITING_STOCK"
+                ? "secondary"
+                : "default"
+            }
+          >
             <Check className="mr-2 h-4 w-4" />
-            Finish & New Sale
+            {completedSale?.status === "AWAITING_STOCK"
+              ? "Continue & Manage Stock"
+              : "Finish & New Sale"}
           </Button>
         </DialogFooter>
       </DialogContent>
