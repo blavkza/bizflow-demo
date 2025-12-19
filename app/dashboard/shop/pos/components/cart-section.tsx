@@ -19,7 +19,12 @@ import Image from "next/image";
 import { CartItem, POSSettings } from "@/types/pos";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState, useEffect } from "react";
-import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CartSectionProps {
   cart: CartItem[];
@@ -128,6 +133,17 @@ export function CartSection({
 
   const stockExceededItems = getStockExceededItems();
 
+  // Function to check if text is too long and needs truncation
+  const isTextTooLong = (text: string, maxLength: number = 30) => {
+    return text.length > maxLength;
+  };
+
+  // Truncate text function
+  const truncateText = (text: string, maxLength: number = 30) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -175,48 +191,76 @@ export function CartSection({
               cart.map((item) => {
                 const exceedsStock = item.quantity > item.stock;
                 const itemPrice = Number(item.price) || 0;
+                const showTooltip = isTextTooLong(item.name, 30);
 
                 return (
                   <div
                     key={item.id}
-                    className={`flex items-center space-x-3 p-2 border rounded-lg ${
+                    className={`flex items-start space-x-3 p-2 border rounded-lg ${
                       exceedsStock ? "border-amber-200 bg-amber-50" : ""
                     }`}
                   >
-                    <div className="flex items-start justify-center gap-2 flex-col">
-                      {item.image ? (
-                        <Image
-                          src={item.image}
-                          alt={item.name}
-                          width={50}
-                          height={50}
-                          className="rounded"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                          <ShoppingCart className="h-6 w-6 text-gray-400" />
-                        </div>
-                      )}
-                      <p className="text-sm">R{itemPrice.toFixed(2)}</p>
-                      <p className="text-sm font-semibold">
-                        Total ({item.quantity}): R
-                        {(itemPrice * item.quantity).toFixed(2)}
-                      </p>
-                      {exceedsStock && (
-                        <p className="text-xs text-amber-600">
-                          Available: {item.stock}
-                        </p>
-                      )}
-                    </div>
-
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-sm truncate">
-                        {item.name}
+                      {/* Name and SKU at the top */}
+                      <div className="font-medium text-sm truncate mb-1">
+                        {showTooltip ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help">
+                                  {truncateText(item.name, 30)}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent
+                                side="top"
+                                align="start"
+                                className="max-w-[300px] break-words"
+                              >
+                                <p className="font-medium">{item.name}</p>
+                                {item.sku && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    SKU: {item.sku}
+                                  </p>
+                                )}
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          item.name
+                        )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground mb-2">
                         {item.sku}
                       </p>
+
+                      {/* Content below (image, price, etc.) */}
+                      <div className="flex items-start justify-center gap-2 flex-col">
+                        {item.image ? (
+                          <Image
+                            src={item.image}
+                            alt={item.name}
+                            width={50}
+                            height={50}
+                            className="rounded"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
+                            <ShoppingCart className="h-6 w-6 text-gray-400" />
+                          </div>
+                        )}
+                        <p className="text-sm">R{itemPrice.toFixed(2)}</p>
+                        <p className="text-sm font-semibold">
+                          Total ({item.quantity}): R
+                          {(itemPrice * item.quantity).toFixed(2)}
+                        </p>
+                        {exceedsStock && (
+                          <p className="text-xs text-amber-600">
+                            Available: {item.stock}
+                          </p>
+                        )}
+                      </div>
                     </div>
+
                     <div className="flex items-center space-x-1">
                       <Button
                         variant="outline"

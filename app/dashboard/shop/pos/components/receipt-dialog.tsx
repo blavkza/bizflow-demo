@@ -22,12 +22,14 @@ import {
   User,
   Package,
   AlertTriangle,
+  Clock,
 } from "lucide-react";
 import { receiptGenerator } from "@/lib/receipt-generator";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { useCompanyInfo } from "@/hooks/use-company-info";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ReceiptDialogProps {
   isOpen: boolean;
@@ -59,6 +61,7 @@ export function ReceiptDialog({
   const [isDownloading, setIsDownloading] = useState(false);
   const { companyInfo } = useCompanyInfo();
   const [stockAwaitItems, setStockAwaitItems] = useState<any[]>([]);
+  const [loadingStockAwait, setLoadingStockAwait] = useState(false);
 
   useEffect(() => {
     if (companyInfo) {
@@ -73,6 +76,7 @@ export function ReceiptDialog({
   }, [completedSale]);
 
   const fetchStockAwaitItems = async () => {
+    setLoadingStockAwait(true);
     try {
       const response = await fetch(
         `/api/shop/sales/${completedSale.id}/stock-awaits`
@@ -83,6 +87,8 @@ export function ReceiptDialog({
       }
     } catch (error) {
       console.error("Error fetching stock await items:", error);
+    } finally {
+      setLoadingStockAwait(false);
     }
   };
 
@@ -288,36 +294,69 @@ export function ReceiptDialog({
                 </Badge>
               </div>
 
-              <div className="space-y-2 max-h-40 overflow-y-auto">
-                {stockAwaitItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between p-2 bg-white rounded border"
-                  >
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">
-                        {item.shopProduct?.name || "Product"}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        SKU: {item.shopProduct?.sku || "N/A"}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="destructive" className="text-xs">
-                        Awaiting: {item.quantity}
-                      </Badge>
-                    </div>
+              {loadingStockAwait ? (
+                // Loading State
+                <div className="space-y-3 py-4">
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-yellow-600" />
+                    <span className="text-sm text-yellow-700">
+                      Loading stock information...
+                    </span>
                   </div>
-                ))}
-              </div>
+                  <Alert className="bg-yellow-50 border-yellow-200">
+                    <Clock className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription className="text-yellow-700">
+                      Please wait while we fetch the stock details for items
+                      awaiting restocking.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              ) : stockAwaitItems.length > 0 ? (
+                // Loaded State
+                <>
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {stockAwaitItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-2 bg-white rounded border"
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">
+                            {item.shopProduct?.name || "Product"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            SKU: {item.shopProduct?.sku || "N/A"}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge variant="destructive" className="text-xs">
+                            Awaiting: {item.quantity}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-              <div className="mt-3 text-sm text-yellow-700">
-                <p className="font-medium">Note:</p>
-                <p className="text-xs">
-                  These items will need to be restocked before they can be
-                  fulfilled.
-                </p>
-              </div>
+                  <div className="mt-3 text-sm text-yellow-700">
+                    <p className="font-medium">Note:</p>
+                    <p className="text-xs">
+                      These items will need to be restocked before they can be
+                      fulfilled.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                // No Items State
+                <div className="text-center py-4">
+                  <Package className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600">
+                    No items awaiting stock found
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    This may be a system error. Please check the sale details.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -357,7 +396,7 @@ export function ReceiptDialog({
                 onClick={handlePrintReceipt}
                 variant="outline"
                 className="w-full bg-transparent"
-                disabled={isPrinting}
+                disabled={isPrinting || loadingStockAwait}
               >
                 {isPrinting ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -370,7 +409,7 @@ export function ReceiptDialog({
                 onClick={handleDownloadReceipt}
                 variant="outline"
                 className="w-full bg-transparent"
-                disabled={isDownloading}
+                disabled={isDownloading || loadingStockAwait}
               >
                 {isDownloading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -392,10 +431,11 @@ export function ReceiptDialog({
                   value={receiptEmail}
                   onChange={(e) => setReceiptEmail(e.target.value)}
                   className="flex-1"
+                  disabled={loadingStockAwait}
                 />
                 <Button
                   onClick={handleEmailReceipt}
-                  disabled={isSendingEmail}
+                  disabled={isSendingEmail || loadingStockAwait}
                   className="whitespace-nowrap"
                 >
                   {isSendingEmail ? (
@@ -419,11 +459,21 @@ export function ReceiptDialog({
                 ? "secondary"
                 : "default"
             }
+            disabled={loadingStockAwait}
           >
-            <Check className="mr-2 h-4 w-4" />
-            {completedSale?.status === "AWAITING_STOCK"
-              ? "Continue & Manage Stock"
-              : "Finish & New Sale"}
+            {loadingStockAwait ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading Stock Info...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                {completedSale?.status === "AWAITING_STOCK"
+                  ? "Continue & Manage Stock"
+                  : "Finish & New Sale"}
+              </>
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

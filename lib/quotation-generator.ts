@@ -947,10 +947,9 @@ class QuotationGenerator {
       printWindow.document.write(htmlContent);
       printWindow.document.close();
       printWindow.focus();
-      /*  setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-      }, 250); */
+
+      printWindow.print();
+      printWindow.close();
     }
   }
 }

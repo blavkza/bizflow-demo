@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ShoppingCart, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import { CartItem } from "@/types/pos";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 interface ScanNotice {
   message: string;
@@ -85,7 +87,9 @@ export function POSHeader({
       {/* Cart Summary */}
       <div className="flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="relative">
+          <div className="relative flex items-center gap-2">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
             <ShoppingCart className="h-6 w-6" />
             {cartItemCount > 0 && (
               <Badge
