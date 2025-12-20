@@ -216,7 +216,8 @@ class QuotationGenerator {
 
   async generateQuotationHTML(
     quoteData: any,
-    size: QuotationSize = "thermal"
+    size: QuotationSize = "thermal",
+    includePrintButton: boolean = true
   ): Promise<string> {
     const itemsWithProducts = await this.fetchProductDetails(
       quoteData.items || []
@@ -272,9 +273,9 @@ class QuotationGenerator {
     };
 
     if (size === "A4") {
-      return this.generateA4Quotation(safeData);
+      return this.generateA4Quotation(safeData, includePrintButton);
     }
-    return this.generateThermalQuotation(safeData);
+    return this.generateThermalQuotation(safeData, includePrintButton);
   }
 
   async generateQuotationForEmail(quoteData: any): Promise<string> {
@@ -473,7 +474,10 @@ class QuotationGenerator {
     `;
   }
 
-  private generateThermalQuotation(data: QuotationData): string {
+  private generateThermalQuotation(
+    data: QuotationData,
+    includePrintButton: boolean = true
+  ): string {
     const hasLogo = data.company.logo;
 
     return `
@@ -486,6 +490,7 @@ class QuotationGenerator {
           @media print {
             @page { margin: 0; size: 80mm auto; }
             body { margin: 0; }
+            .print-button { display: none !important; }
           }
           body { 
             font-family: 'Courier New', monospace; 
@@ -494,6 +499,26 @@ class QuotationGenerator {
             padding: 5mm;
             font-size: 12px;
             line-height: 1.2;
+          }
+          .print-button {
+            display: ${includePrintButton ? "block" : "none"};
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            text-align: center;
+          }
+          .print-button:hover {
+            background-color: #0056b3;
+          }
+          .print-button:active {
+            background-color: #004085;
           }
           .center { text-align: center; }
           .bold { font-weight: bold; }
@@ -532,8 +557,23 @@ class QuotationGenerator {
             padding-bottom: 2px;
           }
         </style>
+        <script>
+          function printQuotation() {
+            window.print();
+          }
+        </script>
       </head>
       <body>
+        ${
+          includePrintButton
+            ? `
+        <button class="print-button" onclick="printQuotation()">
+          🖨️ Print Quotation
+        </button>
+        `
+            : ""
+        }
+        
         <div class="header center">
           ${hasLogo ? `<img src="${data.company.logo}" alt="${data.company.name}" class="logo">` : ""}
           <div class="bold" style="font-size: 14px;">${data.company.name}</div>
@@ -673,7 +713,10 @@ class QuotationGenerator {
     `;
   }
 
-  private generateA4Quotation(data: QuotationData): string {
+  private generateA4Quotation(
+    data: QuotationData,
+    includePrintButton: boolean = true
+  ): string {
     const hasLogo = data.company.logo;
 
     return `
@@ -685,12 +728,34 @@ class QuotationGenerator {
         <style>
           @media print {
             @page { margin: 20mm; size: A4; }
+            body { margin: 0 auto; max-width: 100%; }
+            .print-button { display: none !important; }
           }
           body { 
             font-family: Arial, sans-serif; 
             max-width: 210mm;
             margin: 0 auto;
             padding: 20px;
+          }
+          .print-button {
+            display: ${includePrintButton ? "block" : "none"};
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            text-align: center;
+          }
+          .print-button:hover {
+            background-color: #0056b3;
+          }
+          .print-button:active {
+            background-color: #004085;
           }
           .header { 
             text-align: center; 
@@ -783,8 +848,23 @@ class QuotationGenerator {
               max-width: 200px;
             }
         </style>
+        <script>
+          function printQuotation() {
+            window.print();
+          }
+        </script>
       </head>
       <body>
+        ${
+          includePrintButton
+            ? `
+        <button class="print-button" onclick="printQuotation()">
+          🖨️ Print Quotation
+        </button>
+        `
+            : ""
+        }
+        
         <div class="header">
           ${hasLogo ? `<img src="${data.company.logo}" alt="${data.company.name}" class="logo">` : ""}
           <div class="company-name">${data.company.name}</div>
@@ -921,7 +1001,11 @@ class QuotationGenerator {
     quoteData: any,
     size: QuotationSize = "thermal"
   ): Promise<Blob> {
-    const htmlContent = await this.generateQuotationHTML(quoteData, size);
+    const htmlContent = await this.generateQuotationHTML(
+      quoteData,
+      size,
+      false
+    );
     const blob = new Blob([htmlContent], { type: "text/html" });
     return blob;
   }
@@ -941,15 +1025,17 @@ class QuotationGenerator {
     quoteData: any,
     size: QuotationSize = "thermal"
   ): Promise<void> {
-    const htmlContent = await this.generateQuotationHTML(quoteData, size);
+    const htmlContent = await this.generateQuotationHTML(quoteData, size, true);
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(htmlContent);
       printWindow.document.close();
       printWindow.focus();
 
-      printWindow.print();
-      printWindow.close();
+      // Auto-print after a short delay to ensure content is loaded
+      /*   setTimeout(() => {
+        printWindow.print();
+      }, 500); */
     }
   }
 }

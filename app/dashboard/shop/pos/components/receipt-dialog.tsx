@@ -63,6 +63,12 @@ export function ReceiptDialog({
   const [stockAwaitItems, setStockAwaitItems] = useState<any[]>([]);
   const [loadingStockAwait, setLoadingStockAwait] = useState(false);
 
+  // Debug log to check data
+  useEffect(() => {
+    console.log("ReceiptDialog - Completed Sale:", completedSale);
+    console.log("ReceiptDialog - Company Info:", companyInfo);
+  }, [completedSale, companyInfo]);
+
   useEffect(() => {
     if (companyInfo) {
       receiptGenerator.setCompanyInfo(companyInfo);
@@ -76,6 +82,8 @@ export function ReceiptDialog({
   }, [completedSale]);
 
   const fetchStockAwaitItems = async () => {
+    if (!completedSale?.id) return;
+
     setLoadingStockAwait(true);
     try {
       const response = await fetch(
@@ -84,6 +92,8 @@ export function ReceiptDialog({
       if (response.ok) {
         const data = await response.json();
         setStockAwaitItems(data);
+      } else {
+        console.error("Failed to fetch stock await items:", response.status);
       }
     } catch (error) {
       console.error("Error fetching stock await items:", error);
@@ -93,53 +103,74 @@ export function ReceiptDialog({
   };
 
   const handlePrintReceipt = async () => {
-    if (completedSale) {
-      setIsPrinting(true);
-      try {
-        await receiptGenerator.printReceipt(completedSale, receiptSize);
-        toast({
-          title: "Printing Receipt",
-          description: "Receipt sent to printer",
-        });
-      } catch (error) {
-        console.error("Error printing receipt:", error);
-        toast({
-          title: "Print Failed",
-          description: "Could not print receipt",
-          variant: "destructive",
-        });
-      } finally {
-        setIsPrinting(false);
-      }
+    if (!completedSale) {
+      toast({
+        title: "No Sale Data",
+        description: "Cannot print receipt without sale data",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsPrinting(true);
+    try {
+      console.log("Printing receipt with data:", completedSale);
+      await receiptGenerator.printReceipt(completedSale, receiptSize);
+      toast({
+        title: "Printing Receipt",
+        description: "Receipt sent to printer",
+      });
+    } catch (error: any) {
+      console.error("Error printing receipt:", error);
+      toast({
+        title: "Print Failed",
+        description: error.message || "Could not print receipt",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPrinting(false);
     }
   };
 
   const handleDownloadReceipt = async () => {
-    if (completedSale) {
-      setIsDownloading(true);
-      try {
-        const blob = await receiptGenerator.generateReceiptPDF(
-          completedSale,
-          receiptSize
-        );
-        await receiptGenerator.downloadReceipt(
-          blob,
-          `receipt-${completedSale.saleNumber}.html`
-        );
-        toast({
-          title: "Receipt Downloaded",
-          description: "Receipt has been downloaded",
-        });
-      } catch (error) {
-        console.error("Error downloading receipt:", error);
-        toast({
-          title: "Download Failed",
-          description: "Could not download receipt",
-          variant: "destructive",
-        });
-      } finally {
-        setIsDownloading(false);
+    if (!completedSale) {
+      toast({
+        title: "No Sale Data",
+        description: "Cannot download receipt without sale data",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsDownloading(true);
+    try {
+      console.log("Downloading receipt with data:", completedSale);
+      const blob = await receiptGenerator.generateReceiptPDF(
+        completedSale,
+        receiptSize
+      );
+
+      if (!blob || blob.size === 0) {
+        throw new Error("Generated receipt is empty");
       }
+
+      await receiptGenerator.downloadReceipt(
+        blob,
+        `receipt-${completedSale.saleNumber || "unknown"}.html`
+      );
+      toast({
+        title: "Receipt Downloaded",
+        description: "Receipt has been downloaded",
+      });
+    } catch (error: any) {
+      console.error("Error downloading receipt:", error);
+      toast({
+        title: "Download Failed",
+        description: error.message || "Could not download receipt",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -153,51 +184,58 @@ export function ReceiptDialog({
       return;
     }
 
-    if (completedSale) {
-      setIsSendingEmail(true);
+    if (!completedSale) {
+      toast({
+        title: "No Sale Data",
+        description: "Cannot send email without sale data",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      try {
-        const receiptHTML =
-          await receiptGenerator.generateReceiptForEmail(completedSale);
+    setIsSendingEmail(true);
 
-        // Use the API route to send email
-        const response = await fetch("/api/sales/send-receipt", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            to: receiptEmail,
-            subject: `Receipt ${completedSale.saleNumber} - Thank you for your purchase`,
-            html: receiptHTML,
-            saleNumber: completedSale.saleNumber,
-          }),
+    try {
+      const receiptHTML =
+        await receiptGenerator.generateReceiptForEmail(completedSale);
+
+      // Use the API route to send email
+      const response = await fetch("/api/sales/send-receipt", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: receiptEmail,
+          subject: `Receipt ${completedSale.saleNumber} - Thank you for your purchase`,
+          html: receiptHTML,
+          saleNumber: completedSale.saleNumber,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast({
+          title: "Receipt Sent",
+          description: `Receipt sent to ${receiptEmail}`,
         });
-
-        const result = await response.json();
-
-        if (result.success) {
-          toast({
-            title: "Receipt Sent",
-            description: `Receipt sent to ${receiptEmail}`,
-          });
-        } else {
-          toast({
-            title: "Failed to Send",
-            description: "Could not send receipt email",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Error sending email:", error);
+      } else {
         toast({
           title: "Failed to Send",
-          description: "Could not send receipt email",
+          description: result.error || "Could not send receipt email",
           variant: "destructive",
         });
-      } finally {
-        setIsSendingEmail(false);
       }
+    } catch (error: any) {
+      console.error("Error sending email:", error);
+      toast({
+        title: "Failed to Send",
+        description: error.message || "Could not send receipt email",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -210,6 +248,23 @@ export function ReceiptDialog({
       MOBILE_PAYMENT: "Mobile Payment",
     };
     return methods[method] || method;
+  };
+
+  // Helper to validate sale data
+  const validateSaleData = () => {
+    if (!completedSale) return false;
+
+    const requiredFields = ["id", "saleNumber", "total", "paymentMethod"];
+    const missingFields = requiredFields.filter(
+      (field) => !completedSale[field]
+    );
+
+    if (missingFields.length > 0) {
+      console.warn("Missing required fields in sale data:", missingFields);
+      return false;
+    }
+
+    return true;
   };
 
   return (
@@ -259,7 +314,11 @@ export function ReceiptDialog({
                   <User className="h-4 w-4" />
                   Assisted by:
                 </span>
-                <span>{completedSale.createdBy || "Staff"}</span>
+                <span>
+                  {completedSale.createdBy ||
+                    completedSale.user?.name ||
+                    "Staff"}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="font-semibold">Total Amount:</span>
@@ -267,14 +326,19 @@ export function ReceiptDialog({
                   R{completedSale.total?.toFixed(2)}
                 </span>
               </div>
-              {completedSale.change && completedSale.change > 0 && (
-                <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-200">
-                  <span>Change Given:</span>
-                  <span className="font-semibold">
-                    R{completedSale.change.toFixed(2)}
-                  </span>
-                </div>
-              )}
+              {completedSale.amountReceived &&
+                completedSale.amountReceived > completedSale.total && (
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-200">
+                    <span>Change Given:</span>
+                    <span className="font-semibold">
+                      R
+                      {(
+                        (completedSale.amountReceived || 0) -
+                        (completedSale.total || 0)
+                      ).toFixed(2)}
+                    </span>
+                  </div>
+                )}
             </div>
           )}
 
@@ -396,7 +460,7 @@ export function ReceiptDialog({
                 onClick={handlePrintReceipt}
                 variant="outline"
                 className="w-full bg-transparent"
-                disabled={isPrinting || loadingStockAwait}
+                disabled={isPrinting || loadingStockAwait || !completedSale}
               >
                 {isPrinting ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -409,7 +473,7 @@ export function ReceiptDialog({
                 onClick={handleDownloadReceipt}
                 variant="outline"
                 className="w-full bg-transparent"
-                disabled={isDownloading || loadingStockAwait}
+                disabled={isDownloading || loadingStockAwait || !completedSale}
               >
                 {isDownloading ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -435,7 +499,9 @@ export function ReceiptDialog({
                 />
                 <Button
                   onClick={handleEmailReceipt}
-                  disabled={isSendingEmail || loadingStockAwait}
+                  disabled={
+                    isSendingEmail || loadingStockAwait || !completedSale
+                  }
                   className="whitespace-nowrap"
                 >
                   {isSendingEmail ? (
@@ -447,6 +513,44 @@ export function ReceiptDialog({
                 </Button>
               </div>
             </div>
+          </div>
+
+          {/* Debug button - remove in production */}
+          <div className="pt-4 border-t">
+            <Button
+              onClick={async () => {
+                console.log("=== DEBUG RECEIPT GENERATOR ===");
+                console.log("Company Info:", companyInfo);
+                console.log("Sale Data:", completedSale);
+                console.log("Sale Items:", completedSale?.items);
+
+                try {
+                  const html = await receiptGenerator.generateReceiptHTML(
+                    completedSale,
+                    receiptSize
+                  );
+                  console.log("Generated HTML length:", html.length);
+                  console.log(
+                    "HTML preview (first 1000 chars):",
+                    html.substring(0, 1000)
+                  );
+
+                  // Show in new tab for debugging
+                  const debugWindow = window.open();
+                  if (debugWindow) {
+                    debugWindow.document.write(html);
+                    debugWindow.document.close();
+                  }
+                } catch (error) {
+                  console.error("Error generating HTML:", error);
+                }
+              }}
+              variant="outline"
+              size="sm"
+              className="w-full text-xs"
+            >
+              Debug Receipt
+            </Button>
           </div>
         </div>
 

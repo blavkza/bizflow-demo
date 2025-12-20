@@ -180,7 +180,7 @@ export function CartSection({
           )}
 
           {/* Cart Items */}
-          <div className="space-y-3 max-h-[500px] overflow-y-auto">
+          <div className="space-y-3 max-h-[500px] overflow-y-auto sidebar-scroll">
             {cart.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <ShoppingCart className="h-12 w-12 mx-auto mb-2 opacity-50" />
