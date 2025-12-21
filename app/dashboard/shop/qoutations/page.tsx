@@ -181,7 +181,7 @@ export default function QuotationPage() {
       <PrintDialog
         isOpen={printDialogOpen}
         onOpenChange={setPrintDialogOpen}
-        quotation={selectedQuotation}
+        quotation={selectedQuotation as any}
         companyInfo={companyInfo}
       />
 

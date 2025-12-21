@@ -18,11 +18,13 @@ import {
   Clock,
   Mail,
   Printer,
+  Eye,
 } from "lucide-react";
 import { CompanyInfo } from "@/lib/receipt-generator";
 import { PaginationControls } from "@/components/PaginationControls";
 import { useState, useMemo } from "react";
 import QuotationActionsDropdown from "./SaleActionsDropdown";
+import Link from "next/link";
 
 // Quotation-specific status config
 const statusConfig = {
@@ -267,8 +269,14 @@ export default function QuotationTable({
                       </TableCell>
                       <TableCell>{formatDate(quotation.createdAt)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          {/* Quick action buttons */}
+                        <Link
+                          className="flex items-center"
+                          href={`/dashboard/shop/qoutations/${quotation.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Link>
+                        {/* <div className="flex justify-end gap-2">
                           <button
                             onClick={() => onPrintReceipt(quotation)}
                             className="p-2 hover:bg-gray-100 rounded-full"
@@ -284,14 +292,13 @@ export default function QuotationTable({
                             <Mail className="h-4 w-4 text-gray-600" />
                           </button>
 
-                          {/* Full actions dropdown */}
                           <QuotationActionsDropdown
                             quotation={quotation}
                             onPrintReceipt={onPrintReceipt}
                             onEmailReceipt={onEmailReceipt}
                             companyInfo={companyInfo}
                           />
-                        </div>
+                        </div> */}
                       </TableCell>
                     </TableRow>
                   );

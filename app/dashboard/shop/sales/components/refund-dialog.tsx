@@ -19,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -29,13 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  ShoppingCart,
-  DollarSign,
-  AlertCircle,
-  CheckCircle,
-  XCircle,
-} from "lucide-react";
+import { ShoppingCart, AlertCircle, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Sale } from "@/types/sales";
 
@@ -55,6 +48,9 @@ export function RefundDialog({
   const [reason, setReason] = useState("");
   const [method, setMethod] = useState("ORIGINAL_METHOD");
   const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<{
+    [key: string]: { name: string; sku: string };
+  }>({});
 
   useEffect(() => {
     if (isOpen && sale) {
@@ -66,8 +62,75 @@ export function RefundDialog({
       setRefundItems(initialRefundItems);
       setReason("");
       setMethod("ORIGINAL_METHOD");
+
+      // Fetch product details for the sale items
+      fetchProductDetails(sale.items.map((item) => item.shopProductId));
     }
   }, [isOpen, sale]);
+
+  const fetchProductDetails = async (productIds: string[]) => {
+    if (productIds.length === 0) return;
+
+    try {
+      // Fetch product details from your API
+      const response = await fetch(
+        `/api/shop/products?ids=${productIds.join(",")}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+
+        // Create a lookup object for product details
+        const productMap: { [key: string]: { name: string; sku: string } } = {};
+        data.data?.forEach((product: any) => {
+          productMap[product.id] = {
+            name: product.name,
+            sku: product.sku || "N/A",
+          };
+        });
+
+        setProducts(productMap);
+      }
+    } catch (error) {
+      console.error("Error fetching product details:", error);
+      // If API fails, try to extract from item data
+      const productMap: { [key: string]: { name: string; sku: string } } = {};
+      sale?.items.forEach((item: any) => {
+        // Try different possible property names
+        productMap[item.shopProductId] = {
+          name:
+            item.ShopProduct?.name ||
+            item.product?.name ||
+            item.name ||
+            "Product",
+          sku: item.ShopProduct?.sku || item.product?.sku || item.sku || "N/A",
+        };
+      });
+      setProducts(productMap);
+    }
+  };
+
+  // Alternative: Check if product data is already included in the sale items
+  const getProductName = (item: any) => {
+    // Try different possible property names
+    return (
+      products[item.shopProductId]?.name ||
+      item.ShopProduct?.name ||
+      item.product?.name ||
+      item.name ||
+      "Product"
+    );
+  };
+
+  const getProductSku = (item: any) => {
+    // Try different possible property names
+    return (
+      products[item.shopProductId]?.sku ||
+      item.ShopProduct?.sku ||
+      item.product?.sku ||
+      item.sku ||
+      "N/A"
+    );
+  };
 
   // Helper function to safely convert to number
   const toNumber = (value: any): number => {
@@ -240,7 +303,7 @@ export function RefundDialog({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sale.items.map((item) => {
+                  {sale.items.map((item: any) => {
                     const refundQuantity = refundItems[item.id] || 0;
                     const itemPrice = toNumber(item.price);
                     const refundAmount = itemPrice * refundQuantity;
@@ -250,10 +313,10 @@ export function RefundDialog({
                         <TableCell>
                           <div>
                             <div className="font-medium">
-                              {item.product?.name || "Product"}
+                              {getProductName(item)}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              SKU: {item.product?.sku || "N/A"}
+                              SKU: {getProductSku(item)}
                             </div>
                           </div>
                         </TableCell>
@@ -338,7 +401,6 @@ export function RefundDialog({
                       Original Payment Method
                     </SelectItem>
                     <SelectItem value="CASH">Cash</SelectItem>
-                    <SelectItem value="CREDIT_CARD">Credit Card</SelectItem>
                     <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
                     <SelectItem value="STORE_CREDIT">Store Credit</SelectItem>
                   </SelectContent>

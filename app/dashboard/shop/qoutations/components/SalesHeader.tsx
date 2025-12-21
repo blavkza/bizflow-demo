@@ -21,27 +21,29 @@ export default function SalesHeader({
   paymentFilter = "All",
 }: SalesHeaderProps) {
   return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-4 py-4">
-      {/* Left Side: Navigation, Title, and Description */}
+    <div className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* Left Side: Title and Navigation */}
       <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1" />
         <Separator orientation="vertical" className="mr-2 h-4" />
+
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Sales History</h2>
+          <h2 className="text-3xl font-bold tracking-tight">
+            Sales Quotation History
+          </h2>
           <p className="text-sm text-muted-foreground">
-            Manage, track, and review your completed transactions.
+            View, track, and export your previous sales quotations and records.
           </p>
         </div>
       </div>
 
-      {/* Right Side: Action Buttons */}
+      {/* Right Side: Actions */}
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon"
           onClick={onRefresh}
-          className="h-9 w-9"
-          title="Refresh Sales"
+          title="Refresh data"
         >
           <RefreshCw className="h-4 w-4" />
         </Button>
@@ -49,7 +51,7 @@ export default function SalesHeader({
         <Button variant="outline" asChild>
           <Link href="/dashboard/shop/pos">
             <ShoppingCart className="mr-2 h-4 w-4" />
-            New Sale
+            New Quotation
           </Link>
         </Button>
 

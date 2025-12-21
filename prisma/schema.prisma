@@ -2244,6 +2244,7 @@ model Refund {
   rejectedBy      String?
   rejectedAt      DateTime?
   rejectionReason String?
+  notes           String?
 
   // Completion
   processedBy String?

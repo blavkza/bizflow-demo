@@ -41,7 +41,7 @@ export default function QuotationActionsDropdown({
         <DropdownMenuLabel>Actions</DropdownMenuLabel>
 
         <DropdownMenuItem asChild>
-          <Link href={`/dashboard/shop/quotations/${quotation.id}`}>
+          <Link href={`/dashboard/shop/qoutations/${quotation.id}`}>
             <Eye className="h-4 w-4 mr-2" />
             View Details
           </Link>

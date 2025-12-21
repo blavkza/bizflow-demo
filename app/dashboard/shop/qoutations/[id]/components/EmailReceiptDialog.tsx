@@ -1,4 +1,6 @@
-import { useState } from "react";
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,91 +12,162 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Mail, Loader2, CheckCircle } from "lucide-react";
 
-interface EmailReceiptDialogProps {
+interface EmailQuotationDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onSendEmail: (email: string, size: "thermal" | "A4") => void;
+  onSendEmail: (email: string, size?: "thermal" | "A4") => void;
   isSending: boolean;
-  defaultEmail: string;
+  defaultEmail?: string;
 }
 
-export default function EmailReceiptDialog({
+export default function EmailQuotationDialog({
   isOpen,
   onOpenChange,
   onSendEmail,
   isSending,
-  defaultEmail,
-}: EmailReceiptDialogProps) {
+  defaultEmail = "",
+}: EmailQuotationDialogProps) {
   const [email, setEmail] = useState(defaultEmail);
-  const [receiptSize, setReceiptSize] = useState<"thermal" | "A4">("A4");
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setEmail(defaultEmail);
+      setSubject("Your Quotation");
+      setMessage("Please find your quotation attached.");
+      setEmailSent(false);
+    }
+  }, [isOpen, defaultEmail]);
 
   const handleSendEmail = () => {
-    onSendEmail(email, receiptSize);
+    onSendEmail(email, "A4");
+    setEmailSent(true);
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle>Email Receipt</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            {emailSent ? "Quotation Sent!" : "Email Quotation"}
+          </DialogTitle>
           <DialogDescription>
-            Send receipt to customer via email
+            {emailSent
+              ? `Quotation has been sent to ${email}`
+              : "Send quotation to customer"}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Receipt Size</Label>
-            <RadioGroup
-              value={receiptSize}
-              onValueChange={(value) =>
-                setReceiptSize(value as "thermal" | "A4")
-              }
+
+        {emailSent ? (
+          <div className="py-6 text-center">
+            <div className="flex justify-center mb-4">
+              <CheckCircle className="h-16 w-16 text-green-500" />
+            </div>
+            <h3 className="text-lg font-semibold text-green-600 mb-2">
+              Quotation Sent Successfully!
+            </h3>
+            <p className="text-muted-foreground">
+              The quotation has been sent to <strong>{email}</strong>
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6 py-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Recipient Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="customer@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="subject">Subject</Label>
+                <Input
+                  id="subject"
+                  placeholder="Email subject"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="message">Message</Label>
+                <Textarea
+                  id="message"
+                  placeholder="Add a personal message..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={4}
+                />
+              </div>
+            </div>
+
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h4 className="font-semibold mb-2 text-blue-900">
+                Email Preview
+              </h4>
+              <div className="text-sm space-y-1 text-blue-700">
+                <div>
+                  <strong>Recipient:</strong> {email}
+                </div>
+                <div>
+                  <strong>Subject:</strong> {subject}
+                </div>
+                <div>
+                  <strong>Format:</strong> A4 PDF attached
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
+          {!emailSent && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSendEmail}
+                disabled={isSending || !email.trim()}
+                className="w-full sm:w-auto"
+              >
+                {isSending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Send Quotation
+                  </>
+                )}
+              </Button>
+            </>
+          )}
+          {emailSent && (
+            <Button
+              onClick={() => onOpenChange(false)}
+              className="w-full sm:w-auto"
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="thermal" id="email-thermal" />
-                <Label
-                  htmlFor="email-thermal"
-                  className="font-normal cursor-pointer"
-                >
-                  Small Receipt (80mm)
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="A4" id="email-a4" />
-                <Label
-                  htmlFor="email-a4"
-                  className="font-normal cursor-pointer"
-                >
-                  A4 Size
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="customer@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={handleSendEmail} disabled={isSending}>
-            {isSending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              "Send Receipt"
-            )}
-          </Button>
+              Close
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

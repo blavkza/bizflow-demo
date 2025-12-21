@@ -59,7 +59,7 @@ export default function SaleActionsDropdown({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        {sale.status === "COMPLETED" && (
+        {(sale.status === "COMPLETED" || sale.status === "AWAITING_STOCK") && (
           <DropdownMenuItem onClick={() => onProcessRefund(sale)}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Process Refund

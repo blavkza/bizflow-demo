@@ -34,12 +34,7 @@ export async function GET(
           include: {
             saleItem: {
               include: {
-                ShopProduct: {
-                  select: {
-                    name: true,
-                    sku: true,
-                  },
-                },
+                ShopProduct: true,
               },
             },
           },

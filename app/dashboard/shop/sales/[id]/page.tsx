@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
-import { Circle, CircleCheck, CircleX, HandCoins, Loader2 } from "lucide-react";
+import {
+  CircleCheck,
+  CircleX,
+  HandCoins,
+  Loader2,
+  Package,
+} from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -22,9 +28,20 @@ interface SaleItem {
   quantity: number;
   price: number;
   total: number;
+  hadNegativeStock?: boolean;
+  awaitedQuantity?: number;
   ShopProduct?: {
     name: string;
     sku: string;
+    stock?: number;
+    status?: string;
+  };
+  stockInfo?: {
+    hadNegativeStock: boolean;
+    awaitedQuantity: number;
+    stockStatus: string;
+    currentStock: number;
+    needsStock: boolean;
   };
 }
 
@@ -49,6 +66,17 @@ interface Sale {
   updatedAt: string;
   items: SaleItem[];
   refundedAmount?: number;
+  awaitingStockCount?: number;
+  awaitingStockProducts?: number;
+  StockAwait?: Array<{
+    id: string;
+    quantity: number;
+    status: string;
+    shopProductId: string;
+    shopProduct?: {
+      name: string;
+    };
+  }>;
 }
 
 const statusConfig = {
@@ -56,6 +84,11 @@ const statusConfig = {
     label: "Completed",
     color: "bg-green-100 text-green-800",
     icon: CircleCheck,
+  },
+  AWAITING_STOCK: {
+    label: "Awaiting Stock",
+    color: "bg-yellow-100 text-yellow-800",
+    icon: Package,
   },
   REFUNDED: {
     label: "Refunded",
@@ -109,6 +142,8 @@ export default function SaleDetailPage() {
   const fetchSale = async () => {
     try {
       setLoading(true);
+      console.log("Fetching sale:", saleId);
+
       const response = await fetch(`/api/shop/sales/${saleId}`);
 
       if (!response.ok) {
@@ -116,11 +151,24 @@ export default function SaleDetailPage() {
       }
 
       const data = await response.json();
-      setSale(data.data);
+      console.log("Sale data received:", data);
 
-      // Set customer email for receipt
-      if (data.data.customerEmail) {
-        setReceiptEmail(data.data.customerEmail);
+      if (data.success && data.data) {
+        console.log("Sale items:", data.data.items);
+        if (data.data.items && data.data.items.length > 0) {
+          console.log("First item:", data.data.items[0]);
+          console.log(
+            "First item ShopProduct:",
+            data.data.items[0].ShopProduct
+          );
+        }
+        setSale(data.data);
+
+        if (data.data.customerEmail) {
+          setReceiptEmail(data.data.customerEmail);
+        }
+      } else {
+        throw new Error(data.error || "No sale data returned");
       }
     } catch (error) {
       console.error("Error fetching sale:", error);
@@ -134,7 +182,6 @@ export default function SaleDetailPage() {
     }
   };
 
-  // Transform sale items to match receipt generator format
   const transformSaleForReceipt = (saleData: Sale) => {
     return {
       ...saleData,
@@ -304,7 +351,7 @@ export default function SaleDetailPage() {
 
       <SaleItemsTable sale={sale} />
 
-      <ReceiptPreview sale={sale} companyInfo={companyInfo} />
+      {/*  <ReceiptPreview sale={sale} companyInfo={companyInfo} /> */}
 
       <PrintReceiptDialog
         isOpen={isPrintDialogOpen}

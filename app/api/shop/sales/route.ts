@@ -12,7 +12,16 @@ export async function GET(request: NextRequest) {
 
     const sales = await db.sale.findMany({
       include: {
-        items: true,
+        items: {
+          include: {
+            ShopProduct: {
+              select: {
+                name: true,
+                sku: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         createdAt: "desc",

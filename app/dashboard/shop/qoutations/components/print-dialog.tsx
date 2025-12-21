@@ -38,6 +38,18 @@ interface CompanyInfo {
   email: string;
 }
 
+interface QuotationItem {
+  id: string;
+  shopProductId: string;
+  quantity: number;
+  price: string | number;
+  total: string | number;
+  shopProduct?: {
+    name: string;
+    sku: string;
+  };
+}
+
 interface Quotation {
   id: string;
   quoteNumber: string;
@@ -45,6 +57,20 @@ interface Quotation {
   customerName?: string;
   customerEmail?: string;
   total: number;
+  items?: QuotationItem[];
+  // Add other fields needed for printing
+  createdAt?: string;
+  expiryDate?: string;
+  subtotal?: number;
+  discount?: number;
+  discountPercent?: number;
+  tax?: number;
+  taxPercent?: number;
+  deliveryFee?: number;
+  notes?: string;
+  isDelivery?: boolean;
+  deliveryAddress?: string;
+  deliveryInstructions?: string;
 }
 
 interface PrintDialogProps {
@@ -64,6 +90,31 @@ export function PrintDialog({
   const [printSize, setPrintSize] = useState<"thermal" | "A4">("A4");
   const [loading, setLoading] = useState(false);
 
+  // Transform quotation items to match receipt generator format
+  const transformQuotationForPrint = (quoteData: Quotation) => {
+    return {
+      ...quoteData,
+      items:
+        quoteData.items?.map((item) => ({
+          ...item,
+          price:
+            typeof item.price === "string"
+              ? parseFloat(item.price)
+              : item.price,
+          total:
+            typeof item.total === "string"
+              ? parseFloat(item.total)
+              : item.total,
+          product: item.shopProduct
+            ? {
+                name: item.shopProduct.name,
+                sku: item.shopProduct.sku,
+              }
+            : undefined,
+        })) || [],
+    };
+  };
+
   const handlePrint = async () => {
     if (!quotation || !companyInfo) {
       toast({
@@ -74,13 +125,29 @@ export function PrintDialog({
       return;
     }
 
+    // Check if quotation has items
+    if (!quotation.items || quotation.items.length === 0) {
+      toast({
+        title: "No Items",
+        description: "Cannot print quotation with no items",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       // Set company info first
       quotationGenerator.setCompanyInfo(companyInfo);
 
+      // Transform the quotation data
+      const transformedQuotation = transformQuotationForPrint(quotation);
+
+      // Debug log
+      console.log("Printing quotation with items:", transformedQuotation.items);
+
       // Print the quotation
-      await quotationGenerator.printQuotation(quotation, printSize);
+      await quotationGenerator.printQuotation(transformedQuotation, printSize);
 
       toast({
         title: "Printing Quotation",
@@ -150,6 +217,9 @@ export function PrintDialog({
                 {quotation.customerName || "No Customer"}
               </div>
               <div>
+                <strong>Items:</strong> {quotation.items?.length || 0}
+              </div>
+              <div>
                 <strong>Total:</strong> R{quotation.total.toFixed(2)}
               </div>
               <div>
@@ -170,7 +240,7 @@ export function PrintDialog({
           </Button>
           <Button
             onClick={handlePrint}
-            disabled={loading || !companyInfo}
+            disabled={loading || !companyInfo || !quotation.items?.length}
             className="w-full sm:w-auto"
           >
             {loading ? (

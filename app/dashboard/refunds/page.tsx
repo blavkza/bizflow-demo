@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
+import { SalesLoadingSkeleton } from "./SalesLoadingSkeleton";
 
 interface Refund {
   id: string;
@@ -239,14 +240,7 @@ export default function RefundsPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="flex flex-col items-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading refunds data...</p>
-        </div>
-      </div>
-    );
+    return <SalesLoadingSkeleton />;
   }
 
   return (
@@ -478,7 +472,14 @@ export default function RefundsPage() {
                         {new Date(refund.createdAt).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        <DropdownMenu>
+                        <Link
+                          className="flex items-center "
+                          href={`/dashboard/refunds/${refund.id}`}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Link>
+                        {/*   <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="h-8 w-8 p-0">
                               <MoreHorizontal className="h-4 w-4" />
@@ -487,10 +488,7 @@ export default function RefundsPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                             <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/refunds/${refund.id}`}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Details
-                              </Link>
+                              
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             {refund.status === "PENDING" && (
@@ -509,7 +507,7 @@ export default function RefundsPage() {
                               </DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenu> */}
                       </TableCell>
                     </TableRow>
                   );
