@@ -76,6 +76,9 @@ type SearchableItem = {
   category?: string;
   duration?: string;
   features?: string[];
+  sku?: string;
+  description?: string | null;
+  image?: string | null;
 };
 
 type ComboboxOption = {
@@ -159,6 +162,27 @@ interface SearchableItemInputProps {
   onSelect: (index: number, item: SearchableItem) => void;
 }
 
+const extractTextFromHTML = (html: string | null | undefined): string => {
+  if (!html) return "";
+
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = html;
+
+  return tempDiv.textContent || tempDiv.innerText || "";
+};
+
+interface SearchableItemInputProps {
+  index: number;
+  searchTerm: string;
+  searchableItems: SearchableItem[];
+  showDropdown: number | null;
+  onSearchChange: (index: number, value: string) => void;
+  onFocus: (index: number) => void;
+  onBlur: () => void;
+  onSelect: (index: number, item: SearchableItem) => void;
+  setShowDropdown: (index: number | null) => void; // Add this prop
+}
+
 const SearchableItemInput = ({
   index,
   searchTerm,
@@ -168,12 +192,73 @@ const SearchableItemInput = ({
   onFocus,
   onBlur,
   onSelect,
+  setShowDropdown,
 }: SearchableItemInputProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
-  const filteredItems = searchableItems.filter((item) =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const extractTextFromHTML = (html: string | null | undefined): string => {
+    if (!html) return "";
+
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+
+    return tempDiv.textContent || tempDiv.innerText || "";
+  };
+
+  const filteredItems = searchableItems.filter((item) => {
+    const searchLower = searchTerm.toLowerCase();
+    const matchesName = item.name.toLowerCase().includes(searchLower);
+    const matchesSku = item.sku?.toLowerCase().includes(searchLower) || false;
+    const matchesCategory =
+      item.category?.toLowerCase().includes(searchLower) || false;
+
+    const descriptionText = extractTextFromHTML(item.description);
+    const matchesDescription = descriptionText
+      .toLowerCase()
+      .includes(searchLower);
+
+    return matchesName || matchesSku || matchesDescription || matchesCategory;
+  });
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showDropdown !== index) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedIndex((prev) =>
+          prev < filteredItems.length - 1 ? prev + 1 : 0
+        );
+        break;
+
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredItems.length - 1
+        );
+        break;
+
+      case "Enter":
+        e.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < filteredItems.length) {
+          onSelect(index, filteredItems[selectedIndex]);
+          setSelectedIndex(-1);
+        }
+        break;
+
+      case "Escape":
+        setSelectedIndex(-1);
+        setShowDropdown(null);
+        break;
+    }
+  };
+
+  // Reset selected index when search term changes
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [searchTerm]);
 
   return (
     <div className="relative">
@@ -181,53 +266,100 @@ const SearchableItemInput = ({
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <input
           ref={inputRef}
-          placeholder="Search products or services..."
+          placeholder="Search products/services by name, SKU, description, or category..."
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10"
           value={searchTerm}
-          onChange={(e) => onSearchChange(index, e.target.value)}
-          onFocus={() => onFocus(index)}
-          onBlur={onBlur}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && searchTerm && filteredItems.length > 0) {
-              onSelect(index, filteredItems[0]);
-              e.preventDefault();
-            }
+          onChange={(e) => {
+            onSearchChange(index, e.target.value);
+            setSelectedIndex(-1);
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => {
+            onFocus(index);
+            setSelectedIndex(-1);
+          }}
+          onBlur={() => {
+            setTimeout(() => {
+              onBlur();
+              setSelectedIndex(-1);
+            }, 200);
           }}
         />
       </div>
 
       {showDropdown === index && filteredItems.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-60 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-96 overflow-auto">
           <div className="p-1">
-            {filteredItems.slice(0, 5).map((item) => (
-              <div
-                key={`${item.type}-${item.id}`}
-                className="flex flex-col p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onSelect(index, item);
-                }}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-sm">{item.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatCurrency(item.price)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
-                  <span>
-                    {item.type === "product" ? "Product" : "Service"}
-                    {item.category && ` • ${item.category}`}
-                  </span>
-                  {item.duration && <span>{item.duration}</span>}
-                </div>
-                {item.features && item.features.length > 0 && (
-                  <div className="text-[10px] text-muted-foreground mt-1 italic truncate">
-                    Includes: {item.features.join(", ")}
+            {filteredItems.slice(0, 10).map((item, itemIndex) => {
+              const descriptionText = extractTextFromHTML(item.description);
+
+              return (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  className={cn(
+                    "flex items-start p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0 gap-3",
+                    selectedIndex === itemIndex && "bg-accent"
+                  )}
+                  onMouseEnter={() => setSelectedIndex(itemIndex)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelect(index, item);
+                    setSelectedIndex(-1);
+                  }}
+                >
+                  {/* Image thumbnail */}
+                  {item.image && (
+                    <div className="flex-shrink-0 w-12 h-12 rounded-md overflow-hidden border">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm truncate block">
+                          {item.name}
+                        </span>
+                        {item.sku && (
+                          <span className="text-[10px] font-mono bg-muted px-1 rounded mt-0.5 inline-block">
+                            SKU: {item.sku}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground flex-shrink-0 ml-2">
+                        {formatCurrency(item.price)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
+                      <span>
+                        {item.type === "product" ? "Product" : "Service"}
+                        {item.category && ` • ${item.category}`}
+                      </span>
+                    </div>
+
+                    {descriptionText && (
+                      <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                        {descriptionText}
+                      </div>
+                    )}
+
+                    {item.features && item.features.length > 0 && (
+                      <div className="text-[10px] text-muted-foreground mt-1 italic truncate">
+                        • Includes: {item.features.join(", ")}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -492,6 +624,12 @@ export default function InvoiceForm({
           type: "product" as const,
           price: Number(product.price || 0),
           category: product.category,
+          sku: product.sku || undefined,
+          description: product.description || undefined,
+          image:
+            product.images && product.images.length > 0
+              ? product.images[0]
+              : undefined,
         })),
         ...(servicesResponse?.data || []).map((service: any) => ({
           id: service.id,
@@ -501,6 +639,8 @@ export default function InvoiceForm({
           category: service.category,
           duration: service.duration || undefined,
           features: service.features || [],
+          description: service.description || undefined,
+          image: service.image || undefined,
         })),
       ];
       setSearchableItems(combinedItems);
@@ -536,7 +676,6 @@ export default function InvoiceForm({
     setSearchInputs((prev) => ({ ...prev, [index]: value }));
     form.setValue(`items.${index}.description`, value);
 
-    // FIX: Only clear IDs if explicitly empty to prevent losing relation during edit
     if (value === "") {
       form.setValue(`items.${index}.shopProductId`, null);
       form.setValue(`items.${index}.serviceId`, null);
@@ -553,8 +692,23 @@ export default function InvoiceForm({
 
   const handleItemSelect = (index: number, item: SearchableItem) => {
     let description = `${item.name}`;
+
+    if (item.sku) {
+      description = `${description} [${item.sku}]`;
+    }
+
     if (item.category) description += ` - ${item.category}`;
     if (item.duration) description += ` (${item.duration})`;
+
+    if (item.description) {
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = item.description;
+      const plainDescription = tempDiv.textContent || tempDiv.innerText || "";
+      if (plainDescription) {
+        description += `\n${plainDescription}`;
+      }
+    }
+
     if (item.type === "service" && item.features && item.features.length > 0) {
       description += `\nIncludes: ${item.features.join(", ")}`;
     }
@@ -1152,6 +1306,7 @@ export default function InvoiceForm({
                     onFocus={(idx) => setShowDropdown(idx)}
                     onBlur={() => setTimeout(() => setShowDropdown(null), 200)}
                     onSelect={handleItemSelect}
+                    setShowDropdown={setShowDropdown}
                   />
                 </div>
 

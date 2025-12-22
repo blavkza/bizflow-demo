@@ -13,6 +13,7 @@ import {
   Calculator,
   FileText,
   Search,
+  Briefcase,
 } from "lucide-react";
 import {
   Form,
@@ -67,7 +68,9 @@ type SearchableItem = {
   category?: string;
   duration?: string;
   features?: string[];
+  description?: string | null;
   sku?: string;
+  image?: string | null;
 };
 
 interface QuotationFormProps {
@@ -124,11 +127,32 @@ const SearchableItemInput = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
 
+  // Helper function to extract text from HTML
+  const extractTextFromHTML = (html: string | null | undefined): string => {
+    if (!html) return "";
+
+    // Create a temporary div to parse HTML
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+
+    // Get text content and remove extra whitespace
+    return tempDiv.textContent || tempDiv.innerText || "";
+  };
+
   const filteredItems = searchableItems.filter((item) => {
     const searchLower = searchTerm.toLowerCase();
     const matchesName = item.name.toLowerCase().includes(searchLower);
-    const matchesSku = item.sku?.toLowerCase().includes(searchLower);
-    return matchesName || matchesSku;
+    const matchesSku = item.sku?.toLowerCase().includes(searchLower) || false;
+    const matchesCategory =
+      item.category?.toLowerCase().includes(searchLower) || false;
+
+    // Extract text from HTML description for searching
+    const descriptionText = extractTextFromHTML(item.description);
+    const matchesDescription = descriptionText
+      .toLowerCase()
+      .includes(searchLower);
+
+    return matchesName || matchesSku || matchesDescription || matchesCategory;
   });
 
   // Handle keyboard navigation
@@ -176,7 +200,7 @@ const SearchableItemInput = ({
         <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
         <input
           ref={inputRef}
-          placeholder="Search products/services by name or SKU..."
+          placeholder="Search products/services by name, SKU, description, or category..."
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10"
           value={searchTerm}
           onChange={(e) => {
@@ -198,49 +222,91 @@ const SearchableItemInput = ({
       </div>
 
       {showDropdown === index && filteredItems.length > 0 && (
-        <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-60 overflow-auto">
+        <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-96 overflow-auto">
           <div className="p-1">
-            {filteredItems.slice(0, 10).map((item, itemIndex) => (
-              <div
-                key={`${item.type}-${item.id}`}
-                className={cn(
-                  "flex flex-col p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0",
-                  selectedIndex === itemIndex && "bg-accent"
-                )}
-                onMouseEnter={() => setSelectedIndex(itemIndex)}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onSelect(index, item);
-                  setSelectedIndex(-1);
-                }}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-sm">{item.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    {formatCurrency(item.price)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
-                  <div className="flex flex-col">
-                    <span>
-                      {item.type === "product" ? "Product" : "Service"}
-                      {item.category && ` • ${item.category}`}
-                    </span>
-                    {item.sku && (
-                      <span className="text-[10px] font-mono bg-muted px-1 rounded mt-1">
-                        SKU: {item.sku}
+            {filteredItems.slice(0, 10).map((item, itemIndex) => {
+              const descriptionText = extractTextFromHTML(item.description);
+
+              return (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  className={cn(
+                    "flex items-start p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0 gap-3",
+                    selectedIndex === itemIndex && "bg-accent"
+                  )}
+                  onMouseEnter={() => setSelectedIndex(itemIndex)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelect(index, item);
+                    setSelectedIndex(-1);
+                  }}
+                >
+                  {/* Image thumbnail */}
+                  {item.image && (
+                    <div className="flex-shrink-0 w-12 h-12 rounded-md overflow-hidden border bg-muted">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {!item.image && (
+                    <div className="flex-shrink-0 w-12 h-12 rounded-md border bg-muted flex items-center justify-center">
+                      <div className="text-muted-foreground">
+                        {item.type === "product" ? (
+                          <FileText className="h-5 w-5" />
+                        ) : (
+                          <Briefcase className="h-5 w-5" />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm truncate block">
+                          {item.name}
+                        </span>
+                        {item.sku && (
+                          <span className="text-[10px] font-mono bg-muted px-1 rounded mt-0.5 inline-block">
+                            SKU: {item.sku}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground flex-shrink-0 ml-2">
+                        {formatCurrency(item.price)}
                       </span>
+                    </div>
+
+                    <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
+                      <span>
+                        {item.type === "product" ? "Product" : "Service"}
+                        {item.category && ` • ${item.category}`}
+                      </span>
+                      {item.duration && <span>{item.duration}</span>}
+                    </div>
+
+                    {descriptionText && (
+                      <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                        {descriptionText}
+                      </div>
+                    )}
+
+                    {item.features && item.features.length > 0 && (
+                      <div className="text-[10px] text-muted-foreground mt-1 italic truncate">
+                        • Includes: {item.features.join(", ")}
+                      </div>
                     )}
                   </div>
-                  {item.duration && <span>{item.duration}</span>}
                 </div>
-                {item.features && item.features.length > 0 && (
-                  <div className="text-[10px] text-muted-foreground mt-1 italic truncate">
-                    • Includes: {item.features.join(", ")}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -515,14 +581,43 @@ export function QuotationForm({
       const services: Service[] = servicesResponse?.data || [];
 
       const combinedItems: SearchableItem[] = [
-        ...products.map((product) => ({
-          id: product.id,
-          name: product.name,
-          type: "product" as const,
-          price: Number(product.price || 0),
-          category: product.category,
-          sku: product.sku,
-        })),
+        ...products.map((product) => {
+          let firstImage: string | undefined;
+
+          if (product.images) {
+            try {
+              const imagesData =
+                typeof product.images === "string"
+                  ? JSON.parse(product.images)
+                  : product.images;
+
+              if (Array.isArray(imagesData) && imagesData.length > 0) {
+                if (typeof imagesData[0] === "string") {
+                  firstImage = imagesData[0];
+                } else if (
+                  imagesData[0] &&
+                  typeof imagesData[0] === "object" &&
+                  imagesData[0].url
+                ) {
+                  firstImage = imagesData[0].url;
+                }
+              }
+            } catch (error) {
+              console.warn("Error parsing images:", error);
+            }
+          }
+
+          return {
+            id: product.id,
+            name: product.name,
+            type: "product" as const,
+            price: Number(product.price || 0),
+            category: product.category,
+            sku: product.sku,
+            description: product.description,
+            image: firstImage,
+          };
+        }),
         ...services.map((service) => ({
           id: service.id,
           name: service.name,
@@ -530,7 +625,8 @@ export function QuotationForm({
           price: Number(service.amount || 0),
           category: service.category,
           duration: service.duration || undefined,
-          features: service.features || [], // Map features
+          features: service.features || [],
+          description: service.description || undefined,
         })),
       ];
 
@@ -571,7 +667,7 @@ export function QuotationForm({
     let description = `${item.name}`;
 
     if (item.sku) {
-      description = `${description}`;
+      description = `${description} [${item.sku}]`;
     }
 
     if (item.category) {
@@ -579,6 +675,15 @@ export function QuotationForm({
     }
     if (item.duration) {
       description += ` (${item.duration})`;
+    }
+
+    if (item.description) {
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = item.description;
+      const plainDescription = tempDiv.textContent || tempDiv.innerText || "";
+      if (plainDescription) {
+        description += `\n${plainDescription}`;
+      }
     }
 
     if (item.type === "service" && item.features && item.features.length > 0) {

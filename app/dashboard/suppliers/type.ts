@@ -31,6 +31,7 @@ export enum VendorType {
 export interface Vendor {
   id: string;
   name: string;
+  fullName: string;
   email: string | null;
   phone: string | null;
   phone2?: string | null;
