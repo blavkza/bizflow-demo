@@ -249,7 +249,17 @@ export const getSidebarData = (
                 },
               ]
             : []),
-
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Sale_VIEW)
+            ? [
+                {
+                  title: "Awaiting Stocks",
+                  url: "/dashboard/shop/stock-awaits",
+                  icon: CgArrowsExchange,
+                  color: "text-purple-500",
+                },
+              ]
+            : []),
           ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.Product_VIEW)
             ? [

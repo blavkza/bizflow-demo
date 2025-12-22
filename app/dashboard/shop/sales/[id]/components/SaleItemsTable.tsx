@@ -17,7 +17,9 @@ import {
   CheckCircle,
   XCircle,
   MinusCircle,
+  History,
 } from "lucide-react";
+import { SaleStatus } from "@prisma/client";
 
 interface SaleItem {
   id: string;
@@ -39,6 +41,8 @@ interface SaleItem {
     stockStatus: string;
     currentStock: number;
     needsStock: boolean;
+    stockAwaitId?: string;
+    stockAwaitStatus?: string;
   };
 }
 
@@ -53,7 +57,15 @@ interface Sale {
   status: string;
   awaitingStockCount?: number;
   awaitingStockProducts?: number;
+  resolvedStockAwaits?: number;
   deliveryFee?: number;
+  StockAwait?: Array<{
+    id: string;
+    shopProductId: string;
+    status: string;
+    resolvedAt?: string;
+    resolvedBy?: string;
+  }>;
 }
 
 interface SaleItemsTableProps {
@@ -63,6 +75,7 @@ interface SaleItemsTableProps {
 export default function SaleItemsTable({ sale }: SaleItemsTableProps) {
   console.log("SaleItemsTable - Received sale:", sale);
   console.log("SaleItemsTable - Items:", sale.items);
+  console.log("SaleItemsTable - Stock Awaits:", sale.StockAwait);
 
   // Helper function to safely convert to number
   const toNumber = (value: any): number => {
@@ -147,12 +160,22 @@ export default function SaleItemsTable({ sale }: SaleItemsTableProps) {
     return `R${value.toFixed(2)}`;
   };
 
+  // Format date
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   // Fallback function to get product name
   const getProductName = (item: SaleItem) => {
     if (item.ShopProduct?.name) {
       return item.ShopProduct.name;
     }
-
     // Fallback: Return a default with product ID
     return `Product (${item.shopProductId.substring(0, 8)}...)`;
   };
@@ -180,11 +203,50 @@ export default function SaleItemsTable({ sale }: SaleItemsTableProps) {
     return toNumber(item.awaitedQuantity);
   };
 
-  // Get stock status with fallbacks
+  // Get stock await status for this item
+  const getStockAwaitInfo = (item: SaleItem) => {
+    const stockAwaitId = item.stockInfo?.stockAwaitId;
+    const stockAwaitStatus = item.stockInfo?.stockAwaitStatus;
+
+    // Find matching stock await from sale.StockAwait
+    if (sale.StockAwait) {
+      const stockAwait = sale.StockAwait.find(
+        (awaitItem) => awaitItem.shopProductId === item.shopProductId
+      );
+      if (stockAwait) {
+        return {
+          id: stockAwait.id,
+          status: stockAwait.status,
+          resolvedAt: stockAwait.resolvedAt,
+          resolvedBy: stockAwait.resolvedBy,
+        };
+      }
+    }
+
+    return {
+      id: stockAwaitId,
+      status: stockAwaitStatus,
+      resolvedAt: undefined,
+      resolvedBy: undefined,
+    };
+  };
+
+  // Get stock status with fallbacks - UPDATED to check stock await status
   const getStockStatus = (item: SaleItem) => {
-    // Use stockInfo if available
-    if (item.stockInfo?.stockStatus) {
-      return item.stockInfo.stockStatus;
+    const stockAwaitInfo = getStockAwaitInfo(item);
+
+    // If there's a stock await, use its status
+    if (stockAwaitInfo.id) {
+      switch (stockAwaitInfo.status) {
+        case "PENDING":
+          return "AWAITING_STOCK";
+        case "RESOLVED":
+          return "AVAILABLE";
+        case "CANCELLED":
+          return "CANCELLED";
+        default:
+          return "AVAILABLE";
+      }
     }
 
     // Calculate based on available data
@@ -203,20 +265,26 @@ export default function SaleItemsTable({ sale }: SaleItemsTableProps) {
     return "AVAILABLE";
   };
 
-  // Get stock status badge
+  // Get stock status badge - UPDATED to show resolved status
   const getStockStatusBadge = (item: SaleItem) => {
     const stockStatus = getStockStatus(item);
+    const stockAwaitInfo = getStockAwaitInfo(item);
 
     switch (stockStatus) {
       case "AWAITING_STOCK":
         return (
-          <Badge
-            variant="outline"
-            className="bg-yellow-50 text-yellow-700 border-yellow-200"
-          >
-            <AlertCircle className="h-3 w-3 mr-1" />
-            Awaiting Stock
-          </Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge
+              variant="outline"
+              className="bg-yellow-50 text-yellow-700 border-yellow-200"
+            >
+              <AlertCircle className="h-3 w-3 mr-1" />
+              Awaiting Stock
+            </Badge>
+            {stockAwaitInfo.status === "PENDING" && (
+              <div className="text-xs text-yellow-600">(Active await)</div>
+            )}
+          </div>
         );
       case "NEGATIVE_STOCK":
         return (
@@ -238,15 +306,35 @@ export default function SaleItemsTable({ sale }: SaleItemsTableProps) {
             Out of Stock
           </Badge>
         );
+      case "CANCELLED":
+        return (
+          <div className="flex flex-col items-end gap-1">
+            <Badge
+              variant="outline"
+              className="bg-gray-50 text-gray-700 border-gray-200"
+            >
+              <XCircle className="h-3 w-3 mr-1" />
+              Cancelled
+            </Badge>
+            <div className="text-xs text-gray-500">(Stock await cancelled)</div>
+          </div>
+        );
       default:
         return (
-          <Badge
-            variant="outline"
-            className="bg-green-50 text-green-700 border-green-200"
-          >
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Available
-          </Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge
+              variant="outline"
+              className="bg-green-50 text-green-700 border-green-200"
+            >
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Available
+            </Badge>
+            {stockAwaitInfo.status === "RESOLVED" && (
+              <div className="text-xs text-green-600 flex items-center gap-1">
+                Resolved on {formatDate(stockAwaitInfo.resolvedAt)}
+              </div>
+            )}
+          </div>
         );
     }
   };
@@ -260,22 +348,37 @@ export default function SaleItemsTable({ sale }: SaleItemsTableProps) {
     return toNumber(item.total);
   };
 
+  // Check if sale has resolved stock awaits
+  const hasResolvedStockAwaits =
+    sale.resolvedStockAwaits && sale.resolvedStockAwaits > 0;
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Sale Items ({sale.items?.length || 0})</CardTitle>
-          {sale.status === "AWAITING_STOCK" && (
-            <Badge
-              variant="outline"
-              className="bg-yellow-50 text-yellow-700 border-yellow-200"
-            >
-              <AlertCircle className="h-3 w-3 mr-1" />
-              {sale.awaitingStockCount
-                ? `Awaiting ${sale.awaitingStockCount} units`
-                : "Awaiting Stock"}
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {hasResolvedStockAwaits && (
+              <Badge
+                variant="outline"
+                className="bg-green-50 text-green-700 border-green-200"
+              >
+                <CheckCircle className="h-3 w-3 mr-1" />
+                {sale.resolvedStockAwaits} item(s) stock resolved
+              </Badge>
+            )}
+            {sale.status === "AWAITING_STOCK" && (
+              <Badge
+                variant="outline"
+                className="bg-yellow-50 text-yellow-700 border-yellow-200"
+              >
+                <AlertCircle className="h-3 w-3 mr-1" />
+                {sale.awaitingStockCount
+                  ? `Awaiting ${sale.awaitingStockCount} units`
+                  : "Awaiting Stock"}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -293,18 +396,25 @@ export default function SaleItemsTable({ sale }: SaleItemsTableProps) {
           <TableBody>
             {(sale.items || []).map((item) => {
               const awaitedQuantity = getAwaitedQuantity(item);
+              const stockAwaitInfo = getStockAwaitInfo(item);
 
               return (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      {getProductName(item)}
+                    <div className="flex flex-col gap-1">
+                      <div>{getProductName(item)}</div>
+                      {stockAwaitInfo.status === "RESOLVED" && (
+                        <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded inline-block">
+                          ✓ Stock resolved
+                        </div>
+                      )}
+                      {stockAwaitInfo.status === "PENDING" &&
+                        awaitedQuantity > 0 && (
+                          <div className="text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded inline-block">
+                            {awaitedQuantity} units awaiting
+                          </div>
+                        )}
                     </div>
-                    {awaitedQuantity > 0 && (
-                      <div className="text-xs text-yellow-600">
-                        ({awaitedQuantity} awaiting)
-                      </div>
-                    )}
                   </TableCell>
                   <TableCell>{getProductSKU(item)}</TableCell>
                   <TableCell className="text-right">
@@ -327,31 +437,73 @@ export default function SaleItemsTable({ sale }: SaleItemsTableProps) {
 
         <Separator className="my-4" />
 
-        {/* Negative Stock Warning */}
-        {(sale.items || []).some((item) => getCurrentStock(item) < 0) && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+        {/* Resolved Stock Awaits Summary */}
+        {hasResolvedStockAwaits && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <AlertCircle className="h-4 w-4 text-red-600" />
-              <h4 className="font-medium text-red-800">Negative Stock Alert</h4>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <h4 className="font-medium text-green-800">Stock Resolved</h4>
             </div>
-            <p className="text-sm text-red-700">
-              Some products have negative stock levels. Please replenish stock
-              immediately.
+            <p className="text-sm text-green-700">
+              {sale.resolvedStockAwaits} product(s) that were awaiting stock
+              have now been resolved and are available.
             </p>
-            <div className="mt-2 space-y-1">
-              {(sale.items || [])
-                .filter((item) => getCurrentStock(item) < 0)
-                .map((item) => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span>{getProductName(item)}</span>
-                    <span className="font-medium text-red-700">
-                      Stock: {getCurrentStock(item)} units
+            <div className="mt-2 space-y-2">
+              {sale.StockAwait?.filter(
+                (awaitItem) => awaitItem.status === "RESOLVED"
+              ).map((awaitItem) => {
+                const productItem = sale.items.find(
+                  (item) => item.shopProductId === awaitItem.shopProductId
+                );
+                return (
+                  <div
+                    key={awaitItem.id}
+                    className="flex justify-between text-sm"
+                  >
+                    <span>
+                      {productItem ? getProductName(productItem) : "Product"}
+                    </span>
+                    <span className="font-medium text-green-700">
+                      Resolved on {formatDate(awaitItem.resolvedAt)} by{" "}
+                      {awaitItem.resolvedBy || "System"}
                     </span>
                   </div>
-                ))}
+                );
+              })}
             </div>
           </div>
         )}
+
+        {/* Negative Stock Warning */}
+        {sale.status !== SaleStatus.COMPLETED &&
+          (sale.items || []).some((item) => getCurrentStock(item) < 0) && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <h4 className="font-medium text-red-800">
+                  Negative Stock Alert
+                </h4>
+              </div>
+
+              <p className="text-sm text-red-700">
+                Some products have negative stock levels. Please replenish stock
+                immediately.
+              </p>
+
+              <div className="mt-2 space-y-1">
+                {(sale.items || [])
+                  .filter((item) => getCurrentStock(item) < 0)
+                  .map((item) => (
+                    <div key={item.id} className="flex justify-between text-sm">
+                      <span>{getProductName(item)}</span>
+                      <span className="font-medium text-red-700">
+                        Stock: {getCurrentStock(item)} units
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
 
         {/* Sale Totals - In correct order */}
         <div className="flex justify-end">

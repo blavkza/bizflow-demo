@@ -68,6 +68,8 @@ export default function SalesTable({
       CASH: "Cash",
       CREDIT_CARD: "Credit Card",
       DEBIT_CARD: "Debit Card",
+      CARD: "Card Paymnet",
+      STORE_CREDIT: "Store Credit",
       EFT: "EFT",
       MOBILE_PAYMENT: "Mobile Payment",
       BANK_TRANSFER: "Bank Transfer",

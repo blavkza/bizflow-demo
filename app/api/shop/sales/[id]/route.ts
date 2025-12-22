@@ -15,11 +15,10 @@ export async function GET(
 
     const saleId = params.id;
 
-    // Get the sale with basic information
     const sale = await db.sale.findUnique({
       where: { id: saleId },
       include: {
-        items: true, // Get items first
+        items: true,
       },
     });
 
@@ -49,19 +48,14 @@ export async function GET(
       },
     });
 
-    // Create a map for quick product lookup
     const productMap = new Map();
     products.forEach((product) => {
       productMap.set(product.id, product);
     });
 
-    // Get stock awaits for this sale
     const stockAwaits = await db.stockAwait.findMany({
       where: {
         saleId: saleId,
-        status: {
-          in: ["PENDING"],
-        },
       },
       include: {
         shopProduct: {
@@ -87,9 +81,18 @@ export async function GET(
       const hadNegativeStock = item.hadNegativeStock || false;
       const awaitedQuantity = stockAwait?.quantity || item.awaitedQuantity || 0;
 
-      // Determine stock status
+      // Determine stock status based on stock await status
       let stockStatus = "AVAILABLE";
-      if (hadNegativeStock || awaitedQuantity > 0) {
+
+      if (stockAwait) {
+        if (stockAwait.status === "PENDING") {
+          stockStatus = "AWAITING_STOCK";
+        } else if (stockAwait.status === "RESOLVED") {
+          stockStatus = "AVAILABLE";
+        } else if (stockAwait.status === "CANCELLED") {
+          stockStatus = "CANCELLED";
+        }
+      } else if (hadNegativeStock || awaitedQuantity > 0) {
         stockStatus = "AWAITING_STOCK";
       } else if (currentStock < 0) {
         stockStatus = "NEGATIVE_STOCK";
@@ -112,25 +115,40 @@ export async function GET(
           awaitedQuantity,
           stockStatus,
           currentStock,
-          needsStock: awaitedQuantity > 0,
+          needsStock: stockAwait?.status === "PENDING",
+          stockAwaitId: stockAwait?.id,
+          stockAwaitStatus: stockAwait?.status,
         },
       };
     });
 
-    // Calculate stock await totals
-    const awaitingStockCount = stockAwaits.reduce(
+    const pendingStockAwaits = stockAwaits.filter(
+      (item) => item.status === "PENDING"
+    );
+    const awaitingStockCount = pendingStockAwaits.reduce(
       (sum, item) => sum + item.quantity,
       0
     );
-    const awaitingStockProducts = stockAwaits.length;
+    const awaitingStockProducts = pendingStockAwaits.length;
+    const resolvedStockAwaits = stockAwaits.filter(
+      (item) => item.status === "RESOLVED"
+    ).length;
 
-    // Build the complete response
+    let saleStatus = sale.status;
+    if (pendingStockAwaits.length > 0) {
+      saleStatus = "AWAITING_STOCK";
+    } else if (resolvedStockAwaits > 0) {
+      saleStatus = "COMPLETED";
+    }
+
     const response = {
       ...sale,
       items: processedItems,
       StockAwait: stockAwaits,
       awaitingStockCount,
       awaitingStockProducts,
+      resolvedStockAwaits,
+      status: saleStatus,
     };
 
     return NextResponse.json({

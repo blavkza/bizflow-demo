@@ -211,11 +211,8 @@ export function CartSection({
                                   {truncateText(item.name, 30)}
                                 </span>
                               </TooltipTrigger>
-                              <TooltipContent
-                                side="top"
-                                align="start"
-                                className="max-w-[300px] break-words"
-                              >
+
+                              <TooltipContent side="top" align="start">
                                 <p className="font-medium">{item.name}</p>
                                 {item.sku && (
                                   <p className="text-xs text-muted-foreground mt-1">
@@ -306,7 +303,7 @@ export function CartSection({
                 <Label>Discount (%)</Label>
                 <div className="relative">
                   <Input
-                    type="text"
+                    type="number"
                     inputMode="decimal"
                     value={discountInput}
                     onChange={(e) => handleDiscountChange(e.target.value)}

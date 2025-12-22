@@ -77,10 +77,10 @@ const paymentMethods = [
     frontendValue: "cash",
   },
   {
-    value: PaymentMethod.CREDIT_CARD,
+    value: PaymentMethod.CARD,
     label: "Card",
     icon: CreditCard,
-    frontendValue: "card",
+    frontendValue: "card payment",
   },
   {
     value: PaymentMethod.EFT,
@@ -93,6 +93,12 @@ const paymentMethods = [
     label: "Mobile Payment",
     icon: Smartphone,
     frontendValue: "mobile",
+  },
+  {
+    value: PaymentMethod.STORE_CREDIT,
+    label: "Card",
+    icon: CreditCard,
+    frontendValue: "card",
   },
 ];
 
@@ -515,7 +521,7 @@ export function CheckoutDialog({
                 <div className="flex items-center space-x-2 text-sm text-amber-700">
                   <CreditCard className="h-4 w-4" />
                   <span>
-                    {paymentMethod === PaymentMethod.CREDIT_CARD &&
+                    {paymentMethod === PaymentMethod.CARD &&
                       "Process card payment through your terminal"}
                     {paymentMethod === PaymentMethod.EFT &&
                       "Provide EFT payment details to customer"}

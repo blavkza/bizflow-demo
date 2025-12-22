@@ -603,7 +603,7 @@ export function QuotationDialog({
                 </Popover>
               </div>
 
-              <div className="space-y-2">
+              {/*     <div className="space-y-2">
                 <Label htmlFor="quote-discount">Discount (%)</Label>
                 <Input
                   id="quote-discount"
@@ -613,7 +613,7 @@ export function QuotationDialog({
                   onChange={(e) => handleDiscountChange(e.target.value)}
                   placeholder="0"
                 />
-              </div>
+              </div> */}
 
               <div className="space-y-2">
                 <Label htmlFor="quote-notes">Notes (Optional)</Label>

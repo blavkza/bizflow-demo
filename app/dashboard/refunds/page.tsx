@@ -105,11 +105,15 @@ const statusConfig = {
 };
 
 const methodConfig = {
-  ORIGINAL_METHOD: "Original Method",
   CASH: "Cash",
   CREDIT_CARD: "Credit Card",
-  BANK_TRANSFER: "Bank Transfer",
+  DEBIT_CARD: "Debit Card",
+  CARD: "Card Paymnet",
   STORE_CREDIT: "Store Credit",
+  EFT: "EFT",
+  MOBILE_PAYMENT: "Mobile Payment",
+  BANK_TRANSFER: "Bank Transfer",
+  CHEQUE: "Cheque",
 };
 
 export default function RefundsPage() {

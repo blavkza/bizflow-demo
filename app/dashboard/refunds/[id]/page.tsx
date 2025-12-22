@@ -173,6 +173,11 @@ const methodConfig = {
     icon: DollarSign,
     color: "bg-green-500/10 text-green-600",
   },
+  CARD: {
+    label: "Card Payment",
+    icon: CreditCard,
+    color: "bg-purple-500/10 text-purple-600",
+  },
   CREDIT_CARD: {
     label: "Credit Card",
     icon: CreditCard,
