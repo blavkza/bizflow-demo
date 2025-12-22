@@ -216,7 +216,7 @@ export function VendorForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    Vendor / Supplier/ Provider Full Name (optional)
+                    Vendor / Supplier/ Provider Trade Name (optional)
                   </FormLabel>
                   <FormControl>
                     <Input

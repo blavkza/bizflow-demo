@@ -418,27 +418,42 @@ export default function ServicesPage() {
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
-                      name="amount"
+                      name="categoryId"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Price (ZAR)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              placeholder="0.00"
-                              step="0.01"
-                              {...field}
-                            />
-                          </FormControl>
+                        <FormItem className="space-y-1">
+                          <FormLabel>Category</FormLabel>
+                          <Combobox
+                            options={categoriesOptions}
+                            value={field.value}
+                            onChange={field.onChange}
+                            isLoading={isLoadingCategories}
+                            placeholder="Select category"
+                          />
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
-
+                  <FormField
+                    control={form.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Price (ZAR)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0.00"
+                            step="0.01"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
