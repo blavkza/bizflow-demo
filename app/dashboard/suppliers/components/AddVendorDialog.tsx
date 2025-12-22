@@ -80,7 +80,7 @@ export function AddVendorDialog({ onVendorAdded }: AddVendorDialogProps) {
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4 mr-2" />
-          Add Vendor
+          Add Vendor / Supplier/ Provider
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[800px] max-h-[95vh] overflow-y-auto">

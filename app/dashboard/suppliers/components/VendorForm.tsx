@@ -71,6 +71,7 @@ export function VendorForm({
     resolver: zodResolver(vendorFormSchema),
     defaultValues: defaultValues || {
       name: "",
+      fullName: "",
       email: "",
       phone: "",
       phone2: "",
@@ -191,23 +192,44 @@ export function VendorForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid gap-4">
-          <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Vendor Name *</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Vendor name"
-                    {...field}
-                    disabled={loading}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Vendor / Supplier/ Provider Name *</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Vendor name"
+                      {...field}
+                      disabled={loading}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="fullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Vendor / Supplier/ Provider Full Name (optional)
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Vendor Full name"
+                      {...field}
+                      disabled={loading}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <FormField

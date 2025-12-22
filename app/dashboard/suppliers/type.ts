@@ -52,6 +52,7 @@ export interface Vendor {
 
 export interface VendorFormData {
   name: string;
+  fullName?: string;
   email?: string;
   phone: string;
   phone2?: string;

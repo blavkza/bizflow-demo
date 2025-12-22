@@ -114,6 +114,7 @@ export async function PUT(
     // Prepare update data
     const updateData: any = {
       name: data.name?.trim(),
+      fullName: data.fullName?.trim(),
       email: data.email?.trim() || null,
       phone: data.phone?.trim() || null,
       phone2: data.phone2?.trim() || null,
@@ -125,13 +126,11 @@ export async function PUT(
       paymentTerms: data.paymentTerms?.trim() || null,
       notes: data.notes?.trim() || null,
       status: data.status || "ACTIVE",
-      tags: data.tags || [],
     };
 
-    // Handle categories update
     if (data.categoryIds) {
       updateData.categories = {
-        set: [], // Clear existing categories
+        set: [],
         connect: data.categoryIds.map((id: string) => ({ id })),
       };
     }
@@ -139,7 +138,6 @@ export async function PUT(
     const vendor = await db.vendor.update({
       where: {
         id: params.id,
-        userId: user.id, // Ensure user owns this vendor
       },
       data: updateData,
       include: {

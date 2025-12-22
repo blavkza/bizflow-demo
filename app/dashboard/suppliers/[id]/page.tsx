@@ -53,6 +53,7 @@ import { Category } from "@prisma/client";
 interface Vendor {
   id: string;
   name: string;
+  fullName: string;
   email: string | null;
   phone: string | null;
   phone2?: string | null;
@@ -385,6 +386,12 @@ export default function VendorDetailPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {vendor.fullName && (
+                    <div className="flex items-center gap-3">
+                      <Building className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{vendor.fullName}</span>
+                    </div>
+                  )}
                   {vendor.email && (
                     <div className="flex items-center gap-3">
                       <Mail className="h-4 w-4 text-muted-foreground" />

@@ -1782,6 +1782,7 @@ model QuotationItem {
 model Vendor {
   id                 String  @id @default(cuid())
   name               String
+  fullName           String?
   email              String?
   phone              String
   phone2             String?

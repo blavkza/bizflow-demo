@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
     const vendor = await db.vendor.create({
       data: {
         name: data.name,
+        fullName: data.fullName,
         email: data.email || null,
         phone: data.phone,
         phone2: data.phone2 || null,

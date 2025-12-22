@@ -18,6 +18,7 @@ import { VendorFormData } from "../../type";
 interface Vendor {
   id: string;
   name: string;
+  fullName: string;
   email: string | null;
   phone: string | null;
   phone2?: string | null;
@@ -72,6 +73,7 @@ export function EditVendorDialog({
 
     return {
       name: vendor.name || "",
+      fullName: vendor.fullName || "",
       email: vendor.email || "",
       phone: vendor.phone || "",
       phone2: vendor.phone2 || "",
@@ -94,6 +96,7 @@ export function EditVendorDialog({
       // Prepare data for API
       const apiData = {
         name: data.name.trim(),
+        fullName: data.fullName?.trim() || null,
         email: data.email?.trim() || null,
         phone: data.phone?.trim() || null,
         phone2: data.phone2?.trim() || null,
@@ -142,7 +145,7 @@ export function EditVendorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[800px] max-h-[95vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Vendor</DialogTitle>
+          <DialogTitle>Edit Vendor / Supplier/ Provider </DialogTitle>
           <DialogDescription>
             Update vendor information and details.
           </DialogDescription>
