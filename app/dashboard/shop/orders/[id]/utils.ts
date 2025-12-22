@@ -17,6 +17,11 @@ export const statusConfig: Record<
     icon: React.ComponentType<any>;
   }
 > = {
+  [OrderStatus.PENDING_STOCK]: {
+    label: "Pending stock",
+    color: "bg-yellow-100 text-yellow-800",
+    icon: Clock,
+  },
   [OrderStatus.PENDING]: {
     label: "Pending",
     color: "bg-yellow-100 text-yellow-800",
@@ -97,6 +102,7 @@ export const getNextStatusOptions = (
   currentStatus: OrderStatus
 ): OrderStatus[] => {
   const statusFlow: Record<OrderStatus, OrderStatus[]> = {
+    [OrderStatus.PENDING_STOCK]: [OrderStatus.PENDING, OrderStatus.CANCELLED],
     [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
     [OrderStatus.CONFIRMED]: [OrderStatus.PREPARING, OrderStatus.CANCELLED],
     [OrderStatus.PREPARING]: [

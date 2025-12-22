@@ -64,6 +64,7 @@ export interface OrderData {
 }
 
 export enum OrderStatus {
+  PENDING_STOCK = "PENDING_STOCK",
   PENDING = "PENDING",
   CONFIRMED = "CONFIRMED",
   PREPARING = "PREPARING",
