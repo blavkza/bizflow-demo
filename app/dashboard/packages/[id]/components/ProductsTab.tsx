@@ -195,10 +195,14 @@ export default function ProductsTab({ packageData }: ProductsTabProps) {
                         )}
                         <div>
                           <p className="font-medium">{product.name}</p>
+
                           {product.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-1">
-                              {product.description}
-                            </p>
+                            <div
+                              className="text-xs text-muted-foreground  line-clamp-1"
+                              dangerouslySetInnerHTML={{
+                                __html: product.description,
+                              }}
+                            />
                           )}
                         </div>
                       </div>

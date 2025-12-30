@@ -104,7 +104,6 @@ export default function PackageHeader({
               {packageData.status}
             </Badge>
           </div>
-          <p className="text-muted-foreground">ID: {packageData.id}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>

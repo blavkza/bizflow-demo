@@ -245,7 +245,7 @@ export default function SubpackagesTab({
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
                           <Link
-                            href={`/packages/${params.id}/subpackages/${subpackage.id}`}
+                            href={`/dashboard/packages/${params.id}/subpackages/${subpackage.id}`}
                           >
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
