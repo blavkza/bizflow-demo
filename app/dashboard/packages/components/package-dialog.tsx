@@ -431,7 +431,6 @@ export function PackageDialog({
                           <Input
                             placeholder="e.g., Startup Website Package"
                             {...field}
-                            disabled={loading}
                           />
                         </FormControl>
                         <FormMessage />
@@ -450,7 +449,6 @@ export function PackageDialog({
                             placeholder="Brief description (max 200 characters)"
                             {...field}
                             value={field.value || ""}
-                            disabled={loading}
                           />
                         </FormControl>
                         <FormMessage />
@@ -470,7 +468,6 @@ export function PackageDialog({
                             className="min-h-[100px]"
                             {...field}
                             value={field.value || ""}
-                            disabled={loading}
                           />
                         </FormControl>
                         <FormMessage />
@@ -594,7 +591,6 @@ export function PackageDialog({
                               size="sm"
                               className="h-auto p-0"
                               onClick={fetchCategories}
-                              disabled={loading}
                             >
                               Retry
                             </Button>
@@ -880,7 +876,6 @@ export function PackageDialog({
                           <Switch
                             checked={field.value}
                             onCheckedChange={field.onChange}
-                            disabled={loading}
                           />
                         </FormControl>
                       </FormItem>
@@ -902,7 +897,6 @@ export function PackageDialog({
                           <Switch
                             checked={field.value}
                             onCheckedChange={field.onChange}
-                            disabled={loading}
                           />
                         </FormControl>
                       </FormItem>

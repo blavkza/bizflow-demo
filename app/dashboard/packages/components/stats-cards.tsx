@@ -35,16 +35,23 @@ export function StatsCards({ packages }: StatsCardsProps) {
     const featuredPackages = packages.filter((p) => p.featured).length;
 
     const totalSales = packages.reduce((sum, pkg) => sum + pkg.salesCount, 0);
-    const totalRevenue = packages.reduce(
-      (sum, pkg) =>
-        sum +
-        (typeof pkg.totalRevenue === "object" &&
+
+    // SAFELY convert Prisma Decimal, string, number, null → number
+    const totalRevenue = packages.reduce((sum, pkg) => {
+      let value = 0;
+
+      if (
+        typeof pkg.totalRevenue === "object" &&
         pkg.totalRevenue !== null &&
         "toNumber" in pkg.totalRevenue
-          ? pkg.totalRevenue.toNumber()
-          : pkg.totalRevenue || 0),
-      0
-    );
+      ) {
+        value = pkg.totalRevenue.toNumber();
+      } else {
+        value = Number(pkg.totalRevenue) || 0;
+      }
+
+      return sum + value;
+    }, 0);
 
     const averageRevenuePerPackage =
       totalPackages > 0 ? totalRevenue / totalPackages : 0;
@@ -64,8 +71,8 @@ export function StatsCards({ packages }: StatsCardsProps) {
       draftPackages,
       featuredPackages,
       totalSales,
-      totalRevenue,
-      averageRevenuePerPackage,
+      totalRevenue: Number(totalRevenue),
+      averageRevenuePerPackage: Number(averageRevenuePerPackage),
       packagesByCategory,
     };
   };
@@ -89,14 +96,14 @@ export function StatsCards({ packages }: StatsCardsProps) {
     },
     {
       title: "Total Revenue",
-      value: `R${(stats.totalRevenue / 1000).toFixed(0)}k`,
+      value: `R${Number(stats.totalRevenue).toFixed(2)}`,
       description: "From all packages",
       icon: <DollarSign className="h-4 w-4 text-muted-foreground" />,
       color: "bg-purple-500",
     },
     {
       title: "Avg Revenue",
-      value: `R${(stats.averageRevenuePerPackage / 1000).toFixed(1)}k`,
+      value: `R${Number(stats.averageRevenuePerPackage).toFixed(2)}`,
       description: "Per package",
       icon: <TrendingUp className="h-4 w-4 text-muted-foreground" />,
       color: "bg-orange-500",
@@ -128,15 +135,11 @@ export function StatsCards({ packages }: StatsCardsProps) {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-2xl font-bold">{card.value}</div>
+                <div className="text-lg font-bold">{card.value}</div>
                 <p className="text-xs text-muted-foreground">
                   {card.description}
                 </p>
               </div>
-              <div
-                className={`h-10 w-1 rounded-full ${card.color}`}
-                aria-hidden="true"
-              />
             </div>
           </CardContent>
         </Card>
