@@ -1282,8 +1282,8 @@ export default function InvoiceForm({
           <div className="grid grid-cols-12 gap-3 mb-3 px-4 py-2 bg-muted/50 rounded-lg text-sm font-medium">
             <div className="col-span-4">Description</div>
             <div className="col-span-1 text-center">Qty</div>
-            <div className="col-span-1 text-right">Price</div>
-            <div className="col-span-2 text-center">Discount</div>
+            <div className="col-span-2 text-center">Price</div>
+            <div className="col-span-1 text-center">Discount</div>
             <div className="col-span-1 text-center">Tax %</div>
             <div className="col-span-2 text-right">Total</div>
             <div className="col-span-1"></div>
@@ -1327,12 +1327,12 @@ export default function InvoiceForm({
                 </div>
 
                 {/* Price */}
-                <div className="col-span-1">
+                <div className="col-span-2">
                   <FormControl>
                     <Input
                       type="number"
                       step="0.01"
-                      className="text-right"
+                      className="text-left"
                       value={item.unitPrice}
                       onChange={(e) => {
                         const val = parseFloat(e.target.value) || 0;
@@ -1343,7 +1343,7 @@ export default function InvoiceForm({
                 </div>
 
                 {/* Discount */}
-                <div className="col-span-2 space-y-1">
+                <div className="col-span-1 space-y-1">
                   <Select
                     value={item.itemDiscountType || ""}
                     onValueChange={(val: "AMOUNT" | "PERCENTAGE") => {

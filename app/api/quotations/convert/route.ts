@@ -1,9 +1,9 @@
 import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
-import { StockMovementType, InvoiceStatus } from "@prisma/client";
+import { InvoiceStatus, StockMovementType } from "@prisma/client";
 import { NextResponse } from "next/server";
 
-// Helper: Robustly convert Prisma Decimal / Strings to Number
+// Helper: Robustly convert db Decimal / Strings to Number
 const safeFloat = (val: any): number => {
   if (val === null || val === undefined) return 0;
   if (typeof val === "number") return val;
@@ -35,7 +35,12 @@ export async function POST(request: Request) {
 
     const quotation = await db.quotation.findUnique({
       where: { id: quotationId },
-      include: { items: true, client: true },
+      include: {
+        items: true,
+        client: true,
+        package: true,
+        subpackage: true,
+      },
     });
 
     if (!quotation)
@@ -73,9 +78,9 @@ export async function POST(request: Request) {
 
     // --- START TRANSACTION ---
     const result = await db.$transaction(
-      async (prisma) => {
+      async (db) => {
         // 1. Create Invoice Header
-        const invoice = await prisma.invoice.create({
+        const invoice = await db.invoice.create({
           data: {
             invoiceNumber,
             clientId: quotation.clientId,
@@ -99,11 +104,14 @@ export async function POST(request: Request) {
             notes: quotation.notes,
             terms: quotation.terms,
             createdBy: creator.id,
+            // Add package and subpackage relations
+            packageId: quotation.packageId,
+            subpackageId: quotation.subpackageId,
           },
         });
 
         // 2. Create Invoice Items
-        await prisma.invoiceItem.createMany({
+        await db.invoiceItem.createMany({
           data: quotation.items.map((item) => ({
             invoiceId: invoice.id,
             description: item.description,
@@ -156,7 +164,7 @@ export async function POST(request: Request) {
           }
 
           for (const [serviceId, totalRevenue] of serviceUpdates.entries()) {
-            await prisma.service.update({
+            await db.service.update({
               where: { id: serviceId },
               data: {
                 revenue: { increment: totalRevenue },
@@ -165,9 +173,62 @@ export async function POST(request: Request) {
           }
         }
 
-        // 4. Create Deposit Payment
+        // 4. UPDATE PACKAGE & SUBPACKAGE STATISTICS
+        if (quotation.subpackageId) {
+          // Update subpackage revenue and sales count
+          await db.subpackage.update({
+            where: { id: quotation.subpackageId },
+            data: {
+              revenue: { increment: safeFloat(quotation.totalAmount) },
+              salesCount: { increment: 1 },
+            },
+          });
+
+          // If subpackage has a parent package, update it too
+          if (quotation.packageId) {
+            await db.package.update({
+              where: { id: quotation.packageId },
+              data: {
+                totalRevenue: { increment: safeFloat(quotation.totalAmount) },
+                salesCount: { increment: 1 },
+              },
+            });
+
+            // Update individual shop product sales in package
+            const packageProducts = await db.shopProduct.findMany({
+              where: { packageId: quotation.packageId },
+            });
+
+            // Update revenue for each shop product in the package
+            const productUpdates = new Map<string, number>();
+
+            for (const item of quotation.items) {
+              if (item.shopProductId) {
+                const productRevenue =
+                  safeFloat(item.quantity) * safeFloat(item.unitPrice);
+                const currentTotal =
+                  productUpdates.get(item.shopProductId) || 0;
+                productUpdates.set(
+                  item.shopProductId,
+                  currentTotal + productRevenue
+                );
+              }
+            }
+          }
+        } else if (quotation.packageId) {
+          // Direct package quotation (no specific subpackage)
+          await db.package.update({
+            where: { id: quotation.packageId },
+            data: {
+              totalRevenue: { increment: safeFloat(quotation.totalAmount) },
+              salesCount: { increment: 1 },
+            },
+          });
+        }
+
+        // 5. Create Deposit Payment
         if (quotation.depositRequired && depositAmount > 0) {
-          const payment = await prisma.invoicePayment.create({
+          const payment = await db.invoicePayment.create({
             data: {
               invoiceId: invoice.id,
               amount: depositAmount,
@@ -179,7 +240,7 @@ export async function POST(request: Request) {
             },
           });
 
-          await prisma.transaction.create({
+          await db.transaction.create({
             data: {
               amount: depositAmount,
               currency: "ZAR",
@@ -200,14 +261,14 @@ export async function POST(request: Request) {
           });
 
           if (depositAmount >= safeFloat(quotation.totalAmount)) {
-            await prisma.invoice.update({
+            await db.invoice.update({
               where: { id: invoice.id },
               data: { status: InvoiceStatus.PAID },
             });
           }
         }
 
-        // 5. Handle Shop Products (Stock & Sales)
+        // 6. Handle Shop Products (Stock & Sales)
         // Filter for items that are products
         const itemsWithProducts = quotation.items.filter(
           (item) => item.shopProductId
@@ -215,7 +276,7 @@ export async function POST(request: Request) {
         let sale = null;
 
         if (itemsWithProducts.length > 0) {
-          // --- 5a. CALCULATE SALE TOTALS FROM ITEM DISCOUNTS ---
+          // --- 6a. CALCULATE SALE TOTALS FROM ITEM DISCOUNTS ---
           let saleGrossSubtotal = 0;
           let saleTotalDiscount = 0;
           let saleTotalTax = 0;
@@ -263,8 +324,8 @@ export async function POST(request: Request) {
           const saleFinalTotal =
             saleGrossSubtotal - saleTotalDiscount + saleTotalTax;
 
-          // 5b. Generate Sale Number
-          const lastSale = await prisma.sale.findFirst({
+          // 6b. Generate Sale Number
+          const lastSale = await db.sale.findFirst({
             orderBy: { createdAt: "desc" },
             select: { saleNumber: true },
           });
@@ -273,19 +334,19 @@ export async function POST(request: Request) {
             ? `SALE-${(parseInt(lastSale.saleNumber.split("-")[1]) + 1).toString().padStart(4, "0")}`
             : "SALE-0001";
 
-          // 5c. Customer Logic
+          // 6c. Customer Logic
           const client = quotation.client;
-          let customerId: string | undefined;
+          let existingCustomer = null;
 
           if (client?.email) {
-            const existingCustomer = await prisma.customer.findFirst({
+            existingCustomer = await db.customer.findFirst({
               where: { email: client.email },
             });
-            customerId = existingCustomer?.id;
           }
 
-          if (!customerId) {
-            const newCustomer = await prisma.customer.create({
+          // If customer doesn't exist, create one
+          if (!existingCustomer) {
+            existingCustomer = await db.customer.create({
               data: {
                 firstName: client?.name?.split(" ")[0] || "Invoice",
                 lastName:
@@ -296,25 +357,28 @@ export async function POST(request: Request) {
                 createdBy: creator.id,
               },
             });
-            customerId = newCustomer.id;
           }
 
-          // 5d. Create Sale Record
+          // 6d. Create Sale Record
           // We use the explicitly calculated totals from the product items
-          sale = await prisma.sale.create({
+          sale = await db.sale.create({
             data: {
               saleNumber,
-              customerId,
-              customerName: client.name,
-              customerEmail: client.email,
-              customerPhone: client.phone,
-              customerAddress: client.address,
+              customer: {
+                connect: {
+                  id: existingCustomer.id,
+                },
+              },
+              customerName: client?.name || "Invoice Customer",
+              customerEmail: client?.email,
+              customerPhone: client?.phone,
+              customerAddress: client?.address,
               status: "COMPLETED",
 
-              subtotal: saleGrossSubtotal, // Sum of (Qty * Price)
-              discount: saleTotalDiscount, // Sum of all item discounts
-              tax: saleTotalTax, // Sum of tax on net amounts
-              total: saleFinalTotal, // Final payable
+              subtotal: saleGrossSubtotal,
+              discount: saleTotalDiscount,
+              tax: saleTotalTax,
+              total: saleFinalTotal,
 
               paymentStatus: "COMPLETED",
               paymentMethod: "INVOICE",
@@ -325,9 +389,9 @@ export async function POST(request: Request) {
             },
           });
 
-          // 5e. Create Sale Items & Update Stock
+          // 6e. Create Sale Items & Update Stock
           for (const itemPayload of saleItemsPayload) {
-            await prisma.saleItem.create({
+            await db.saleItem.create({
               data: {
                 saleId: sale.id,
                 shopProductId: itemPayload.shopProductId,
@@ -337,7 +401,7 @@ export async function POST(request: Request) {
               },
             });
 
-            const product = await prisma.shopProduct.findUnique({
+            const product = await db.shopProduct.findUnique({
               where: { id: itemPayload.shopProductId },
             });
 
@@ -346,12 +410,14 @@ export async function POST(request: Request) {
                 0,
                 product.stock - itemPayload.quantity
               );
-              await prisma.shopProduct.update({
+              await db.shopProduct.update({
                 where: { id: itemPayload.shopProductId },
-                data: { stock: newStock },
+                data: {
+                  stock: newStock,
+                },
               });
 
-              await prisma.stockMovement.create({
+              await db.stockMovement.create({
                 data: {
                   shopProductId: itemPayload.shopProductId,
                   type: StockMovementType.OUT,
@@ -367,8 +433,8 @@ export async function POST(request: Request) {
           }
         }
 
-        // 6. Update Quotation Status
-        await prisma.quotation.update({
+        // 7. Update Quotation Status
+        await db.quotation.update({
           where: { id: quotationId },
           data: {
             status: "CONVERTED",
@@ -386,10 +452,19 @@ export async function POST(request: Request) {
       }
     );
 
+    // Create notification with package/subpackage context
+    let notificationMessage = `Quotation ${quotation.quotationNumber} has been converted by ${creator.name}.`;
+
+    if (quotation.subpackage?.name) {
+      notificationMessage += ` (Subpackage: ${quotation.subpackage.name})`;
+    } else if (quotation.package?.name) {
+      notificationMessage += ` (Package: ${quotation.package.name})`;
+    }
+
     await db.notification.create({
       data: {
         title: "Quotation Converted",
-        message: `Quotation ${quotation.quotationNumber} has been converted by ${creator.name}.`,
+        message: notificationMessage,
         type: "QUOTATION",
         isRead: false,
         actionUrl: `/dashboard/quotations/${quotation.id}`,
@@ -397,11 +472,18 @@ export async function POST(request: Request) {
       },
     });
 
-    return NextResponse.json({ invoice: result.invoice });
+    return NextResponse.json({
+      success: true,
+      invoice: result.invoice,
+      message: "Quotation converted successfully",
+    });
   } catch (error) {
     console.error("Conversion error:", error);
     return NextResponse.json(
-      { error: "Failed to convert quotation" },
+      {
+        error: "Failed to convert quotation",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

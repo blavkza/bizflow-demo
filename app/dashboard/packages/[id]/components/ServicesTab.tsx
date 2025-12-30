@@ -150,7 +150,6 @@ export default function ServicesTab({ packageData }: ServicesTabProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Service Name</TableHead>
-                <TableHead>Subpackages</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Price</TableHead>
@@ -171,19 +170,7 @@ export default function ServicesTab({ packageData }: ServicesTabProps) {
                         {service.name}
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
-                        {service.subpackages.map((subpackage, idx) => (
-                          <Badge
-                            key={idx}
-                            variant="outline"
-                            className="text-xs"
-                          >
-                            {subpackage}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
+
                     <TableCell>{service.category || "Uncategorized"}</TableCell>
                     <TableCell>{service.duration || "N/A"}</TableCell>
                     <TableCell>R{price.toLocaleString()}</TableCell>

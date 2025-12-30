@@ -52,7 +52,7 @@ export const Editor = ({ value, onChange, placeholder }: EditorProps) => {
         onChange={onChange}
         modules={modules}
         formats={formats}
-        className="h-[200px] mb-12"
+        className="h-[200px] mb-12 dark:text-white"
         placeholder={placeholder}
       />
     </div>

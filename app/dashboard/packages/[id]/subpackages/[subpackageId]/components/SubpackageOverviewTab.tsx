@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tag, Calendar, Box, Wrench } from "lucide-react";
 import Link from "next/link";
 import { Subpackage } from "../../../types";
+import ProductImage from "./ProductImage";
 
 interface SubpackageOverviewTabProps {
   subpackage: Subpackage;
@@ -143,7 +144,7 @@ export default function SubpackageOverviewTab({
                     className="flex items-center justify-between p-3 border rounded-lg"
                   >
                     <div className="flex items-center gap-3">
-                      <Box className="h-4 w-4 text-muted-foreground" />
+                      <ProductImage product={product} size="lg" />
                       <div>
                         <p className="font-medium">{product.name}</p>
                         <p className="text-sm text-muted-foreground">

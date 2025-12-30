@@ -58,6 +58,7 @@ export interface PackageProduct {
   category: string;
   stock: number;
   images: any | null;
+  image: any | null;
   quantity?: number;
   unitPrice?: number;
 }

@@ -265,3 +265,13 @@ body {
 .sidebar-scroll::-webkit-scrollbar-thumb:hover {
   background-color: #94a3b8;
 }
+
+/* Quill editor text color in dark mode */
+.dark .ql-editor {
+  color: white !important;
+}
+
+/* Placeholder color in dark mode */
+.dark .ql-editor.ql-blank::before {
+  color: rgba(255, 255, 255, 0.5) !important;
+}

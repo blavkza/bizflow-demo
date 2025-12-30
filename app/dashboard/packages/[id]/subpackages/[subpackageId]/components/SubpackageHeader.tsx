@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Subpackage } from "../../../types";
+import { ConvertToQuotationDialog } from "./ConvertToQuotationDialog";
 
 interface SubpackageHeaderProps {
   subpackage: Subpackage;
@@ -78,14 +79,11 @@ export default function SubpackageHeader({
       </div>
 
       <div className="flex gap-2">
-        {/*  <Button
-          variant="outline"
-          onClick={onDuplicate}
-          disabled={isDuplicating}
-        >
-          <Copy className="h-4 w-4 mr-2" />
-          {isDuplicating ? "Duplicating..." : "Duplicate"}
-        </Button> */}
+        <ConvertToQuotationDialog
+          subpackageId={subpackageId}
+          subpackageName={subpackage.name}
+          packageId={packageId}
+        />
 
         <Button variant="outline" onClick={onEdit} disabled={isDuplicating}>
           <Edit className="h-4 w-4 mr-2" />
@@ -116,6 +114,10 @@ export default function SubpackageHeader({
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onDuplicate} disabled={isDuplicating}>
+              <Copy className="h-4 w-4 mr-2" />
+              Duplicate Subpackage
+            </DropdownMenuItem>
             <DropdownMenuItem
               className="text-destructive"
               onClick={onDelete}

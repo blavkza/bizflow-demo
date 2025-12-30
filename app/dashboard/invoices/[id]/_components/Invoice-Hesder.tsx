@@ -219,7 +219,7 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
           {depositInfo && (
             <>
               <Separator className="my-4" />
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-blue-50 dark:bg-zinc-900   rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <CreditCard className="h-4 w-4 text-blue-600" />
                   <h4 className="font-semibold text-blue-800">

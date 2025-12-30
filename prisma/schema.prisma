@@ -1545,6 +1545,11 @@ model Invoice {
   package      Package?          @relation(fields: [packageId], references: [id])
   packageId    String?
 
+  // Package and Subpackage relations
+
+  subpackageId String?
+  subpackage   Subpackage? @relation(fields: [subpackageId], references: [id])
+
   @@index([clientId])
   @@index([status])
   @@index([dueDate])
@@ -1697,6 +1702,9 @@ model Quotation {
   toolRentals  ToolRental[]
   package      Package?        @relation(fields: [packageId], references: [id])
   packageId    String?
+
+  subpackageId String?
+  subpackage   Subpackage? @relation(fields: [subpackageId], references: [id])
 
   @@index([clientId])
   @@index([status])
@@ -2345,8 +2353,10 @@ model Subpackage {
 
   package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
 
-  products SubpackageProduct[]
-  services SubpackageService[]
+  products   SubpackageProduct[]
+  services   SubpackageService[]
+  invoices   Invoice[]
+  quotations Quotation[]
 
   @@map("subpackages")
 }

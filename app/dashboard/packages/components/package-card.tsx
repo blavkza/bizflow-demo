@@ -279,7 +279,7 @@ export function PackageCard({
             )}
 
             {/* Quick Stats Overlay */}
-            <div className="absolute bottom-3 right-3 flex gap-2">
+            {/*  <div className="absolute bottom-3 right-3 flex gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge
@@ -307,7 +307,7 @@ export function PackageCard({
                   <TooltipContent>Total Revenue</TooltipContent>
                 </Tooltip>
               )}
-            </div>
+            </div> */}
           </div>
 
           <CardHeader className="pb-3">
@@ -463,7 +463,7 @@ export function PackageCard({
               {/* Stats Grid */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">
+                  <div className="text-md font-bold text-primary">
                     {pkg.salesCount}
                   </div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wider">
@@ -472,7 +472,7 @@ export function PackageCard({
                 </div>
 
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-primary">
+                  <div className="text-md font-bold text-primary">
                     {formatCurrency(revenue)}
                   </div>
                   <div className="text-xs text-muted-foreground uppercase tracking-wider">

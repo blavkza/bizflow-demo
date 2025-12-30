@@ -89,7 +89,7 @@ export default function SubpackageProductsTab({
                 <TableRow key={index}>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
-                      <ProductImage product={product} size="md" />
+                      <ProductImage product={product} size="lg" />
                       <div className="">
                         <p className="font-medium">{product.name}</p>
                         {product.description && (

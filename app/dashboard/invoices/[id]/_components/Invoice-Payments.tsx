@@ -109,7 +109,7 @@ export default function InvoicePayments({ invoice }: InvoicePaymentsProps) {
         </div>
 
         {/* Progress Bar */}
-        <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+        <div className="w-full bg-gray-200 dark:bg-zinc-500 rounded-full h-2 mb-6">
           <div
             className="bg-green-600 h-2 rounded-full transition-all duration-300"
             style={{ width: `${Math.min(paymentProgress, 100)}%` }}

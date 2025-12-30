@@ -179,9 +179,7 @@ export default function SubpackageDetailPage() {
             <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold">Error loading subpackage</h3>
             <p className="text-muted-foreground mt-2">{error}</p>
-            <Button className="mt-4" onClick={() => router.back()}>
-              Back to Package
-            </Button>
+            <Button onClick={() => router.back()}>Back to Package</Button>
           </div>
         </div>
       </SidebarInset>
@@ -221,14 +219,10 @@ export default function SubpackageDetailPage() {
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
 
-          <Button className="mt-4" onClick={() => router.back()}>
+          <Button variant={"ghost"} onClick={() => router.back()}>
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back to Package
           </Button>
-          <Separator orientation="vertical" className="mr-2 h-4" />
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </div>
         </div>
       </header>
 

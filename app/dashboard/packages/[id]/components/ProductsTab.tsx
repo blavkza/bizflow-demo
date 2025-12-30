@@ -158,7 +158,6 @@ export default function ProductsTab({ packageData }: ProductsTabProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Product</TableHead>
-                <TableHead>Subpackages</TableHead>
                 <TableHead>SKU</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Stock</TableHead>
@@ -166,6 +165,7 @@ export default function ProductsTab({ packageData }: ProductsTabProps) {
                 <TableHead>Total Quantity</TableHead>
                 <TableHead>Total Value</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>View</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -207,19 +207,7 @@ export default function ProductsTab({ packageData }: ProductsTabProps) {
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
-                        {product.subpackages.map((subpackage, idx) => (
-                          <Badge
-                            key={idx}
-                            variant="outline"
-                            className="text-xs"
-                          >
-                            {subpackage}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
+
                     <TableCell>
                       {product.sku ? (
                         <code className="text-xs bg-muted px-1 rounded">
