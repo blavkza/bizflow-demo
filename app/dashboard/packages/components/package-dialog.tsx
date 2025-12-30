@@ -189,7 +189,7 @@ export function PackageDialog({
   const fetchCategories = async () => {
     setIsLoadingCategories(true);
     try {
-      const response = await axios.get("/api/categories");
+      const response = await axios.get("/api/category");
       const categories: Category[] =
         response?.data?.data || response?.data || [];
       const options = categories

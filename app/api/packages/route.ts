@@ -3,30 +3,68 @@ import db from "@/lib/db";
 import { PackageStatus } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    console.log("Starting GET /api/packages");
+
+    // Check authentication
     const { userId } = await auth();
+    console.log("User ID:", userId);
 
     if (!userId) {
+      console.log("Unauthorized: No user ID");
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    // Check if user exists in database
+    const user = await db.user.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      console.log("Unauthorized: User not found in database");
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    console.log("Fetching packages from database...");
+
+    // Fetch packages with all relations
     const packages = await db.package.findMany({
       include: {
         subpackages: {
           include: {
-            // Use junction tables for many-to-many
             products: {
               include: {
-                product: true,
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    sku: true,
+                    category: true,
+                    stock: true,
+                    images: true,
+                  },
+                },
               },
             },
             services: {
               include: {
-                service: true,
+                service: {
+                  select: {
+                    id: true,
+                    name: true,
+                    amount: true,
+                    duration: true,
+                    category: true,
+                    features: true,
+                  },
+                },
               },
             },
           },
+          orderBy: { sortOrder: "asc" },
         },
         category: true,
         _count: {
@@ -39,35 +77,103 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    const transformedPackages = packages.map((pkg) => ({
-      ...pkg,
-      subpackages: pkg.subpackages.map((subpackage) => ({
-        ...subpackage,
-        products:
-          subpackage.products?.map((p) => ({
-            ...p.product,
-            quantity: p.quantity,
-            unitPrice: p.unitPrice ? Number(p.unitPrice) : null,
-          })) || [],
-        services:
-          subpackage.services?.map((s) => ({
-            ...s.service,
-            quantity: s.quantity,
-            unitPrice: s.unitPrice ? Number(s.unitPrice) : null,
-          })) || [],
-        price: Number(subpackage.price),
-        originalPrice: subpackage.originalPrice
-          ? Number(subpackage.originalPrice)
-          : null,
-        revenue: Number(subpackage.revenue),
-      })),
-    }));
+    console.log(`Found ${packages.length} packages`);
 
+    // Transform the data for frontend
+    const transformedPackages = packages.map((pkg) => {
+      // Calculate total sales for the package
+      const totalSales = pkg._count?.orders || 0;
+
+      // Calculate average price of subpackages
+      let averagePrice = 0;
+      if (pkg.subpackages.length > 0) {
+        const totalSubpackagePrice = pkg.subpackages.reduce(
+          (sum, sp) => sum + Number(sp.price),
+          0
+        );
+        averagePrice = totalSubpackagePrice / pkg.subpackages.length;
+      }
+
+      return {
+        ...pkg,
+        id: pkg.id,
+        name: pkg.name,
+        description: pkg.description,
+        shortDescription: pkg.shortDescription,
+        category: pkg.category,
+        classification: pkg.classification,
+        notes: pkg.notes,
+        packageType: pkg.packageType,
+        status: pkg.status,
+        featured: pkg.featured,
+        isPublic: pkg.isPublic,
+        images: pkg.images,
+        thumbnail: pkg.thumbnail,
+        tags: pkg.tags || [],
+        benefits: pkg.benefits || [],
+        createdAt: pkg.createdAt.toISOString(),
+        updatedAt: pkg.updatedAt.toISOString(),
+
+        // Stats
+        totalSales,
+        averagePrice,
+        subpackageCount: pkg.subpackages.length,
+
+        // Subpackages with transformed data
+        subpackages: pkg.subpackages.map((sp) => ({
+          id: sp.id,
+          name: sp.name,
+          description: sp.description,
+          price: Number(sp.price),
+          originalPrice: sp.originalPrice ? Number(sp.originalPrice) : null,
+          discount: sp.discount,
+          discountType: sp.discountType,
+          duration: sp.duration,
+          isDefault: sp.isDefault,
+          sortOrder: sp.sortOrder,
+          features: sp.features || [],
+          status: sp.status,
+          salesCount: sp.salesCount,
+          revenue: Number(sp.revenue),
+          packageId: sp.packageId,
+          createdAt: sp.createdAt.toISOString(),
+          updatedAt: sp.updatedAt.toISOString(),
+          products:
+            sp.products?.map((p) => ({
+              id: p.product.id,
+              name: p.product.name,
+              price: Number(p.product.price),
+              sku: p.product.sku,
+              category: p.product.category,
+              stock: p.product.stock,
+              images: p.product.images,
+              quantity: p.quantity || 1,
+              unitPrice: p.unitPrice ? Number(p.unitPrice) : null,
+            })) || [],
+          services:
+            sp.services?.map((s) => ({
+              id: s.service.id,
+              name: s.service.name,
+              amount: Number(s.service.amount),
+              duration: s.service.duration,
+              category: s.service.category,
+              features: s.service.features || [],
+              quantity: s.quantity || 1,
+              unitPrice: s.unitPrice ? Number(s.unitPrice) : null,
+            })) || [],
+        })),
+      };
+    });
+
+    console.log("Sending transformed packages response");
     return NextResponse.json(transformedPackages);
   } catch (error) {
     console.error("Error fetching packages:", error);
     return NextResponse.json(
-      { error: "Failed to fetch packages" },
+      {
+        error: "Failed to fetch packages",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
       { status: 500 }
     );
   }

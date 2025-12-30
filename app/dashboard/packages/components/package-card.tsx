@@ -284,7 +284,7 @@ export function PackageCard({
                 <TooltipTrigger asChild>
                   <Badge
                     variant="outline"
-                    className="bg-white/90 backdrop-blur-sm"
+                    className="bg-white/90 dark:bg-slate-600 backdrop-blur-sm"
                   >
                     <ShoppingBag className="h-3 w-3 mr-1" />
                     {pkg.salesCount}

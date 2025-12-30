@@ -51,7 +51,6 @@ export default function PackagesPage() {
   const [classificationFilter, setClassificationFilter] =
     useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [packages, setPackages] = useState<Package[]>([]);
 
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
@@ -74,27 +73,11 @@ export default function PackagesPage() {
     setLoading(true);
     try {
       const packagesData = await fetchPackages();
+      console.log("Loaded packages data:", packagesData);
 
-      // Calculate stats for each package (frontend processing)
-      const packagesWithStats = packagesData.map((pkg: any) => {
-        const totalSales = pkg.salesCount;
-        const averagePrice =
-          pkg.subpackages.length > 0
-            ? pkg.subpackages.reduce(
-                (sum: number, sp: any) => sum + sp.price.toNumber(),
-                0
-              ) / pkg.subpackages.length
-            : 0;
-
-        return {
-          ...pkg,
-          totalSales,
-          averagePrice,
-          subpackageCount: pkg._count?.subpackages || 0,
-        };
-      });
-
-      setAllPackages(packagesWithStats);
+      // The data from API already has the stats calculated
+      // Use the data as-is, no need to recalculate
+      setAllPackages(packagesData);
     } catch (error) {
       console.error("Error loading packages:", error);
       toast({
@@ -209,7 +192,7 @@ export default function PackagesPage() {
   };
 
   const handleUpdate = () => {
-    fetchPackages();
+    loadPackages();
   };
 
   const clearFilters = () => {
@@ -260,7 +243,7 @@ export default function PackagesPage() {
           onClassificationChange={setClassificationFilter}
           onCategoryChange={setCategoryFilter}
           onClearFilters={clearFilters}
-          packages={packages}
+          packages={allPackages}
         />
 
         {/* Packages Grid */}
