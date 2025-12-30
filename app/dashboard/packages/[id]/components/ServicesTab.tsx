@@ -15,9 +15,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Wrench } from "lucide-react";
+import { Eye, Wrench } from "lucide-react";
 import { PackageData, PackageService } from "../types";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 interface ServicesTabProps {
   packageData: PackageData;
@@ -155,6 +156,7 @@ export default function ServicesTab({ packageData }: ServicesTabProps) {
                 <TableHead>Price</TableHead>
                 <TableHead>Features</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>view</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -209,6 +211,11 @@ export default function ServicesTab({ packageData }: ServicesTabProps) {
                       >
                         Active
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/dashboard/services/${service.id}`}>
+                        <Eye className="w-4 h-4" />
+                      </Link>
                     </TableCell>
                   </TableRow>
                 );

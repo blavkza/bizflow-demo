@@ -15,10 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Box, Image as ImageIcon } from "lucide-react";
+import { Box, Eye, Image as ImageIcon } from "lucide-react";
 import { PackageData, PackageProduct } from "../types";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
+import Link from "next/link";
 
 interface ProductsTabProps {
   packageData: PackageData;
@@ -249,6 +250,11 @@ export default function ProductsTab({ packageData }: ProductsTabProps) {
                       >
                         Active
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/dashboard/shop/products/${product.id}`}>
+                        <Eye className="w-4 h-4" />
+                      </Link>
                     </TableCell>
                   </TableRow>
                 );

@@ -1,6 +1,6 @@
+import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
-import { NextRequest, NextResponse } from "next/server";
 
 interface RouteParams {
   params: {
@@ -51,6 +51,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 category: true,
                 stock: true,
                 images: true,
+                status: true,
               },
             },
           },
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 duration: true,
                 category: true,
                 features: true,
+                status: true,
               },
             },
           },
@@ -79,6 +81,43 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         { status: 404 }
       );
     }
+
+    // Helper function to safely get image
+    const getProductImage = (images: any) => {
+      try {
+        if (!images) return null;
+
+        // If images is already a string URL
+        if (typeof images === "string") {
+          // Check if it's a URL
+          if (images.startsWith("http") || images.startsWith("/")) {
+            return images;
+          }
+
+          // Try to parse as JSON
+          try {
+            const parsed = JSON.parse(images);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed[0];
+            }
+            return parsed;
+          } catch {
+            // If it's not valid JSON, return as is
+            return images;
+          }
+        }
+
+        // If images is already an array
+        if (Array.isArray(images) && images.length > 0) {
+          return images[0];
+        }
+
+        return null;
+      } catch (error) {
+        console.error("Error parsing product images:", error);
+        return null;
+      }
+    };
 
     // Transform the response
     const response = {
@@ -111,11 +150,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         price: Number(item.product.price),
         category: item.product.category,
         stock: item.product.stock,
-        image: item.product.images
-          ? JSON.parse(item.product.images as string)?.[0]
-          : null,
+        image: getProductImage(item.product.images), // Use the helper function
         quantity: item.quantity,
         unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
+        status: item.product.status,
       })),
       services: subpackage.services.map((item) => ({
         id: item.service.id,
@@ -127,6 +165,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         features: item.service.features,
         quantity: item.quantity,
         unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
+        status: item.service.status,
       })),
     };
 

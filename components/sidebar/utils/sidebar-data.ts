@@ -299,6 +299,18 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Package_VIEW)
+            ? [
+                {
+                  title: "Packages",
+                  url: "/dashboard/packages",
+                  icon: BoxesIcon,
+                  color: "text-orange-500",
+                },
+              ]
+            : []),
+
+          ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.Tool_VIEW)
             ? [
                 {

@@ -391,7 +391,7 @@ export default function SubpackagesTab({
 
                   <Button className="w-full" asChild>
                     <Link
-                      href={`/packages/${params.id}/subpackages/${subpackage.id}`}
+                      href={`/dashboard/packages/${params.id}/subpackages/${subpackage.id}`}
                     >
                       View Full Details
                     </Link>

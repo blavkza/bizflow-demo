@@ -1,5 +1,5 @@
 import axios from "axios";
-import { PackageData, CreateSubpackageData } from "./types";
+import { PackageData, CreateSubpackageData, Subpackage } from "./types";
 
 export async function getPackage(id: string): Promise<PackageData> {
   try {
@@ -137,4 +137,13 @@ export async function duplicateSubpackage(
     console.error("Error duplicating subpackage:", error);
     throw error;
   }
+}
+
+export async function getSubpackage(id: string): Promise<Subpackage> {
+  const response = await fetch(`/api/subpackages/${id}`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch subpackage");
+  }
+  const data = await response.json();
+  return data.data;
 }

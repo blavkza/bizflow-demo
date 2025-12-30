@@ -3175,6 +3175,10 @@ enum UserPermission {
   Service_CREATE
   Service_EDIT
   Service_DELETE
+  Package_VIEW
+  Package_CREATE
+  Package_EDIT
+  Package_DELETE
 }
 
 enum DepositType {
