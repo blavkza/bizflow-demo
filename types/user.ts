@@ -128,6 +128,15 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
+    name: "Packages",
+    permissions: [
+      UserPermission.Package_CREATE,
+      UserPermission.Package_EDIT,
+      UserPermission.Package_DELETE,
+      UserPermission.Package_VIEW,
+    ],
+  },
+  {
     name: "Tools",
     permissions: [
       UserPermission.Tool_CREATE,
