@@ -1002,6 +1002,7 @@ model Category {
   budgets      BudgetItem[]
   splits       TransactionSplit[]
   Expense      Expense[]
+  packages     Package[]
 
   @@map("categories")
 }
@@ -1961,15 +1962,16 @@ model ShopProduct {
   creater String?
 
   // Relations
+  subpackages       SubpackageProduct[]
   orderItems        OrderItem[]
   stockMovements    StockMovement[]
   saleItems         SaleItem[]
   productDocuments  ProductDocument[]
-  ProductCategory   ProductCategory?  @relation(fields: [productCategoryId], references: [id])
+  ProductCategory   ProductCategory?    @relation(fields: [productCategoryId], references: [id])
   productCategoryId String?
   quotationItems    QuotationItem[]
   invoiceItems      InvoiceItem[]
-  package           Package?          @relation(fields: [packageId], references: [id])
+  package           Package?            @relation(fields: [packageId], references: [id])
   packageId         String?
   saleQuoteItems    SaleQuoteItem[]
   stockAwaits       StockAwait[]
@@ -2278,51 +2280,107 @@ model RefundItem {
 }
 
 model Package {
-  id               String  @id @default(cuid())
+  id               String      @id @default(cuid())
   name             String
   description      String?
   shortDescription String?
+  categoryId       String
+  classification   String?
+  notes            String?
+  packageType      PackageType @default(BUNDLE)
 
-  classification String?
-  category       String?
-
-  price         Decimal  @db.Decimal(10, 2)
-  originalPrice Decimal? @db.Decimal(10, 2)
-  discount      Int?
-
-  // Package Details
-  duration    String?
-  packageType PackageType @default(BUNDLE)
-
-  // Status
   status   PackageStatus @default(ACTIVE)
   featured Boolean       @default(false)
   isPublic Boolean       @default(true)
 
-  // Media
   images    Json?
   thumbnail String?
 
-  // Stats
   salesCount   Int     @default(0)
   totalRevenue Decimal @default(0) @db.Decimal(12, 2)
 
-  // Metadata
   tags     String[]
-  features String[]
   benefits String[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
-  packageProducts ShopProduct[]
-  packageServices Service[]
-  orders          Order[]
-  quotations      Quotation[]
-  invoices        Invoice[]
+  subpackages  Subpackage[]
+  invoices     Invoice[]
+  quotations   Quotation[]
+  shopProducts ShopProduct[]
+  orders       Order[]
+  services     Service[]
+  category     Category      @relation(fields: [categoryId], references: [id])
 
   @@map("packages")
+}
+
+model Subpackage {
+  id               String  @id @default(cuid())
+  packageId        String
+  name             String
+  description      String?
+  shortDescription String?
+
+  price         Decimal  @db.Decimal(10, 2)
+  originalPrice Decimal? @db.Decimal(10, 2)
+  discount      Int?
+  discountType  String?
+
+  duration String?
+
+  status    PackageStatus @default(ACTIVE)
+  isDefault Boolean       @default(false)
+
+  sortOrder Int @default(0)
+
+  features String[]
+
+  salesCount Int     @default(0)
+  revenue    Decimal @default(0) @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  products SubpackageProduct[]
+  services SubpackageService[]
+
+  @@map("subpackages")
+}
+
+model SubpackageProduct {
+  id           String      @id @default(cuid())
+  subpackage   Subpackage  @relation(fields: [subpackageId], references: [id], onDelete: Cascade)
+  subpackageId String
+  product      ShopProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId    String
+  quantity     Int         @default(1)
+  unitPrice    Decimal?    @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subpackageId, productId])
+  @@map("subpackage_products")
+}
+
+model SubpackageService {
+  id           String     @id @default(cuid())
+  subpackage   Subpackage @relation(fields: [subpackageId], references: [id], onDelete: Cascade)
+  subpackageId String
+  service      Service    @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId    String
+  quantity     Int        @default(1)
+  unitPrice    Decimal?   @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([subpackageId, serviceId])
+  @@map("subpackage_services")
 }
 
 model Customer {
@@ -2519,6 +2577,8 @@ model Service {
   updatedAt DateTime @updatedAt
 
   // Relations
+  subpackages SubpackageService[]
+
   projects       Project[]
   quotationItems QuotationItem[]
   invoiceItems   InvoiceItem[]

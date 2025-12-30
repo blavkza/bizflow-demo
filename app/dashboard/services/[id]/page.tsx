@@ -132,7 +132,7 @@ interface Project {
 interface Service {
   id: string;
   name: string;
-  description: string;
+  description?: string | "N/A";
   category: string;
   categoryId: string;
   amount: number;
@@ -164,7 +164,7 @@ interface CategoryOption {
 // Form validation schema
 const serviceFormSchema = z.object({
   name: z.string().min(1, "Service name is required"),
-  description: z.string().min(1, "Description is required"),
+  description: z.string().optional(),
   categoryId: z.string().min(1, "Category is required"),
   amount: z.string().min(1, "Amount is required"),
   duration: z.string().optional(),
@@ -524,7 +524,7 @@ export default function ServiceDetailPage() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
+                    <FormLabel>Description (optional)</FormLabel>
                     <FormControl>
                       <Textarea placeholder="Service description" {...field} />
                     </FormControl>
@@ -813,7 +813,9 @@ export default function ServiceDetailPage() {
               <CardTitle>Service Description</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">{service.description}</p>
+              <p className="text-muted-foreground">
+                {service.description || "N/A"}
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

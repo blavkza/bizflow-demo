@@ -135,7 +135,7 @@ export async function PUT(
       where: { id: params.id },
       data: {
         name: body.name,
-        description: body.description,
+        description: body.description || "N/A",
         category: body.category,
         categoryId: body.categoryId,
         amount: parseFloat(body.amount),

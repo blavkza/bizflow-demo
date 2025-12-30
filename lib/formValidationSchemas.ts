@@ -10,6 +10,8 @@ import {
   EmployeeStatus,
   InvoicePaymentStatus,
   InvoiceStatus,
+  PackageStatus,
+  PackageType,
   PaymentMethod,
   PaymentType,
   Priority,
@@ -954,3 +956,35 @@ export const expenseSchema = z.object({
 });
 
 export type ExpenseFormValues = z.infer<typeof expenseSchema>;
+
+export const packageFormSchema = z.object({
+  name: z
+    .string()
+    .min(3, "Package name must be at least 3 characters")
+    .max(100),
+  description: z
+    .string()
+    .min(10, "Description must be at least 10 characters")
+    .max(1000)
+    .optional()
+    .or(z.literal("")),
+  shortDescription: z.string().max(200).optional().or(z.literal("")),
+  notes: z.string().optional().or(z.literal("")),
+  classification: z.string().min(1, "Please select a classification"),
+  category: z.string().min(1, "Please select a category"),
+  packageType: z.nativeEnum(PackageType, {
+    required_error: "Please select a package type",
+  }),
+  status: z.nativeEnum(PackageStatus).default(PackageStatus.DRAFT),
+  featured: z.boolean().default(false),
+  isPublic: z.boolean().default(true),
+  thumbnail: z
+    .string()
+    .url("Please enter a valid URL")
+    .optional()
+    .or(z.literal("")),
+  tags: z.string().optional().or(z.literal("")),
+  benefits: z.string().optional().or(z.literal("")),
+});
+
+export type PackageFormValues = z.infer<typeof packageFormSchema>;

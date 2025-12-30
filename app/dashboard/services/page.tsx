@@ -77,7 +77,7 @@ interface Service {
   currency: string;
   duration: string;
   status: ServiceStatus;
-  clientsCount: number; // Number of clients
+  clientsCount: number;
   revenue: number;
   completedProjects: number;
   activeProjects: number;
@@ -100,7 +100,7 @@ interface CategoryOption {
 // Form validation schema
 const serviceFormSchema = z.object({
   name: z.string().min(1, "Service name is required"),
-  description: z.string().min(1, "Description is required"),
+  description: z.string().optional(),
   categoryId: z.string().min(1, "Category is required"),
   amount: z.string().min(1, "Amount is required"),
   duration: z.string().optional(),
@@ -388,7 +388,7 @@ export default function ServicesPage() {
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Description</FormLabel>
+                        <FormLabel>Description (optional)</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="Service description"
@@ -401,23 +401,6 @@ export default function ServicesPage() {
                   />
 
                   <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="categoryId"
-                      render={({ field }) => (
-                        <FormItem className="space-y-1">
-                          <FormLabel>Category</FormLabel>
-                          <Combobox
-                            options={categoriesOptions}
-                            value={field.value}
-                            onChange={field.onChange}
-                            isLoading={isLoadingCategories}
-                            placeholder="Select category"
-                          />
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
                     <FormField
                       control={form.control}
                       name="categoryId"
@@ -697,7 +680,7 @@ export default function ServicesPage() {
                       {service.name}
                     </h3>
                     <p className="text-sm text-muted-foreground line-clamp-2">
-                      {service.description}
+                      {service.description || "N/A"}
                     </p>
                   </div>
 
@@ -802,7 +785,7 @@ export default function ServicesPage() {
                           <Badge variant="outline">{service.category}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground mb-3">
-                          {service.description}
+                          {service.description || "N/A"}
                         </p>
                         <div className="flex flex-wrap gap-4 text-sm">
                           <div className="flex items-center">

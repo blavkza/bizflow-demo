@@ -1,4 +1,3 @@
-// app/dashboard/shop/categories/CategoryDetailModal.tsx
 "use client";
 
 import React from "react";
