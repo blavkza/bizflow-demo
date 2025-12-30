@@ -78,14 +78,14 @@ export default function SubpackageHeader({
       </div>
 
       <div className="flex gap-2">
-        <Button
+        {/*  <Button
           variant="outline"
           onClick={onDuplicate}
           disabled={isDuplicating}
         >
           <Copy className="h-4 w-4 mr-2" />
           {isDuplicating ? "Duplicating..." : "Duplicate"}
-        </Button>
+        </Button> */}
 
         <Button variant="outline" onClick={onEdit} disabled={isDuplicating}>
           <Edit className="h-4 w-4 mr-2" />

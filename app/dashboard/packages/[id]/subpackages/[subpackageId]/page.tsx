@@ -91,7 +91,7 @@ export default function SubpackageDetailPage() {
         description: "The subpackage has been deleted successfully.",
       });
 
-      router.push(`/packages/${params.id}`);
+      router.back();
     } catch (error) {
       toast({
         title: "Error",
@@ -179,10 +179,7 @@ export default function SubpackageDetailPage() {
             <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold">Error loading subpackage</h3>
             <p className="text-muted-foreground mt-2">{error}</p>
-            <Button
-              className="mt-4"
-              onClick={() => router.push(`/packages/${params.id}`)}
-            >
+            <Button className="mt-4" onClick={() => router.back()}>
               Back to Package
             </Button>
           </div>
@@ -223,16 +220,14 @@ export default function SubpackageDetailPage() {
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={`/packages/${params.id}`}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Package
-            </Link>
+
+          <Button className="mt-4" onClick={() => router.back()}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to Package
           </Button>
           <Separator orientation="vertical" className="mr-2 h-4" />
           <div className="flex items-center gap-2">
             <Package className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">Subpackage Details</span>
           </div>
         </div>
       </header>
