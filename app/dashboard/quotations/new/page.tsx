@@ -60,7 +60,7 @@ export default function CreateQuotationPage() {
   }, [isLoading, hasFullAccess]);
 
   const handleSubmitSuccess = () => {
-    router.push("/dashboard/quotations");
+    router.back();
     router.refresh();
   };
 
@@ -71,10 +71,8 @@ export default function CreateQuotationPage() {
   return (
     <div className="container mx-auto p-8">
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/dashboard/quotations">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+        <Button variant="outline" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold">Create New Quotation</h1>
       </div>

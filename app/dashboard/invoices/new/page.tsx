@@ -75,10 +75,8 @@ export default function CreateInvoicePage() {
   return (
     <div className="container mx-auto py-8">
       <div className="flex items-center gap-4 mb-6">
-        <Button variant="outline" size="icon" asChild>
-          <Link href="/dashboard/invoices">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+        <Button variant="outline" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold">Create New Invoice</h1>
       </div>

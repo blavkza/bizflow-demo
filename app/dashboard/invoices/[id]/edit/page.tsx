@@ -71,12 +71,10 @@ export default function EditInvoicePage({
         <Button
           variant="outline"
           size="icon"
-          asChild
+          onClick={() => router.back()}
           aria-label="Back to invoices"
         >
-          <Link href={`/dashboard/invoices/${invoiceData.id}`}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold">
           Edit Invoice #{invoiceData.invoiceNumber}

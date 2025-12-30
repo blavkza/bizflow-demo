@@ -12,8 +12,8 @@ import { QuotationInfoCard } from "./_components/QuotationInfoCard";
 import { TermsCard } from "./_components/TermsCard";
 import { ItemsTable } from "./_components/ItemsTable";
 import { ClientInfoCard } from "./_components/ClientInfoCard";
-// Import the new component
 import { QuotationPreview } from "./_components/QuotationPreview";
+import { DocumentPreview } from "./_components/DocumentPreview";
 import QuotationDetailLoading from "./_components/loading";
 import { UserPermission, UserRole } from "@prisma/client";
 import { useAuth } from "@clerk/nextjs";
@@ -143,7 +143,8 @@ export default function QuotationDetailPage({
           <TabsTrigger value="items">Items & Totals</TabsTrigger>
           <TabsTrigger value="details">Details & Terms</TabsTrigger>
           <TabsTrigger value="client">Client Info</TabsTrigger>
-          <TabsTrigger value="preview">Preview PDF</TabsTrigger>
+          <TabsTrigger value="quotation-preview">Quotation Preview</TabsTrigger>
+          <TabsTrigger value="document-preview">Document Preview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="items" className="space-y-4">
@@ -161,8 +162,12 @@ export default function QuotationDetailPage({
           <ClientInfoCard quotation={quotation} />
         </TabsContent>
 
-        <TabsContent value="preview" className="space-y-4">
+        <TabsContent value="quotation-preview" className="space-y-4">
           <QuotationPreview quotation={quotation} />
+        </TabsContent>
+
+        <TabsContent value="document-preview" className="space-y-4">
+          <DocumentPreview quotation={quotation} />
         </TabsContent>
       </Tabs>
     </div>

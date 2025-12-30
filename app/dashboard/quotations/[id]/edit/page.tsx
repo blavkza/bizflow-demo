@@ -60,12 +60,10 @@ export default function EditQuotationPage({
         <Button
           variant="outline"
           size="icon"
-          asChild
+          onClick={() => router.back()}
           aria-label="Back to quotations"
         >
-          <Link href={`/dashboard/quotations/${quotation.id}`}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+          <ArrowLeft className="h-4 w-4" />
         </Button>
         <h1 className="text-2xl font-bold">
           Update Quotation #{quotation.quotationNumber}
@@ -76,7 +74,7 @@ export default function EditQuotationPage({
         <QuotationForm
           type="update"
           data={quotation}
-          onCancel={() => router.push(`/dashboard/quotations/${id}`)}
+          onCancel={() => router.back()}
           onSubmitSuccess={handleSubmitSuccess}
           quotationId={id}
         />

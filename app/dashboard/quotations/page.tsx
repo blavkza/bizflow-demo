@@ -213,7 +213,10 @@ export default function QuotationsPage() {
           <CardTitle>Quotations</CardTitle>
         </CardHeader>
         <CardContent>
-          <QuotationTable quotations={filteredQuotations} />
+          <QuotationTable
+            quotations={filteredQuotations}
+            canCreateQuotations={canCreateQuotations || hasFullAccess}
+          />
         </CardContent>
       </Card>
     </div>

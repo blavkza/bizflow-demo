@@ -49,7 +49,7 @@ export default function PackageDetailPage() {
           <div className="p-8 text-center">
             <h3 className="text-lg font-semibold">Error loading package</h3>
             <p className="text-muted-foreground mt-2">{error}</p>
-            <Button className="mt-4" onClick={() => router.push("/packages")}>
+            <Button className="mt-4" onClick={() => router.back()}>
               Back to Packages
             </Button>
           </div>
@@ -87,11 +87,9 @@ export default function PackageDetailPage() {
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard/packages">
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Packages
-            </Link>
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to Packages
           </Button>
         </div>
       </header>
