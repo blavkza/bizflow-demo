@@ -63,7 +63,7 @@ export async function POST(req: Request) {
         lastName,
         position,
         phone,
-        email,
+        email: email || "No Email",
         departmentId,
         salary,
         overtimeHourRate: overtimeHourRate || 0,

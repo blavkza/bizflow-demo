@@ -443,7 +443,7 @@ model FreeLancer {
   freeLancerNumber String  @unique
   firstName        String
   lastName         String
-  email            String? @unique
+  email            String?
   phone            String?
   avatar           String?
   position         String
