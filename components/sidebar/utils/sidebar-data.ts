@@ -138,7 +138,7 @@ export const getSidebarData = (
             title: "Services",
             url: "/dashboard/services",
             icon: GrServices,
-            color: "text-green-500",
+            color: "text-blue-500",
           },
         ]
       : []),
@@ -235,6 +235,16 @@ export const getSidebarData = (
             url: "/dashboard/shop/categories",
             icon: Building2,
             color: "text-red-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess || hasPermission(permissions, UserPermission.Vender_VIEW)
+      ? [
+          {
+            title: "Suppliers",
+            url: "/dashboard/suppliers",
+            icon: CgArrowsExchange,
+            color: "text-Orange-500",
           },
         ]
       : []),
