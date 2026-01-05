@@ -26,6 +26,7 @@ import {
   HandCoins,
   Wrench,
   Box,
+  Settings,
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
 import { CgArrowsExchange } from "react-icons/cg";
@@ -73,6 +74,211 @@ export const getSidebarData = (
             : []),
         ],
       },
+
+      {
+        title: "Admin",
+        items: [
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Package_VIEW)
+            ? [
+                {
+                  title: "Packaged Combo",
+                  url: "/dashboard/packages",
+                  icon: BoxesIcon,
+                  color: "text-orange-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.QUOTATIONS_VIEW)
+            ? [
+                {
+                  title: "Quotations",
+                  url: "/dashboard/quotations",
+                  icon: FileText,
+                  color: "text-purple-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.INVOICES_VIEW)
+            ? [
+                {
+                  title: "Invoices",
+                  url: "/dashboard/invoices",
+                  icon: Receipt,
+                  color: "text-pink-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Refund_VIEW)
+            ? [
+                {
+                  title: "Refunds",
+                  url: "/dashboard/refunds",
+                  icon: HandCoins,
+                  color: "text-green-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Expanses_VIEW)
+            ? [
+                {
+                  title: "Expenses",
+                  url: "/dashboard/expenses",
+                  icon: ChartNoAxesCombined,
+                  color: "text-red-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.TRANSACTIONS_VIEW)
+            ? [
+                {
+                  title: "Transactions",
+                  url: "/dashboard/transactions",
+                  icon: CreditCard,
+                  color: "text-green-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Service_VIEW)
+            ? [
+                {
+                  title: "Services",
+                  url: "/dashboard/services",
+                  icon: GrServices,
+                  color: "text-green-500",
+                },
+              ]
+            : []),
+
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Clients_VIEW)
+            ? [
+                {
+                  title: "Clients",
+                  url: "/dashboard/human-resources/clients",
+                  icon: Building,
+                  color: "text-fuchsia-500",
+                },
+              ]
+            : []),
+
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.CATEGORY_VIEW)
+            ? [
+                {
+                  title: "Categories",
+                  url: "/dashboard/categories",
+                  icon: Building2,
+                  color: "text-orange-500",
+                },
+              ]
+            : []),
+          /*    ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.INVENTORY_VIEW)
+            ? [
+                {
+                  title: "Inventory",
+                  url: "/dashboard/inventory",
+                  icon: Store,
+                  color: "text-green-500",
+                },
+              ]
+            : []), */
+        ].filter((item) => item !== null),
+      },
+
+      /* Shop */
+      {
+        title: "Shop",
+        items: [
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.POS_VIEW)
+            ? [
+                {
+                  title: "Point Of Sale",
+                  url: "/dashboard/shop/pos",
+                  icon: Store,
+                  color: "text-red-500",
+                },
+              ]
+            : []),
+
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Sale_VIEW)
+            ? [
+                {
+                  title: "Sales Quotations",
+                  url: "/dashboard/shop/qoutations",
+                  icon: Box,
+                  color: "text-yellow-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Sale_VIEW)
+            ? [
+                {
+                  title: "Awaiting Stocks",
+                  url: "/dashboard/shop/stock-awaits",
+                  icon: CgArrowsExchange,
+                  color: "text-purple-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Sale_VIEW)
+            ? [
+                {
+                  title: "Sales",
+                  url: "/dashboard/shop/sales",
+                  icon: CircleDollarSign,
+                  color: "text-blue-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Order_VIEW)
+            ? [
+                {
+                  title: "Orders",
+                  url: "/dashboard/shop/orders",
+                  icon: BoxesIcon,
+                  color: "text-green-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Product_VIEW)
+            ? [
+                {
+                  title: "Products",
+                  url: "/dashboard/shop/products",
+                  icon: ScanBarcode,
+                  color: "text-pink-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.CATEGORY_VIEW)
+            ? [
+                {
+                  title: "Products Categories",
+                  url: "/dashboard/shop/categories",
+                  icon: Building2,
+                  color: "text-red-500",
+                },
+              ]
+            : []),
+        ].filter((item) => item !== null),
+      },
+
+      /*  Projects */
       ...(hasFullAccess ||
       hasPermission(permissions, UserPermission.PROJECTS_VIEW)
         ? [
@@ -110,206 +316,8 @@ export const getSidebarData = (
           ]
         : []),
       {
-        title: "Financial Management",
+        title: "Tools",
         items: [
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.TRANSACTIONS_VIEW)
-            ? [
-                {
-                  title: "Transactions",
-                  url: "/dashboard/transactions",
-                  icon: CreditCard,
-                  color: "text-green-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.QUOTATIONS_VIEW)
-            ? [
-                {
-                  title: "Quotations",
-                  url: "/dashboard/quotations",
-                  icon: FileText,
-                  color: "text-purple-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.INVOICES_VIEW)
-            ? [
-                {
-                  title: "Invoices",
-                  url: "/dashboard/invoices",
-                  icon: Receipt,
-                  color: "text-pink-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.PAYROLL_VIEW)
-            ? [
-                {
-                  title: "Payroll",
-                  url: "/dashboard/payroll",
-                  icon: Users,
-                  color: "text-emerald-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Expanses_VIEW)
-            ? [
-                {
-                  title: "Expenses",
-                  url: "/dashboard/expenses",
-                  icon: ChartNoAxesCombined,
-                  color: "text-red-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Refund_VIEW)
-            ? [
-                {
-                  title: "Refunds",
-                  url: "/dashboard/refunds",
-                  icon: HandCoins,
-                  color: "text-green-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.CATEGORY_VIEW)
-            ? [
-                {
-                  title: "Categories",
-                  url: "/dashboard/categories",
-                  icon: Building2,
-                  color: "text-orange-500",
-                },
-              ]
-            : []),
-          /*    ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.INVENTORY_VIEW)
-            ? [
-                {
-                  title: "Inventory",
-                  url: "/dashboard/inventory",
-                  icon: Store,
-                  color: "text-green-500",
-                },
-              ]
-            : []), */
-        ].filter((item) => item !== null),
-      },
-      {
-        title: "Shop",
-        items: [
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.POS_VIEW)
-            ? [
-                {
-                  title: "Point Of Sale",
-                  url: "/dashboard/shop/pos",
-                  icon: Store,
-                  color: "text-red-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Order_VIEW)
-            ? [
-                {
-                  title: "Orders",
-                  url: "/dashboard/shop/orders",
-                  icon: BoxesIcon,
-                  color: "text-green-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Sale_VIEW)
-            ? [
-                {
-                  title: "Sales",
-                  url: "/dashboard/shop/sales",
-                  icon: CircleDollarSign,
-                  color: "text-blue-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Sale_VIEW)
-            ? [
-                {
-                  title: "Sales Quotations",
-                  url: "/dashboard/shop/qoutations",
-                  icon: Box,
-                  color: "text-yellow-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Sale_VIEW)
-            ? [
-                {
-                  title: "Awaiting Stocks",
-                  url: "/dashboard/shop/stock-awaits",
-                  icon: CgArrowsExchange,
-                  color: "text-purple-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Product_VIEW)
-            ? [
-                {
-                  title: "Products",
-                  url: "/dashboard/shop/products",
-                  icon: ScanBarcode,
-                  color: "text-pink-500",
-                },
-              ]
-            : []),
-        ].filter((item) => item !== null),
-      },
-      {
-        title: "Business",
-        items: [
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.CATEGORY_VIEW)
-            ? [
-                {
-                  title: "Products Categories",
-                  url: "/dashboard/shop/categories",
-                  icon: Building2,
-                  color: "text-red-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Service_VIEW)
-            ? [
-                {
-                  title: "Services",
-                  url: "/dashboard/services",
-                  icon: GrServices,
-                  color: "text-green-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Package_VIEW)
-            ? [
-                {
-                  title: "Packages",
-                  url: "/dashboard/packages",
-                  icon: BoxesIcon,
-                  color: "text-orange-500",
-                },
-              ]
-            : []),
-
           ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.Tool_VIEW)
             ? [
@@ -332,22 +340,24 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Vender_VIEW)
-            ? [
-                {
-                  title: "Suppliers",
-                  url: "/dashboard/suppliers",
-                  icon: CgArrowsExchange,
-                  color: "text-Orange-500",
-                },
-              ]
-            : []),
         ].filter((item) => item !== null),
       },
+
+      /*Human Resources */
       {
         title: "Human Resources",
         items: [
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.PAYROLL_VIEW)
+            ? [
+                {
+                  title: "Payroll",
+                  url: "/dashboard/payroll",
+                  icon: Users,
+                  color: "text-emerald-500",
+                },
+              ]
+            : []),
           ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.EMPLOYEES_VIEW)
             ? [
@@ -403,28 +413,7 @@ export const getSidebarData = (
                 },
               ]
             : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.Clients_VIEW)
-            ? [
-                {
-                  title: "Clients",
-                  url: "/dashboard/human-resources/clients",
-                  icon: Building,
-                  color: "text-fuchsia-500",
-                },
-              ]
-            : []),
-          ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.USERS_VIEW)
-            ? [
-                {
-                  title: "User Management",
-                  url: "/dashboard/human-resources/users",
-                  icon: UserCog,
-                  color: "text-teal-500",
-                },
-              ]
-            : []),
+
           ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.Perfomance_VIEW)
             ? [
@@ -436,10 +425,42 @@ export const getSidebarData = (
                 },
               ]
             : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.Vender_VIEW)
+            ? [
+                {
+                  title: "Suppliers",
+                  url: "/dashboard/suppliers",
+                  icon: CgArrowsExchange,
+                  color: "text-Orange-500",
+                },
+              ]
+            : []),
         ].filter((item) => item !== null),
       },
+
+      /* Director */
       {
-        title: "Tools",
+        title: "Director",
+        items: [
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.USERS_VIEW)
+            ? [
+                {
+                  title: "User Management",
+                  url: "/dashboard/human-resources/users",
+                  icon: UserCog,
+                  color: "text-teal-500",
+                },
+              ]
+            : []),
+        ].filter((item) => item !== null),
+      },
+
+      /* System */
+
+      {
+        title: "System",
         items: [
           ...(hasFullAccess ||
           hasPermission(permissions, UserPermission.SYSTEMS_AI)
@@ -468,6 +489,18 @@ export const getSidebarData = (
                   icon: Bell,
                   badge: unreadCount > 0 ? unreadCount.toString() : undefined,
                   color: "text-red-500",
+                },
+              ]
+            : []),
+          ...(hasFullAccess ||
+          hasPermission(permissions, UserPermission.SYSTEMS_NOTIFICATIONS)
+            ? [
+                {
+                  title: "settings",
+                  url: "/dashboard/notifications",
+                  icon: Settings,
+                  badge: unreadCount > 0 ? unreadCount.toString() : undefined,
+                  color: "text-blue-500",
                 },
               ]
             : []),
