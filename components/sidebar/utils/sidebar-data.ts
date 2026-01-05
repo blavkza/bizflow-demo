@@ -493,7 +493,7 @@ export const getSidebarData = (
               ]
             : []),
           ...(hasFullAccess ||
-          hasPermission(permissions, UserPermission.SYSTEMS_NOTIFICATIONS)
+          hasPermission(permissions, UserPermission.SETTINGS_VIEW)
             ? [
                 {
                   title: "settings",
