@@ -100,6 +100,12 @@ const paymentMethods = [
     icon: CreditCard,
     frontendValue: "card",
   },
+  {
+    value: PaymentMethod.STORE_CREDIT,
+    label: "Store Credit",
+    icon: CreditCard,
+    frontendValue: "Store Credit",
+  },
 ];
 
 export function CheckoutDialog({
