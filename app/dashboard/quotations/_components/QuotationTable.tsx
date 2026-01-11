@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Copy, Loader2 } from "lucide-react";
+import { Eye, Copy, Loader2, Edit } from "lucide-react";
 import Link from "next/link";
 import { QuotationWithRelations } from "@/types/quotation";
 import { format } from "date-fns";
@@ -202,7 +202,7 @@ export function QuotationTable({
                             <Link
                               href={`/dashboard/quotations/${quotation.id}/edit`}
                             >
-                              <Eye className="h-4 w-4 mr-2" />
+                              <Edit className="h-4 w-4 mr-2" />
                               Edit Quotation
                             </Link>
                           </DropdownMenuItem>

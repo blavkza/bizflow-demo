@@ -144,7 +144,8 @@ export default function QuotationDetailPage({
           <TabsTrigger value="details">Details & Terms</TabsTrigger>
           <TabsTrigger value="client">Client Info</TabsTrigger>
           <TabsTrigger value="quotation-preview">Quotation Preview</TabsTrigger>
-          <TabsTrigger value="document-preview">Document Preview</TabsTrigger>
+          {/*           <TabsTrigger value="document-preview">Document Preview</TabsTrigger>
+           */}{" "}
         </TabsList>
 
         <TabsContent value="items" className="space-y-4">

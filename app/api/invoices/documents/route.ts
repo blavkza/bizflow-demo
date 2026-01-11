@@ -38,10 +38,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch documents with relations
     const documents = await db.invoiceDocument.findMany({
-      where,
       include: {
         client: true,
         supplier: true,
+
         creator: {
           include: {
             GeneralSetting: true,
@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
         },
         project: true,
         department: true,
+        invoice: true,
       },
       orderBy: {
         createdAt: "desc",

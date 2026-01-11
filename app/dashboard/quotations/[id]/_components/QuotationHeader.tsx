@@ -430,7 +430,9 @@ export const QuotationHeader = ({
               {/* Quick Actions */}
               <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
-                  <Link href={`/dashboard/clients/${quotation.clientId}`}>
+                  <Link
+                    href={`/dashboard/human-resources/clients/${quotation.clientId}`}
+                  >
                     <Eye className="mr-2 h-4 w-4" />
                     View Client
                   </Link>
