@@ -55,7 +55,6 @@ export async function GET(request: NextRequest) {
         },
         project: true,
         department: true,
-        invoice: true,
       },
       orderBy: {
         createdAt: "desc",

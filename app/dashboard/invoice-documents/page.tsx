@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
@@ -75,7 +76,8 @@ const DOCUMENT_SORT_OPTIONS = [
   { value: "due-date", label: "Due Date" },
 ];
 
-export default function InvoiceDocumentsPage() {
+// Create a separate component that uses useSearchParams
+function InvoiceDocumentsContent() {
   const [documents, setDocuments] = useState<InvoiceDocumentWithRelations[]>(
     []
   );
@@ -93,7 +95,7 @@ export default function InvoiceDocumentsPage() {
 
   const router = useRouter();
   const { userId } = useAuth();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams(); // Now safely wrapped in Suspense
 
   const { data, isLoading } = useQuery({
     queryKey: ["user", userId],
@@ -136,7 +138,7 @@ export default function InvoiceDocumentsPage() {
     if (!isLoading && canViewDocuments === false && hasFullAccess === false) {
       router.push("/dashboard");
     }
-  }, [isLoading, canViewDocuments, hasFullAccess]);
+  }, [isLoading, canViewDocuments, hasFullAccess, router]);
 
   useEffect(() => {
     const fetchDocuments = async () => {
@@ -371,5 +373,14 @@ export default function InvoiceDocumentsPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+// Main page component with Suspense
+export default function InvoiceDocumentsPage() {
+  return (
+    <Suspense fallback={<InvoiceDocumentsLoading />}>
+      <InvoiceDocumentsContent />
+    </Suspense>
   );
 }
