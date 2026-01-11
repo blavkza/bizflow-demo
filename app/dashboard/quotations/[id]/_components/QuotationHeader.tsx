@@ -335,10 +335,10 @@ export const QuotationHeader = ({
                   disabled={isGenerating}
                 >
                   <FileText className="mr-2 h-4 w-4" />
-                  {isGenerating ? "Generating..." : "Full Quotation"}
+                  {isGenerating ? "Generating..." : " Quotation PDF"}
                 </DropdownMenuItem>
 
-                <DropdownMenuItem
+                {/*  <DropdownMenuItem
                   onClick={handlePrintDeliveryNote}
                   disabled={isGeneratingDeliveryNote}
                 >
@@ -378,7 +378,7 @@ export const QuotationHeader = ({
                 >
                   <Package className="mr-2 h-4 w-4" />
                   Packing List
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />

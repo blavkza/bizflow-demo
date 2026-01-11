@@ -166,9 +166,9 @@ export default function QuotationDetailPage({
           <QuotationPreview quotation={quotation} />
         </TabsContent>
 
-        <TabsContent value="document-preview" className="space-y-4">
+        {/*  <TabsContent value="document-preview" className="space-y-4">
           <DocumentPreview quotation={quotation} />
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
     </div>
   );

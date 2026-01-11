@@ -97,7 +97,7 @@ export default function SubpackageHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
+            {/* <DropdownMenuItem asChild>
               <Link
                 href={`/packages/${packageId}/subpackages/${subpackageId}/orders`}
               >
@@ -112,7 +112,7 @@ export default function SubpackageHeader({
                 <ArrowUpRight className="h-4 w-4 mr-2" />
                 Analytics
               </Link>
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onDuplicate} disabled={isDuplicating}>
               <Copy className="h-4 w-4 mr-2" />

@@ -27,14 +27,17 @@ import {
   Wrench,
   Box,
   Settings,
+  Truck,
+  NotepadTextIcon,
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
 import { CgArrowsExchange } from "react-icons/cg";
-import { GrServices } from "react-icons/gr";
+import { GrDocumentExcel, GrServices } from "react-icons/gr";
 
 import { SidebarData } from "../types/sidebar";
 import { UserPermission, UserRole } from "@prisma/client";
 import { IoCash } from "react-icons/io5";
+import { FaFileInvoice } from "react-icons/fa";
 
 const hasPermission = (
   permissions: UserPermission[],
@@ -95,8 +98,64 @@ export const getSidebarData = (
           {
             title: "Invoices",
             url: "/dashboard/invoices",
-            icon: Receipt,
+            icon: FaFileInvoice,
             color: "text-pink-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.INVOICES_VIEW)
+      ? [
+          {
+            title: "Delivery Note",
+            url: "/dashboard/invoice-documents?type=delivery-note",
+            icon: Truck,
+            color: "text-yellow-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.INVOICES_VIEW)
+      ? [
+          {
+            title: "Purchase Order",
+            url: "/dashboard/invoice-documents?type=purchase-order",
+            icon: Receipt,
+            color: "text-green-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.INVOICES_VIEW)
+      ? [
+          {
+            title: "Pro Forma Invoice",
+            url: "/dashboard/invoice-documents?type=pro-forma-invoice",
+            icon: FaFileInvoice,
+            color: "text-perpul-500",
+          },
+        ]
+      : []),
+
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.INVOICES_VIEW)
+      ? [
+          {
+            title: "Credit Note",
+            url: "/dashboard/invoice-documents?type=credit-note",
+            icon: NotepadTextIcon,
+            color: "text-pink-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.INVOICES_VIEW)
+      ? [
+          {
+            title: "Supplier List",
+            url: "/dashboard/invoice-documents?type=supplier-list",
+            icon: Receipt,
+            color: "text-orange-500",
           },
         ]
       : []),

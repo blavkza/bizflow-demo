@@ -63,6 +63,7 @@ model User {
   dashboardSettings   DashboardSettings?
   workLogs            WorkLog[]
   timeEntries         TimeEntry[]
+  invoiceDocuments    InvoiceDocument[]
 
   @@map("users")
 }
@@ -321,16 +322,17 @@ model Department {
   updater   String?
 
   // Relations
-  manager     User?         @relation("DepartmentManager", fields: [managerId], references: [id])
-  parent      Department?   @relation("DepartmentHierarchy", fields: [parentId], references: [id])
-  children    Department[]  @relation("DepartmentHierarchy")
-  employees   Employee[]    @relation("DepartmentEmployees")
-  freelancers FreeLancer[]  @relation("DepartmentFreelancers")
-  targets     Target[]
-  budgets     Budget[]
-  expenses    Transaction[]
-  quotations  Quotation[]
-  invoices    Invoice[]
+  manager          User?             @relation("DepartmentManager", fields: [managerId], references: [id])
+  parent           Department?       @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children         Department[]      @relation("DepartmentHierarchy")
+  employees        Employee[]        @relation("DepartmentEmployees")
+  freelancers      FreeLancer[]      @relation("DepartmentFreelancers")
+  targets          Target[]
+  budgets          Budget[]
+  expenses         Transaction[]
+  quotations       Quotation[]
+  invoices         Invoice[]
+  invoiceDocuments InvoiceDocument[]
 
   @@map("departments")
 }
@@ -1101,6 +1103,7 @@ model Client {
   Note              Note[]
   toolRentals       ToolRental[]
   recurringInvoices RecurringInvoice[]
+  invoiceDocuments  InvoiceDocument[]
 
   @@index([status])
   @@index([type])
@@ -1146,18 +1149,19 @@ model Project {
   manager     User?         @relation(fields: [managerId], references: [id])
   teamMembers ProjectTeam[]
 
-  tasks         Task[]
-  timeEntries   TimeEntry[]
-  invoices      Invoice[]
-  quotations    Quotation[]
-  documents     Document[]
-  Note          Note[]
-  Folder        Folder[]
-  comment       comment[]
-  toolInterUses ToolInterUse[]
-  Expense       Expense[]
-  service       Service?       @relation(fields: [serviceId], references: [id])
-  serviceId     String?
+  tasks            Task[]
+  timeEntries      TimeEntry[]
+  invoices         Invoice[]
+  quotations       Quotation[]
+  documents        Document[]
+  Note             Note[]
+  Folder           Folder[]
+  comment          comment[]
+  toolInterUses    ToolInterUse[]
+  Expense          Expense[]
+  service          Service?          @relation(fields: [serviceId], references: [id])
+  serviceId        String?
+  invoiceDocuments InvoiceDocument[]
 
   @@index([clientId])
   @@index([status])
@@ -1292,12 +1296,13 @@ model Document {
   transaction Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   vender      Vendor?      @relation(fields: [venderId], references: [id], onDelete: Cascade)
 
-  Project      Project?    @relation(fields: [projectId], references: [id])
-  folder       Folder?     @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  Task         Task?       @relation(fields: [taskId], references: [id])
-  taskId       String?
-  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  freeLancerId String?
+  Project          Project?          @relation(fields: [projectId], references: [id])
+  folder           Folder?           @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  Task             Task?             @relation(fields: [taskId], references: [id])
+  taskId           String?
+  freeLancer       FreeLancer?       @relation(fields: [freeLancerId], references: [id])
+  freeLancerId     String?
+  documentPayments DocumentPayment[]
 
   @@index([type])
   @@index([employeeId])
@@ -1645,6 +1650,143 @@ model InvoicePayment {
 // QUOTATION MANAGEMENT
 // ============================================================================
 
+// Add these to your Prisma schema
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  DELIVERED
+  CANCELLED
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+}
+
+enum InvoiceDocumentType {
+  DELIVERY_NOTE
+  PURCHASE_ORDER
+  PRO_FORMA_INVOICE
+  CREDIT_NOTE
+  SUPPLIER_LIST
+  INVOICE
+}
+
+model InvoiceDocument {
+  id                    String              @id @default(cuid())
+  invoiceDocumentNumber String              @unique
+  invoiceDocumentType   InvoiceDocumentType
+  status                DocumentStatus      @default(DRAFT)
+
+  // Relations
+  invoiceId          String?
+  originalDocumentId String?
+
+  clientId   String?
+  supplierId String?
+  client     Client? @relation(fields: [clientId], references: [id])
+  supplier   Vendor? @relation(fields: [supplierId], references: [id])
+
+  // Dates
+  issueDate    DateTime
+  dueDate      DateTime?
+  deliveryDate DateTime?
+  orderDate    DateTime?
+
+  // Financials
+  subtotal       Decimal       @db.Decimal(15, 2)
+  taxAmount      Decimal?      @db.Decimal(15, 2)
+  discountAmount Decimal?      @db.Decimal(15, 2)
+  discountType   DiscountType? @default(AMOUNT)
+
+  totalAmount Decimal @db.Decimal(15, 2)
+  currency    String  @default("ZAR")
+
+  // References
+  referenceNumber     String?
+  purchaseOrderNumber String?
+  deliveryNoteNumber  String?
+  invoiceNumber       String?
+
+  // Extra info
+  deliveryAddress        Json?
+  shippingMethod         String?
+  shippingTrackingNumber String?
+  paymentTerms           String?
+  notes                  String?
+  terms                  String?
+
+  // Ownership
+  createdBy String
+  creator   User   @relation(fields: [createdBy], references: [id])
+
+  // Relations
+  items    DocumentItem[]
+  payments DocumentPayment[]
+
+  projectId    String?
+  departmentId String?
+  project      Project?    @relation(fields: [projectId], references: [id])
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceDocumentType])
+  @@index([status])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([invoiceDocumentNumber])
+  @@map("invoice_documents")
+}
+
+model DocumentItem {
+  id          String  @id @default(cuid())
+  description String
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(15, 2)
+  amount      Decimal @db.Decimal(15, 2)
+  currency    String  @default("ZAR")
+
+  // Product/Service Reference
+  productId String?
+  serviceId String?
+  product   ShopProduct? @relation(fields: [productId], references: [id])
+  service   Service?     @relation(fields: [serviceId], references: [id])
+
+  // Additional Fields
+  unitOfMeasure String? // e.g., kg, m, pcs
+  taxRate       Decimal? @db.Decimal(5, 2)
+  taxAmount     Decimal? @db.Decimal(15, 2)
+
+  // For delivery notes
+  deliveredQuantity Decimal? @db.Decimal(10, 2)
+
+  invoiceDocument   InvoiceDocument? @relation(fields: [invoiceDocumentId], references: [id])
+  invoiceDocumentId String?
+
+  @@map("document_items")
+}
+
+model DocumentPayment {
+  id            String   @id @default(cuid())
+  documentId    String
+  amount        Decimal  @db.Decimal(15, 2)
+  currency      String   @default("ZAR")
+  paymentDate   DateTime
+  paymentMethod String
+  reference     String?
+  notes         String?
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  invoiceDocument   InvoiceDocument? @relation(fields: [invoiceDocumentId], references: [id])
+  invoiceDocumentId String?
+
+  @@map("document_payments")
+}
+
 model Quotation {
   id              String          @id @default(cuid())
   quotationNumber String          @unique
@@ -1818,6 +1960,7 @@ model Vendor {
   expenses          Expense[]
   Document          Document[]
   productCategories ProductCategory[]
+  invoiceDocuments  InvoiceDocument[]
 
   @@map("vendors")
 }
@@ -1983,6 +2126,7 @@ model ShopProduct {
   packageId         String?
   saleQuoteItems    SaleQuoteItem[]
   stockAwaits       StockAwait[]
+  documentItems     DocumentItem[]
 
   @@map("shopProducts")
 }
@@ -2594,6 +2738,7 @@ model Service {
   invoiceItems   InvoiceItem[]
   package        Package?        @relation(fields: [packageId], references: [id])
   packageId      String?
+  documentItems  DocumentItem[]
 
   @@map("services")
 }

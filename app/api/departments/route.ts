@@ -66,8 +66,8 @@ export async function POST(req: Request) {
       data: {
         code,
         name,
-        description,
-        managerId, // Explicitly set to null if undefined
+        description: description || "No Description",
+        managerId,
       },
       include: {
         manager: true,

@@ -1,11 +1,25 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Send, Edit, Trash2 } from "lucide-react";
+import {
+  Send,
+  Edit,
+  Trash2,
+  Truck,
+  FileText,
+  CreditCard,
+  List,
+  Download,
+  Copy,
+  MoreVertical,
+  FileDown,
+  Plus,
+  Loader2,
+} from "lucide-react";
 import Link from "next/link";
 import { DeleteDialog } from "./DeleteDialog";
 import { InvoiceProps } from "@/types/invoice";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +28,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { AddVendorDialog } from "./AddVendorDialog";
 
 interface InvoiceActionsProps {
   invoice: InvoiceProps;
@@ -38,6 +69,46 @@ export function InvoiceActions({
   const [email, setEmail] = useState(invoice.client.email || "");
   const [isSending, setIsSending] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [convertingTo, setConvertingTo] = useState<string | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
+  const [vendors, setVendors] = useState<{ label: string; value: string }[]>(
+    []
+  );
+  const [selectedVendorId, setSelectedVendorId] = useState<string>("");
+
+  const [customData, setCustomData] = useState({
+    referenceNumber: "",
+    deliveryAddress: "",
+    shippingMethod: "",
+    shippingTrackingNumber: "",
+    notes: "",
+    terms: "",
+    deliveryNoteNumber: "",
+    supplierId: "",
+  });
+
+  // Fetch vendors when component mounts or when dialog opens
+  useEffect(() => {
+    if (convertingTo === "PURCHASE_ORDER" || convertingTo === "SUPPLIER_LIST") {
+      fetchVendors();
+    }
+  }, [convertingTo]);
+
+  const fetchVendors = async () => {
+    try {
+      const response = await fetch("/api/vendors");
+      if (!response.ok) throw new Error("Failed to fetch vendors");
+      const data = await response.json();
+      setVendors(
+        data.map((vendor: any) => ({
+          label: vendor.name,
+          value: vendor.id,
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+    }
+  };
 
   const handleSendEmail = async () => {
     if (!email) {
@@ -73,8 +144,101 @@ export function InvoiceActions({
     }
   };
 
+  const handleConvertDocument = async (documentType: string) => {
+    try {
+      setIsConverting(true);
+      const dataToSend = {
+        invoiceId: invoice.id,
+        invoiceDocumentType: documentType,
+        customData: {
+          ...customData,
+          supplierId: selectedVendorId || customData.supplierId,
+        },
+      };
+
+      const response = await fetch("/api/invoices/documents/convert", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(dataToSend),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || `Failed to create ${documentType}`);
+      }
+
+      const newDocument = await response.json();
+      toast.success(
+        `${getDocumentTypeLabel(documentType)} created successfully`
+      );
+      setIsConverting(false);
+
+      router.push(`/dashboard/invoice-documents/${newDocument.id}`);
+      router.refresh();
+    } catch (error) {
+      console.error(`Error creating ${documentType}:`, error);
+      toast.error(`Failed to create ${documentType}`);
+    } finally {
+      setConvertingTo(null);
+      setCustomData({
+        referenceNumber: "",
+        deliveryAddress: "",
+        shippingMethod: "",
+        shippingTrackingNumber: "",
+        notes: "",
+        terms: "",
+        deliveryNoteNumber: "",
+        supplierId: "",
+      });
+
+      setSelectedVendorId("");
+    }
+  };
+
+  const handleDownload = async (format: "pdf" | "excel" | "csv") => {
+    try {
+      const response = await fetch(
+        `/api/invoices/${invoice.id}/export?format=${format}`
+      );
+      if (!response.ok) throw new Error("Export failed");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `invoice-${invoice.invoiceNumber}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast.success(`Downloaded as ${format.toUpperCase()}`);
+    } catch (error) {
+      toast.error("Failed to download");
+    }
+  };
+
+  const getDocumentTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+      DELIVERY_NOTE: "Delivery Note",
+      PURCHASE_ORDER: "Purchase Order",
+      PRO_FORMA_INVOICE: "Pro Forma Invoice",
+      CREDIT_NOTE: "Credit Note",
+      SUPPLIER_LIST: "Supplier List",
+    };
+    return labels[type] || type;
+  };
+
+  const handleVendorAdded = () => {
+    fetchVendors(); // Refresh vendor list
+    toast.success("Vendor added successfully");
+  };
+
   return (
     <div className="flex items-center space-x-2">
+      {/* Send Invoice Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" size="sm" aria-label="Send invoice">
@@ -113,36 +277,289 @@ export function InvoiceActions({
           </div>
         </DialogContent>
       </Dialog>
-      {invoice.status !== "PAID" && (
-        <>
-          {" "}
-          {(canEditInvoice || hasFullAccess) && (
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-              aria-label="Edit invoice"
-            >
-              <Link
-                href={`/dashboard/invoices/${invoice.id}/edit`}
-                className="flex items-center gap-2"
-              >
-                <Edit className="mr-2 h-4 w-4" /> Edit
+
+      {/* More Actions Dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm">
+            <MoreVertical className="h-4 w-4" />
+            <span className="">More actions</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          {/* Edit Option */}
+          {invoice.status !== "PAID" && (canEditInvoice || hasFullAccess) && (
+            <DropdownMenuItem asChild>
+              <Link href={`/dashboard/invoices/${invoice.id}/edit`}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Invoice
               </Link>
-            </Button>
+            </DropdownMenuItem>
           )}
-        </>
+
+          {/* Document Conversion Options */}
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Create From Invoice</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => setConvertingTo("DELIVERY_NOTE")}>
+            <Truck className="mr-2 h-4 w-4" />
+            Delivery Note
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setConvertingTo("PURCHASE_ORDER")}>
+            <FileText className="mr-2 h-4 w-4" />
+            Purchase Order
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => setConvertingTo("PRO_FORMA_INVOICE")}
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            Pro Forma Invoice
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setConvertingTo("CREDIT_NOTE")}>
+            <CreditCard className="mr-2 h-4 w-4" />
+            Credit Note
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setConvertingTo("SUPPLIER_LIST")}>
+            <List className="mr-2 h-4 w-4" />
+            Supplier List
+          </DropdownMenuItem>
+
+          {/* Download Options */}
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel>Download</DropdownMenuLabel>
+          <DropdownMenuItem onClick={() => handleDownload("pdf")}>
+            <FileDown className="mr-2 h-4 w-4" />
+            PDF Document
+          </DropdownMenuItem>
+
+          {/* Duplicate Option */}
+          <DropdownMenuSeparator />
+
+          {/* Delete Option */}
+          {invoice.status === "DRAFT" &&
+            (canDeleteInvoice || hasFullAccess) && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="text-red-600" asChild>
+                  <div className="flex items-center cursor-pointer w-full">
+                    <DeleteDialog
+                      invoiceNumber={invoice.invoiceNumber}
+                      invoiceId={invoice.id}
+                      trigger={
+                        <div className="flex items-center w-full">
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete Invoice
+                        </div>
+                      }
+                    />
+                  </div>
+                </DropdownMenuItem>
+              </>
+            )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* Edit Button */}
+      {invoice.status !== "PAID" && (canEditInvoice || hasFullAccess) && (
+        <Button variant="outline" size="sm" asChild aria-label="Edit invoice">
+          <Link
+            href={`/dashboard/invoices/${invoice.id}/edit`}
+            className="flex items-center gap-2"
+          >
+            <Edit className="mr-2 h-4 w-4" /> Edit
+          </Link>
+        </Button>
       )}
 
-      {invoice.status === "DRAFT" && (
-        <>
-          {(canDeleteInvoice || hasFullAccess) && (
-            <DeleteDialog
-              invoiceNumber={invoice.invoiceNumber}
-              invoiceId={invoice.id}
-            />
-          )}
-        </>
+      {/* Delete Button */}
+      {invoice.status === "DRAFT" && (canDeleteInvoice || hasFullAccess) && (
+        <DeleteDialog
+          invoiceNumber={invoice.invoiceNumber}
+          invoiceId={invoice.id}
+        />
+      )}
+
+      {/* Document Conversion Dialogs */}
+      {convertingTo && (
+        <Dialog
+          open={!!convertingTo}
+          onOpenChange={() => setConvertingTo(null)}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                Create {getDocumentTypeLabel(convertingTo)}
+              </DialogTitle>
+              <DialogDescription>
+                Customize your {convertingTo.toLowerCase().replace("_", " ")}{" "}
+                details or use invoice default
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              {/* Vendor selection for purchase orders and supplier lists */}
+              {(convertingTo === "PURCHASE_ORDER" ||
+                convertingTo === "SUPPLIER_LIST") && (
+                <div className="grid gap-2">
+                  <Label htmlFor="vendor">Vendor/Supplier *</Label>
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Select
+                        value={selectedVendorId}
+                        onValueChange={setSelectedVendorId}
+                        required={convertingTo === "PURCHASE_ORDER"}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select vendor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vendors.map((vendor) => (
+                            <SelectItem key={vendor.value} value={vendor.value}>
+                              {vendor.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <AddVendorDialog onVendorAdded={handleVendorAdded}>
+                      <Button type="button" variant="outline" size="sm">
+                        <Plus className="h-3 w-3 mr-1" />
+                        New
+                      </Button>
+                    </AddVendorDialog>
+                  </div>
+                </div>
+              )}
+
+              {convertingTo === "DELIVERY_NOTE" && (
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="deliveryAddress">Delivery Address</Label>
+                    <Textarea
+                      id="deliveryAddress"
+                      value={customData.deliveryAddress}
+                      onChange={(e) =>
+                        setCustomData({
+                          ...customData,
+                          deliveryAddress: e.target.value,
+                        })
+                      }
+                      placeholder="Enter delivery address"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="shippingMethod">Shipping Method</Label>
+                    <Input
+                      id="shippingMethod"
+                      value={customData.shippingMethod}
+                      onChange={(e) =>
+                        setCustomData({
+                          ...customData,
+                          shippingMethod: e.target.value,
+                        })
+                      }
+                      placeholder="e.g., Courier, Pickup"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="shippingTrackingNumber">
+                      Tracking Number
+                    </Label>
+                    <Input
+                      id="shippingTrackingNumber"
+                      value={customData.shippingTrackingNumber}
+                      onChange={(e) =>
+                        setCustomData({
+                          ...customData,
+                          shippingTrackingNumber: e.target.value,
+                        })
+                      }
+                      placeholder="Optional tracking number"
+                    />
+                  </div>
+                </>
+              )}
+
+              {(convertingTo === "PURCHASE_ORDER" ||
+                convertingTo === "DELIVERY_NOTE") && (
+                <div className="grid gap-2">
+                  <Label htmlFor="referenceNumber">
+                    {convertingTo === "PURCHASE_ORDER"
+                      ? "PO Reference Number"
+                      : "Delivery Note Number"}
+                  </Label>
+                  <Input
+                    id="referenceNumber"
+                    value={customData.referenceNumber}
+                    onChange={(e) =>
+                      setCustomData({
+                        ...customData,
+                        referenceNumber: e.target.value,
+                      })
+                    }
+                    placeholder={
+                      convertingTo === "PURCHASE_ORDER"
+                        ? "e.g., PO-2024-001"
+                        : "e.g., DN-2024-001"
+                    }
+                  />
+                </div>
+              )}
+
+              <div className="grid gap-2">
+                <Label htmlFor="notes">Additional Notes (Optinal)</Label>
+                <Textarea
+                  id="notes"
+                  value={customData.notes}
+                  onChange={(e) =>
+                    setCustomData({ ...customData, notes: e.target.value })
+                  }
+                  placeholder="Add any special instructions"
+                  rows={2}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="terms">Terms & Conditions (Optinal)</Label>
+                <Textarea
+                  id="terms"
+                  value={customData.terms}
+                  onChange={(e) =>
+                    setCustomData({ ...customData, terms: e.target.value })
+                  }
+                  placeholder="Add terms and conditions"
+                  rows={2}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setConvertingTo(null);
+                  setSelectedVendorId("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!convertingTo) return;
+                  handleConvertDocument(convertingTo);
+                }}
+                disabled={
+                  isConverting ||
+                  (convertingTo === "PURCHASE_ORDER" && !selectedVendorId)
+                }
+                className="flex items-center gap-2"
+              >
+                {isConverting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {isConverting
+                  ? "Converting..."
+                  : `Create ${getDocumentTypeLabel(convertingTo)}`}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -150,7 +150,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         price: Number(item.product.price),
         category: item.product.category,
         stock: item.product.stock,
-        image: getProductImage(item.product.images), // Use the helper function
+        image: getProductImage(item.product.images),
         quantity: item.quantity,
         unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
         status: item.product.status,

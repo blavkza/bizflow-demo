@@ -691,27 +691,7 @@ export default function InvoiceForm({
   };
 
   const handleItemSelect = (index: number, item: SearchableItem) => {
-    let description = `${item.name}`;
-
-    if (item.sku) {
-      description = `${description} [${item.sku}]`;
-    }
-
-    if (item.category) description += ` - ${item.category}`;
-    if (item.duration) description += ` (${item.duration})`;
-
-    if (item.description) {
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = item.description;
-      const plainDescription = tempDiv.textContent || tempDiv.innerText || "";
-      if (plainDescription) {
-        description += `\n${plainDescription}`;
-      }
-    }
-
-    if (item.type === "service" && item.features && item.features.length > 0) {
-      description += `\nIncludes: ${item.features.join(", ")}`;
-    }
+    const description = item.name;
 
     setSearchInputs((prev) => ({ ...prev, [index]: description }));
     form.setValue(`items.${index}.description`, description);

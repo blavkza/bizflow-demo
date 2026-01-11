@@ -181,7 +181,7 @@ export type ContactInfoSchemaType = z.infer<typeof contactInfoSchema>;
 
 export const departmentSchema = z.object({
   name: z.string().min(1, { message: "Name is required!" }),
-  description: z.string().min(1, { message: "Description is required!" }),
+  description: z.string().optional(),
   managerId: z.string().optional(),
   location: z.string().optional(),
   floor: z.string().optional(),

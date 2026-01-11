@@ -138,7 +138,7 @@ export default function DepartmentForm({
             name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description</FormLabel>
+                <FormLabel>Description (Optional)</FormLabel>
                 <FormControl>
                   <Input placeholder="Enter Description" {...field} />
                 </FormControl>
