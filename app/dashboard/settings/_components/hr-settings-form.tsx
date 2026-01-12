@@ -51,6 +51,7 @@ const HRSettingsSchema = z.object({
 
   // Attendance Settings
   workingHoursPerDay: z.number().min(1).max(24),
+  workingHoursWeekend: z.number().min(1).max(24),
   lateThreshold: z.number().min(1),
   halfDayThreshold: z.number().min(0.5),
   overtimeThreshold: z.number().min(1),
@@ -149,6 +150,7 @@ type HRSettingsSchemaType = z.infer<typeof HRSettingsSchema>;
 interface HRSettings {
   id: string;
   workingHoursPerDay: number;
+  workingHoursWeekend: number;
   paymentDay: number;
   paymentMonth: string;
   overtimeHourRate: number;
@@ -239,6 +241,7 @@ export default function HRSettingsForm({
     defaultValues: {
       // Existing defaults
       workingHoursPerDay: 8,
+      workingHoursWeekend: 4,
       paymentDay: 25,
       paymentMonth: "CURRENT",
       autoProcessPayroll: false,
@@ -339,6 +342,7 @@ export default function HRSettingsForm({
           form.reset({
             // Existing settings
             workingHoursPerDay: settings.workingHoursPerDay,
+            workingHoursWeekend: settings.workingHoursWeekend,
             paymentDay: settings.paymentDay,
             paymentMonth: settings.paymentMonth || "CURRENT",
             autoProcessPayroll: settings.autoProcessPayroll,
@@ -525,24 +529,23 @@ export default function HRSettingsForm({
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
-                  name="workingDaysPerMonth"
+                  name="workingHoursWeekend"
                   render={({ field }) => (
                     <FormItem className="space-y-2">
                       <div className="flex items-center">
-                        <FormLabel>Working Days Per Month</FormLabel>
+                        <FormLabel>Working Hours On Weekend</FormLabel>
                         <ExplanationPopover
-                          title="Working Days Per Month"
-                          content="The standard number of working days in a month. Used for calculating monthly salary and leave accruals."
+                          title="Working Hours On Weeked "
+                          content="The standard number of hours an employee is expected on weeekend days. This is used to calculate overtime and determine full-day attendance."
                         />
                       </div>
                       <FormControl>
                         <Input
                           type="number"
                           min="1"
-                          max="31"
+                          max="24"
                           {...field}
                           onChange={(e) =>
                             field.onChange(parseInt(e.target.value))
@@ -556,6 +559,35 @@ export default function HRSettingsForm({
                   )}
                 />
               </div>
+              <FormField
+                control={form.control}
+                name="workingDaysPerMonth"
+                render={({ field }) => (
+                  <FormItem className="space-y-2">
+                    <div className="flex items-center">
+                      <FormLabel>Working Days Per Month</FormLabel>
+                      <ExplanationPopover
+                        title="Working Days Per Month"
+                        content="The standard number of working days in a month. Used for calculating monthly salary and leave accruals."
+                      />
+                    </div>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="31"
+                        {...field}
+                        onChange={(e) =>
+                          field.onChange(parseInt(e.target.value))
+                        }
+                        className="w-full"
+                        disabled={!hasFullAccess && !canManageSettings}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
             {/* Payroll Settings */}

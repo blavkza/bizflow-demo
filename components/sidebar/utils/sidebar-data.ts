@@ -502,9 +502,8 @@ export const getSidebarData = (
       ? [
           {
             title: "settings",
-            url: "/dashboard/notifications",
+            url: "/dashboard/settings",
             icon: Settings,
-            badge: unreadCount > 0 ? unreadCount.toString() : undefined,
             color: "text-blue-500",
           },
         ]

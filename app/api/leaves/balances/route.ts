@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       paternity: { total: 10, used: 0, remaining: 10 },
       study: { total: 5, used: 0, remaining: 5 },
       unpaid: { total: 0, used: 0, remaining: 0 },
+      dayOff: { total: 0, used: 0, remaining: 0 },
       compassionate: { total: 5, used: 0, remaining: 5 },
     };
 

@@ -67,6 +67,8 @@ export default function LeaveRequestCard({
         return "bg-gray-100 text-gray-800";
       case "COMPASSIONATE":
         return "bg-pink-100 text-pink-800";
+      case "DAYOFF":
+        return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
     }

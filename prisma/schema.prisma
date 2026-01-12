@@ -135,8 +135,9 @@ model HRSettings {
   maxCarryOverDays   Int     @default(5)
 
   // Company Settings
-  workingHoursPerDay Int   @default(8)
-  overtimeHourRate   Float @default(50.00)
+  workingHoursPerDay  Int   @default(8)
+  workingHoursWeekend Int   @default(4)
+  overtimeHourRate    Float @default(50.00)
 
   // Bonus Settings
   annualBonusEnabled         Boolean @default(true)
@@ -409,6 +410,7 @@ model Employee {
   maternityLeaveDays Int @default(120)
   paternityLeaveDays Int @default(10)
   unpaidLeaveDays    Int @default(0)
+  dayOff             Int @default(0)
 
   medicalCondition  String?
   allergies         String?

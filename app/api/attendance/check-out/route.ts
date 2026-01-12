@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
     const overtimeThreshold = hrSettings?.overtimeThreshold || 8.0;
     const halfDayThreshold = hrSettings?.halfDayThreshold || 4.0;
     const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
+    const workingHoursOnWeekend = hrSettings?.workingHoursWeekend || 4;
     const overtimeHourRate = hrSettings?.overtimeHourRate || 50.0;
 
     // ---------------------------------------------------------
@@ -508,6 +509,9 @@ async function calculateHoursAndStatus(
 
   const overtimeThreshold = hrSettings?.overtimeThreshold || 8.0;
   const halfDayThreshold = hrSettings?.halfDayThreshold || 4.0;
+
+  // Get working hours based on day type
+  const workingHoursWeekend = hrSettings?.workingHoursOnWeekend || 4;
   const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
 
   const actualHoursWorked =
@@ -526,6 +530,19 @@ async function calculateHoursAndStatus(
   });
   const checkInDay = sastFormatter.format(checkInTime).toUpperCase();
   const isWeekend = checkInDay === "SAT" || checkInDay === "SUN";
+
+  // Use appropriate working hours for the day type
+  const workingHoursForDay = isWeekend
+    ? workingHoursWeekend
+    : workingHoursPerDay;
+
+  // Adjust thresholds for weekends if needed (you might want separate weekend thresholds)
+  const effectiveOvertimeThreshold = isWeekend
+    ? workingHoursWeekend
+    : overtimeThreshold;
+  const effectiveHalfDayThreshold = isWeekend
+    ? workingHoursWeekend / 2
+    : halfDayThreshold;
 
   let scheduledKnockInTime: string | null = null;
   let scheduledKnockOutTime: string | null = null;
@@ -575,9 +592,9 @@ async function calculateHoursAndStatus(
 
     const totalHoursWorked = actualHoursWorked;
 
-    if (totalHoursWorked > overtimeThreshold) {
-      regularHours = overtimeThreshold;
-      overtimeHours = totalHoursWorked - overtimeThreshold;
+    if (totalHoursWorked > effectiveOvertimeThreshold) {
+      regularHours = effectiveOvertimeThreshold;
+      overtimeHours = totalHoursWorked - effectiveOvertimeThreshold;
       newStatus = currentStatus;
       workedPercentage = 100;
     } else {
@@ -587,15 +604,15 @@ async function calculateHoursAndStatus(
       if (scheduledHours > 0) {
         workedPercentage = (totalHoursWorked / scheduledHours) * 100;
       } else {
-        workedPercentage = (totalHoursWorked / workingHoursPerDay) * 100;
+        workedPercentage = (totalHoursWorked / workingHoursForDay) * 100;
       }
 
       if (
-        totalHoursWorked >= halfDayThreshold &&
-        totalHoursWorked < overtimeThreshold
+        totalHoursWorked >= effectiveHalfDayThreshold &&
+        totalHoursWorked < effectiveOvertimeThreshold
       ) {
         newStatus = AttendanceStatus.HALF_DAY;
-      } else if (totalHoursWorked < halfDayThreshold) {
+      } else if (totalHoursWorked < effectiveHalfDayThreshold) {
         newStatus = AttendanceStatus.ABSENT;
       } else {
         newStatus = currentStatus;
@@ -605,22 +622,22 @@ async function calculateHoursAndStatus(
     // No schedule set
     const totalHoursWorked = actualHoursWorked;
 
-    if (totalHoursWorked > overtimeThreshold) {
-      regularHours = overtimeThreshold;
-      overtimeHours = totalHoursWorked - overtimeThreshold;
+    if (totalHoursWorked > effectiveOvertimeThreshold) {
+      regularHours = effectiveOvertimeThreshold;
+      overtimeHours = totalHoursWorked - effectiveOvertimeThreshold;
       newStatus = currentStatus;
       workedPercentage = 100;
     } else {
       regularHours = totalHoursWorked;
       overtimeHours = 0;
-      workedPercentage = (totalHoursWorked / workingHoursPerDay) * 100;
+      workedPercentage = (totalHoursWorked / workingHoursForDay) * 100;
 
       if (
-        totalHoursWorked >= halfDayThreshold &&
-        totalHoursWorked < overtimeThreshold
+        totalHoursWorked >= effectiveHalfDayThreshold &&
+        totalHoursWorked < effectiveOvertimeThreshold
       ) {
         newStatus = AttendanceStatus.HALF_DAY;
-      } else if (totalHoursWorked < halfDayThreshold) {
+      } else if (totalHoursWorked < effectiveHalfDayThreshold) {
         newStatus = AttendanceStatus.ABSENT;
       } else {
         newStatus = currentStatus;

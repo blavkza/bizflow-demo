@@ -76,6 +76,7 @@ export async function POST(request: Request) {
         data: {
           // Existing fields
           workingHoursPerDay: updates.workingHoursPerDay || 8,
+          workingHoursWeekend: updates.workingHoursWeekend || 4,
           paymentDay: updates.paymentDay || 25,
           paymentMonth: updates.paymentMonth || "CURRENT",
           overtimeHourRate: updates.overtimeHourRate || 50,
@@ -106,8 +107,11 @@ export async function POST(request: Request) {
           appreciationBonusEnabled: updates.appreciationBonusEnabled ?? true,
           incentivePaymentEnabled: updates.incentivePaymentEnabled ?? true,
           recognitionAwardEnabled: updates.recognitionAwardEnabled ?? true,
+          attendanceBonusEnabled: updates.attendanceBonusEnabled ?? true,
+          overtimeBonusEnabled: updates.overtimeBonusEnabled ?? true,
 
           // Deduction Settings
+          taxEnabled: updates.taxEnabled ?? true,
           uniformPPEEnabled: updates.uniformPPEEnabled ?? true,
           uniformPPEMaxDeduction: updates.uniformPPEMaxDeduction ?? 500,
           damageLossEnabled: updates.damageLossEnabled ?? true,
@@ -145,6 +149,8 @@ export async function POST(request: Request) {
         // Existing fields
         workingHoursPerDay:
           updates.workingHoursPerDay ?? currentSettings.workingHoursPerDay,
+        workingHoursWeekend:
+          updates.workingHoursWeekend ?? currentSettings.workingHoursWeekend,
         paymentDay: updates.paymentDay ?? currentSettings.paymentDay,
         paymentMonth: updates.paymentMonth ?? currentSettings.paymentMonth,
         overtimeHourRate:
@@ -206,8 +212,14 @@ export async function POST(request: Request) {
         recognitionAwardEnabled:
           updates.recognitionAwardEnabled ??
           currentSettings.recognitionAwardEnabled,
+        overtimeBonusEnabled:
+          updates.overtimeBonusEnabled ?? currentSettings.overtimeBonusEnabled,
+        attendanceBonusEnabled:
+          updates.attendanceBonusEnabled ??
+          currentSettings.attendanceBonusEnabled,
 
         // Deduction Settings
+        taxEnabled: updates.taxEnabled ?? currentSettings.taxEnabled,
         uniformPPEEnabled:
           updates.uniformPPEEnabled ?? currentSettings.uniformPPEEnabled,
         uniformPPEMaxDeduction:
