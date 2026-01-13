@@ -489,6 +489,9 @@ async function checkAttendanceBypass(
 // ------------------------------------------------------------------
 // CALCULATE HOURS AND STATUS
 // ------------------------------------------------------------------
+// ------------------------------------------------------------------
+// CALCULATE HOURS AND STATUS
+// ------------------------------------------------------------------
 async function calculateHoursAndStatus(
   person: any,
   checkInTime: Date,
@@ -507,12 +510,17 @@ async function calculateHoursAndStatus(
   let newStatus = currentStatus;
   let workedPercentage = 0;
 
+  // Get HR settings with defaults
   const overtimeThreshold = hrSettings?.overtimeThreshold || 8.0;
   const halfDayThreshold = hrSettings?.halfDayThreshold || 4.0;
-
-  // Get working hours based on day type
-  const workingHoursWeekend = hrSettings?.workingHoursOnWeekend || 4;
+  const workingHoursWeekend = hrSettings?.workingHoursWeekend || 4;
   const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
+
+  // Weekend-specific thresholds
+  const weekendOvertimeThreshold =
+    hrSettings?.WeekendovertimeThreshold || workingHoursWeekend;
+  const weekendHalfDayThreshold =
+    hrSettings?.WeekendhalfDayThreshold || workingHoursWeekend / 2;
 
   const actualHoursWorked =
     (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
@@ -523,7 +531,7 @@ async function calculateHoursAndStatus(
     actualHoursWorked: actualHoursWorked.toFixed(2),
   });
 
-  // Use the Day Name logic in SAST
+  // Determine if it's weekend based on SAST timezone
   const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
     timeZone: "Africa/Johannesburg",
     weekday: "short",
@@ -536,14 +544,16 @@ async function calculateHoursAndStatus(
     ? workingHoursWeekend
     : workingHoursPerDay;
 
-  // Adjust thresholds for weekends if needed (you might want separate weekend thresholds)
+  // Use weekend-specific thresholds for weekends
   const effectiveOvertimeThreshold = isWeekend
-    ? workingHoursWeekend
+    ? weekendOvertimeThreshold
     : overtimeThreshold;
+
   const effectiveHalfDayThreshold = isWeekend
-    ? workingHoursWeekend / 2
+    ? weekendHalfDayThreshold
     : halfDayThreshold;
 
+  // Get scheduled times
   let scheduledKnockInTime: string | null = null;
   let scheduledKnockOutTime: string | null = null;
 
@@ -556,6 +566,16 @@ async function calculateHoursAndStatus(
     scheduledKnockInTime = person.scheduledKnockIn ?? null;
     scheduledKnockOutTime = person.scheduledKnockOut ?? null;
   }
+
+  console.log(`Day info:`, {
+    isWeekend,
+    checkInDay,
+    workingHoursForDay,
+    effectiveOvertimeThreshold,
+    effectiveHalfDayThreshold,
+    scheduledKnockInTime,
+    scheduledKnockOutTime,
+  });
 
   if (scheduledKnockInTime && scheduledKnockOutTime) {
     const [startHours, startMinutes] = scheduledKnockInTime
@@ -578,6 +598,7 @@ async function calculateHoursAndStatus(
     const scheduledStartTime = new Date(scheduleStartStr);
     const scheduledEndTime = new Date(scheduleEndStr);
 
+    // Handle night shifts and schedules that cross midnight
     if (endHours <= startHours || isNightShift) {
       if (endHours < startHours && endHours < 12) {
         scheduledEndTime.setDate(scheduledEndTime.getDate() + 1);
@@ -590,12 +611,20 @@ async function calculateHoursAndStatus(
       (scheduledEndTime.getTime() - scheduledStartTime.getTime()) /
       (1000 * 60 * 60);
 
+    console.log(`Schedule details:`, {
+      scheduledStartTime: scheduledStartTime.toISOString(),
+      scheduledEndTime: scheduledEndTime.toISOString(),
+      scheduledHours: scheduledHours.toFixed(2),
+      isNightShift,
+    });
+
     const totalHoursWorked = actualHoursWorked;
 
+    // Calculate hours and status based on schedule
     if (totalHoursWorked > effectiveOvertimeThreshold) {
       regularHours = effectiveOvertimeThreshold;
       overtimeHours = totalHoursWorked - effectiveOvertimeThreshold;
-      newStatus = currentStatus;
+      newStatus = currentStatus; // Keep current status (usually PRESENT)
       workedPercentage = 100;
     } else {
       regularHours = totalHoursWorked;
@@ -607,6 +636,7 @@ async function calculateHoursAndStatus(
         workedPercentage = (totalHoursWorked / workingHoursForDay) * 100;
       }
 
+      // Determine status based on hours worked vs thresholds
       if (
         totalHoursWorked >= effectiveHalfDayThreshold &&
         totalHoursWorked < effectiveOvertimeThreshold
@@ -615,11 +645,11 @@ async function calculateHoursAndStatus(
       } else if (totalHoursWorked < effectiveHalfDayThreshold) {
         newStatus = AttendanceStatus.ABSENT;
       } else {
-        newStatus = currentStatus;
+        newStatus = currentStatus; // Keep current status
       }
     }
   } else {
-    // No schedule set
+    // No schedule set - use thresholds only
     const totalHoursWorked = actualHoursWorked;
 
     if (totalHoursWorked > effectiveOvertimeThreshold) {
@@ -632,6 +662,7 @@ async function calculateHoursAndStatus(
       overtimeHours = 0;
       workedPercentage = (totalHoursWorked / workingHoursForDay) * 100;
 
+      // Determine status based on hours worked vs thresholds
       if (
         totalHoursWorked >= effectiveHalfDayThreshold &&
         totalHoursWorked < effectiveOvertimeThreshold
@@ -648,6 +679,16 @@ async function calculateHoursAndStatus(
   // Round hours to 1 decimal place
   regularHours = Math.round(regularHours * 10) / 10;
   overtimeHours = Math.round(overtimeHours * 10) / 10;
+
+  console.log(`Calculation results:`, {
+    regularHours,
+    overtimeHours,
+    newStatus,
+    workedPercentage: Math.round(workedPercentage),
+    isWeekend,
+    effectiveOvertimeThreshold,
+    effectiveHalfDayThreshold,
+  });
 
   return { regularHours, overtimeHours, newStatus, workedPercentage };
 }
