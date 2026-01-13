@@ -104,7 +104,7 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
             <div className="flex items-center justify-between">
               <span className="font-medium">Supplier</span>
               <Link
-                href={`/dashboard/supplier/${product.venderId}`}
+                href={`/dashboard/suppliers/${product.venderId}`}
                 className="text-blue-500"
               >
                 {product.vender.name}
