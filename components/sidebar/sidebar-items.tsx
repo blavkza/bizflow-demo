@@ -24,12 +24,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
-import {
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown as ChevronDownIcon,
-} from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 import { Project } from "@/types/sidebar";
 import { getSidebarData } from "./utils/sidebar-data";
@@ -67,13 +62,13 @@ export function SidebarItems({
   const [collapsedSections, setCollapsedSections] = useState<
     Record<string, boolean>
   >({
-    Admin: false,
-    Shop: false,
-    Projects: false,
-    Tools: false,
-    "Human Resources": false,
-    Director: false,
-    System: false,
+    Admin: true,
+    Shop: true,
+    Projects: true,
+    Tools: true,
+    "Human Resources": true,
+    Director: true,
+    System: true,
   });
 
   const currentUserId = userId;
@@ -162,18 +157,23 @@ export function SidebarItems({
         {isCollapsible ? (
           <Collapsible open={!isCollapsed} className="group/collapsible">
             <div className="flex items-center justify-between px-1 mb-1">
-              <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
+              <div
+                className={clsx(
+                  "text-md font-bold uppercase tracking-wider px-1",
+                  "text-gray-900 dark:text-gray-100" // Black in light mode, white in dark mode
+                )}
+              >
                 {section.title}
-              </SidebarGroupLabel>
+              </div>
               <CollapsibleTrigger asChild>
                 <button
                   onClick={() => toggleSection(section.title)}
-                  className="p-1 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground"
+                  className="p-1 hover:bg-accent rounded-md transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                   aria-label={
                     isCollapsed ? "Expand section" : "Collapse section"
                   }
                 >
-                  <ChevronDownIcon
+                  <ChevronDown
                     className="h-3 w-3 transition-transform duration-200"
                     style={{
                       transform: isCollapsed
@@ -196,9 +196,14 @@ export function SidebarItems({
         ) : (
           <>
             <div className="px-1 mb-1">
-              <SidebarGroupLabel className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">
+              <div
+                className={clsx(
+                  "text-xs font-bold uppercase tracking-wider px-1",
+                  "text-gray-900 dark:text-gray-100" // Black in light mode, white in dark mode
+                )}
+              >
                 {section.title}
-              </SidebarGroupLabel>
+              </div>
             </div>
             <SidebarGroup className="border-0 p-0">
               <SidebarGroupContent className="pt-0">
@@ -388,7 +393,7 @@ export function SidebarItems({
       <SidebarHeaderComponent permissions={permissions} role={role} />
 
       <SidebarContent className="sidebar-content pb-8 overflow-y-auto h-[calc(100vh-180px)]">
-        <div className="space-y-4 py-2">
+        <div className="space-y-6 py-2">
           {data.navMain.map((section) => renderSection(section))}
         </div>
       </SidebarContent>
