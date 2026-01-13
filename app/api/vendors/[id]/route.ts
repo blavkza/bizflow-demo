@@ -63,6 +63,19 @@ export async function GET(
             createdAt: "desc",
           },
         },
+        shopProducts: {
+          include: {
+            ProductCategory: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
         _count: {
           select: {
             expenses: true,

@@ -49,6 +49,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import AddExpenseDialog from "../../expenses/Components/AddExpenseDialog";
 import { Category } from "@prisma/client";
+import { ProductsTab } from "./components/ProductsTab";
 
 interface Vendor {
   id: string;
@@ -503,6 +504,10 @@ export default function VendorDetailPage() {
                 id: "documents",
                 label: `Documents `,
               },
+              {
+                id: "products",
+                label: `Products `,
+              },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -746,6 +751,9 @@ export default function VendorDetailPage() {
 
         {activeTab === "documents" && (
           <DocumentsTab vendor={vendor} fetchVendor={fetchVendor} />
+        )}
+        {activeTab === "products" && (
+          <ProductsTab vendor={vendor} fetchVendor={fetchVendor} />
         )}
       </div>
 
