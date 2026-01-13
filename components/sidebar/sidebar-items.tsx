@@ -105,7 +105,7 @@ export function SidebarItems({
 
   const toggleSection = (sectionTitle: string) => {
     // Don't allow collapsing the Overview section
-    if (sectionTitle === "Overview") return;
+    if (sectionTitle === "") return;
 
     setCollapsedSections((prev) => ({
       ...prev,

@@ -538,7 +538,7 @@ export const getSidebarData = (
 
   if (overviewSection.hasItems) {
     navMain.push({
-      title: "Overview",
+      title: "",
       items: overviewSection.items,
     });
   }
