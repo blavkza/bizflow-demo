@@ -1,10 +1,13 @@
+import { Vendor } from "@prisma/client";
+
 export interface Product {
   id: string;
   name: string;
   description: string | null;
   sku: string;
   category: string;
-
+  venderId: string;
+  vender: Vendor;
   price: number;
   costPrice: number | null;
 
@@ -47,7 +50,7 @@ export interface ProductFormData {
   description: string;
   sku: string;
   category: string;
-
+  venderId: string | null;
   price: number;
   priceBeforeTax: number;
   costPrice: number | null;

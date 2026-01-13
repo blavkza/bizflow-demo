@@ -1963,6 +1963,7 @@ model Vendor {
   Document          Document[]
   productCategories ProductCategory[]
   invoiceDocuments  InvoiceDocument[]
+  shopProducts      ShopProduct[]
 
   @@map("vendors")
 }
@@ -2101,6 +2102,7 @@ model ShopProduct {
   color      String?
   size       String?
   brand      String?
+  venderId   String?
 
   // Status
   status   ProductStatus @default(ACTIVE)
@@ -2129,6 +2131,7 @@ model ShopProduct {
   saleQuoteItems    SaleQuoteItem[]
   stockAwaits       StockAwait[]
   documentItems     DocumentItem[]
+  vender            Vendor?             @relation(fields: [venderId], references: [id], onDelete: Cascade)
 
   @@map("shopProducts")
 }

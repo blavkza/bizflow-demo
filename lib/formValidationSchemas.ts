@@ -841,14 +841,22 @@ export type ProjectTeamCreateSchema = z.infer<typeof ProjectTeamCreateSchema>;
 
 const TAX_RATE = 0.15; // 15% VAT
 
+const DocumentSchema = z.object({
+  name: z.string(),
+  url: z.string(),
+  type: z.enum(["PDF", "DOCUMENT", "IMAGE", "OTHER"]),
+  size: z.number(),
+  mimeType: z.string(),
+});
+
 export const ShopProductSchema = z
   .object({
     name: z.string().min(1, "Product name is required"),
     description: z.string().default(""),
     sku: z.string().min(1, "SKU is required"),
     category: z.string().min(1, "Category is required"),
+    venderId: z.string().optional(),
 
-    // Price Input Mode
     priceInputMode: z.enum(["BEFORE_TAX", "AFTER_TAX"]).default("AFTER_TAX"),
 
     // Price Fields - ensure they always have values
@@ -901,6 +909,7 @@ export const ShopProductSchema = z
 
     // Images
     images: z.array(z.string()).default([]),
+    documents: z.array(DocumentSchema).default([]),
   })
   .superRefine((data, ctx) => {
     // Ensure price calculations are correct

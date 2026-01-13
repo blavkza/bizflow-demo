@@ -89,8 +89,7 @@ export async function POST(request: NextRequest) {
         description: body.description,
         sku: body.sku,
         category: body.category,
-
-        // Price fields
+        venderId: body.vendorId,
         price: price,
         priceBeforeTax: priceBeforeTax,
         costPrice: costPrice,
@@ -128,7 +127,7 @@ export async function POST(request: NextRequest) {
                 create: body.documents.map((doc: any, index: number) => ({
                   name: doc.name || `Document_${index + 1}`,
                   url: doc.url,
-                  type: doc.type || "OTHER",
+                  type: "OTHER",
                   size: doc.size || 0,
                   mimeType: doc.mimeType || "application/octet-stream",
                 })),
@@ -247,7 +246,7 @@ export async function PUT(request: NextRequest) {
                 data: {
                   name: doc.name || `Document_${index + 1}`,
                   url: doc.url,
-                  type: doc.type || "OTHER",
+                  type: "OTHER",
                   size: doc.size || 0,
                   mimeType: doc.mimeType || "application/octet-stream",
                   shopProductId: body.id,
@@ -275,7 +274,7 @@ export async function PUT(request: NextRequest) {
         description: body.description,
         sku: body.sku,
         category: body.category,
-
+        venderId: body.venderId,
         // Price fields
         price: price,
         priceBeforeTax: priceBeforeTax,

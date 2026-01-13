@@ -2,6 +2,7 @@ import { AlertTriangle, TrendingUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Product } from "@/types/product";
+import Link from "next/link";
 
 interface ProductDetailsGridProps {
   product: Product;
@@ -99,6 +100,17 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
             <span className="font-medium">Brand</span>
             <span>{product.brand || "N/A"}</span>
           </div>
+          {product.vender.name && (
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Supplier</span>
+              <Link
+                href={`/dashboard/supplier/${product.venderId}`}
+                className="text-blue-500"
+              >
+                {product.vender.name}
+              </Link>
+            </div>
+          )}
           {product.featured && (
             <div className="flex items-center justify-between">
               <span className="font-medium">Featured</span>

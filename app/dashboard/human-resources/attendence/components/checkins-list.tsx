@@ -312,14 +312,11 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
 
       {/* Map Dialog */}
       <Dialog open={showMap} onOpenChange={setShowMap}>
-        <DialogContent className="max-w-2xl text-sm">
+        <DialogContent className="max-w-4xl lg:min-w-[95vw] lg:min-h-[95vh] text-sm">
           <DialogHeader>
             <DialogTitle className="text-sm">
               {mapType === "checkin" ? "Check-in" : "Check-out"} Location
             </DialogTitle>
-            <DialogDescription className="text-xs">
-              {selectedRecord?.employeeName} - {mapType}
-            </DialogDescription>
           </DialogHeader>
 
           {selectedRecord && (
@@ -388,10 +385,10 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                   )}
               </div>
 
-              <div className="w-full h-64 rounded-lg overflow-hidden border">
+              <div className="w-full h-96 rounded-lg overflow-hidden border">
                 {mapType === "checkin" && selectedRecord.coordinates ? (
                   <iframe
-                    src={`https://maps.google.com/maps?q=${safeDecimalToNumber(selectedRecord.coordinates.lat)},${safeDecimalToNumber(selectedRecord.coordinates.lng)}&z=17&t=m&output=embed`}
+                    src={`https://maps.google.com/maps?q=${safeDecimalToNumber(selectedRecord.coordinates.lat)},${safeDecimalToNumber(selectedRecord.coordinates.lng)}&z=17&t=k&output=embed`}
                     className="w-full h-full border-0"
                     allowFullScreen
                     loading="lazy"
@@ -401,7 +398,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                 ) : mapType === "checkout" &&
                   selectedRecord.checkOutCoordinates ? (
                   <iframe
-                    src={`https://maps.google.com/maps?q=${safeDecimalToNumber(selectedRecord.checkOutCoordinates.lat)},${safeDecimalToNumber(selectedRecord.checkOutCoordinates.lng)}&z=17&t=m&output=embed`}
+                    src={`https://maps.google.com/maps?q=${safeDecimalToNumber(selectedRecord.checkOutCoordinates.lat)},${safeDecimalToNumber(selectedRecord.checkOutCoordinates.lng)}&z=17&t=k&output=embed`}
                     className="w-full h-full border-0"
                     allowFullScreen
                     loading="lazy"
@@ -418,28 +415,6 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                     </div>
                   </div>
                 )}
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <div className="flex items-center space-x-2">
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 rounded-full bg-blue-500 mr-1"></div>
-                    <span>Check-in location</span>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-3 h-3 rounded-full bg-green-500 mr-1"></div>
-                    <span>Check-out location</span>
-                  </div>
-                </div>
-                <p className="text-[10px]">
-                  Zoom in/out using mouse wheel or +/- buttons
-                </p>
-              </div>
-
-              <div className="flex justify-end">
-                <Button size="sm" onClick={handleCloseMap}>
-                  Close
-                </Button>
               </div>
             </div>
           )}

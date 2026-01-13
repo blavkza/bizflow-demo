@@ -24,6 +24,7 @@ export async function GET(
         productDocuments: {
           orderBy: { createdAt: "desc" },
         },
+        vender: true,
         orderItems: true,
         saleItems: true,
       },
@@ -137,7 +138,7 @@ export async function PUT(
         description: body.description,
         sku: body.sku,
         category: body.category,
-
+        venderId: body.venderId,
         // Price fields
         price: price,
         priceBeforeTax: priceBeforeTax,

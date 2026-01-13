@@ -34,9 +34,21 @@ import {
   ShopProductSchemaType,
 } from "@/lib/formValidationSchemas";
 import { toast } from "sonner";
-import { Loader2, Percent } from "lucide-react";
+import { Loader2, Percent, Plus } from "lucide-react";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Switch } from "@/components/ui/switch";
+import { Combobox } from "@/components/ui/combobox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import axios from "axios";
+import { VendorForm } from "@/app/dashboard/suppliers/components/VendorForm";
 
 interface ProductFormProps {
   product?: Product;
@@ -55,6 +67,12 @@ export function ProductForm({
 }: ProductFormProps) {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [venders, setVendors] = useState<{ label: string; value: string }[]>(
+    []
+  );
+  const [isloadingVender, setIsLoadingvender] = useState(false);
+
+  console.log(product);
 
   const [images, setImages] = useState<UploadedFile[]>(
     product?.images?.map((url) => ({
@@ -115,6 +133,7 @@ export function ProductForm({
       featured: product?.featured !== undefined ? product.featured : true,
       images: product?.images || [],
       priceInputMode: product?.priceInputMode || "AFTER_TAX",
+      venderId: product?.venderId || "",
 
       // Initialize Prices
       price: product?.price || 0,
@@ -399,6 +418,7 @@ export function ProductForm({
   // --- LIFECYCLE ---
   useEffect(() => {
     loadCategories();
+    loadVendors();
 
     // Initialize profit display based on ACTUAL values (after tax)
     if (product) {
@@ -421,6 +441,41 @@ export function ProductForm({
     } catch (error) {
       console.error("Failed to load categories:", error);
       toast.error("Failed to load categories");
+    }
+  };
+
+  const loadVendors = async () => {
+    try {
+      setIsLoadingvender(true);
+      const response = await fetch("/api/vendors");
+      if (response.ok) {
+        const data = await response.json();
+        setVendors(
+          data.map((vendor: any) => ({
+            label: vendor.name,
+            value: vendor.id,
+          }))
+        );
+      }
+      setIsLoadingvender(false);
+    } catch (error) {
+      console.error("Failed to load vendors:", error);
+    }
+  };
+
+  const refreshVendors = async () => {
+    try {
+      setIsLoadingvender(true);
+      const response = await axios.get("/api/vendors");
+      setVendors(
+        response.data.map((vendor: any) => ({
+          label: vendor.name,
+          value: vendor.id,
+        }))
+      );
+      setIsLoadingvender(false);
+    } catch (error) {
+      console.error("Error refreshing vendors:", error);
     }
   };
 
@@ -509,7 +564,7 @@ export function ProductForm({
         status: values.status,
         featured: values.featured,
         images: images.map((img) => img.url),
-        // Send documents data properly
+        venderId: values.venderId || null,
         documents: documents.map((doc) => ({
           url: doc.url,
           name: doc.name,
@@ -639,11 +694,35 @@ export function ProductForm({
             />
           </div>
 
+          {/* Vendor Field */}
+          <FormField
+            control={form.control}
+            name="venderId"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>Vendor/ Supplier</FormLabel>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Combobox
+                      options={venders}
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="Select vendor"
+                      isLoading={isloadingVender}
+                    />
+                  </div>
+                  <AddVendorDialog onVendorAdded={refreshVendors} />
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           {/* Pricing Mode Toggle */}
-          <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
+          <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50 dark:bg-zinc-800">
             <div>
               <h3 className="font-medium">Price Input Mode</h3>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-zinc-300">
                 Choose whether to enter prices before or after 15% VAT
               </p>
             </div>
@@ -904,14 +983,16 @@ export function ProductForm({
           </div>
 
           {/* Tax Summary - NOW DYNAMIC */}
-          <div className="p-4 border rounded-lg bg-blue-50">
+          <div className="p-4 border rounded-lg bg-blue-50 dark:bg-zinc-800">
             <h4 className="font-medium text-sm mb-2">15% VAT Summary</h4>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-3">
                 <h5 className="text-sm font-medium">Cost Price</h5>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-gray-600">Cost before VAT:</p>
+                    <p className="text-gray-600 dark:text-zinc-500">
+                      Cost before VAT:
+                    </p>
                     <p className="font-semibold">
                       {displayValues.costBeforeTax > 0
                         ? `R${formatPrice(displayValues.costBeforeTax)}`
@@ -919,7 +1000,9 @@ export function ProductForm({
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">VAT amount (15%):</p>
+                    <p className="text-gray-600 dark:text-zinc-500">
+                      VAT amount (15%):
+                    </p>
                     <p className="font-semibold">
                       {displayValues.costBeforeTax > 0
                         ? `R${formatPrice(displayValues.costVatAmount)}`
@@ -927,7 +1010,9 @@ export function ProductForm({
                     </p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-gray-600">Cost after VAT:</p>
+                    <p className="text-gray-600 dark:text-zinc-500">
+                      Cost after VAT:
+                    </p>
                     <p className="font-semibold text-lg">
                       {displayValues.costAfterTax > 0
                         ? `R${formatPrice(displayValues.costAfterTax)}`
@@ -940,19 +1025,25 @@ export function ProductForm({
                 <h5 className="text-sm font-medium">Selling Price</h5>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-gray-600">Price before VAT:</p>
+                    <p className="text-gray-600 dark:text-zinc-500">
+                      Price before VAT:
+                    </p>
                     <p className="font-semibold">
                       R{formatPrice(displayValues.sellingPriceBeforeTax)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">VAT amount (15%):</p>
+                    <p className="text-gray-600 dark:text-zinc-500">
+                      VAT amount (15%):
+                    </p>
                     <p className="font-semibold">
                       R{formatPrice(displayValues.vatAmount)}
                     </p>
                   </div>
                   <div className="col-span-2">
-                    <p className="text-gray-600">Price after VAT:</p>
+                    <p className="text-gray-600 dark:text-zinc-500">
+                      Price after VAT:
+                    </p>
                     <p className="font-semibold text-lg">
                       R{formatPrice(displayValues.sellingPriceAfterTax)}
                     </p>
@@ -968,13 +1059,17 @@ export function ProductForm({
                 <h5 className="text-sm font-medium">Profit Summary</h5>
                 <div className="grid grid-cols-3 gap-4 text-sm mt-2">
                   <div>
-                    <p className="text-gray-600">Profit amount:</p>
+                    <p className="text-gray-600 dark:text-zinc-500">
+                      Profit amount:
+                    </p>
                     <p className="font-semibold text-green-600">
                       R{formatPrice(displayValues.profitAmount)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Profit percentage:</p>
+                    <p className="text-gray-600 dark:text-zinc-500">
+                      Profit percentage:
+                    </p>
                     <p className="font-semibold text-green-600">
                       {displayValues.profitPercent > 0
                         ? displayValues.profitPercent.toFixed(1) + "%"
@@ -982,7 +1077,7 @@ export function ProductForm({
                     </p>
                   </div>
                   <div>
-                    <p className="text-gray-600">Markup:</p>
+                    <p className="text-gray-600 dark:text-zinc-500">Markup:</p>
                     <p className="font-semibold text-green-600">
                       {displayValues.markup > 0
                         ? displayValues.markup.toFixed(2) + "x"
@@ -1263,5 +1358,93 @@ export function ProductForm({
         </div>
       </form>
     </Form>
+  );
+}
+
+// Add Vendor Dialog Component
+function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (data: any) => {
+    setLoading(true);
+
+    try {
+      const apiData = {
+        name: data.name.trim(),
+        email: data.email?.trim() || null,
+        phone: data.phone?.trim(),
+        phone2: data.phone2?.trim() || null,
+        website: data.website?.trim() || null,
+        address: data.address?.trim() || null,
+        taxNumber: data.taxNumber?.trim() || null,
+        registrationNumber: data.registrationNumber?.trim() || null,
+        categoryIds: data.categoryIds || [],
+        type: data.type || "SUPPLIER",
+        status: data.status || "ACTIVE",
+        paymentTerms:
+          data.paymentTerms === "no-payment-terms"
+            ? null
+            : data.paymentTerms?.trim(),
+        notes: data.notes?.trim() || null,
+      };
+
+      const response = await fetch("/api/vendors", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(apiData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create vendor");
+      }
+
+      await response.json();
+      toast.success("Vendor created successfully");
+      setIsOpen(false);
+      onVendorAdded();
+    } catch (error) {
+      console.error("Failed to create vendor:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create vendor"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="ml-2">
+          <Plus className="h-3 w-3 mr-1" />
+          New Vendor
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[800px] max-h-[95vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Add New Supplier</DialogTitle>
+          <DialogDescription>
+            Add a new vendor or supplier to your system.
+          </DialogDescription>
+        </DialogHeader>
+
+        <VendorForm onSubmit={handleSubmit} loading={loading} />
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsOpen(false)}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
