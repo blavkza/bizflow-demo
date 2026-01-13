@@ -55,6 +55,7 @@ const HRSettingsSchema = z.object({
   lateThreshold: z.number().min(1),
   halfDayThreshold: z.number().min(0.5),
   overtimeThreshold: z.number().min(1),
+  WeekendovertimeThreshold: z.number().min(1),
 
   // Leave Settings
   annualLeaveDays: z.number().min(0),
@@ -159,6 +160,7 @@ interface HRSettings {
   lateThreshold: number;
   halfDayThreshold: number;
   overtimeThreshold: number;
+  WeekendovertimeThreshold: number;
   annualLeaveDays: number;
   sickLeaveDays: number;
   studyLeaveDays: number;
@@ -249,6 +251,7 @@ export default function HRSettingsForm({
       lateThreshold: 15,
       halfDayThreshold: 4,
       overtimeThreshold: 8,
+      WeekendovertimeThreshold: 4,
       overtimeHourRate: 50,
       annualLeaveDays: 21,
       sickLeaveDays: 30,
@@ -350,6 +353,7 @@ export default function HRSettingsForm({
             lateThreshold: settings.lateThreshold,
             halfDayThreshold: settings.halfDayThreshold,
             overtimeThreshold: settings.overtimeThreshold,
+            WeekendovertimeThreshold: settings.WeekendovertimeThreshold,
             overtimeHourRate: settings.overtimeHourRate,
             annualLeaveDays: settings.annualLeaveDays,
             sickLeaveDays: settings.sickLeaveDays,
@@ -733,7 +737,7 @@ export default function HRSettingsForm({
               <h3 className="text-lg font-semibold border-b pb-2">
                 Attendance Settings
               </h3>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="lateThreshold"
@@ -769,10 +773,12 @@ export default function HRSettingsForm({
                   render={({ field }) => (
                     <FormItem className="space-y-2">
                       <div className="flex items-center">
-                        <FormLabel>Half Day Threshold (hours)</FormLabel>
+                        <FormLabel>
+                          Half Day Threshold On Week Days(hours)
+                        </FormLabel>
                         <ExplanationPopover
                           title="Half Day Threshold"
-                          content="Minimum hours required to be considered a half day of work. Less than this may be considered absent."
+                          content="Minimum hours required to be considered a half day of work on week days. Less than this may be considered absent."
                         />
                       </div>
                       <FormControl>
@@ -792,17 +798,52 @@ export default function HRSettingsForm({
                     </FormItem>
                   )}
                 />
-
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="overtimeThreshold"
                   render={({ field }) => (
                     <FormItem className="space-y-2">
                       <div className="flex items-center">
-                        <FormLabel>Overtime Threshold (hours)</FormLabel>
+                        <FormLabel>
+                          Week days Overtime Threshold (hours)
+                        </FormLabel>
                         <ExplanationPopover
                           title="Overtime Threshold"
-                          content="Daily hours worked beyond this threshold qualify for overtime pay."
+                          content="Week days daily hours worked beyond this threshold qualify for overtime pay."
+                        />
+                      </div>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.5"
+                          min="1"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(parseFloat(e.target.value))
+                          }
+                          className="w-full"
+                          disabled={!hasFullAccess && !canManageSettings}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="WeekendovertimeThreshold"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <div className="flex items-center">
+                        <FormLabel>
+                          {" "}
+                          Weekend Overtime Threshold (hours)
+                        </FormLabel>
+                        <ExplanationPopover
+                          title="Overtime Threshold"
+                          content="Weekend daily hours worked beyond this threshold qualify for overtime pay."
                         />
                       </div>
                       <FormControl>

@@ -85,6 +85,7 @@ export async function POST(request: Request) {
           lateThreshold: updates.lateThreshold || 15,
           halfDayThreshold: updates.halfDayThreshold || 4,
           overtimeThreshold: updates.overtimeThreshold || 8,
+          WeekendovertimeThreshold: updates.WeekendovertimeThreshold || 4,
           annualLeaveDays: updates.annualLeaveDays || 21,
           sickLeaveDays: updates.sickLeaveDays || 30,
           studyLeaveDays: updates.studyLeaveDays || 5,
@@ -164,6 +165,9 @@ export async function POST(request: Request) {
           updates.halfDayThreshold ?? currentSettings.halfDayThreshold,
         overtimeThreshold:
           updates.overtimeThreshold ?? currentSettings.overtimeThreshold,
+        WeekendovertimeThreshold:
+          updates.WeekendovertimeThreshold ??
+          currentSettings.WeekendovertimeThreshold,
         annualLeaveDays:
           updates.annualLeaveDays ?? currentSettings.annualLeaveDays,
         sickLeaveDays: updates.sickLeaveDays ?? currentSettings.sickLeaveDays,

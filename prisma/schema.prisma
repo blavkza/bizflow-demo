@@ -120,10 +120,11 @@ model HRSettings {
   autoProcessPayroll Boolean @default(false)
 
   // Attendance Settings
-  lateThreshold       Int   @default(15) // minutes
-  halfDayThreshold    Float @default(4.0) // hours
-  overtimeThreshold   Float @default(8.0) // hours
-  workingDaysPerMonth Int   @default(22)
+  lateThreshold            Int   @default(15) // minutes
+  halfDayThreshold         Float @default(4.0) // hours
+  overtimeThreshold        Float @default(8.0) // hours
+  WeekendovertimeThreshold Float @default(4.0)
+  workingDaysPerMonth      Int   @default(22)
 
   // Leave Settings
   annualLeaveDays    Int     @default(21)
