@@ -57,11 +57,15 @@ export function safeDecimalToNumber(value: any): number {
 
 // Helper function to check if status is a leave status
 export function isLeaveStatus(status: AttendanceStatus): boolean {
-  return [
+  const leaveStatuses: AttendanceStatus[] = [
     AttendanceStatus.SICK_LEAVE,
     AttendanceStatus.ANNUAL_LEAVE,
     AttendanceStatus.UNPAID_LEAVE,
-  ].includes(status);
+    AttendanceStatus.MATERNITY_LEAVE,
+    AttendanceStatus.PATERNITY_LEAVE,
+    AttendanceStatus.STUDY_LEAVE,
+  ];
+  return leaveStatuses.includes(status);
 }
 
 // Helper function to format date for display
@@ -161,6 +165,9 @@ export function getStatusIconName(status: AttendanceStatus): string {
     case AttendanceStatus.ANNUAL_LEAVE:
     case AttendanceStatus.SICK_LEAVE:
     case AttendanceStatus.UNPAID_LEAVE:
+    case AttendanceStatus.MATERNITY_LEAVE:
+    case AttendanceStatus.PATERNITY_LEAVE:
+    case AttendanceStatus.STUDY_LEAVE:
       return "Calendar";
     case AttendanceStatus.HALF_DAY:
       return "Clock";
@@ -183,6 +190,12 @@ export function getStatusDisplayName(status: AttendanceStatus): string {
       return "Sick Leave";
     case AttendanceStatus.UNPAID_LEAVE:
       return "Unpaid Leave";
+    case AttendanceStatus.MATERNITY_LEAVE:
+      return "Maternity Leave";
+    case AttendanceStatus.PATERNITY_LEAVE:
+      return "Paternity Leave";
+    case AttendanceStatus.STUDY_LEAVE:
+      return "Study Leave";
     case AttendanceStatus.HALF_DAY:
       return "Half Day";
     default:
@@ -244,6 +257,12 @@ export function getDisplayStatus(record: AttendanceRecord): string {
         return "Sick Leave";
       case AttendanceStatus.UNPAID_LEAVE:
         return "Unpaid Leave";
+      case AttendanceStatus.MATERNITY_LEAVE:
+        return "Maternity Leave";
+      case AttendanceStatus.PATERNITY_LEAVE:
+        return "Paternity Leave";
+      case AttendanceStatus.STUDY_LEAVE:
+        return "Study Leave";
       case AttendanceStatus.HALF_DAY:
         return "Half Day";
       default:

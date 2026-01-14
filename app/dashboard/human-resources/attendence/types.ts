@@ -23,6 +23,7 @@ export interface AttendanceRecord {
     scheduledKnockIn: string | null;
     scheduledKnockOut: string | null;
     workingDays: string[];
+    overtimeHourRate: number;
   } | null;
   freeLancer?: {
     id: string;
@@ -37,6 +38,7 @@ export interface AttendanceRecord {
     scheduledKnockIn: string | null;
     scheduledKnockOut: string | null;
     workingDays: string[];
+    overtimeHourRate: number;
   } | null;
   date: Date;
   checkIn: Date | null;

@@ -42,6 +42,8 @@ export function AttendanceList({
 }: AttendanceListProps) {
   const router = useRouter();
 
+  console.log(records);
+
   const isValidScheduledTime = (time: string | null | undefined): boolean => {
     if (!time) return false;
     if (typeof time !== "string") return false;
@@ -79,9 +81,22 @@ export function AttendanceList({
     ) {
       return null;
     }
+
     const overtimeHours = safeDecimalToNumber(record.overtimeHours);
-    const overtimeHourRate = 50.0;
-    return overtimeHours * overtimeHourRate;
+    const person = record.employee || record.freeLancer;
+
+    if (!person) return null;
+
+    // Get overtimeHourRate from employee/freelancer profile
+    const overtimeHourRate = person.overtimeHourRate;
+
+    // IMPORTANT: If overtimeHourRate is undefined or 0, return null
+    if (!overtimeHourRate || safeDecimalToNumber(overtimeHourRate) <= 0) {
+      return null;
+    }
+
+    const rate = safeDecimalToNumber(overtimeHourRate);
+    return overtimeHours * rate;
   };
 
   const hasBypass = (record: AttendanceRecord): boolean => {
