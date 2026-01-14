@@ -24,6 +24,8 @@ import {
   getCheckInMethodColor,
   formatTime,
   safeDecimalToNumber,
+  getDisplayStatus,
+  isLeaveStatus,
 } from "../utils";
 import { useRouter } from "next/navigation";
 
@@ -41,8 +43,6 @@ export function AttendanceList({
   onClearFilters,
 }: AttendanceListProps) {
   const router = useRouter();
-
-  console.log(records);
 
   const isValidScheduledTime = (time: string | null | undefined): boolean => {
     if (!time) return false;
@@ -81,7 +81,6 @@ export function AttendanceList({
     ) {
       return null;
     }
-
     const overtimeHours = safeDecimalToNumber(record.overtimeHours);
     const person = record.employee || record.freeLancer;
 
@@ -90,7 +89,7 @@ export function AttendanceList({
     // Get overtimeHourRate from employee/freelancer profile
     const overtimeHourRate = person.overtimeHourRate;
 
-    // IMPORTANT: If overtimeHourRate is undefined or 0, return null
+    // If overtimeHourRate is not set, return null
     if (!overtimeHourRate || safeDecimalToNumber(overtimeHourRate) <= 0) {
       return null;
     }
@@ -263,17 +262,16 @@ export function AttendanceList({
 
   const shouldShowNotCheckedIn = (record: AttendanceRecord) => {
     if (record.checkIn) return false;
-    if (
-      record.status === "ANNUAL_LEAVE" ||
-      record.status === "SICK_LEAVE" ||
-      record.status === "UNPAID_LEAVE"
-    )
-      return false;
+    if (isLeaveStatus(record.status)) return false;
     if (record.displayStatus === "Day Off") return false;
 
     const now = new Date();
     const person = record.employee || record.freeLancer;
     const recordDate = new Date(record.date);
+
+    // Check if it's today
+    const isToday = now.toDateString() === recordDate.toDateString();
+    if (!isToday) return false;
 
     const { knockIn: scheduledKnockIn } = getScheduledTimes(
       person,
@@ -328,38 +326,22 @@ export function AttendanceList({
       }
       return "Not Checked In";
     }
-    return record.displayStatus || getStatusDisplayName(record.status);
+
+    // Use getDisplayStatus from utils
+    return getDisplayStatus(record);
   };
 
   const getStatusBadgeColor = (record: AttendanceRecord) => {
-    if (shouldShowNotCheckedIn(record)) {
-      const person = record.employee || record.freeLancer;
-      const recordDate = new Date(record.date);
-      const { knockIn: scheduledKnockIn } = getScheduledTimes(
-        person,
-        recordDate,
-        record,
-        extractCustomTimes(record)
-      );
+    const displayStatus = getDisplayStatusText(record);
 
-      if (isValidScheduledTime(scheduledKnockIn)) {
-        try {
-          const scheduledTime = new Date(`1970-01-01T${scheduledKnockIn}`);
-          const todayScheduled = new Date();
-          todayScheduled.setHours(
-            scheduledTime.getHours(),
-            scheduledTime.getMinutes(),
-            0,
-            0
-          );
-          const now = new Date();
-          if (now >= todayScheduled)
-            return "bg-yellow-100 text-yellow-800 border-yellow-200";
-        } catch (error) {}
+    if (displayStatus.includes("Not Checked In")) {
+      if (displayStatus.includes("Late")) {
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
       }
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-blue-100 text-blue-800 border-blue-200";
     }
-    return getStatusColor(record.status, record.displayStatus);
+
+    return getStatusColor(record.status, displayStatus);
   };
 
   if (loading) {
@@ -710,11 +692,23 @@ export function AttendanceList({
                             </span>
                           )}
                         </div>
-                        {overtimePay && (
-                          <div className="text-xs text-green-600 mt-1">
-                            OT Pay: R{overtimePay.toFixed(2)}
-                          </div>
-                        )}
+                        {overtimeHours > 0 &&
+                          (overtimePay ? (
+                            <div className="text-xs text-green-600 mt-1">
+                              OT Pay: R{overtimePay.toFixed(2)}
+                              <span className="text-xs text-gray-500 ml-1">
+                                @ R
+                                {safeDecimalToNumber(
+                                  person.overtimeHourRate
+                                ).toFixed(2)}
+                                /hr
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-500 mt-1">
+                              OT rate not configured
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}
@@ -781,9 +775,7 @@ export function AttendanceList({
                     <div className="flex items-center text-orange-600">
                       <Calendar className="w-3 h-3 mr-1" />
                       <span>
-                        {record.status === "ANNUAL_LEAVE" ||
-                        record.status === "SICK_LEAVE" ||
-                        record.status === "UNPAID_LEAVE"
+                        {isLeaveStatus(record.status)
                           ? `On ${getStatusDisplayName(
                               record.status
                             ).toLowerCase()}`

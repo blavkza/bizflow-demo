@@ -1,9 +1,6 @@
 import { Decimal } from "@prisma/client/runtime/library";
-import {
-  CheckInMethod,
-  AttendanceStatus,
-  AttendanceRecord,
-} from "@prisma/client";
+import { CheckInMethod, AttendanceStatus } from "@prisma/client";
+import { AttendanceRecord } from "./types";
 
 // Helper function to convert Decimal to number - more robust version
 export function decimalToNumber(value: any): number {
@@ -240,60 +237,43 @@ export const statusOptions = [
   "Unpaid Leave",
   "Half Day",
 ];
-
 export function getDisplayStatus(record: AttendanceRecord): string {
-  // If employee has checked in, use their actual status
-  if (record.checkIn) {
-    switch (record.status) {
-      case AttendanceStatus.PRESENT:
-        return "Present";
-      case AttendanceStatus.LATE:
-        return "Late";
-      case AttendanceStatus.ABSENT:
-        return "Absent";
-      case AttendanceStatus.ANNUAL_LEAVE:
-        return "Annual Leave";
-      case AttendanceStatus.SICK_LEAVE:
-        return "Sick Leave";
-      case AttendanceStatus.UNPAID_LEAVE:
-        return "Unpaid Leave";
-      case AttendanceStatus.MATERNITY_LEAVE:
-        return "Maternity Leave";
-      case AttendanceStatus.PATERNITY_LEAVE:
-        return "Paternity Leave";
-      case AttendanceStatus.STUDY_LEAVE:
-        return "Study Leave";
-      case AttendanceStatus.HALF_DAY:
-        return "Half Day";
-      default:
-        return "Unknown";
-    }
+  if (record.displayStatus) {
+    return record.displayStatus;
   }
 
-  // If employee hasn't checked in yet
-  if (isLeaveStatus(record.status)) {
-    switch (record.status) {
-      case AttendanceStatus.ANNUAL_LEAVE:
-        return "Annual Leave";
-      case AttendanceStatus.SICK_LEAVE:
-        return "Sick Leave";
-      case AttendanceStatus.UNPAID_LEAVE:
-        return "Unpaid Leave";
-      default:
-        return "On Leave";
-    }
+  const isVirtual =
+    record.isVirtualRecord ||
+    record.id.startsWith("virtual-") ||
+    !record.checkIn;
+
+  if (!isVirtual) {
+    return getStatusDisplayName(record.status);
   }
 
-  // For employees who haven't checked in but are scheduled to work
-  // We'll determine this based on current time vs scheduled time
+  // For virtual records (no actual attendance record)
   const now = new Date();
-  const scheduledKnockIn = (record as any).employee?.scheduledKnockIn;
+  const recordDate = new Date(record.date);
+  const isToday = now.toDateString() === recordDate.toDateString();
+
+  // If it's not today, it's Absent
+  if (!isToday) {
+    return "Absent";
+  }
+
+  // If it's a leave status
+  if (isLeaveStatus(record.status)) {
+    return getStatusDisplayName(record.status);
+  }
+
+  // For today, non-leave virtual records
+  const person = (record as any).employee || (record as any).freeLancer;
+  const scheduledKnockIn = person?.scheduledKnockIn;
 
   if (!scheduledKnockIn) {
     return "No Schedule";
   }
 
-  // Create today's scheduled time
   const scheduledTime = new Date(scheduledKnockIn);
   const todayScheduled = new Date();
   todayScheduled.setHours(
@@ -303,14 +283,13 @@ export function getDisplayStatus(record: AttendanceRecord): string {
     0
   );
 
-  const gracePeriod = new Date(todayScheduled.getTime() + 15 * 60000); // 15 minutes grace
+  const gracePeriod = new Date(todayScheduled.getTime() + 15 * 60000);
 
   if (now < todayScheduled) {
     return "Not Checked In";
   } else if (now <= gracePeriod) {
     return "Not Checked In";
   } else if (now <= new Date(todayScheduled.getTime() + 8 * 60 * 60000)) {
-    // Within 8 hours of scheduled time
     return "Not Checked In - Late";
   } else {
     return "Absent";
