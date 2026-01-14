@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
+import { UserRole } from "@prisma/client";
 
 export async function POST(request: Request) {
   try {
@@ -9,6 +10,7 @@ export async function POST(request: Request) {
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const type = formData.get("type") as string;
@@ -51,6 +53,16 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const timestamp = Date.now();
 
+    // Get current user for authorization check
+    const currentUser = await db.user.findUnique({
+      where: { userId },
+      select: { id: true, name: true, role: true },
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     // Determine the ID to use for public_id
     const entityId =
       type === "client"
@@ -73,6 +85,17 @@ export async function POST(request: Request) {
         { error: `Missing ${type} ID` },
         { status: 400 }
       );
+    }
+
+    // For settings type, check if user has admin permissions
+    if (type === "settings") {
+      if (
+        currentUser.role !== UserRole.CHIEF_EXECUTIVE_OFFICER &&
+        currentUser.role !== UserRole.GENERAL_MANAGER &&
+        currentUser.role !== UserRole.ADMIN_MANAGER
+      ) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
     }
 
     // Upload to Cloudinary
@@ -111,9 +134,63 @@ export async function POST(request: Request) {
         data: { avatar: cloudinaryData.secure_url },
       });
     } else if (type === "settings" && settingsId) {
-      await db.generalSetting.update({
-        where: { id: settingsId },
-        data: { logo: cloudinaryData.secure_url },
+      // For settings, update logo for ALL users
+      const allUsers = await db.user.findMany({
+        select: { id: true },
+      });
+
+      // Use transaction for batch update
+      await db.$transaction(async (tx) => {
+        for (const user of allUsers) {
+          const userSettings = await tx.generalSetting.findFirst({
+            where: { userId: user.id },
+          });
+
+          if (userSettings) {
+            // Update existing settings
+            await tx.generalSetting.update({
+              where: { id: userSettings.id },
+              data: { logo: cloudinaryData.secure_url },
+            });
+          } else {
+            // Create new settings with logo and default values
+            await tx.generalSetting.create({
+              data: {
+                userId: user.id,
+                logo: cloudinaryData.secure_url,
+                companyName: "Company Name",
+                taxId: "",
+                Address: "",
+                city: "",
+                province: "",
+                postCode: "",
+                phone: "",
+                phone2: null,
+                phone3: null,
+                email: "",
+                website: "",
+                bankName: "",
+                bankAccount: "",
+                bankName2: null,
+                bankAccount2: null,
+                paymentTerms: "",
+                note: "",
+              },
+            });
+          }
+        }
+      });
+
+      // Create notification for system update
+      await db.notification.create({
+        data: {
+          title: "Company Logo Updated",
+          message: `Company logo has been updated by ${currentUser.name}.`,
+          type: "SYSTEM",
+          isRead: false,
+          actionUrl: `/dashboard/settings`,
+          userId: currentUser.id,
+        },
       });
     } else if (type === "freelancer" && freelancerId) {
       await db.freeLancer.update({
@@ -130,6 +207,10 @@ export async function POST(request: Request) {
     return NextResponse.json({
       url: cloudinaryData.secure_url,
       public_id: cloudinaryData.public_id,
+      message:
+        type === "settings"
+          ? "Logo updated for all users"
+          : "Upload successful",
     });
   } catch (error) {
     console.error("Upload error:", error);
