@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 const TAX_RATE = 0.15; // 15% VAT for South Africa
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth();
 
@@ -12,7 +12,75 @@ export async function GET() {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    // Get parameters from URL
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "20");
+    const skip = (page - 1) * limit;
+    const search = searchParams.get("search") || "";
+    const category = searchParams.get("category");
+    const status = searchParams.get("status");
+    const minPrice = searchParams.get("minPrice");
+    const maxPrice = searchParams.get("maxPrice");
+
+    // Build where clause for filtering
+    const where: any = {};
+
+    // Search filter (name, SKU, brand, description)
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { sku: { contains: search, mode: "insensitive" } },
+        { brand: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    // Category filter
+    if (category && category !== "All Categories") {
+      where.category = category;
+    }
+
+    // Status filter
+    if (status && status !== "All Status") {
+      switch (status) {
+        case "Active":
+          where.status = "ACTIVE";
+          break;
+        case "Inactive":
+          where.status = "INACTIVE";
+          break;
+        case "Out of Stock":
+          where.stock = 0;
+          break;
+        case "Low Stock":
+          where.AND = [
+            { stock: { gt: 0 } },
+            { stock: { lte: db.shopProduct.fields.minStock } },
+          ];
+          break;
+      }
+    }
+
+    // Price range filter
+    if (minPrice || maxPrice) {
+      where.price = {};
+      if (minPrice) {
+        where.price.gte = parseFloat(minPrice);
+      }
+      if (maxPrice) {
+        where.price.lte = parseFloat(maxPrice);
+      }
+    }
+
+    // Get total count with filters
+    const total = await db.shopProduct.count({ where });
+
+    // Get paginated products with filters
     const products = await db.shopProduct.findMany({
+      where,
+      skip,
+      take: limit,
       include: {
         stockMovements: {
           orderBy: { createdAt: "desc" },
@@ -24,8 +92,15 @@ export async function GET() {
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json(products);
+    // Return with pagination metadata
+    return NextResponse.json({
+      products,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
+    console.error("Failed to fetch products:", error);
     return NextResponse.json(
       { error: "Failed to fetch products" },
       { status: 500 }

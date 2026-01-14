@@ -18,12 +18,14 @@ interface CategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddCategory: (category: { name: string; description: string }) => void;
+  loading: boolean;
 }
 
 export function CategoryModal({
   isOpen,
   onClose,
   onAddCategory,
+  loading,
 }: CategoryModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");

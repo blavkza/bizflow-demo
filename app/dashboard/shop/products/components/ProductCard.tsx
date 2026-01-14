@@ -161,16 +161,6 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
         <div className="space-y-2">
           <h3 className="font-semibold text-lg line-clamp-2">{product.name}</h3>
 
-          {/* Description - Only show if it exists */}
-          {product.description && (
-            <div
-              className="prose prose-sm max-w-none text-muted-foreground line-clamp-3"
-              dangerouslySetInnerHTML={{
-                __html: getDescriptionHTML(product.description),
-              }}
-            />
-          )}
-
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">
               SKU: {product.sku}

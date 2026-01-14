@@ -10,6 +10,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Category } from "@/types/product";
+import { useState, useEffect, useCallback } from "react";
+import { debounce } from "lodash";
 
 interface FiltersProps {
   searchTerm: string;
@@ -19,6 +21,7 @@ interface FiltersProps {
   selectedStatus: string;
   onStatusChange: (value: string) => void;
   categories: Category[];
+  debounceTime?: number;
 }
 
 export function Filters({
@@ -28,8 +31,38 @@ export function Filters({
   onCategoryChange,
   selectedStatus,
   onStatusChange,
-  categories,
+  categories = [],
+  debounceTime = 300,
 }: FiltersProps) {
+  const [localSearch, setLocalSearch] = useState(searchTerm);
+
+  // Debounced search handler
+  const debouncedSearch = useCallback(
+    debounce((value: string) => {
+      onSearchChange(value);
+    }, debounceTime),
+    [onSearchChange, debounceTime]
+  );
+
+  // Update local search when prop changes
+  useEffect(() => {
+    setLocalSearch(searchTerm);
+  }, [searchTerm]);
+
+  // Handle input change with debounce
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocalSearch(value);
+    debouncedSearch(value);
+  };
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
+
   return (
     <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
       <div className="flex-1">
@@ -37,8 +70,8 @@ export function Filters({
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search products by name, SKU, or brand..."
-            value={searchTerm}
-            onChange={(e) => onSearchChange(e.target.value)}
+            value={localSearch}
+            onChange={handleSearchChange}
             className="pl-8"
           />
         </div>
