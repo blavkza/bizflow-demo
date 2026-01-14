@@ -23,7 +23,7 @@ async function apiRequest<T>(
 export const productApi = {
   getAll: (params?: { search?: string; category?: string }) =>
     apiRequest<Product[]>(
-      `/api/shop/products?${new URLSearchParams(params as any)}`
+      `/api/shop/products/pos?${new URLSearchParams(params as any)}`
     ),
 
   getById: (id: string) => apiRequest<Product>(`/api/shop/products/${id}`),

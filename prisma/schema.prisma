@@ -2437,6 +2437,29 @@ model RefundItem {
   @@map("refund_items")
 }
 
+model PackageCategory {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  parentId    String?
+
+  // Status and visibility
+  status    CategoryStatus @default(ACTIVE)
+  sortOrder Int            @default(0)
+
+  thumbnail String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+
+  packages Package[]
+
+  @@map("packageCategories")
+}
+
 model Package {
   id               String      @id @default(cuid())
   name             String
@@ -2463,13 +2486,15 @@ model Package {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  subpackages  Subpackage[]
-  invoices     Invoice[]
-  quotations   Quotation[]
-  shopProducts ShopProduct[]
-  orders       Order[]
-  services     Service[]
-  category     Category      @relation(fields: [categoryId], references: [id])
+  subpackages       Subpackage[]
+  invoices          Invoice[]
+  quotations        Quotation[]
+  shopProducts      ShopProduct[]
+  orders            Order[]
+  services          Service[]
+  category          Category         @relation(fields: [categoryId], references: [id])
+  packageCategory   PackageCategory? @relation(fields: [packageCategoryId], references: [id])
+  packageCategoryId String?
 
   @@map("packages")
 }

@@ -75,7 +75,7 @@ export const getSidebarData = (
       ? [
           {
             title: "Packaged Combo",
-            url: "/dashboard/packages",
+            url: "/dashboard/package-categories",
             icon: BoxesIcon,
             color: "text-orange-500",
           },

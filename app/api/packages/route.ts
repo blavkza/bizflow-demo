@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
-import { PackageStatus } from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    console.log("Starting GET /api/packages");
+    console.log("Starting GET /dashboard/package-categories/[id]/packages");
 
     // Check authentication
     const { userId } = await auth();
@@ -27,10 +29,14 @@ export async function GET(request: NextRequest) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    console.log("Fetching packages from database...");
+    const categoryId = params.id;
+    console.log("Category ID:", categoryId);
 
-    // Fetch packages with all relations
+    // Fetch packages for the specific category
     const packages = await db.package.findMany({
+      where: {
+        categoryId: categoryId,
+      },
       include: {
         subpackages: {
           include: {
@@ -77,7 +83,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    console.log(`Found ${packages.length} packages`);
+    console.log(`Found ${packages.length} packages for category ${categoryId}`);
 
     // Transform the data for frontend
     const transformedPackages = packages.map((pkg) => {
@@ -168,17 +174,16 @@ export async function GET(request: NextRequest) {
     console.log("Sending transformed packages response");
     return NextResponse.json(transformedPackages);
   } catch (error) {
-    console.error("Error fetching packages:", error);
+    console.error("Error fetching packages for category:", error);
     return NextResponse.json(
       {
-        error: "Failed to fetch packages",
+        error: "Failed to fetch packages for category",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );
   }
 }
-
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
