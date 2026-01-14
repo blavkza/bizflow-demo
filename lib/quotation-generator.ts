@@ -345,32 +345,32 @@ class QuotationGenerator {
             : ""
         }
         
-        <h2 style="text-align: center; color: #333; margin-bottom: 10px;">${this.companyInfo.name}</h2>
-        <div style="text-align: center; color: #666; margin-bottom: 20px;">
+        <h2 style="text-align: center; color: #333; margin-bottom: 10px; font-weight: 800; font-size: 22px;">${this.companyInfo.name}</h2>
+        <div style="text-align: center; color: #666; margin-bottom: 20px; font-size: 15px; font-weight: 600;">
           ${this.companyInfo.address}<br>
           Tel: ${this.companyInfo.phone} | Email: ${this.companyInfo.email}<br>
           ${this.companyInfo.taxNumber ? `VAT: ${this.companyInfo.taxNumber}<br>` : ""}
           ${this.companyInfo.website ? `Website: ${this.companyInfo.website}` : ""}
         </div>
 
-        <h3 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
+        <h3 style="color: #333; border-bottom: 3px solid #333; padding-bottom: 12px; margin-bottom: 20px; font-weight: 800; font-size: 20px;">
           QUOTATION: ${safeData.quoteNumber}
         </h3>
         
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-          <div><strong>Date:</strong> ${this.formatDate(safeData.date)}</div>
-          <div><strong>Valid Until:</strong> ${this.formatExpiryDate(safeData.expiryDate)}</div>
-          ${safeData.customerName ? `<div><strong>Customer:</strong> ${safeData.customerName}</div>` : ""}
-          ${safeData.customerPhone ? `<div><strong>Phone:</strong> ${safeData.customerPhone}</div>` : ""}
-          ${safeData.customerEmail ? `<div><strong>Email:</strong> ${safeData.customerEmail}</div>` : ""}
-          ${safeData.createdBy ? `<div><strong>Prepared by:</strong> ${safeData.createdBy}</div>` : ""}
+        <div style="background: #f5f5f5; padding: 18px; border-radius: 5px; margin-bottom: 20px; font-size: 15px; font-weight: 600;">
+          <div><strong style="font-weight: 700;">Date:</strong> ${this.formatDate(safeData.date)}</div>
+          <div><strong style="font-weight: 700;">Valid Until:</strong> ${this.formatExpiryDate(safeData.expiryDate)}</div>
+          ${safeData.customerName ? `<div><strong style="font-weight: 700;">Customer:</strong> ${safeData.customerName}</div>` : ""}
+          ${safeData.customerPhone ? `<div><strong style="font-weight: 700;">Phone:</strong> ${safeData.customerPhone}</div>` : ""}
+          ${safeData.customerEmail ? `<div><strong style="font-weight: 700;">Email:</strong> ${safeData.customerEmail}</div>` : ""}
+          ${safeData.createdBy ? `<div><strong style="font-weight: 700;">Prepared by:</strong> ${safeData.createdBy}</div>` : ""}
           ${
             safeData.isDelivery && safeData.deliveryAddress
               ? `
-            <div><strong>Delivery Address:</strong> ${safeData.deliveryAddress}</div>
+            <div><strong style="font-weight: 700;">Delivery Address:</strong> ${safeData.deliveryAddress}</div>
             ${
               safeData.deliveryInstructions
-                ? `<div><strong>Delivery Instructions:</strong> ${safeData.deliveryInstructions}</div>`
+                ? `<div><strong style="font-weight: 700;">Delivery Instructions:</strong> ${safeData.deliveryInstructions}</div>`
                 : ""
             }
           `
@@ -378,14 +378,14 @@ class QuotationGenerator {
           }
         </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 15px;">
           <thead>
             <tr style="background-color: #333; color: white;">
-              <th style="padding: 12px; text-align: left; border: 1px solid #ddd; width: 45%;">Item</th>
-              <th style="padding: 12px; text-align: left; border: 1px solid #ddd; width: 15%;">SKU</th>
-              <th style="padding: 12px; text-align: right; border: 1px solid #ddd; width: 10%;">Qty</th>
-              <th style="padding: 12px; text-align: right; border: 1px solid #ddd; width: 15%;">Price</th>
-              <th style="padding: 12px; text-align: right; border: 1px solid #ddd; width: 15%;">Total</th>
+              <th style="padding: 14px; text-align: left; border: 1px solid #ddd; width: 45%; font-weight: 800; font-size: 16px;">Item</th>
+              <th style="padding: 14px; text-align: left; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 16px;">SKU</th>
+              <th style="padding: 14px; text-align: right; border: 1px solid #ddd; width: 10%; font-weight: 800; font-size: 16px;">Qty</th>
+              <th style="padding: 14px; text-align: right; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 16px;">Price</th>
+              <th style="padding: 14px; text-align: right; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 16px;">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -393,15 +393,15 @@ class QuotationGenerator {
               .map(
                 (item) => `
               <tr>
-                <td style="padding: 12px; border: 1px solid #ddd; vertical-align: top;">
-                  <div style="font-weight: bold; word-wrap: break-word; white-space: normal;">
+                <td style="padding: 14px; border: 1px solid #ddd; vertical-align: top;">
+                  <div style="font-weight: 700; word-wrap: break-word; white-space: normal; font-size: 15px;">
                     ${this.getItemName(item)}
                   </div>
                 </td>
-                <td style="padding: 12px; border: 1px solid #ddd; vertical-align: top;">${this.getItemSKU(item)}</td>
-                <td style="padding: 12px; text-align: right; border: 1px solid #ddd; vertical-align: top;">${item.quantity}</td>
-                <td style="padding: 12px; text-align: right; border: 1px solid #ddd; vertical-align: top;">R${this.formatNumber(item.price)}</td>
-                <td style="padding: 12px; text-align: right; border: 1px solid #ddd; vertical-align: top;">R${this.formatNumber(item.total)}</td>
+                <td style="padding: 14px; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">${this.getItemSKU(item)}</td>
+                <td style="padding: 14px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">${item.quantity}</td>
+                <td style="padding: 14px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">R${this.formatNumber(item.price)}</td>
+                <td style="padding: 14px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 700;">R${this.formatNumber(item.total)}</td>
               </tr>
             `
               )
@@ -412,23 +412,23 @@ class QuotationGenerator {
         ${
           safeData.notes
             ? `
-          <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 5px; padding: 15px; margin: 20px 0;">
-            <h4 style="color: #92400e; margin: 0 0 10px 0;">Notes & Terms</h4>
-            <div style="white-space: pre-line;">${safeData.notes}</div>
+          <div style="background: #fef3c7; border: 2px solid #fbbf24; border-radius: 5px; padding: 18px; margin: 20px 0;">
+            <h4 style="color: #92400e; margin: 0 0 10px 0; font-weight: 800; font-size: 18px;">Notes & Terms</h4>
+            <div style="white-space: pre-line; font-weight: 600; font-size: 15px;">${safeData.notes}</div>
           </div>
         `
             : ""
         }
 
-        <div style="float: right; width: 300px;">
-          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+        <div style="float: right; width: 320px;">
+          <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; font-size: 16px; font-weight: 700;">
             <span>Subtotal:</span>
             <span>R${this.formatNumber(safeData.subtotal)}</span>
           </div>
           ${
             safeData.discount > 0
               ? `
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd; color: #10b981;">
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; color: #10b981; font-size: 16px; font-weight: 700;">
               <span>Discount (${this.formatNumber(safeData.discountPercent, 0)}%):</span>
               <span>-R${this.formatNumber(safeData.discount)}</span>
             </div>
@@ -438,7 +438,7 @@ class QuotationGenerator {
           ${
             safeData.tax && safeData.tax > 0
               ? `
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; font-size: 16px; font-weight: 700;">
               <span>VAT (${this.formatNumber(safeData.taxPercent || 15, 0)}%):</span>
               <span>R${this.formatNumber(safeData.tax)}</span>
             </div>
@@ -448,27 +448,27 @@ class QuotationGenerator {
           ${
             safeData.deliveryFee > 0
               ? `
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; font-size: 16px; font-weight: 700;">
               <span>Delivery Fee:</span>
               <span>R${this.formatNumber(safeData.deliveryFee)}</span>
             </div>
           `
               : ""
           }
-          <div style="display: flex; justify-content: space-between; padding: 15px 0; border-top: 2px solid #333; font-weight: bold; font-size: 18px;">
+          <div style="display: flex; justify-content: space-between; padding: 15px 0; border-top: 3px solid #333; border-bottom: 3px solid #333; font-weight: 800; font-size: 20px; margin-top: 10px;">
             <span>TOTAL:</span>
             <span>R${this.formatNumber(safeData.total)}</span>
           </div>
         </div>
 
-        <div style="clear: both; margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 5px;">
-          <div><strong>Quotation Expiry:</strong> ${this.formatExpiryDate(safeData.expiryDate)}</div>
-          <div><strong>To accept this quotation:</strong> Please contact us at ${this.companyInfo.phone} or reply to this email</div>
+        <div style="clear: both; margin-top: 20px; padding: 18px; background: #e8f5e9; border-radius: 5px; font-size: 16px; font-weight: 700;">
+          <div><strong style="font-weight: 800;">Quotation Expiry:</strong> ${this.formatExpiryDate(safeData.expiryDate)}</div>
+          <div><strong style="font-weight: 800;">To accept this quotation:</strong> Please contact us at ${this.companyInfo.phone} or reply to this email</div>
         </div>
 
-        <div style="clear: both; margin-top: 30px; padding-top: 20px; border-top: 2px solid #333; text-align: center;">
-          <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px;">Thank You for Considering Our Services!</div>
-          <div style="color: #666;">For any queries, please contact us at ${this.companyInfo.phone}</div>
+        <div style="clear: both; margin-top: 30px; padding-top: 20px; border-top: 3px solid #333; text-align: center;">
+          <div style="font-size: 20px; font-weight: 800; margin-bottom: 10px;">Thank You for Considering Our Services!</div>
+          <div style="color: #666; font-size: 16px; font-weight: 600;">For any queries, please contact us at ${this.companyInfo.phone}</div>
         </div>
       </div>
     `;
@@ -497,8 +497,9 @@ class QuotationGenerator {
             width: 80mm;
             margin: 0 auto;
             padding: 5mm;
-            font-size: 12px;
-            line-height: 1.2;
+            font-size: 14px; /* Increased from 12px */
+            line-height: 1.3;
+            font-weight: 600; /* Added base boldness */
           }
           .print-button {
             display: ${includePrintButton ? "block" : "none"};
@@ -507,8 +508,8 @@ class QuotationGenerator {
             color: white;
             border: none;
             padding: 12px;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 16px; /* Increased from 14px */
+            font-weight: 800; /* Bolder */
             border-radius: 5px;
             cursor: pointer;
             margin-bottom: 10px;
@@ -521,40 +522,82 @@ class QuotationGenerator {
             background-color: #004085;
           }
           .center { text-align: center; }
-          .bold { font-weight: bold; }
-          .line { border-top: 1px dashed #000; margin: 3px 0; }
-          .item-row { margin: 3px 0; }
+          .bold { font-weight: 800; } /* Increased from bold to 800 */
+          .extra-bold { font-weight: 900; } /* Extra bold for important elements */
+          .line { border-top: 2px solid #000; margin: 5px 0; } /* Thicker line */
+          .item-row { margin: 5px 0; }
           .item-name { 
-            font-weight: bold; 
+            font-weight: 800; /* Bolder */
             word-wrap: break-word;
             white-space: normal;
-            margin-bottom: 1px;
+            margin-bottom: 2px;
+            font-size: 14px; /* Increased */
           }
           .item-details { 
-            font-size: 10px; 
-            color: #666;
+            font-size: 13px; /* Increased from 10px */
+            font-weight: 700; /* Added boldness */
+            color: #333;
             display: flex;
             justify-content: space-between;
           }
-          .total-row { font-weight: bold; font-size: 14px; }
-          .header { margin-bottom: 8px; }
-          .footer { margin-top: 8px; font-size: 10px; }
-          .text-small { font-size: 10px; }
-          .text-xsmall { font-size: 9px; }
+          .total-row { 
+            font-weight: 900; /* Extra bold */
+            font-size: 16px; /* Increased from 14px */
+          }
+          .header { 
+            margin-bottom: 10px;
+            font-weight: 800;
+          }
+          .footer { 
+            margin-top: 10px; 
+            font-size: 12px; /* Increased from 10px */
+            font-weight: 700; /* Added boldness */
+          }
+          .text-small { 
+            font-size: 12px; /* Increased from 10px */
+            font-weight: 700; /* Added boldness */
+          }
+          .text-xsmall { 
+            font-size: 11px; /* Increased from 9px */
+            font-weight: 700; /* Added boldness */
+          }
           .logo { 
             max-width: 100%; 
             height: auto; 
             margin-bottom: 5px;
-            max-height: 50px;
+            max-height: 60px; /* Increased from 50px */
           }
           .column-layout {
             display: flex;
             justify-content: space-between;
-            margin: 2px 0;
+            margin: 3px 0;
+            font-weight: 700; /* Added boldness */
           }
           .item-container {
-            margin-bottom: 4px;
-            padding-bottom: 2px;
+            margin-bottom: 6px; /* Increased from 4px */
+            padding-bottom: 4px; /* Increased from 2px */
+            border-bottom: 1px dotted #ccc;
+          }
+          .section-title {
+            font-weight: 900; /* Extra bold */
+            font-size: 16px; /* Increased */
+            text-align: center;
+            margin: 8px 0;
+          }
+          .quotation-number {
+            font-weight: 900; /* Extra bold */
+            font-size: 18px; /* Increased */
+            text-align: center;
+            margin: 5px 0;
+          }
+          .customer-info {
+            font-weight: 700; /* Added boldness */
+            margin: 3px 0;
+          }
+          .expiry-info {
+            font-weight: 800; /* Bolder */
+            margin: 5px 0;
+            color: #dc2626;
           }
         </style>
         <script>
@@ -576,7 +619,7 @@ class QuotationGenerator {
         
         <div class="header center">
           ${hasLogo ? `<img src="${data.company.logo}" alt="${data.company.name}" class="logo">` : ""}
-          <div class="bold" style="font-size: 14px;">${data.company.name}</div>
+          <div class="bold extra-bold" style="font-size: 16px;">${data.company.name}</div>
           <div class="text-small">${data.company.address}</div>
           <div class="text-small">Tel: ${data.company.phone}</div>
           <div class="text-small">Email: ${data.company.email}</div>
@@ -586,29 +629,30 @@ class QuotationGenerator {
         <div class="line"></div>
         
         <div class="center">
-          <div class="bold">QUOTATION</div>
-          <div>${data.quoteNumber}</div>
+          <div class="extra-bold quotation-number">${data.quoteNumber}</div>
           <div class="text-small">${this.formatDate(data.date)}</div>
         </div>
         
         <div class="line"></div>
         
         <div class="text-small">
-          <div class="column-layout">
+          <div class="column-layout expiry-info">
             <div>Valid Until:</div>
             <div>${this.formatExpiryDate(data.expiryDate)}</div>
           </div>
-          ${data.customerName ? `<div class="column-layout"><div>Customer:</div><div>${data.customerName}</div></div>` : ""}
-          ${data.customerPhone ? `<div class="column-layout"><div>Phone:</div><div>${data.customerPhone}</div></div>` : ""}
-          ${data.createdBy ? `<div class="column-layout"><div>Prepared by:</div><div>${data.createdBy}</div></div>` : ""}
+          ${data.customerName ? `<div class="column-layout customer-info"><div>Customer:</div><div>${data.customerName}</div></div>` : ""}
+          ${data.customerPhone ? `<div class="column-layout customer-info"><div>Phone:</div><div>${data.customerPhone}</div></div>` : ""}
+          ${data.createdBy ? `<div class="column-layout customer-info"><div>Prepared by:</div><div>${data.createdBy}</div></div>` : ""}
           ${
             data.isDelivery && data.deliveryAddress
-              ? `<div class="column-layout"><div>Delivery:</div><div>${data.deliveryAddress}</div></div>`
+              ? `<div class="column-layout customer-info"><div>Delivery:</div><div>${data.deliveryAddress}</div></div>`
               : ""
           }
         </div>
         
         <div class="line"></div>
+        
+        <div class="section-title">ITEMS</div>
         
         <div>
           ${data.items
@@ -622,7 +666,7 @@ class QuotationGenerator {
               </div>
               <div class="item-details">
                 <div></div>
-                <div>R${this.formatNumber(item.total)}</div>
+                <div class="bold">R${this.formatNumber(item.total)}</div>
               </div>
             </div>
           `
@@ -635,7 +679,7 @@ class QuotationGenerator {
             ? `
           <div class="line"></div>
           <div class="text-xsmall">
-            <div class="bold">Notes:</div>
+            <div class="bold extra-bold">Notes:</div>
             <div>${data.notes}</div>
           </div>
           <div class="line"></div>
@@ -645,6 +689,8 @@ class QuotationGenerator {
         
         <div class="line"></div>
         
+        <div class="section-title">TOTALS</div>
+        
         <div>
           <div class="column-layout">
             <div>Subtotal:</div>
@@ -653,7 +699,7 @@ class QuotationGenerator {
           ${
             data.discount > 0
               ? `
-            <div class="column-layout">
+            <div class="column-layout" style="color: #10b981;">
               <div>Discount (${this.formatNumber(data.discountPercent, 0)}%):</div>
               <div>-R${this.formatNumber(data.discount)}</div>
             </div>
@@ -684,19 +730,21 @@ class QuotationGenerator {
         
         <div class="line"></div>
         
-        <div class="column-layout total-row">
+        <div class="column-layout total-row extra-bold">
           <div>TOTAL:</div>
           <div>R${this.formatNumber(data.total)}</div>
         </div>
         
         <div class="line"></div>
         
+        <div class="section-title">VALIDITY</div>
+        
         <div class="text-small">
-          <div class="column-layout">
+          <div class="column-layout expiry-info">
             <div>Valid Until:</div>
             <div>${this.formatExpiryDate(data.expiryDate)}</div>
           </div>
-          <div class="column-layout">
+          <div class="column-layout customer-info">
             <div>Contact:</div>
             <div>${data.company.phone}</div>
           </div>
@@ -705,7 +753,7 @@ class QuotationGenerator {
         <div class="line"></div>
         
         <div class="footer center">
-          <div>Thank you for considering our services!</div>
+          <div class="bold">Thank you for considering our services!</div>
           <div>Please contact us to accept this quotation</div>
         </div>
       </body>
@@ -736,6 +784,7 @@ class QuotationGenerator {
             max-width: 210mm;
             margin: 0 auto;
             padding: 20px;
+            font-weight: 600; /* Added base boldness */
           }
           .print-button {
             display: ${includePrintButton ? "block" : "none"};
@@ -744,8 +793,8 @@ class QuotationGenerator {
             color: white;
             border: none;
             padding: 15px;
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 18px; /* Increased from 16px */
+            font-weight: 900; /* Extra bold */
             border-radius: 5px;
             cursor: pointer;
             margin-bottom: 20px;
@@ -760,93 +809,121 @@ class QuotationGenerator {
           .header { 
             text-align: center; 
             margin-bottom: 30px;
-            border-bottom: 2px solid #333;
+            border-bottom: 3px solid #333; /* Thicker border */
             padding-bottom: 20px;
           }
           .company-name { 
-              font-size: 24px; 
-              font-weight: bold; 
-              margin-bottom: 10px;
-            }
-            .quotation-title {
-              font-size: 20px;
-              font-weight: bold;
-              margin: 20px 0;
-            }
-            .info-section {
-              margin: 20px 0;
-              padding: 15px;
-              background: #f5f5f5;
-              border-radius: 5px;
-            }
-            .items-table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              margin: 20px 0; 
-            }
-            .items-table th, .items-table td { 
-              border: 1px solid #ddd; 
-              padding: 12px; 
-              text-align: left; 
-            }
-            .items-table th { 
-              background-color: #333; 
-              color: white;
-              font-weight: bold;
-            }
-            .items-table tr:nth-child(even) {
-              background-color: #f9f9f9;
-            }
-            .totals { 
-              margin-top: 20px;
-              float: right;
-              width: 300px;
-            }
-            .totals-row { 
-              display: flex; 
-              justify-content: space-between; 
-              padding: 8px 0;
-              border-bottom: 1px solid #ddd;
-            }
-            .total-row { 
-              font-weight: bold; 
-              font-size: 18px;
-              border-top: 2px solid #333;
-              border-bottom: 2px solid #333;
-              margin-top: 10px;
-              padding-top: 10px;
-            }
-            .footer {
-              clear: both;
-              margin-top: 50px;
-              text-align: center;
-              padding-top: 20px;
-              border-top: 2px solid #333;
-            }
-            .quotation-info {
-              margin: 20px 0;
-              padding: 15px;
-              background: #e8f5e9;
-              border-radius: 5px;
-            }
-            .notes-section {
-              background: #fef3c7;
-              border: 1px solid #fbbf24;
-              border-radius: 5px;
-              padding: 15px;
-              margin: 20px 0;
-            }
-            .logo {
-              max-height: 100px;
-              max-width: 300px;
-              margin-bottom: 10px;
-              object-fit: contain;
-            }
-            .product-name {
-              word-wrap: break-word;
-              white-space: normal;
-              max-width: 200px;
-            }
+            font-size: 28px; /* Increased from 24px */
+            font-weight: 900; /* Extra bold */
+            margin-bottom: 15px;
+          }
+          .quotation-title {
+            font-size: 24px; /* Increased from 20px */
+            font-weight: 900; /* Extra bold */
+            margin: 25px 0;
+            text-align: center;
+          }
+          .info-section {
+            margin: 25px 0;
+            padding: 20px; /* Increased from 15px */
+            background: #f5f5f5;
+            border-radius: 5px;
+            font-size: 16px; /* Increased */
+            font-weight: 700; /* Added boldness */
+          }
+          .items-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 25px 0; 
+            font-size: 15px; /* Increased */
+          }
+          .items-table th, .items-table td { 
+            border: 2px solid #ddd; /* Thicker borders */
+            padding: 15px; /* Increased from 12px */
+            text-align: left; 
+            vertical-align: top;
+          }
+          .items-table th { 
+            background-color: #333; 
+            color: white;
+            font-weight: 900; /* Extra bold */
+            font-size: 17px; /* Increased */
+          }
+          .items-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+          }
+          .totals { 
+            margin-top: 25px;
+            float: right;
+            width: 350px; /* Increased from 300px */
+          }
+          .totals-row { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 12px 0; /* Increased from 8px */
+            border-bottom: 2px solid #ddd; /* Thicker border */
+            font-size: 17px; /* Increased */
+            font-weight: 700; /* Added boldness */
+          }
+          .total-row { 
+            font-weight: 900; /* Extra bold */
+            font-size: 22px; /* Increased from 18px */
+            border-top: 3px solid #333; /* Thicker border */
+            border-bottom: 3px solid #333; /* Thicker border */
+            margin-top: 15px;
+            padding-top: 15px;
+          }
+          .footer {
+            clear: both;
+            margin-top: 50px;
+            text-align: center;
+            padding-top: 25px;
+            border-top: 3px solid #333; /* Thicker border */
+            font-size: 18px; /* Increased */
+          }
+          .quotation-info {
+            margin: 25px 0;
+            padding: 20px; /* Increased from 15px */
+            background: #e8f5e9;
+            border-radius: 5px;
+            font-size: 17px; /* Increased */
+            font-weight: 800; /* Added boldness */
+          }
+          .notes-section {
+            background: #fef3c7;
+            border: 2px solid #fbbf24; /* Thicker border */
+            border-radius: 5px;
+            padding: 20px; /* Increased from 15px */
+            margin: 25px 0;
+            font-weight: 700; /* Added boldness */
+          }
+          .logo {
+            max-height: 120px; /* Increased from 100px */
+            max-width: 350px; /* Increased from 300px */
+            margin-bottom: 15px;
+            object-fit: contain;
+          }
+          .highlight {
+            font-weight: 900; /* Extra bold */
+            color: #333;
+          }
+          .quotation-number-display {
+            font-size: 26px; /* Increased */
+            font-weight: 900; /* Extra bold */
+            color: #2c5282;
+            text-align: center;
+            margin: 10px 0;
+          }
+          .expiry-warning {
+            color: #dc2626;
+            font-weight: 800; /* Bolder */
+          }
+          .product-name {
+            word-wrap: break-word;
+            white-space: normal;
+            max-width: 200px;
+            font-weight: 700; /* Added boldness */
+          }
         </style>
         <script>
           function printQuotation() {
@@ -868,18 +945,19 @@ class QuotationGenerator {
         <div class="header">
           ${hasLogo ? `<img src="${data.company.logo}" alt="${data.company.name}" class="logo">` : ""}
           <div class="company-name">${data.company.name}</div>
-          <div>${data.company.address}</div>
-          <div>Tel: ${data.company.phone} | Email: ${data.company.email}</div>
-          ${data.company.taxNumber ? `<div>VAT Number: ${data.company.taxNumber}</div>` : ""}
-          ${data.company.website ? `<div>Website: ${data.company.website}</div>` : ""}
+          <div style="font-weight: 700; font-size: 16px;">${data.company.address}</div>
+          <div style="font-weight: 700; font-size: 16px;">Tel: ${data.company.phone} | Email: ${data.company.email}</div>
+          ${data.company.taxNumber ? `<div style="font-weight: 700; font-size: 16px;">VAT Number: ${data.company.taxNumber}</div>` : ""}
+          ${data.company.website ? `<div style="font-weight: 700; font-size: 16px;">Website: ${data.company.website}</div>` : ""}
         </div>
 
         <div class="quotation-title">QUOTATION</div>
         
+        <div class="quotation-number-display">${data.quoteNumber}</div>
+        
         <div class="info-section">
-          <div><strong>Quotation Number:</strong> ${data.quoteNumber}</div>
           <div><strong>Date:</strong> ${this.formatDate(data.date)}</div>
-          <div><strong>Valid Until:</strong> ${this.formatExpiryDate(data.expiryDate)}</div>
+          <div class="expiry-warning"><strong>Valid Until:</strong> ${this.formatExpiryDate(data.expiryDate)}</div>
           ${data.customerName ? `<div><strong>Customer:</strong> ${data.customerName}</div>` : ""}
           ${data.customerPhone ? `<div><strong>Phone:</strong> ${data.customerPhone}</div>` : ""}
           ${data.customerEmail ? `<div><strong>Email:</strong> ${data.customerEmail}</div>` : ""}
@@ -916,10 +994,10 @@ class QuotationGenerator {
                 <td class="product-name">
                   ${this.getItemName(item)}
                 </td>
-                <td>${this.getItemSKU(item)}</td>
-                <td style="text-align: right;">${item.quantity}</td>
-                <td style="text-align: right;">R${this.formatNumber(item.price)}</td>
-                <td style="text-align: right;">R${this.formatNumber(item.total)}</td>
+                <td style="font-weight: 700;">${this.getItemSKU(item)}</td>
+                <td style="text-align: right; font-weight: 700;">${item.quantity}</td>
+                <td style="text-align: right; font-weight: 700;">R${this.formatNumber(item.price)}</td>
+                <td style="text-align: right; font-weight: 800;">R${this.formatNumber(item.total)}</td>
               </tr>
             `
               )
@@ -931,10 +1009,10 @@ class QuotationGenerator {
           data.notes
             ? `
           <div class="notes-section">
-            <div style="font-weight: bold; color: #92400e; margin-bottom: 10px;">
+            <div style="font-weight: 900; color: #92400e; margin-bottom: 12px; font-size: 18px;">
               Notes & Terms
             </div>
-            <div style="white-space: pre-line;">
+            <div style="white-space: pre-line; font-weight: 600; font-size: 16px;">
               ${data.notes}
             </div>
           </div>
@@ -979,18 +1057,18 @@ class QuotationGenerator {
           }
           <div class="totals-row total-row">
             <span>TOTAL:</span>
-            <span>R${this.formatNumber(data.total)}</span>
+            <span class="highlight">R${this.formatNumber(data.total)}</span>
           </div>
         </div>
 
         <div class="quotation-info">
-          <div><strong>Quotation Expiry:</strong> ${this.formatExpiryDate(data.expiryDate)}</div>
+          <div class="expiry-warning"><strong>Quotation Expiry:</strong> ${this.formatExpiryDate(data.expiryDate)}</div>
           <div><strong>To accept this quotation:</strong> Please contact us at ${data.company.phone} or email ${data.company.email}</div>
         </div>
 
         <div class="footer">
-          <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Thank You for Considering Our Services!</div>
-          <div>For any queries, please contact us at ${data.company.phone} or ${data.company.email}</div>
+          <div style="font-size: 22px; font-weight: 900; margin-bottom: 15px;">Thank You for Considering Our Services!</div>
+          <div style="font-weight: 800;">For any queries, please contact us at ${data.company.phone} or ${data.company.email}</div>
         </div>
       </body>
       </html>

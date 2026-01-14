@@ -364,32 +364,32 @@ class ReceiptGenerator {
             : ""
         }
         
-        <h2 style="text-align: center; color: #333; margin-bottom: 10px;">${this.companyInfo.name}</h2>
-        <div style="text-align: center; color: #666; margin-bottom: 20px;">
+        <h2 style="text-align: center; color: #333; margin-bottom: 10px; font-weight: 800; font-size: 22px;">${this.companyInfo.name}</h2>
+        <div style="text-align: center; color: #666; margin-bottom: 20px; font-size: 15px;">
           ${this.companyInfo.address}<br>
           Tel: ${this.companyInfo.phone} | Email: ${this.companyInfo.email}<br>
           ${this.companyInfo.taxNumber ? `VAT: ${this.companyInfo.taxNumber}` : ""}
         </div>
 
-        <h3 style="color: #333; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
+        <h3 style="color: #333; border-bottom: 3px solid #333; padding-bottom: 12px; margin-bottom: 25px; font-weight: 800; font-size: 20px;">
           SALES RECEIPT: ${safeData.saleNumber}
         </h3>
         
-        <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
-          <div><strong>Date:</strong> ${this.formatDate(safeData.date)}</div>
-          ${safeData.customerName ? `<div><strong>Customer:</strong> ${safeData.customerName}</div>` : ""}
-          ${safeData.customerPhone ? `<div><strong>Phone:</strong> ${safeData.customerPhone}</div>` : ""}
-          ${safeData.createdBy ? `<div><strong>Assisted by:</strong> ${safeData.createdBy}</div>` : ""}
+        <div style="background: #f5f5f5; padding: 18px; border-radius: 5px; margin-bottom: 25px; font-size: 15px;">
+          <div><strong style="font-weight: 700;">Date:</strong> ${this.formatDate(safeData.date)}</div>
+          ${safeData.customerName ? `<div><strong style="font-weight: 700;">Customer:</strong> ${safeData.customerName}</div>` : ""}
+          ${safeData.customerPhone ? `<div><strong style="font-weight: 700;">Phone:</strong> ${safeData.customerPhone}</div>` : ""}
+          ${safeData.createdBy ? `<div><strong style="font-weight: 700;">Assisted by:</strong> ${safeData.createdBy}</div>` : ""}
         </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+        <table style="width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 15px;">
           <thead>
             <tr style="background-color: #333; color: white;">
-              <th style="padding: 12px; text-align: left; border: 1px solid #ddd; width: 45%;">Item</th>
-              <th style="padding: 12px; text-align: left; border: 1px solid #ddd; width: 15%;">SKU</th>
-              <th style="padding: 12px; text-align: right; border: 1px solid #ddd; width: 10%;">Qty</th>
-              <th style="padding: 12px; text-align: right; border: 1px solid #ddd; width: 15%;">Price</th>
-              <th style="padding: 12px; text-align: right; border: 1px solid #ddd; width: 15%;">Total</th>
+              <th style="padding: 14px; text-align: left; border: 1px solid #ddd; width: 45%; font-weight: 800; font-size: 16px;">Item</th>
+              <th style="padding: 14px; text-align: left; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 16px;">SKU</th>
+              <th style="padding: 14px; text-align: right; border: 1px solid #ddd; width: 10%; font-weight: 800; font-size: 16px;">Qty</th>
+              <th style="padding: 14px; text-align: right; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 16px;">Price</th>
+              <th style="padding: 14px; text-align: right; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 16px;">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -397,24 +397,24 @@ class ReceiptGenerator {
               .map(
                 (item) => `
               <tr>
-                <td style="padding: 12px; border: 1px solid #ddd; vertical-align: top;">
-                  <div style="font-weight: bold; word-wrap: break-word; white-space: normal;">
+                <td style="padding: 14px; border: 1px solid #ddd; vertical-align: top;">
+                  <div style="font-weight: 700; word-wrap: break-word; white-space: normal; font-size: 15px;">
                     ${this.getItemName(item)}
                   </div>
                   ${
                     item.hadNegativeStock
                       ? `
-                    <div style="font-size: 12px; color: #dc2626; font-style: italic;">
+                    <div style="font-size: 13px; color: #dc2626; font-style: italic; font-weight: 600;">
                       (Awaiting stock: ${item.awaitedQuantity})
                     </div>
                   `
                       : ""
                   }
                 </td>
-                <td style="padding: 12px; border: 1px solid #ddd; vertical-align: top;">${this.getItemSKU(item)}</td>
-                <td style="padding: 12px; text-align: right; border: 1px solid #ddd; vertical-align: top;">${item.quantity}</td>
-                <td style="padding: 12px; text-align: right; border: 1px solid #ddd; vertical-align: top;">R${this.formatNumber(item.price)}</td>
-                <td style="padding: 12px; text-align: right; border: 1px solid #ddd; vertical-align: top;">R${this.formatNumber(item.total)}</td>
+                <td style="padding: 14px; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">${this.getItemSKU(item)}</td>
+                <td style="padding: 14px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">${item.quantity}</td>
+                <td style="padding: 14px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">R${this.formatNumber(item.price)}</td>
+                <td style="padding: 14px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 700;">R${this.formatNumber(item.total)}</td>
               </tr>
             `
               )
@@ -425,12 +425,12 @@ class ReceiptGenerator {
         ${
           stockAwaitItems.length > 0
             ? `
-          <div style="background: #fef3c7; border: 1px solid #fbbf24; border-radius: 5px; padding: 15px; margin: 20px 0;">
-            <h4 style="color: #92400e; margin: 0 0 10px 0;">⚠ Items Awaiting Stock</h4>
+          <div style="background: #fef3c7; border: 2px solid #fbbf24; border-radius: 5px; padding: 18px; margin: 25px 0;">
+            <h4 style="color: #92400e; margin: 0 0 12px 0; font-weight: 800; font-size: 18px;">⚠ Items Awaiting Stock</h4>
             ${stockAwaitItems
               .map(
                 (item) => `
-              <div style="margin: 5px 0;">
+              <div style="margin: 6px 0; font-weight: 600; font-size: 15px;">
                 <strong>${item.shopProduct?.name}</strong> (SKU: ${item.shopProduct?.sku}) - Awaiting: ${item.quantity}
               </div>
             `
@@ -441,15 +441,15 @@ class ReceiptGenerator {
             : ""
         }
 
-        <div style="float: right; width: 300px;">
-          <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+        <div style="float: right; width: 320px;">
+          <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; font-size: 16px; font-weight: 700;">
             <span>Subtotal:</span>
             <span>R${this.formatNumber(safeData.subtotal)}</span>
           </div>
           ${
             safeData.discount > 0
               ? `
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd; color: #10b981;">
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; color: #10b981; font-size: 16px; font-weight: 700;">
               <span>Discount (${this.formatNumber(safeData.discountPercent, 0)}%):</span>
               <span>-R${this.formatNumber(safeData.discount)}</span>
             </div>
@@ -459,36 +459,36 @@ class ReceiptGenerator {
           ${
             safeData.tax > 0
               ? `
-            <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ddd;">
+            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; font-size: 16px; font-weight: 700;">
               <span>VAT (${this.formatNumber(safeData.taxPercent, 0)}%):</span>
               <span>R${this.formatNumber(safeData.tax)}</span>
             </div>
           `
               : ""
           }
-          <div style="display: flex; justify-content: space-between; padding: 15px 0; border-top: 2px solid #333; font-weight: bold; font-size: 18px;">
+          <div style="display: flex; justify-content: space-between; padding: 20px 0; border-top: 3px solid #333; border-bottom: 3px solid #333; font-weight: 800; font-size: 22px; margin-top: 10px;">
             <span>TOTAL:</span>
             <span>R${this.formatNumber(safeData.total)}</span>
           </div>
         </div>
 
-        <div style="clear: both; margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 5px;">
-          <div><strong>Payment Method:</strong> ${safeData.paymentMethod.toUpperCase()}</div>
+        <div style="clear: both; margin-top: 25px; padding: 20px; background: #e8f5e9; border-radius: 5px; font-size: 16px;">
+          <div><strong style="font-weight: 800;">Payment Method:</strong> ${safeData.paymentMethod.toUpperCase()}</div>
           ${
             safeData.amountReceived
-              ? `<div><strong>Amount Received:</strong> R${this.formatNumber(safeData.amountReceived)}</div>`
+              ? `<div><strong style="font-weight: 800;">Amount Received:</strong> R${this.formatNumber(safeData.amountReceived)}</div>`
               : ""
           }
           ${
             safeData.change && safeData.change > 0
-              ? `<div><strong>Change:</strong> R${this.formatNumber(safeData.change)}</div>`
+              ? `<div><strong style="font-weight: 800;">Change:</strong> R${this.formatNumber(safeData.change)}</div>`
               : ""
           }
         </div>
 
-        <div style="clear: both; margin-top: 30px; padding-top: 20px; border-top: 2px solid #333; text-align: center;">
-          <div style="font-size: 16px; font-weight: bold; margin-bottom: 10px;">Thank You for Your Business!</div>
-          <div style="color: #666;">For any queries, please contact us at ${this.companyInfo.phone}</div>
+        <div style="clear: both; margin-top: 35px; padding-top: 25px; border-top: 3px solid #333; text-align: center;">
+          <div style="font-size: 20px; font-weight: 800; margin-bottom: 15px;">Thank You for Your Business!</div>
+          <div style="color: #666; font-size: 16px;">For any queries, please contact us at ${this.companyInfo.phone}</div>
         </div>
       </div>
     `;
@@ -517,8 +517,9 @@ class ReceiptGenerator {
             width: 80mm;
             margin: 0 auto;
             padding: 5mm;
-            font-size: 12px;
-            line-height: 1.2;
+            font-size: 14px; /* Increased from 12px */
+            line-height: 1.3;
+            font-weight: 600; /* Added boldness */
           }
           .print-button {
             display: ${includePrintButton ? "block" : "none"};
@@ -527,8 +528,8 @@ class ReceiptGenerator {
             color: white;
             border: none;
             padding: 12px;
-            font-size: 14px;
-            font-weight: bold;
+            font-size: 16px; /* Increased from 14px */
+            font-weight: 800; /* Bolder */
             border-radius: 5px;
             cursor: pointer;
             margin-bottom: 10px;
@@ -541,45 +542,84 @@ class ReceiptGenerator {
             background-color: #004085;
           }
           .center { text-align: center; }
-          .bold { font-weight: bold; }
-          .line { border-top: 1px dashed #000; margin: 3px 0; }
-          .item-row { margin: 3px 0; }
+          .bold { font-weight: 800; } /* Increased from bold to 800 */
+          .extra-bold { font-weight: 900; } /* Extra bold for important elements */
+          .line { border-top: 2px solid #000; margin: 5px 0; } /* Thicker line */
+          .item-row { margin: 5px 0; }
           .item-name { 
-            font-weight: bold; 
+            font-weight: 800; /* Bolder */
             word-wrap: break-word;
             white-space: normal;
-            margin-bottom: 1px;
+            margin-bottom: 2px;
+            font-size: 14px; /* Increased */
           }
           .item-details { 
-            font-size: 10px; 
-            color: #666;
+            font-size: 13px; /* Increased from 10px */
+            font-weight: 700; /* Added boldness */
+            color: #333;
             display: flex;
             justify-content: space-between;
           }
-          .total-row { font-weight: bold; font-size: 14px; }
-          .header { margin-bottom: 8px; }
-          .footer { margin-top: 8px; font-size: 10px; }
-          .text-small { font-size: 10px; }
+          .total-row { 
+            font-weight: 900; /* Extra bold */
+            font-size: 16px; /* Increased from 14px */
+          }
+          .header { 
+            margin-bottom: 10px;
+            font-weight: 800;
+          }
+          .footer { 
+            margin-top: 10px; 
+            font-size: 12px; /* Increased from 10px */
+            font-weight: 700; /* Added boldness */
+          }
+          .text-small { 
+            font-size: 12px; /* Increased from 10px */
+            font-weight: 700; /* Added boldness */
+          }
           .logo { 
             max-width: 100%; 
             height: auto; 
             margin-bottom: 5px;
-            max-height: 50px;
+            max-height: 60px; /* Increased from 50px */
           }
           .awaiting-stock { 
             color: #dc2626; 
             font-style: italic; 
-            font-size: 9px;
-            margin-top: 1px;
+            font-size: 11px; /* Increased from 9px */
+            font-weight: 700; /* Added boldness */
+            margin-top: 2px;
           }
           .column-layout {
             display: flex;
             justify-content: space-between;
-            margin: 2px 0;
+            margin: 3px 0;
+            font-weight: 700; /* Added boldness */
           }
           .item-container {
-            margin-bottom: 4px;
-            padding-bottom: 2px;
+            margin-bottom: 6px; /* Increased from 4px */
+            padding-bottom: 4px; /* Increased from 2px */
+            border-bottom: 1px dotted #ccc;
+          }
+          .section-title {
+            font-weight: 900; /* Extra bold */
+            font-size: 16px; /* Increased */
+            text-align: center;
+            margin: 8px 0;
+          }
+          .receipt-number {
+            font-weight: 900; /* Extra bold */
+            font-size: 18px; /* Increased */
+            text-align: center;
+            margin: 5px 0;
+          }
+          .customer-info {
+            font-weight: 700; /* Added boldness */
+            margin: 3px 0;
+          }
+          .payment-info {
+            font-weight: 800; /* Bolder */
+            margin: 5px 0;
           }
         </style>
         <script>
@@ -601,7 +641,7 @@ class ReceiptGenerator {
         
         <div class="header center">
           ${hasLogo ? `<img src="${data.company.logo}" alt="${data.company.name}" class="logo">` : ""}
-          <div class="bold" style="font-size: 14px;">${data.company.name}</div>
+          <div class="bold extra-bold" style="font-size: 16px;">${data.company.name}</div>
           <div class="text-small">${data.company.address}</div>
           <div class="text-small">Tel: ${data.company.phone}</div>
           ${data.company.taxNumber ? `<div class="text-small">VAT: ${data.company.taxNumber}</div>` : ""}
@@ -610,20 +650,21 @@ class ReceiptGenerator {
         <div class="line"></div>
         
         <div class="center">
-          <div class="bold">RECEIPT</div>
-          <div>${data.saleNumber}</div>
+          <div class="extra-bold receipt-number">${data.saleNumber}</div>
           <div class="text-small">${this.formatDate(data.date)}</div>
         </div>
         
         <div class="line"></div>
         
         <div class="text-small">
-          ${data.customerName ? `<div>Customer: ${data.customerName}</div>` : ""}
-          ${data.customerPhone ? `<div>Phone: ${data.customerPhone}</div>` : ""}
-          ${data.createdBy ? `<div>Assisted by: ${data.createdBy}</div>` : ""}
+          ${data.customerName ? `<div class="customer-info">Customer: ${data.customerName}</div>` : ""}
+          ${data.customerPhone ? `<div class="customer-info">Phone: ${data.customerPhone}</div>` : ""}
+          ${data.createdBy ? `<div class="customer-info">Assisted by: ${data.createdBy}</div>` : ""}
         </div>
         
         <div class="line"></div>
+        
+        <div class="section-title">ITEMS</div>
         
         <div>
           ${data.items
@@ -637,7 +678,7 @@ class ReceiptGenerator {
               </div>
               <div class="item-details">
                 <div></div>
-                <div>R${this.formatNumber(item.total)}</div>
+                <div class="bold">R${this.formatNumber(item.total)}</div>
               </div>
               ${
                 item.hadNegativeStock
@@ -658,8 +699,8 @@ class ReceiptGenerator {
           data.stockAwaitItems && data.stockAwaitItems.length > 0
             ? `
           <div class="line"></div>
-          <div style="color: #dc2626; font-size: 10px; margin-bottom: 5px;">
-            <div class="bold">⚠ Items awaiting stock:</div>
+          <div style="color: #dc2626; font-size: 12px; margin-bottom: 5px; font-weight: 800;">
+            <div class="extra-bold">⚠ Items awaiting stock:</div>
             ${data.stockAwaitItems
               .map(
                 (item) => `
@@ -674,6 +715,8 @@ class ReceiptGenerator {
         
         <div class="line"></div>
         
+        <div class="section-title">TOTALS</div>
+        
         <div>
           <div class="column-layout">
             <div>Subtotal:</div>
@@ -682,7 +725,7 @@ class ReceiptGenerator {
           ${
             data.discount > 0
               ? `
-            <div class="column-layout">
+            <div class="column-layout" style="color: #10b981;">
               <div>Discount (${this.formatNumber(data.discountPercent, 0)}%):</div>
               <div>-R${this.formatNumber(data.discount)}</div>
             </div>
@@ -703,22 +746,24 @@ class ReceiptGenerator {
         
         <div class="line"></div>
         
-        <div class="column-layout total-row">
+        <div class="column-layout total-row extra-bold">
           <div>TOTAL:</div>
           <div>R${this.formatNumber(data.total)}</div>
         </div>
         
         <div class="line"></div>
         
+        <div class="section-title">PAYMENT</div>
+        
         <div>
-          <div class="column-layout">
+          <div class="column-layout payment-info">
             <div>Payment Method:</div>
             <div>${data.paymentMethod}</div>
           </div>
           ${
             data.amountReceived
               ? `
-            <div class="column-layout">
+            <div class="column-layout payment-info">
               <div>Amount Received:</div>
               <div>R${this.formatNumber(data.amountReceived)}</div>
             </div>
@@ -728,7 +773,7 @@ class ReceiptGenerator {
           ${
             data.change && data.change > 0
               ? `
-            <div class="column-layout">
+            <div class="column-layout payment-info">
               <div>Change:</div>
               <div>R${this.formatNumber(data.change)}</div>
             </div>
@@ -740,7 +785,7 @@ class ReceiptGenerator {
         <div class="line"></div>
         
         <div class="footer center">
-          <div>Thank you for your business!</div>
+          <div class="bold">Thank you for your business!</div>
           <div>Please come again</div>
         </div>
       </body>
@@ -771,6 +816,7 @@ class ReceiptGenerator {
             max-width: 210mm;
             margin: 0 auto;
             padding: 20px;
+            font-weight: 600; /* Added base boldness */
           }
           .print-button {
             display: ${includePrintButton ? "block" : "none"};
@@ -779,8 +825,8 @@ class ReceiptGenerator {
             color: white;
             border: none;
             padding: 15px;
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 18px; /* Increased from 16px */
+            font-weight: 900; /* Extra bold */
             border-radius: 5px;
             cursor: pointer;
             margin-bottom: 20px;
@@ -795,40 +841,45 @@ class ReceiptGenerator {
           .header { 
             text-align: center; 
             margin-bottom: 30px;
-            border-bottom: 2px solid #333;
+            border-bottom: 3px solid #333; /* Thicker border */
             padding-bottom: 20px;
           }
           .company-name { 
-            font-size: 24px; 
-            font-weight: bold; 
-            margin-bottom: 10px;
+            font-size: 28px; /* Increased from 24px */
+            font-weight: 900; /* Extra bold */
+            margin-bottom: 15px;
           }
           .receipt-title {
-            font-size: 20px;
-            font-weight: bold;
-            margin: 20px 0;
+            font-size: 24px; /* Increased from 20px */
+            font-weight: 900; /* Extra bold */
+            margin: 25px 0;
+            text-align: center;
           }
           .info-section {
-            margin: 20px 0;
-            padding: 15px;
+            margin: 25px 0;
+            padding: 20px; /* Increased from 15px */
             background: #f5f5f5;
             border-radius: 5px;
+            font-size: 16px; /* Increased */
+            font-weight: 700; /* Added boldness */
           }
           .items-table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin: 20px 0; 
+            margin: 25px 0; 
+            font-size: 15px; /* Increased */
           }
           .items-table th, .items-table td { 
-            border: 1px solid #ddd; 
-            padding: 12px; 
+            border: 2px solid #ddd; /* Thicker borders */
+            padding: 15px; /* Increased from 12px */
             text-align: left; 
             vertical-align: top;
           }
           .items-table th { 
             background-color: #333; 
             color: white;
-            font-weight: bold;
+            font-weight: 900; /* Extra bold */
+            font-size: 17px; /* Increased */
           }
           .items-table tr:nth-child(even) {
             background-color: #f9f9f9;
@@ -837,51 +888,69 @@ class ReceiptGenerator {
             word-wrap: break-word;
             white-space: normal;
             max-width: 200px;
+            font-weight: 700; /* Added boldness */
           }
           .totals { 
-            margin-top: 20px;
+            margin-top: 25px;
             float: right;
-            width: 300px;
+            width: 350px; /* Increased from 300px */
           }
           .totals-row { 
             display: flex; 
             justify-content: space-between; 
-            padding: 8px 0;
-            border-bottom: 1px solid #ddd;
+            padding: 12px 0; /* Increased from 8px */
+            border-bottom: 2px solid #ddd; /* Thicker border */
+            font-size: 17px; /* Increased */
+            font-weight: 700; /* Added boldness */
           }
           .total-row { 
-            font-weight: bold; 
-            font-size: 18px;
-            border-top: 2px solid #333;
-            border-bottom: 2px solid #333;
-            margin-top: 10px;
-            padding-top: 10px;
+            font-weight: 900; /* Extra bold */
+            font-size: 22px; /* Increased from 18px */
+            border-top: 3px solid #333; /* Thicker border */
+            border-bottom: 3px solid #333; /* Thicker border */
+            margin-top: 15px;
+            padding-top: 15px;
           }
           .footer {
             clear: both;
             margin-top: 50px;
             text-align: center;
-            padding-top: 20px;
-            border-top: 2px solid #333;
+            padding-top: 25px;
+            border-top: 3px solid #333; /* Thicker border */
+            font-size: 18px; /* Increased */
           }
           .payment-info {
-            margin: 20px 0;
-            padding: 15px;
+            margin: 25px 0;
+            padding: 20px; /* Increased from 15px */
             background: #e8f5e9;
             border-radius: 5px;
+            font-size: 17px; /* Increased */
+            font-weight: 800; /* Added boldness */
           }
           .awaiting-stock-note {
             background: #fef3c7;
-            border: 1px solid #fbbf24;
+            border: 2px solid #fbbf24; /* Thicker border */
             border-radius: 5px;
-            padding: 15px;
-            margin: 20px 0;
+            padding: 20px; /* Increased from 15px */
+            margin: 25px 0;
+            font-weight: 700; /* Added boldness */
           }
           .logo {
-            max-height: 100px;
-            max-width: 300px;
-            margin-bottom: 10px;
+            max-height: 120px; /* Increased from 100px */
+            max-width: 350px; /* Increased from 300px */
+            margin-bottom: 15px;
             object-fit: contain;
+          }
+          .highlight {
+            font-weight: 900; /* Extra bold */
+            color: #333;
+          }
+          .receipt-number-display {
+            font-size: 26px; /* Increased */
+            font-weight: 900; /* Extra bold */
+            color: #2c5282;
+            text-align: center;
+            margin: 10px 0;
           }
         </style>
         <script>
@@ -895,7 +964,7 @@ class ReceiptGenerator {
           includePrintButton
             ? `
         <button class="print-button" onclick="printReceipt()">
-           Print Receipt
+          🖨️ Print Receipt
         </button>
         `
             : ""
@@ -904,15 +973,16 @@ class ReceiptGenerator {
         <div class="header">
           ${hasLogo ? `<img src="${data.company.logo}" alt="${data.company.name}" class="logo">` : ""}
           <div class="company-name">${data.company.name}</div>
-          <div>${data.company.address}</div>
-          <div>Tel: ${data.company.phone} | Email: ${data.company.email}</div>
-          ${data.company.taxNumber ? `<div>VAT Number: ${data.company.taxNumber}</div>` : ""}
+          <div style="font-weight: 700; font-size: 16px;">${data.company.address}</div>
+          <div style="font-weight: 700; font-size: 16px;">Tel: ${data.company.phone} | Email: ${data.company.email}</div>
+          ${data.company.taxNumber ? `<div style="font-weight: 700; font-size: 16px;">VAT Number: ${data.company.taxNumber}</div>` : ""}
         </div>
 
         <div class="receipt-title">SALES RECEIPT</div>
         
+        <div class="receipt-number-display">${data.saleNumber}</div>
+        
         <div class="info-section">
-          <div><strong>Receipt Number:</strong> ${data.saleNumber}</div>
           <div><strong>Date:</strong> ${this.formatDate(data.date)}</div>
           ${data.customerName ? `<div><strong>Customer:</strong> ${data.customerName}</div>` : ""}
           ${data.customerPhone ? `<div><strong>Phone:</strong> ${data.customerPhone}</div>` : ""}
@@ -939,17 +1009,17 @@ class ReceiptGenerator {
                   ${
                     item.hadNegativeStock
                       ? `
-                    <div style="color: #dc2626; font-style: italic; font-size: 12px;">
+                    <div style="color: #dc2626; font-style: italic; font-size: 14px; font-weight: 800;">
                       (Awaiting stock: ${item.awaitedQuantity})
                     </div>
                   `
                       : ""
                   }
                 </td>
-                <td>${this.getItemSKU(item)}</td>
-                <td style="text-align: right;">${item.quantity}</td>
-                <td style="text-align: right;">R${this.formatNumber(item.price)}</td>
-                <td style="text-align: right;">R${this.formatNumber(item.total)}</td>
+                <td style="font-weight: 700;">${this.getItemSKU(item)}</td>
+                <td style="text-align: right; font-weight: 700;">${item.quantity}</td>
+                <td style="text-align: right; font-weight: 700;">R${this.formatNumber(item.price)}</td>
+                <td style="text-align: right; font-weight: 800;">R${this.formatNumber(item.total)}</td>
               </tr>
             `
               )
@@ -961,21 +1031,21 @@ class ReceiptGenerator {
           data.stockAwaitItems && data.stockAwaitItems.length > 0
             ? `
           <div class="awaiting-stock-note">
-            <div style="font-weight: bold; color: #92400e; margin-bottom: 10px;">
+            <div style="font-weight: 900; color: #92400e; margin-bottom: 12px; font-size: 18px;">
               ⚠ Items Awaiting Stock
             </div>
-            <div style="font-size: 14px;">
+            <div style="font-size: 16px;">
               ${data.stockAwaitItems
                 .map(
                   (item) => `
-                <div style="margin: 5px 0;">
+                <div style="margin: 8px 0; font-weight: 800;">
                   <strong>${item.shopProduct?.name}</strong> (SKU: ${item.shopProduct?.sku}) - Awaiting: ${item.quantity} units
                 </div>
               `
                 )
                 .join("")}
             </div>
-            <div style="margin-top: 10px; font-size: 12px; color: #92400e;">
+            <div style="margin-top: 12px; font-size: 14px; color: #92400e; font-weight: 800;">
               These items will be fulfilled once stock is available.
             </div>
           </div>
@@ -1010,7 +1080,7 @@ class ReceiptGenerator {
           }
           <div class="totals-row total-row">
             <span>TOTAL:</span>
-            <span>R${this.formatNumber(data.total)}</span>
+            <span class="highlight">R${this.formatNumber(data.total)}</span>
           </div>
         </div>
 
@@ -1021,8 +1091,8 @@ class ReceiptGenerator {
         </div>
 
         <div class="footer">
-          <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">Thank You for Your Business!</div>
-          <div>For any queries, please contact us at ${data.company.phone} or ${data.company.email}</div>
+          <div style="font-size: 22px; font-weight: 900; margin-bottom: 15px;">Thank You for Your Business!</div>
+          <div style="font-weight: 700;">For any queries, please contact us at ${data.company.phone} or ${data.company.email}</div>
         </div>
       </body>
       </html>
