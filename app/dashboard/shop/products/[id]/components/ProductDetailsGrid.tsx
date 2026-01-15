@@ -8,7 +8,7 @@ interface ProductDetailsGridProps {
   product: Product;
 }
 
-const TAX_RATE = 0.15; // 15% VAT for South Africa
+const TAX_RATE = 0.15;
 
 export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
   const getStockStatus = (stock: number, minStock: number) => {
@@ -100,7 +100,7 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
             <span className="font-medium">Brand</span>
             <span>{product.brand || "N/A"}</span>
           </div>
-          {product.vender.name && (
+          {product.vender?.name && (
             <div className="flex items-center justify-between">
               <span className="font-medium">Supplier</span>
               <Link

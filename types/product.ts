@@ -6,8 +6,8 @@ export interface Product {
   description: string | null;
   sku: string;
   category: string;
-  venderId: string;
-  vender: Vendor;
+  venderId: string | "";
+  vender: Vendor | null;
   price: number;
   costPrice: number | null;
 
