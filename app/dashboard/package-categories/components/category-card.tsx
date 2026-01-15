@@ -313,7 +313,7 @@ export function CategoryCard({
                 <DropdownMenuItem
                   className="text-red-600 cursor-pointer"
                   onClick={() => onDelete(category)}
-                  disabled={true}
+                  disabled={categoryStats.packageCount > 0 || isDeleting}
                 >
                   {isDeleting ? (
                     <Trash2 className="mr-2 h-4 w-4 animate-spin" />
