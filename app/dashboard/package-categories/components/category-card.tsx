@@ -295,13 +295,13 @@ export function CategoryCard({
                   <Edit className="mr-2 h-4 w-4" />
                   Edit Category
                 </DropdownMenuItem>
-                <DropdownMenuItem
+                {/*   <DropdownMenuItem
                   onClick={() => onDuplicate(category)}
                   className="cursor-pointer"
                 >
                   <Copy className="mr-2 h-4 w-4" />
                   Duplicate Category
-                </DropdownMenuItem>
+                </DropdownMenuItem> */}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href={packagesLink} className="cursor-pointer w-full">
@@ -313,7 +313,7 @@ export function CategoryCard({
                 <DropdownMenuItem
                   className="text-red-600 cursor-pointer"
                   onClick={() => onDelete(category)}
-                  disabled={isDeleting}
+                  disabled={true}
                 >
                   {isDeleting ? (
                     <Trash2 className="mr-2 h-4 w-4 animate-spin" />
