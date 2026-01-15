@@ -1376,11 +1376,8 @@ function SelectedItemCard({
         )}
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h4 className="font-medium text-sm truncate">{item.name}</h4>
-            <Badge variant="outline" className="text-xs capitalize">
-              {item.type}
-            </Badge>
+          <div className="l items-center gap-2">
+            <h4 className="font-medium text-sm line-clamp-2 ">{item.name}</h4>
           </div>
 
           <div className="flex items-center gap-4 mt-1">
@@ -1394,6 +1391,9 @@ function SelectedItemCard({
               </div>
             )}
           </div>
+          <Badge variant="outline" className="text-xs capitalize">
+            {item.type}
+          </Badge>
         </div>
       </div>
 
