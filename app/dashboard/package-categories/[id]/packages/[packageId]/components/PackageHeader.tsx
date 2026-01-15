@@ -95,11 +95,7 @@ export default function PackageHeader({
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">{packageData.name}</h1>
-            <Badge
-              className={getClassificationColor(packageData.classification)}
-            >
-              {packageData.classification || "Unclassified"}
-            </Badge>
+
             <Badge className={getStatusColor(packageData.status)}>
               {packageData.status}
             </Badge>

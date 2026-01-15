@@ -245,7 +245,7 @@ export default function SubpackagesTab({
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
                           <Link
-                            href={`/dashboard/packages/${params.id}/subpackages/${subpackage.id}`}
+                            href={`/dashboard/package-categories/${packageData.packageCategory.id}/packages/${packageData.id}/subpackages/${subpackage.id}`}
                           >
                             <Eye className="h-4 w-4 mr-2" />
                             View Details
@@ -391,7 +391,7 @@ export default function SubpackagesTab({
 
                   <Button className="w-full" asChild>
                     <Link
-                      href={`/dashboard/packages/${params.id}/subpackages/${subpackage.id}`}
+                      href={`/dashboard/package-categories/${packageData.packageCategory.id}/packages/${packageData.id}/subpackages/${subpackage.id}`}
                     >
                       View Full Details
                     </Link>

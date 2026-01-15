@@ -979,11 +979,7 @@ export const packageFormSchema = z.object({
     .or(z.literal("")),
   shortDescription: z.string().max(200).optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
-  classification: z.string().min(1, "Please select a classification"),
-  category: z.string().min(1, "Please select a category"),
-  packageType: z.nativeEnum(PackageType, {
-    required_error: "Please select a package type",
-  }),
+  categoryId: z.string().min(1, "category id is requad"),
   status: z.nativeEnum(PackageStatus).default(PackageStatus.DRAFT),
   featured: z.boolean().default(false),
   isPublic: z.boolean().default(true),
@@ -992,7 +988,6 @@ export const packageFormSchema = z.object({
     .url("Please enter a valid URL")
     .optional()
     .or(z.literal("")),
-  tags: z.string().optional().or(z.literal("")),
   benefits: z.string().optional().or(z.literal("")),
 });
 

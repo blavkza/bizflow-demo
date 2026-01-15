@@ -317,7 +317,7 @@ export function SubpackageForm({
     setIsLoadingItems(true);
     try {
       const [productsResponse, servicesResponse] = await Promise.all([
-        axios.get("/api/shop/products"),
+        axios.get("/api/shop/products/pos"),
         axios.get("/api/services"),
       ]);
 
@@ -681,25 +681,6 @@ export function SubpackageForm({
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="shortDescription"
-                render={({ field }) => (
-                  <FormItem className="mt-4">
-                    <FormLabel>Short Description</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Brief description for quick reference"
-                        {...field}
-                        value={field.value || ""}
-                        disabled={loading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </CardContent>
           </Card>
 
@@ -1034,7 +1015,6 @@ export function SubpackageForm({
                     </FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
                           type="number"
                           step="0.01"
@@ -1219,52 +1199,28 @@ export function SubpackageForm({
                 )}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="duration"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Duration</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            className="pl-10"
-                            placeholder="e.g., 3 months, 1 year, Lifetime"
-                            {...field}
-                            value={field.value || ""}
-                            disabled={loading}
-                          />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="sortOrder"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sort Order</FormLabel>
-                      <FormControl>
+              <FormField
+                control={form.control}
+                name="duration"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Duration</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                         <Input
-                          type="number"
-                          placeholder="0"
+                          className="pl-10"
+                          placeholder="e.g., 3 months, 1 year, Lifetime"
                           {...field}
+                          value={field.value || ""}
                           disabled={loading}
                         />
-                      </FormControl>
-                      <FormDescription>
-                        Lower numbers appear first
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

@@ -2,41 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest) {
   try {
-    console.log("Starting GET /dashboard/package-categories/[id]/packages");
+    const { searchParams } = new URL(request.url);
+    const categoryId = searchParams.get("categoryId");
 
-    // Check authentication
-    const { userId } = await auth();
-    console.log("User ID:", userId);
-
-    if (!userId) {
-      console.log("Unauthorized: No user ID");
-      return new NextResponse("Unauthorized", { status: 401 });
+    const where: any = {};
+    if (categoryId) {
+      where.packageCategoryId = categoryId;
     }
 
-    // Check if user exists in database
-    const user = await db.user.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    if (!user) {
-      console.log("Unauthorized: User not found in database");
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
-    const categoryId = params.id;
-    console.log("Category ID:", categoryId);
-
-    // Fetch packages for the specific category
     const packages = await db.package.findMany({
-      where: {
-        categoryId: categoryId,
-      },
+      where,
       include: {
         subpackages: {
           include: {
@@ -72,7 +49,7 @@ export async function GET(
           },
           orderBy: { sortOrder: "asc" },
         },
-        category: true,
+        packageCategory: true,
         _count: {
           select: {
             subpackages: true,
@@ -83,7 +60,27 @@ export async function GET(
       orderBy: { createdAt: "desc" },
     });
 
-    console.log(`Found ${packages.length} packages for category ${categoryId}`);
+    console.log(`Found ${packages.length} packages`);
+
+    let categoryInfo = null;
+    if (packages.length > 0 && packages[0].packageCategory) {
+      categoryInfo = {
+        id: packages[0].packageCategory.id,
+        name: packages[0].packageCategory.name,
+        description: packages[0].packageCategory.description,
+      };
+    } else if (categoryId) {
+      const category = await db.packageCategory.findUnique({
+        where: { id: categoryId },
+      });
+      if (category) {
+        categoryInfo = {
+          id: category.id,
+          name: category.name,
+          description: category.description,
+        };
+      }
+    }
 
     // Transform the data for frontend
     const transformedPackages = packages.map((pkg) => {
@@ -106,16 +103,13 @@ export async function GET(
         name: pkg.name,
         description: pkg.description,
         shortDescription: pkg.shortDescription,
-        category: pkg.category,
-        classification: pkg.classification,
+        category: pkg.packageCategory,
         notes: pkg.notes,
-        packageType: pkg.packageType,
         status: pkg.status,
         featured: pkg.featured,
         isPublic: pkg.isPublic,
         images: pkg.images,
         thumbnail: pkg.thumbnail,
-        tags: pkg.tags || [],
         benefits: pkg.benefits || [],
         createdAt: pkg.createdAt.toISOString(),
         updatedAt: pkg.updatedAt.toISOString(),
@@ -172,18 +166,25 @@ export async function GET(
     });
 
     console.log("Sending transformed packages response");
-    return NextResponse.json(transformedPackages);
+
+    // Return both packages and category info
+    return NextResponse.json({
+      packages: transformedPackages,
+      category: categoryInfo,
+      totalCount: transformedPackages.length,
+    });
   } catch (error) {
-    console.error("Error fetching packages for category:", error);
+    console.error("Error fetching packages:", error);
     return NextResponse.json(
       {
-        error: "Failed to fetch packages for category",
+        error: "Failed to fetch packages",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
     );
   }
 }
+
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -208,15 +209,12 @@ export async function POST(request: NextRequest) {
         description: data.description,
         shortDescription: data.shortDescription,
         notes: data.notes || "",
-        classification: data.classification,
-        categoryId: data.category,
-        packageType: data.packageType || "BUNDLE",
         status: data.status || "DRAFT",
         featured: data.featured || false,
         isPublic: data.isPublic ?? true,
         images: data.images || null,
         thumbnail: data.thumbnail || "",
-        tags: Array.isArray(data.tags) ? data.tags : [],
+        packageCategoryId: data.categoryId,
         benefits: Array.isArray(data.benefits) ? data.benefits : [],
       },
       include: {

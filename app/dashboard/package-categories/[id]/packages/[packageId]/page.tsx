@@ -16,7 +16,6 @@ import PackageInfoCard from "./components/PackageInfoCard";
 import SubpackagesTab from "./components/SubpackagesTab";
 import ProductsTab from "./components/ProductsTab";
 import ServicesTab from "./components/ServicesTab";
-import SettingsTab from "./components/SettingsTab";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PackageDetailPage() {
@@ -28,12 +27,12 @@ export default function PackageDetailPage() {
 
   useEffect(() => {
     fetchPackage();
-  }, [params.id]);
+  }, [params.packageId]);
 
   async function fetchPackage() {
     try {
       setLoading(true);
-      const data = await getPackage(params.id as string);
+      const data = await getPackage(params.packageId as string);
       setPackageData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load package");
@@ -105,8 +104,6 @@ export default function PackageDetailPage() {
             <TabsTrigger value="products">Products</TabsTrigger>
             <TabsTrigger value="services">Services</TabsTrigger>
             <TabsTrigger value="overview">Package Info</TabsTrigger>
-
-            <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -123,10 +120,6 @@ export default function PackageDetailPage() {
 
           <TabsContent value="services" className="space-y-4">
             <ServicesTab packageData={packageData} />
-          </TabsContent>
-
-          <TabsContent value="settings" className="space-y-4">
-            <SettingsTab packageData={packageData} onUpdate={fetchPackage} />
           </TabsContent>
         </Tabs>
       </div>

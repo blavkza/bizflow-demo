@@ -1,16 +1,16 @@
+import { PackageCategory } from "@prisma/client";
+
 export interface PackageData {
   id: string;
   name: string;
   description: string | null;
   shortDescription: string | null;
-  categoryId: string | null;
+  packageCategory: PackageCategory;
   category?: {
     id: string;
     name: string;
   } | null;
-  classification: string | null;
   notes: string | null;
-  packageType: string;
   status: string;
   featured: boolean;
   isPublic: boolean;
@@ -18,7 +18,6 @@ export interface PackageData {
   thumbnail: string | null;
   salesCount: number;
   totalRevenue: number;
-  tags: string[];
   benefits: string[];
   createdAt: string;
   updatedAt: string;

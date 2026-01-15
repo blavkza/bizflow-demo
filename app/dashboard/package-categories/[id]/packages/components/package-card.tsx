@@ -47,7 +47,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
-import { PackageWithStats } from "@/types/package";
+import { DialogPackageData, PackageWithStats } from "@/types/package";
 import { toast } from "@/components/ui/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { PackageDialog } from "./package-dialog";
@@ -152,9 +152,6 @@ export function PackageCard({
   const [showEditDialog, setShowEditDialog] = useState(false);
 
   const statusConfig = getStatusConfig(pkg.status);
-  const classificationConfig = pkg.classification
-    ? getClassificationConfig(pkg.classification)
-    : null;
 
   const isPackageDuplicating = duplicatingId === pkg.id;
 
@@ -217,9 +214,26 @@ export function PackageCard({
     });
   };
 
+  // Add this helper function at the top of your component or in a separate utils file
+  const transformToDialogData = (pkg: PackageWithStats): DialogPackageData => {
+    return {
+      id: pkg.id,
+      name: pkg.name,
+      description: pkg.description || "",
+      shortDescription: pkg.shortDescription || "",
+      notes: pkg.notes || "",
+      status: pkg.status,
+      featured: pkg.featured,
+      isPublic: pkg.isPublic,
+      thumbnail: pkg.thumbnail || "",
+      images: (pkg as any).images || null,
+      categoryId: pkg.packageCategoryId || "",
+      benefits: (pkg as any).benefits || [],
+    };
+  };
+
   const revenue = getTotalRevenueNumber(pkg.totalRevenue);
   const popularityScore = calculatePopularityScore();
-  const hasTags = pkg.tags && pkg.tags.length > 0;
   const hasBenefits = pkg.benefits && pkg.benefits.length > 0;
 
   return (
@@ -256,17 +270,6 @@ export function PackageCard({
                 {pkg.status.charAt(0) + pkg.status.slice(1).toLowerCase()}
               </Badge>
             </div>
-
-            {/* Classification Badge */}
-            {classificationConfig && (
-              <div className="absolute top-3 left-3">
-                <Badge
-                  className={`${classificationConfig.color} border px-2 py-1`}
-                >
-                  {pkg.classification}
-                </Badge>
-              </div>
-            )}
 
             {/* Featured Badge */}
             {pkg.featured && (
@@ -330,9 +333,7 @@ export function PackageCard({
                       {pkg.category.name}
                     </Badge>
                   )}
-                  <Badge variant="secondary" className="text-xs">
-                    {pkg.packageType.replace("_", " ")}
-                  </Badge>
+
                   {pkg.isPublic ? (
                     <Badge
                       variant="outline"
@@ -362,7 +363,7 @@ export function PackageCard({
                   <DropdownMenuLabel>Package Actions</DropdownMenuLabel>
                   <DropdownMenuItem asChild>
                     <Link
-                      href={`/dashboard/packages/${pkg.id}`}
+                      href={`/dashboard/package-categories/${pkg.packageCategoryId}/packages/${pkg.id}`}
                       className="cursor-pointer"
                     >
                       <Eye className="mr-2 h-4 w-4" />
@@ -423,39 +424,7 @@ export function PackageCard({
                     </TooltipTrigger>
                     <TooltipContent>Number of subpackages</TooltipContent>
                   </Tooltip>
-
-                  {hasTags && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <Tag className="h-4 w-4" />
-                          <span className="font-medium">
-                            {pkg.tags?.length || 0}
-                          </span>
-                          <span className="hidden sm:inline">tags</span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent>Number of tags</TooltipContent>
-                    </Tooltip>
-                  )}
                 </div>
-
-                {/* Popularity Indicator */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div className="flex items-center gap-2">
-                      <div className="w-24">
-                        <Progress value={popularityScore} className="h-2" />
-                      </div>
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {popularityScore}%
-                      </span>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Popularity based on sales and revenue
-                  </TooltipContent>
-                </Tooltip>
               </div>
 
               <Separator />
@@ -495,7 +464,9 @@ export function PackageCard({
               className="w-full bg-gradient-to-r from-primary/90 to-primary hover:from-primary hover:to-primary/90 transition-all duration-200 group"
               asChild
             >
-              <Link href={`/dashboard/packages/${pkg.id}`}>
+              <Link
+                href={`/dashboard/package-categories/${pkg.packageCategoryId}/packages/${pkg.id}`}
+              >
                 <div className="flex items-center justify-center w-full">
                   <span>View Package Details</span>
                   <ChevronRight className="ml-2 h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
@@ -510,10 +481,11 @@ export function PackageCard({
       {showEditDialog && (
         <PackageDialog
           mode="edit"
-          packageData={pkg}
+          packageData={pkg as unknown as DialogPackageData}
           open={showEditDialog}
           onOpenChange={setShowEditDialog}
           onSuccess={handleEditSuccess}
+          categoryId={pkg.packageCategoryId || ""}
         />
       )}
     </>

@@ -92,6 +92,7 @@ export type PackageWithStats = Package & {
     subpackages: number;
     orders: number;
   };
+  
 };
 
 // Package with all relations
@@ -251,18 +252,11 @@ export interface DialogPackageData {
   name: string;
   description?: string | null;
   shortDescription?: string | null;
-  classification?: string | null;
   categoryId?: string | null;
-  category?: {
-    id: string;
-    name: string;
-  } | null;
-  packageType: string;
   status: string;
   featured: boolean;
   isPublic: boolean;
   thumbnail?: string | null;
-  tags: string[];
   benefits: string[];
   notes?: string | null;
   images?: any;

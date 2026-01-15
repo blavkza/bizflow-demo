@@ -30,13 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -54,21 +48,6 @@ type ComboboxOption = {
   type?: string;
 };
 
-interface Category {
-  id: string;
-  name: string;
-  type?: string;
-}
-
-const classifications = ["Class 1 A", "Class 1 B", "Class 2 A", "Class 2 B"];
-
-// Ensure these match your form schema
-const packageTypes = [
-  { value: PackageType.BUNDLE, label: "Bundle (Products + Services)" },
-  { value: PackageType.SERVICE_ONLY, label: "Service Only" },
-  { value: PackageType.PRODUCT_ONLY, label: "Product Only" },
-];
-
 const statusOptions = [
   { value: PackageStatus.ACTIVE, label: "Active" },
   { value: PackageStatus.INACTIVE, label: "Inactive" },
@@ -83,6 +62,7 @@ interface PackageDialogProps {
   onOpenChange?: (open: boolean) => void;
   onSuccess?: () => void;
   trigger?: React.ReactNode;
+  categoryId?: string;
 }
 
 export function PackageDialog({
@@ -92,6 +72,7 @@ export function PackageDialog({
   onOpenChange: externalOnOpenChange,
   onSuccess,
   trigger,
+  categoryId,
 }: PackageDialogProps) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
@@ -118,22 +99,17 @@ export function PackageDialog({
       description: "",
       shortDescription: "",
       notes: "",
-      classification: "",
-      category: "",
-      packageType: PackageType.BUNDLE,
+      categoryId: categoryId,
       status: PackageStatus.DRAFT,
       featured: false,
       isPublic: true,
       thumbnail: "",
-      tags: "",
       benefits: "",
     },
   });
 
   useEffect(() => {
     if (open) {
-      fetchCategories();
-
       if (mode === "edit" && packageData) {
         // Type-safe form reset with proper enum handling
         const formValues: PackageFormValues = {
@@ -141,23 +117,18 @@ export function PackageDialog({
           description: packageData.description || "",
           shortDescription: packageData.shortDescription || "",
           notes: packageData.notes || "",
-          classification: packageData.classification || "",
-          category: packageData.categoryId || "",
-          packageType:
-            (packageData.packageType as PackageType) || PackageType.BUNDLE,
           status: (packageData.status as PackageStatus) || PackageStatus.DRAFT,
           featured: packageData.featured || false,
           isPublic:
             packageData.isPublic !== undefined ? packageData.isPublic : true,
+          categoryId: categoryId || "",
           thumbnail: packageData.thumbnail || "",
-          tags: packageData.tags?.join(", ") || "",
           benefits: packageData.benefits?.join(", ") || "",
         };
 
         form.reset(formValues);
 
         // Set tags and benefits arrays
-        setTags(packageData.tags || []);
         setBenefits(packageData.benefits || []);
 
         // Set preview image
@@ -177,36 +148,26 @@ export function PackageDialog({
           }
         }
       } else {
-        // Reset for create mode
+        const defaultValues: PackageFormValues = {
+          name: "",
+          description: "",
+          shortDescription: "",
+          notes: "",
+          status: PackageStatus.DRAFT,
+          featured: false,
+          isPublic: true,
+          categoryId: categoryId || "",
+          thumbnail: "",
+          benefits: "",
+        };
+
+        form.reset(defaultValues);
         setPreviewImage(null);
         setTags([]);
         setBenefits([]);
-        form.reset();
       }
     }
-  }, [open, mode, packageData, form]);
-
-  const fetchCategories = async () => {
-    setIsLoadingCategories(true);
-    try {
-      const response = await axios.get("/api/category");
-      const categories: Category[] =
-        response?.data?.data || response?.data || [];
-      const options = categories
-        .filter((category) => category.id && category.name)
-        .map((category) => ({
-          label: category.name || "",
-          value: category.id,
-          type: category.type,
-        }));
-      setCategoriesOptions(options);
-    } catch (err) {
-      console.error("Error fetching categories:", err);
-      toast.error("Failed to load categories");
-    } finally {
-      setIsLoadingCategories(false);
-    }
-  };
+  }, [open, packageData, form, categoryId]);
 
   const handleImageUpload = async (file: File) => {
     setUploading(true);
@@ -313,7 +274,7 @@ export function PackageDialog({
 
       const data = {
         ...values,
-        tags,
+        tags, // Make sure tags are included
         benefits,
         notes: values.notes || "",
         images: previewImage ? { thumbnail: previewImage } : null,
@@ -337,14 +298,10 @@ export function PackageDialog({
         description: "",
         shortDescription: "",
         notes: "",
-        classification: "",
-        category: "",
-        packageType: PackageType.BUNDLE,
         status: PackageStatus.DRAFT,
         featured: false,
         isPublic: true,
         thumbnail: "",
-        tags: "",
         benefits: "",
       });
       setTags([]);
@@ -502,216 +459,6 @@ export function PackageDialog({
               </div>
 
               <Separator />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="classification"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Classification *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        disabled={loading}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select classification" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {classifications.map((classification) => (
-                            <SelectItem
-                              key={classification}
-                              value={classification}
-                            >
-                              {classification}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        disabled={loading || isLoadingCategories}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            {isLoadingCategories ? (
-                              <div className="flex items-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                <span>Loading categories...</span>
-                              </div>
-                            ) : (
-                              <SelectValue placeholder="Select category" />
-                            )}
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categoriesOptions.length > 0 ? (
-                            categoriesOptions.map((category) => (
-                              <SelectItem
-                                key={category.value}
-                                value={category.value}
-                              >
-                                {category.label}
-                                {category.type && (
-                                  <span className="text-xs text-muted-foreground ml-2">
-                                    ({category.type})
-                                  </span>
-                                )}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="none" disabled>
-                              No categories found
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <div className="flex items-center justify-between">
-                        <FormMessage />
-                        {categoriesOptions.length === 0 &&
-                          !isLoadingCategories && (
-                            <Button
-                              type="button"
-                              variant="link"
-                              size="sm"
-                              className="h-auto p-0"
-                              onClick={fetchCategories}
-                            >
-                              Retry
-                            </Button>
-                          )}
-                      </div>
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="packageType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Package Type *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        disabled={loading}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select package type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {packageTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        disabled={loading}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {statusOptions.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>
-                              {status.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Draft packages are not visible to customers
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <Separator />
-
-              <div>
-                <h3 className="text-lg font-medium mb-4">Tags</h3>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add a tag (press Enter to add)"
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => handleKeyDown(e, "tag")}
-                      disabled={loading}
-                    />
-                    <Button
-                      type="button"
-                      onClick={addTag}
-                      variant="outline"
-                      disabled={loading}
-                    >
-                      Add
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 min-h-[40px]">
-                    {tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="secondary"
-                        className="flex items-center gap-1"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => removeTag(tag)}
-                          className="ml-1 hover:text-red-500"
-                          disabled={loading}
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                    {tags.length === 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        No tags added yet
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
 
               <div>
                 <h3 className="text-lg font-medium mb-4">Benefits</h3>

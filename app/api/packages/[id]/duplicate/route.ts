@@ -58,9 +58,6 @@ export async function POST(
         name: finalName,
         description: originalPackage.description,
         shortDescription: originalPackage.shortDescription,
-        classification: originalPackage.classification,
-        categoryId: originalPackage.categoryId,
-        packageType: originalPackage.packageType,
         status:
           originalPackage.status === "ACTIVE"
             ? "DRAFT"
@@ -69,8 +66,8 @@ export async function POST(
         isPublic: originalPackage.isPublic,
         images: originalPackage.images as any,
         thumbnail: originalPackage.thumbnail,
-        tags: originalPackage.tags,
         benefits: originalPackage.benefits,
+        packageCategoryId: originalPackage.packageCategoryId,
         salesCount: 0,
         totalRevenue: 0,
         subpackages:
@@ -93,7 +90,7 @@ export async function POST(
       },
       include: {
         subpackages: true,
-        category: true,
+        packageCategory: true,
       },
     });
 

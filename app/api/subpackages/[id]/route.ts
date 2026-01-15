@@ -36,7 +36,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             name: true,
             description: true,
             status: true,
-            packageType: true,
           },
         },
         products: {

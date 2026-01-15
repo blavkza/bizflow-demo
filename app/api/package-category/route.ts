@@ -3,7 +3,6 @@ import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 
-// Validation schema for PackageCategory
 const packageCategorySchema = z.object({
   name: z.string().min(1, "Name is required").max(100, "Name is too long"),
   description: z.string().optional(),
@@ -42,47 +41,53 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
-    // Fetch categories with optional relations and aggregated stats
     const categories = await db.packageCategory.findMany({
       where,
       include: {
         packages: includePackages
           ? {
-              select: {
-                id: true,
-                name: true,
-                status: true,
-                packageType: true,
-                salesCount: true,
-                totalRevenue: true,
-                createdAt: true,
+              include: {
+                _count: {
+                  select: {
+                    orders: true,
+                  },
+                },
               },
+              orderBy: { createdAt: "desc" },
             }
           : false,
       },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     });
 
-    // Calculate aggregated stats for each category
     const categoriesWithStats = categories.map((category) => {
+      let packageCount = 0;
       let totalSales = 0;
       let totalRevenue = 0;
-      let packageCount = 0;
 
       if (category.packages) {
         packageCount = category.packages.length;
-        totalSales = category.packages.reduce(
-          (sum, pkg) => sum + (pkg.salesCount || 0),
-          0
-        );
-        totalRevenue = category.packages.reduce(
-          (sum, pkg) => sum + Number(pkg.totalRevenue || 0),
-          0
-        );
+
+        category.packages.forEach((pkg: any) => {
+          const salesCount = pkg._count?.orders || 0;
+          totalSales += salesCount;
+          const packageRevenue = pkg.totalRevenue
+            ? Number(pkg.totalRevenue)
+            : salesCount * (Number(pkg.price) || 0);
+
+          totalRevenue += packageRevenue;
+        });
       }
 
       return {
         ...category,
+        packages: includePackages
+          ? category.packages?.map((pkg: any) => ({
+              ...pkg,
+              totalSales: pkg._count?.orders || 0,
+              salesCount: pkg._count?.orders || 0,
+            }))
+          : undefined,
         stats: includeStats
           ? {
               packageCount,

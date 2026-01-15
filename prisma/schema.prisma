@@ -1007,7 +1007,6 @@ model Category {
   budgets      BudgetItem[]
   splits       TransactionSplit[]
   Expense      Expense[]
-  packages     Package[]
 
   @@map("categories")
 }
@@ -2461,14 +2460,11 @@ model PackageCategory {
 }
 
 model Package {
-  id               String      @id @default(cuid())
+  id               String  @id @default(cuid())
   name             String
   description      String?
   shortDescription String?
-  categoryId       String
-  classification   String?
   notes            String?
-  packageType      PackageType @default(BUNDLE)
 
   status   PackageStatus @default(ACTIVE)
   featured Boolean       @default(false)
@@ -2480,7 +2476,6 @@ model Package {
   salesCount   Int     @default(0)
   totalRevenue Decimal @default(0) @db.Decimal(12, 2)
 
-  tags     String[]
   benefits String[]
 
   createdAt DateTime @default(now())
@@ -2492,7 +2487,6 @@ model Package {
   shopProducts      ShopProduct[]
   orders            Order[]
   services          Service[]
-  category          Category         @relation(fields: [categoryId], references: [id])
   packageCategory   PackageCategory? @relation(fields: [packageCategoryId], references: [id])
   packageCategoryId String?
 

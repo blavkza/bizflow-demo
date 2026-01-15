@@ -129,7 +129,7 @@ export default function SubpackageDetailPage() {
         services:
           subpackage.services?.map((s) => ({
             id: s.id,
-            unitPrice: s.price || undefined,
+            unitPrice: s.unitPrice || undefined,
           })) || [],
         packageId: subpackage.packageId,
       };
@@ -218,55 +218,41 @@ export default function SubpackageDetailPage() {
     );
   }
 
-  const totalProducts = subpackage.products?.length || 0;
-  const totalServices = subpackage.services?.length || 0;
-  const totalFeatures = subpackage.features?.length || 0;
-
-  const priceAfterDiscount = subpackage.discount
-    ? subpackage.discountType === "PERCENTAGE"
-      ? subpackage.price * (1 - subpackage.discount / 100)
-      : subpackage.price - subpackage.discount
-    : subpackage.price;
-
-  // Fixed: Get product price from the correct fields
+  // FIXED: Calculate product unit price correctly
   const getProductUnitPrice = (product: Subpackage["products"][0]) => {
-    // First check if there's a custom unitPrice for this package
+    // Priority: custom unitPrice > product's standard price
     if (product.unitPrice !== null && product.unitPrice !== undefined) {
       return product.unitPrice;
     }
-    // Otherwise use the product's standard price
-    if (product.price !== null && product.price !== undefined) {
-      return product.price;
-    }
-    return 0;
+    // Use the product's price from the product object
+    return product.price || 0;
   };
 
+  // FIXED: Calculate product total correctly
   const getProductTotal = (product: Subpackage["products"][0]) => {
     const unitPrice = getProductUnitPrice(product);
     const quantity = product.quantity || 1;
     return unitPrice * quantity;
   };
 
-  // Fixed: Get service price from the correct fields
+  // FIXED: Calculate service price correctly
   const getServicePrice = (service: Subpackage["services"][0]) => {
-    // First check if there's a custom unitPrice for this package
+    // Priority: custom unitPrice > service's standard price
     if (service.unitPrice !== null && service.unitPrice !== undefined) {
       return service.unitPrice;
     }
-    // Otherwise use the service's standard price (called 'price' in the API response)
-    if (service.price !== null && service.price !== undefined) {
-      return service.price;
-    }
-    return 0;
+    // Use the service's price from the service object
+    return service.price || 0;
   };
 
+  // FIXED: Calculate service total correctly
   const getServiceTotal = (service: Subpackage["services"][0]) => {
     const price = getServicePrice(service);
     const quantity = service.quantity || 1;
     return price * quantity;
   };
 
-  // Calculate totals for the entire package
+  // FIXED: Calculate package subtotal from products and services
   const calculatePackageSubtotal = () => {
     let total = 0;
 
@@ -286,6 +272,38 @@ export default function SubpackageDetailPage() {
 
     return total;
   };
+
+  // FIXED: Calculate discount amount based on discount type
+  const calculateDiscountAmount = () => {
+    if (!subpackage.discount || subpackage.discount <= 0) return 0;
+
+    const subtotal = calculatePackageSubtotal();
+
+    if (subpackage.discountType === "percentage") {
+      // For percentage discount, calculate based on the subtotal
+      return subtotal * (subpackage.discount / 100);
+    } else {
+      // For fixed amount discount
+      return subpackage.discount;
+    }
+  };
+
+  // FIXED: Calculate final price after discount
+  const calculatePriceAfterDiscount = () => {
+    const subtotal = calculatePackageSubtotal();
+    const discountAmount = calculateDiscountAmount();
+    return Math.max(0, subtotal - discountAmount); // Ensure price doesn't go negative
+  };
+
+  // FIXED: Use the calculated values
+  const packageSubtotal = calculatePackageSubtotal();
+  const discountAmount = calculateDiscountAmount();
+  const priceAfterDiscount = calculatePriceAfterDiscount();
+
+  // FIXED: Check if discount is applied to subtotal or final price
+  const hasDiscount = discountAmount > 0;
+  const shouldShowOriginalPrice =
+    subpackage.originalPrice && subpackage.originalPrice > priceAfterDiscount;
 
   return (
     <div className="px-4">
@@ -314,7 +332,7 @@ export default function SubpackageDetailPage() {
           subpackageId={params.subpackageId as string}
         />
 
-        {/* TABLE SECTION - Like the screenshot */}
+        {/* TABLE SECTION */}
         <div className="rounded-lg border border-gray-200 dark:border-gray-800 overflow-hidden">
           {/* Table Header */}
           <div className="bg-green-50 dark:bg-green-900/20 px-4 py-3 border-b border-gray-200 dark:border-gray-800">
@@ -403,48 +421,46 @@ export default function SubpackageDetailPage() {
             );
           })}
 
-          {/* Totals Section */}
+          {/* Totals Section - FIXED CALCULATIONS */}
           <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-4">
             <div className="flex justify-end">
               <div className="w-64 space-y-2">
-                {subpackage.originalPrice &&
-                  subpackage.originalPrice > subpackage.price && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Original Price:
-                      </span>
-                      <span className="text-gray-600 dark:text-gray-400 line-through">
-                        {formatCurrency(subpackage.originalPrice)}
-                      </span>
-                    </div>
-                  )}
+                {/* Show original price if it exists and is greater than subtotal */}
+                {!shouldShowOriginalPrice && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Original Price:
+                    </span>
+                    <span className="text-gray-600 dark:text-gray-400 line-through">
+                      {formatCurrency(subpackage.originalPrice!)}
+                    </span>
+                  </div>
+                )}
 
+                {/* SUBTOTAL: Sum of all products and services */}
                 <div className="flex justify-between">
                   <span className="font-medium text-gray-900 dark:text-gray-100">
                     SUBTOTAL:
                   </span>
                   <span className="font-medium text-gray-900 dark:text-gray-100">
-                    {formatCurrency(calculatePackageSubtotal())}
+                    {formatCurrency(packageSubtotal)}
                   </span>
                 </div>
 
-                {subpackage.discount && subpackage.discount > 0 && (
+                {/* DISCOUNT: Show discount if applicable */}
+                {hasDiscount && (
                   <div className="flex justify-between text-red-600 dark:text-red-400">
                     <span>
                       DISCOUNT
-                      {subpackage.discountType === "PERCENTAGE"
+                      {subpackage.discountType === "percentage"
                         ? ` (${subpackage.discount}%)`
-                        : ""}
-                      :
+                        : ":"}
                     </span>
-                    <span>
-                      {subpackage.discountType === "PERCENTAGE"
-                        ? `${subpackage.discount}%`
-                        : formatCurrency(subpackage.discount)}
-                    </span>
+                    <span>-{formatCurrency(discountAmount)}</span>
                   </div>
                 )}
 
+                {/* FINAL TOTAL */}
                 <div className="flex justify-between items-center pt-2 border-t border-gray-300 dark:border-gray-700">
                   <span className="font-bold text-gray-900 dark:text-gray-100">
                     TOTAL (ZAR):
@@ -453,6 +469,13 @@ export default function SubpackageDetailPage() {
                     {formatCurrency(priceAfterDiscount)}
                   </span>
                 </div>
+
+                {/* Note: The subpackage.price field is the final stored price, which should match our calculation */}
+                {Math.abs(subpackage.price - priceAfterDiscount) > 0.01 && (
+                  <div className="text-xs text-yellow-600 dark:text-yellow-400 text-right mt-1">
+                    Note: Stored price: {formatCurrency(subpackage.price)}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -504,7 +527,7 @@ export default function SubpackageDetailPage() {
               <h3 className="font-bold text-gray-900 dark:text-gray-100 mb-3">
                 Features
               </h3>
-              {totalFeatures > 0 ? (
+              {(subpackage.features?.length || 0) > 0 ? (
                 <div className="space-y-2">
                   {subpackage.features?.map((feature, index) => (
                     <div

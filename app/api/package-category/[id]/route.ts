@@ -46,7 +46,6 @@ export async function GET(
             id: true,
             name: true,
             status: true,
-            packageType: true,
             featured: true,
             createdAt: true,
             _count: {

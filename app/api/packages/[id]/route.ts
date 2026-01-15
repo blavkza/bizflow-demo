@@ -57,7 +57,7 @@ export async function GET(
             },
           },
         },
-        category: true,
+        packageCategory: true,
       },
     });
 
@@ -161,15 +161,13 @@ export async function PUT(
         name: data.name,
         description: data.description,
         shortDescription: data.shortDescription,
-        classification: data.classification,
-        categoryId: data.category,
+        packageCategoryId: data.packageCategoryId,
         packageType: data.packageType,
         status: data.status as PackageStatus,
         featured: data.featured,
         isPublic: data.isPublic,
         images: data.images,
         thumbnail: data.thumbnail,
-        tags: data.tags,
         benefits: data.benefits,
       },
       include: {
