@@ -1,6 +1,6 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -12,6 +12,7 @@ import {
 import { Category } from "@/types/product";
 import { useState, useEffect, useCallback } from "react";
 import { debounce } from "lodash";
+import { Button } from "@/components/ui/button";
 
 interface FiltersProps {
   searchTerm: string;
@@ -22,6 +23,7 @@ interface FiltersProps {
   onStatusChange: (value: string) => void;
   categories: Category[];
   debounceTime?: number;
+  onFilterChange?: () => void;
 }
 
 export function Filters({
@@ -33,6 +35,7 @@ export function Filters({
   onStatusChange,
   categories = [],
   debounceTime = 300,
+  onFilterChange,
 }: FiltersProps) {
   const [localSearch, setLocalSearch] = useState(searchTerm);
 
@@ -40,8 +43,9 @@ export function Filters({
   const debouncedSearch = useCallback(
     debounce((value: string) => {
       onSearchChange(value);
+      if (onFilterChange) onFilterChange();
     }, debounceTime),
-    [onSearchChange, debounceTime]
+    [onSearchChange, debounceTime, onFilterChange]
   );
 
   // Update local search when prop changes
@@ -56,6 +60,24 @@ export function Filters({
     debouncedSearch(value);
   };
 
+  // Handle clear search
+  const handleClearSearch = () => {
+    setLocalSearch("");
+    onSearchChange("");
+    if (onFilterChange) onFilterChange();
+  };
+
+  // Handle category and status changes
+  const handleCategoryChange = (value: string) => {
+    onCategoryChange(value);
+    if (onFilterChange) onFilterChange();
+  };
+
+  const handleStatusChange = (value: string) => {
+    onStatusChange(value);
+    if (onFilterChange) onFilterChange();
+  };
+
   // Cleanup debounce on unmount
   useEffect(() => {
     return () => {
@@ -63,44 +85,70 @@ export function Filters({
     };
   }, [debouncedSearch]);
 
+  // Check if any filter is active
+  const hasActiveFilters =
+    searchTerm ||
+    selectedCategory !== "All Categories" ||
+    selectedStatus !== "All Status";
+
+  // Clear all filters
+  const handleClearAll = () => {
+    setLocalSearch("");
+    onSearchChange("");
+    onCategoryChange("All Categories");
+    onStatusChange("All Status");
+    if (onFilterChange) onFilterChange();
+  };
+
   return (
-    <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
-      <div className="flex-1">
-        <div className="relative">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search products by name, SKU, or brand..."
-            value={localSearch}
-            onChange={handleSearchChange}
-            className="pl-8"
-          />
+    <div className="space-y-4">
+      <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+        <div className="flex-1">
+          <div className="relative">
+            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search products by name, SKU, or brand..."
+              value={localSearch}
+              onChange={handleSearchChange}
+              className="pl-8 pr-8"
+            />
+            {localSearch && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
+        <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All Categories">All Categories</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.name}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={selectedStatus} onValueChange={handleStatusChange}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All Status">All Status</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="Inactive">Inactive</SelectItem>
+            <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+            <SelectItem value="Low Stock">Low Stock</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-      <Select value={selectedCategory} onValueChange={onCategoryChange}>
-        <SelectTrigger className="w-[180px]">
-          <SelectValue placeholder="Category" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="All Categories">All Categories</SelectItem>
-          {categories.map((category) => (
-            <SelectItem key={category.id} value={category.name}>
-              {category.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Select value={selectedStatus} onValueChange={onStatusChange}>
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Status" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="All Status">All Status</SelectItem>
-          <SelectItem value="Active">Active</SelectItem>
-          <SelectItem value="Inactive">Inactive</SelectItem>
-          <SelectItem value="Out of Stock">Out of Stock</SelectItem>
-          <SelectItem value="Low Stock">Low Stock</SelectItem>
-        </SelectContent>
-      </Select>
     </div>
   );
 }

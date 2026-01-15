@@ -10,7 +10,6 @@ import { CategoryModal } from "./components/CategoryModal";
 import { SummaryCards } from "./components/SummaryCards";
 import { Filters } from "./components/Filters";
 import { ProductGrid } from "./components/ProductGrid";
-import ShopPageSkeleton from "./components/ShopPageSkeleton";
 import { ExportProductsButton } from "./components/ExportProductsButton";
 import {
   QueryClient,
@@ -27,6 +26,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 // Define response types
 interface ProductsResponse {
@@ -39,8 +40,10 @@ interface ProductsResponse {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes (replaces cacheTime)
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      retry: 1,
+      retryDelay: 1000,
     },
   },
 });
@@ -66,16 +69,33 @@ function ShopPage() {
   const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to top when page changes
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [page]);
+  // Reset page to 1 when filters change
+  const handleFilterChange = () => {
+    setPage(1);
+  };
+
+  // Update search term and reset page
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    handleFilterChange();
+  };
+
+  // Update category and reset page
+  const handleCategoryChange = (value: string) => {
+    setSelectedCategory(value);
+    handleFilterChange();
+  };
+
+  // Update status and reset page
+  const handleStatusChange = (value: string) => {
+    setSelectedStatus(value);
+    handleFilterChange();
+  };
 
   // Single handlePageChange function
   const handlePageChange = (newPage: number) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+    if (newPage >= 1 && newPage <= (productsData?.totalPages || 1)) {
       setPage(newPage);
-      // Immediate scroll
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -85,6 +105,8 @@ function ShopPage() {
     data: productsData,
     isLoading: productsLoading,
     error: productsError,
+    isFetching,
+    refetch,
   } = useQuery<ProductsResponse, Error>({
     queryKey: [
       "products",
@@ -107,16 +129,19 @@ function ShopPage() {
       if (selectedStatus !== "All Status")
         params.append("status", selectedStatus);
 
-      const response = await fetch(`/api/shop/products?${params}`);
+      const url = `/api/shop/products?${params}`;
+
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error("Failed to load products");
+        throw new Error(`Failed to load products: ${response.status}`);
       }
+
       return response.json();
     },
     placeholderData: (previousData) => previousData,
   });
 
-  // Remove client-side filtering since it's now done on the server
+  // Use the products from API response
   const filteredProducts = productsData?.products || [];
 
   // Fetch categories
@@ -129,7 +154,7 @@ function ShopPage() {
       }
       return response.json();
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 10 * 60 * 1000,
   });
 
   // Create product mutation
@@ -236,6 +261,7 @@ function ShopPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["categories"] });
+      setIsCategoryDialogOpen(false);
     },
     onError: (error: Error) => {
       alert(`Failed to create category: ${error.message}`);
@@ -269,23 +295,6 @@ function ShopPage() {
 
   const saveLoading =
     createProductMutation.isPending || updateProductMutation.isPending;
-
-  if (productsLoading && !productsData) {
-    return <ShopPageSkeleton />;
-  }
-
-  if (productsError) {
-    return (
-      <div className="flex-1 p-4 md:p-8 pt-6">
-        <div className="text-center text-red-600">
-          Failed to load products. Please try again.
-        </div>
-      </div>
-    );
-  }
-
-  // Pagination controls
-  const totalPages = Math.ceil((productsData?.total || 0) / pageSize);
 
   return (
     <div ref={containerRef} className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -325,97 +334,176 @@ function ShopPage() {
 
       <Filters
         searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
+        onSearchChange={handleSearchChange}
         selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
+        onCategoryChange={handleCategoryChange}
         selectedStatus={selectedStatus}
-        onStatusChange={setSelectedStatus}
+        onStatusChange={handleStatusChange}
         categories={categories}
+        onFilterChange={handleFilterChange}
       />
 
-      <ProductGrid
-        products={filteredProducts}
-        onEditProduct={setEditingProduct}
-        onDeleteProduct={handleDeleteProduct}
-        onAddProduct={() => setIsCreateDialogOpen(true)}
-      />
+      {/* Error message */}
+      {productsError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Failed to load products. Please try again.
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="ml-2"
+            >
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Showing{" "}
-            <span className="font-semibold">
-              {(page - 1) * pageSize + 1}-
-              {Math.min(page * pageSize, productsData?.total || 0)}
-            </span>{" "}
-            of <span className="font-semibold">{productsData?.total || 0}</span>{" "}
-            products
-          </div>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => handlePageChange(page - 1)}
-                  className={
-                    page <= 1
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
-                  }
-                />
-              </PaginationItem>
-
-              {Array.from({ length: totalPages }, (_, i) => {
-                const pageNum = i + 1;
-
-                // Show limited pages around current page
-                if (
-                  pageNum === 1 ||
-                  pageNum === totalPages ||
-                  (pageNum >= page - 1 && pageNum <= page + 1)
-                ) {
-                  return (
-                    <PaginationItem key={pageNum}>
-                      <PaginationLink
-                        onClick={() => handlePageChange(pageNum)}
-                        isActive={pageNum === page}
-                        className="cursor-pointer"
-                      >
-                        {pageNum}
-                      </PaginationLink>
-                    </PaginationItem>
-                  );
-                }
-
-                // Show ellipsis for skipped pages
-                if (
-                  (pageNum === 2 && page > 3) ||
-                  (pageNum === totalPages - 1 && page < totalPages - 2)
-                ) {
-                  return (
-                    <PaginationItem key={`ellipsis-${pageNum}`}>
-                      <span className="px-2">...</span>
-                    </PaginationItem>
-                  );
-                }
-
-                return null;
-              })}
-
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => handlePageChange(page + 1)}
-                  className={
-                    page >= totalPages
-                      ? "pointer-events-none opacity-50"
-                      : "cursor-pointer"
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
+      {/* Show loading state */}
+      {productsLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="animate-pulse">
+              <div className="bg-gray-200 h-64 rounded-lg"></div>
+              <div className="mt-2 space-y-2">
+                <div className="bg-gray-200 h-4 rounded"></div>
+                <div className="bg-gray-200 h-4 rounded w-2/3"></div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
+
+      {/* Product Grid with actual data */}
+      {!productsLoading && !productsError && filteredProducts.length > 0 && (
+        <ProductGrid
+          products={filteredProducts}
+          onEditProduct={setEditingProduct}
+          onDeleteProduct={handleDeleteProduct}
+          onAddProduct={() => setIsCreateDialogOpen(true)}
+        />
+      )}
+
+      {/* Show message when no products found */}
+      {!productsLoading && !productsError && filteredProducts.length === 0 && (
+        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+          <div className="text-muted-foreground mb-4">
+            <ShoppingCart className="h-12 w-12 mx-auto opacity-20" />
+          </div>
+          <p className="text-lg font-semibold text-muted-foreground">
+            No products found
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            {searchTerm ||
+            selectedCategory !== "All Categories" ||
+            selectedStatus !== "All Status"
+              ? "Try adjusting your search or filters"
+              : "Add your first product to get started"}
+          </p>
+          <div className="mt-4 space-x-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setSearchTerm("");
+                setSelectedCategory("All Categories");
+                setSelectedStatus("All Status");
+                setPage(1);
+              }}
+            >
+              Clear Filters
+            </Button>
+            <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Product
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination - only show if we have products */}
+      {!productsLoading &&
+        !productsError &&
+        filteredProducts.length > 0 &&
+        productsData &&
+        productsData.totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing{" "}
+              <span className="font-semibold">
+                {(productsData.page - 1) * pageSize + 1}-
+                {Math.min(productsData.page * pageSize, productsData.total)}
+              </span>{" "}
+              of <span className="font-semibold">{productsData.total}</span>{" "}
+              products
+            </div>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => handlePageChange(productsData.page - 1)}
+                    className={
+                      productsData.page <= 1
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+
+                {Array.from({ length: productsData.totalPages }, (_, i) => {
+                  const pageNum = i + 1;
+
+                  // Show limited pages around current page
+                  if (
+                    pageNum === 1 ||
+                    pageNum === productsData.totalPages ||
+                    (pageNum >= productsData.page - 1 &&
+                      pageNum <= productsData.page + 1)
+                  ) {
+                    return (
+                      <PaginationItem key={pageNum}>
+                        <PaginationLink
+                          onClick={() => handlePageChange(pageNum)}
+                          isActive={pageNum === productsData.page}
+                          className="cursor-pointer"
+                        >
+                          {pageNum}
+                        </PaginationLink>
+                      </PaginationItem>
+                    );
+                  }
+
+                  // Show ellipsis for skipped pages
+                  if (
+                    (pageNum === 2 && productsData.page > 3) ||
+                    (pageNum === productsData.totalPages - 1 &&
+                      productsData.page < productsData.totalPages - 2)
+                  ) {
+                    return (
+                      <PaginationItem key={`ellipsis-${pageNum}`}>
+                        <span className="px-2">...</span>
+                      </PaginationItem>
+                    );
+                  }
+
+                  return null;
+                })}
+
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => handlePageChange(productsData.page + 1)}
+                    className={
+                      productsData.page >= productsData.totalPages
+                        ? "pointer-events-none opacity-50"
+                        : "cursor-pointer"
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
 
       {/* Modals */}
       <ProductModal
