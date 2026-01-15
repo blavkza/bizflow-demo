@@ -405,7 +405,7 @@ export default function SubpackagesTab({
 
       {/* Create Subpackage Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[800px] lg:min-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Subpackage</DialogTitle>
             <DialogDescription>
@@ -423,7 +423,7 @@ export default function SubpackagesTab({
 
       {/* Edit Subpackage Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[800px] lg:min-w-[900px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Subpackage</DialogTitle>
             <DialogDescription>Update subpackage details.</DialogDescription>
