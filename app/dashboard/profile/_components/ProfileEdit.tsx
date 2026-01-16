@@ -1,4 +1,3 @@
-// components/ProfileEdit.tsx
 "use client";
 
 import { useClerk } from "@clerk/nextjs";
