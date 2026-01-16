@@ -573,7 +573,7 @@ export function QuotationForm({
     setIsLoadingItems(true);
     try {
       const [productsResponse, servicesResponse] = await Promise.all([
-        axios.get("/api/shop/products"),
+        axios.get("/api/shop/products/pos"),
         axios.get("/api/services"),
       ]);
 
