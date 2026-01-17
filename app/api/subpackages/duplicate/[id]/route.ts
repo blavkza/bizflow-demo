@@ -33,16 +33,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const originalSubpackage = await db.subpackage.findUnique({
       where: { id },
       include: {
-        products: {
-          include: {
-            product: true,
-          },
-        },
-        services: {
-          include: {
-            service: true,
-          },
-        },
+        products: true, // Include all product fields
+        services: true, // Include all service fields
       },
     });
 
@@ -71,10 +63,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       const discount = Number(body.discount);
 
       if (body.discountType === "percentage" && discount > 0) {
-        // Calculate percentage discount
         finalPrice = basePrice * (1 - discount / 100);
       } else if (body.discountType === "amount" && discount > 0) {
-        // Calculate fixed amount discount
         finalPrice = Math.max(0, basePrice - discount);
       }
     }
@@ -124,7 +114,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    // Create product connections in the junction table
+    // Create product connections in the junction table WITH NEW FIELDS
     if (body.products && Array.isArray(body.products)) {
       // Use provided product list
       for (const productData of body.products) {
@@ -134,11 +124,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             productId: productData.id,
             quantity: productData.quantity || 1,
             unitPrice: productData.unitPrice || null,
+            // NEW FIELDS
+            itemDiscountType: productData.itemDiscountType || null,
+            itemDiscountAmount: productData.itemDiscountAmount
+              ? parseFloat(productData.itemDiscountAmount)
+              : null,
+            taxRate: productData.taxRate
+              ? parseFloat(productData.taxRate)
+              : null,
+            taxAmount: productData.taxAmount
+              ? parseFloat(productData.taxAmount)
+              : null,
           },
         });
       }
     } else if (originalSubpackage.products.length > 0) {
-      // Copy original product connections
+      // Copy original product connections WITH NEW FIELDS
       for (const productRelation of originalSubpackage.products) {
         await db.subpackageProduct.create({
           data: {
@@ -146,12 +147,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             productId: productRelation.productId,
             quantity: productRelation.quantity,
             unitPrice: productRelation.unitPrice,
+            // COPY NEW FIELDS FROM ORIGINAL
+            itemDiscountType: productRelation.itemDiscountType,
+            itemDiscountAmount: productRelation.itemDiscountAmount,
+            taxRate: productRelation.taxRate,
+            taxAmount: productRelation.taxAmount,
           },
         });
       }
     }
 
-    // Create service connections in the junction table
+    // Create service connections in the junction table WITH NEW FIELDS
     if (body.services && Array.isArray(body.services)) {
       // Use provided service list
       for (const serviceData of body.services) {
@@ -161,11 +167,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             serviceId: serviceData.id,
             quantity: serviceData.quantity || 1,
             unitPrice: serviceData.unitPrice || null,
+            // NEW FIELDS
+            itemDiscountType: serviceData.itemDiscountType || null,
+            itemDiscountAmount: serviceData.itemDiscountAmount
+              ? parseFloat(serviceData.itemDiscountAmount)
+              : null,
+            taxRate: serviceData.taxRate
+              ? parseFloat(serviceData.taxRate)
+              : null,
+            taxAmount: serviceData.taxAmount
+              ? parseFloat(serviceData.taxAmount)
+              : null,
           },
         });
       }
     } else if (originalSubpackage.services.length > 0) {
-      // Copy original service connections
+      // Copy original service connections WITH NEW FIELDS
       for (const serviceRelation of originalSubpackage.services) {
         await db.subpackageService.create({
           data: {
@@ -173,12 +190,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             serviceId: serviceRelation.serviceId,
             quantity: serviceRelation.quantity,
             unitPrice: serviceRelation.unitPrice,
+            // COPY NEW FIELDS FROM ORIGINAL
+            itemDiscountType: serviceRelation.itemDiscountType,
+            itemDiscountAmount: serviceRelation.itemDiscountAmount,
+            taxRate: serviceRelation.taxRate,
+            taxAmount: serviceRelation.taxAmount,
           },
         });
       }
     }
 
-    // Fetch the created duplicate with relations
+    // Fetch the created duplicate with relations including product and service details
     const createdDuplicate = await db.subpackage.findUnique({
       where: { id: duplicate.id },
       include: {
@@ -190,6 +212,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 name: true,
                 price: true,
                 sku: true,
+                description: true,
               },
             },
           },
@@ -201,6 +224,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 id: true,
                 name: true,
                 amount: true,
+                description: true,
               },
             },
           },
@@ -216,11 +240,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Transform response for frontend
+    // Transform response for frontend WITH NEW FIELDS
     const transformedResponse = {
       id: createdDuplicate.id,
       name: createdDuplicate.name,
       description: createdDuplicate.description,
+      shortDescription: createdDuplicate.shortDescription,
       price: Number(createdDuplicate.price),
       originalPrice: createdDuplicate.originalPrice
         ? Number(createdDuplicate.originalPrice)
@@ -234,31 +259,40 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       features: createdDuplicate.features,
       salesCount: createdDuplicate.salesCount,
       revenue: Number(createdDuplicate.revenue),
+      createdAt: createdDuplicate.createdAt,
+      updatedAt: createdDuplicate.updatedAt,
       products: createdDuplicate.products.map((p) => ({
         id: p.product.id,
         name: p.product.name,
         price: Number(p.product.price),
         sku: p.product.sku,
+        description: p.product.description,
         quantity: p.quantity,
         unitPrice: p.unitPrice ? Number(p.unitPrice) : null,
+        // NEW FIELDS IN RESPONSE
+        itemDiscountType: p.itemDiscountType,
+        itemDiscountAmount: p.itemDiscountAmount
+          ? Number(p.itemDiscountAmount)
+          : null,
+        taxRate: p.taxRate ? Number(p.taxRate) : null,
+        taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
       })),
       services: createdDuplicate.services.map((s) => ({
         id: s.service.id,
         name: s.service.name,
         amount: Number(s.service.amount),
+        description: s.service.description,
         quantity: s.quantity,
         unitPrice: s.unitPrice ? Number(s.unitPrice) : null,
+        // NEW FIELDS IN RESPONSE
+        itemDiscountType: s.itemDiscountType,
+        itemDiscountAmount: s.itemDiscountAmount
+          ? Number(s.itemDiscountAmount)
+          : null,
+        taxRate: s.taxRate ? Number(s.taxRate) : null,
+        taxAmount: s.taxAmount ? Number(s.taxAmount) : null,
       })),
     };
-
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Subpackage duplicated successfully",
-        data: transformedResponse,
-      },
-      { status: 201 }
-    );
 
     return NextResponse.json(
       {

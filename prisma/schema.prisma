@@ -2539,6 +2539,11 @@ model SubpackageProduct {
   quantity     Int         @default(1)
   unitPrice    Decimal?    @db.Decimal(10, 2)
 
+  itemDiscountType   DiscountType?
+  itemDiscountAmount Decimal?      @db.Decimal(15, 2)
+  taxRate            Decimal?      @db.Decimal(5, 2)
+  taxAmount          Decimal?      @db.Decimal(15, 2)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2554,6 +2559,11 @@ model SubpackageService {
   serviceId    String
   quantity     Int        @default(1)
   unitPrice    Decimal?   @db.Decimal(10, 2)
+
+  itemDiscountType   DiscountType?
+  itemDiscountAmount Decimal?      @db.Decimal(15, 2)
+  taxRate            Decimal?      @db.Decimal(5, 2)
+  taxAmount          Decimal?      @db.Decimal(15, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

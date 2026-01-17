@@ -118,7 +118,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     };
 
-    // Transform the response
+    // Transform the response WITH NEW FIELDS
     const response = {
       id: subpackage.id,
       packageId: subpackage.packageId,
@@ -152,6 +152,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         image: getProductImage(item.product.images),
         quantity: item.quantity,
         unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
+        // NEW FIELDS
+        itemDiscountType: item.itemDiscountType,
+        itemDiscountAmount: item.itemDiscountAmount
+          ? Number(item.itemDiscountAmount)
+          : null,
+        taxRate: item.taxRate ? Number(item.taxRate) : null,
+        taxAmount: item.taxAmount ? Number(item.taxAmount) : null,
         status: item.product.status,
       })),
       services: subpackage.services.map((item) => ({
@@ -164,6 +171,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         features: item.service.features,
         quantity: item.quantity,
         unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
+        // NEW FIELDS
+        itemDiscountType: item.itemDiscountType,
+        itemDiscountAmount: item.itemDiscountAmount
+          ? Number(item.itemDiscountAmount)
+          : null,
+        taxRate: item.taxRate ? Number(item.taxRate) : null,
+        taxAmount: item.taxAmount ? Number(item.taxAmount) : null,
         status: item.service.status,
       })),
     };
@@ -270,14 +284,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    // Handle product updates using junction table
+    // Handle product updates using junction table WITH NEW FIELDS
     if (body.products && Array.isArray(body.products)) {
       // Delete all existing product connections
       await db.subpackageProduct.deleteMany({
         where: { subpackageId: id },
       });
 
-      // Create new product connections
+      // Create new product connections WITH NEW FIELDS
       for (const product of body.products) {
         await db.subpackageProduct.create({
           data: {
@@ -285,19 +299,26 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             productId: product.id,
             quantity: product.quantity || 1,
             unitPrice: product.unitPrice || null,
+            // NEW FIELDS
+            itemDiscountType: product.itemDiscountType || null,
+            itemDiscountAmount: product.itemDiscountAmount
+              ? parseFloat(product.itemDiscountAmount)
+              : null,
+            taxRate: product.taxRate ? parseFloat(product.taxRate) : null,
+            taxAmount: product.taxAmount ? parseFloat(product.taxAmount) : null,
           },
         });
       }
     }
 
-    // Handle service updates using junction table
+    // Handle service updates using junction table WITH NEW FIELDS
     if (body.services && Array.isArray(body.services)) {
       // Delete all existing service connections
       await db.subpackageService.deleteMany({
         where: { subpackageId: id },
       });
 
-      // Create new service connections
+      // Create new service connections WITH NEW FIELDS
       for (const service of body.services) {
         await db.subpackageService.create({
           data: {
@@ -305,6 +326,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             serviceId: service.id,
             quantity: service.quantity || 1,
             unitPrice: service.unitPrice || null,
+            // NEW FIELDS
+            itemDiscountType: service.itemDiscountType || null,
+            itemDiscountAmount: service.itemDiscountAmount
+              ? parseFloat(service.itemDiscountAmount)
+              : null,
+            taxRate: service.taxRate ? parseFloat(service.taxRate) : null,
+            taxAmount: service.taxAmount ? parseFloat(service.taxAmount) : null,
           },
         });
       }
@@ -324,10 +352,145 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       });
     }
 
+    // Fetch the updated subpackage with relations for response
+    const finalSubpackage = await db.subpackage.findUnique({
+      where: { id },
+      include: {
+        products: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                sku: true,
+                price: true,
+                category: true,
+                stock: true,
+                images: true,
+                status: true,
+              },
+            },
+          },
+        },
+        services: {
+          include: {
+            service: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                amount: true,
+                duration: true,
+                category: true,
+                features: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!finalSubpackage) {
+      return NextResponse.json(
+        { error: "Failed to fetch updated subpackage" },
+        { status: 500 }
+      );
+    }
+
+    // Helper function to safely get image
+    const getProductImage = (images: any) => {
+      try {
+        if (!images) return null;
+        if (typeof images === "string") {
+          try {
+            const parsed = JSON.parse(images);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed[0];
+            }
+            return parsed;
+          } catch {
+            return images;
+          }
+        }
+        if (Array.isArray(images) && images.length > 0) {
+          return images[0];
+        }
+        return null;
+      } catch (error) {
+        console.error("Error parsing product images:", error);
+        return null;
+      }
+    };
+
+    // Create response with new fields
+    const response = {
+      id: finalSubpackage.id,
+      packageId: finalSubpackage.packageId,
+      name: finalSubpackage.name,
+      description: finalSubpackage.description,
+      shortDescription: finalSubpackage.shortDescription,
+      price: Number(finalSubpackage.price),
+      originalPrice: finalSubpackage.originalPrice
+        ? Number(finalSubpackage.originalPrice)
+        : null,
+      discount: finalSubpackage.discount,
+      discountType: finalSubpackage.discountType,
+      duration: finalSubpackage.duration,
+      status: finalSubpackage.status,
+      isDefault: finalSubpackage.isDefault,
+      sortOrder: finalSubpackage.sortOrder,
+      features: finalSubpackage.features,
+      salesCount: finalSubpackage.salesCount,
+      revenue: Number(finalSubpackage.revenue),
+      createdAt: finalSubpackage.createdAt,
+      updatedAt: finalSubpackage.updatedAt,
+      products: finalSubpackage.products.map((item) => ({
+        id: item.product.id,
+        name: item.product.name,
+        description: item.product.description,
+        sku: item.product.sku,
+        price: Number(item.product.price),
+        category: item.product.category,
+        stock: item.product.stock,
+        image: getProductImage(item.product.images),
+        quantity: item.quantity,
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
+        // NEW FIELDS
+        itemDiscountType: item.itemDiscountType,
+        itemDiscountAmount: item.itemDiscountAmount
+          ? Number(item.itemDiscountAmount)
+          : null,
+        taxRate: item.taxRate ? Number(item.taxRate) : null,
+        taxAmount: item.taxAmount ? Number(item.taxAmount) : null,
+        status: item.product.status,
+      })),
+      services: finalSubpackage.services.map((item) => ({
+        id: item.service.id,
+        name: item.service.name,
+        description: item.service.description,
+        price: Number(item.service.amount),
+        duration: item.service.duration,
+        category: item.service.category,
+        features: item.service.features,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
+        // NEW FIELDS
+        itemDiscountType: item.itemDiscountType,
+        itemDiscountAmount: item.itemDiscountAmount
+          ? Number(item.itemDiscountAmount)
+          : null,
+        taxRate: item.taxRate ? Number(item.taxRate) : null,
+        taxAmount: item.taxAmount ? Number(item.taxAmount) : null,
+        status: item.service.status,
+      })),
+    };
+
     return NextResponse.json({
       success: true,
       message: "Subpackage updated successfully",
-      data: updatedSubpackage,
+      data: response,
     });
   } catch (error) {
     console.error("Error updating subpackage:", error);

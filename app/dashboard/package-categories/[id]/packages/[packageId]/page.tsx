@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { getPackage } from "./actions";
+import { getPackage } from "./subpackages/[subpackageId]/actions";
 import { PackageData } from "./types";
 import PackageHeader from "./components/PackageHeader";
 import PackageStatsCards from "./components/PackageStatsCards";

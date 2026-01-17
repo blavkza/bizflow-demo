@@ -1,5 +1,5 @@
 import axios from "axios";
-import { PackageData, CreateSubpackageData, Subpackage } from "./types";
+import { PackageData, CreateSubpackageData, Subpackage } from "../../types";
 
 export async function getPackage(id: string): Promise<PackageData> {
   try {

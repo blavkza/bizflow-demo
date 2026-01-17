@@ -13,7 +13,7 @@ import {
 import { Edit, Copy, Trash2, MoreHorizontal } from "lucide-react";
 import { PackageData } from "../types";
 import { useState } from "react";
-import { deletePackage } from "../actions";
+import { deletePackage } from "../subpackages/[subpackageId]/actions";
 import { useRouter } from "next/navigation";
 import { toast } from "@/components/ui/use-toast";
 import { PackageDialog } from "../../components/package-dialog";

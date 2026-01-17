@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import axios from "axios";
@@ -9,15 +9,16 @@ import { toast } from "sonner";
 import {
   Plus,
   Trash2,
-  Search,
-  Package,
-  DollarSign,
-  Percent,
+  Calculator,
   Clock,
   Check,
   Loader2,
-  Calculator,
-  ChevronDown,
+  DollarSign,
+  Percent,
+  Search,
+  FileText,
+  Briefcase,
+  Info,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,6 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -44,6 +44,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Subpackage form schema with discount validation
 const subpackageFormSchema = z
@@ -72,14 +79,10 @@ const subpackageFormSchema = z
   })
   .refine(
     (data) => {
-      // Validate discount based on type
-      if (
-        data.discountType === "percentage" &&
-        data.discountPercentage === undefined
-      ) {
+      if (data.discountType === "percentage" && !data.discountPercentage) {
         return false;
       }
-      if (data.discountType === "amount" && data.discountValue === undefined) {
+      if (data.discountType === "amount" && !data.discountValue) {
         return false;
       }
       return true;
@@ -90,7 +93,6 @@ const subpackageFormSchema = z
     }
   );
 
-// Define SubPackageFormValues type
 export type SubPackageFormValues = z.infer<typeof subpackageFormSchema>;
 
 export type SelectedItem = {
@@ -98,12 +100,18 @@ export type SelectedItem = {
   name: string;
   type: "product" | "service";
   price: number;
-  quantity?: number;
+  unitPrice: number;
+  quantity: number;
+  amount: number;
   duration?: string;
   category?: string;
   sku?: string;
   image?: string;
   description?: string;
+  itemDiscountType?: "AMOUNT" | "PERCENTAGE";
+  itemDiscountAmount?: number;
+  taxRate: number;
+  taxAmount?: number;
 };
 
 type SearchableItem = {
@@ -127,6 +135,332 @@ interface SubpackageFormProps {
   onCancel?: () => void;
 }
 
+// Helper function to extract text from HTML
+const extractTextFromHTML = (html: string | null | undefined): string => {
+  if (!html) return "";
+  const tempDiv = document.createElement("div");
+  tempDiv.innerHTML = html;
+  return tempDiv.textContent || tempDiv.innerText || "";
+};
+
+// Helper function to format currency
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat("en-ZA", {
+    style: "currency",
+    currency: "ZAR",
+    minimumFractionDigits: 2,
+  }).format(amount);
+};
+
+// Safe number conversion
+const safeNumber = (val: any) => (val ? Number(val) : 0);
+
+// SearchableItemInput Component
+interface SearchableItemInputProps {
+  index: number;
+  searchTerm: string;
+  searchableItems: SearchableItem[];
+  showDropdown: number | null;
+  onSearchChange: (index: number, value: string) => void;
+  onFocus: (index: number) => void;
+  onBlur: () => void;
+  onSelect: (index: number, item: SearchableItem) => void;
+  setShowDropdown: (index: number | null) => void;
+}
+
+const SearchableItemInput = ({
+  index,
+  searchTerm,
+  searchableItems,
+  showDropdown,
+  onSearchChange,
+  onFocus,
+  onBlur,
+  onSelect,
+  setShowDropdown,
+}: SearchableItemInputProps) => {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+
+  const filteredItems = useMemo(() => {
+    return searchableItems.filter((item) => {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesName = item.name.toLowerCase().includes(searchLower);
+      const matchesSku = item.sku?.toLowerCase().includes(searchLower) || false;
+      const matchesCategory =
+        item.category?.toLowerCase().includes(searchLower) || false;
+      const descriptionText = extractTextFromHTML(item.description);
+      const matchesDescription = descriptionText
+        .toLowerCase()
+        .includes(searchLower);
+
+      return matchesName || matchesSku || matchesCategory || matchesDescription;
+    });
+  }, [searchableItems, searchTerm]);
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showDropdown !== index) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSelectedIndex((prev) =>
+          prev < filteredItems.length - 1 ? prev + 1 : 0
+        );
+        break;
+
+      case "ArrowUp":
+        e.preventDefault();
+        setSelectedIndex((prev) =>
+          prev > 0 ? prev - 1 : filteredItems.length - 1
+        );
+        break;
+
+      case "Enter":
+        e.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < filteredItems.length) {
+          onSelect(index, filteredItems[selectedIndex]);
+          setSelectedIndex(-1);
+        }
+        break;
+
+      case "Escape":
+        setSelectedIndex(-1);
+        setShowDropdown(null);
+        break;
+    }
+  };
+
+  // Reset selected index when search term changes
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [searchTerm]);
+
+  // Update input ref value
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.value = searchTerm;
+    }
+  }, [searchTerm]);
+
+  return (
+    <div className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+        <input
+          ref={inputRef}
+          placeholder="Search products/services by name, SKU, description, or category..."
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10"
+          defaultValue={searchTerm}
+          onChange={(e) => {
+            onSearchChange(index, e.target.value);
+            setSelectedIndex(-1);
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => {
+            onFocus(index);
+            setSelectedIndex(-1);
+          }}
+          onBlur={() => {
+            setTimeout(() => {
+              onBlur();
+              setSelectedIndex(-1);
+            }, 200);
+          }}
+        />
+      </div>
+
+      {showDropdown === index && filteredItems.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-96 overflow-auto">
+          <div className="p-1">
+            {filteredItems.slice(0, 10).map((item, itemIndex) => {
+              const descriptionText = extractTextFromHTML(item.description);
+
+              return (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  className={cn(
+                    "flex items-start p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0 gap-3",
+                    selectedIndex === itemIndex && "bg-accent"
+                  )}
+                  onMouseEnter={() => setSelectedIndex(itemIndex)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelect(index, item);
+                    setSelectedIndex(-1);
+                  }}
+                >
+                  {item.image ? (
+                    <div className="flex-shrink-0 w-12 h-12 rounded-md overflow-hidden border bg-muted">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 w-12 h-12 rounded-md border bg-muted flex items-center justify-center">
+                      <div className="text-muted-foreground">
+                        {item.type === "product" ? (
+                          <FileText className="h-5 w-5" />
+                        ) : (
+                          <Briefcase className="h-5 w-5" />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1 min-w-0">
+                        <span className="font-medium text-sm truncate block">
+                          {item.name}
+                        </span>
+                        {item.sku && (
+                          <span className="text-[10px] font-mono bg-muted px-1 rounded mt-0.5 inline-block">
+                            SKU: {item.sku}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground flex-shrink-0 ml-2">
+                        {formatCurrency(item.price)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
+                      <span>
+                        {item.type === "product" ? "Product" : "Service"}
+                        {item.category && ` • ${item.category}`}
+                      </span>
+                      {item.duration && <span>{item.duration}</span>}
+                    </div>
+
+                    {descriptionText && (
+                      <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                        {descriptionText}
+                      </div>
+                    )}
+
+                    {item.features && item.features.length > 0 && (
+                      <div className="text-[10px] text-muted-foreground mt-1 italic truncate">
+                        • Includes: {item.features.join(", ")}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Tax Calculation Display Component
+const TaxCalculationDisplay = ({
+  item,
+  index,
+}: {
+  item: SelectedItem;
+  index: number;
+}) => {
+  if (!item.name || item.unitPrice === 0) return null;
+
+  const qty = safeNumber(item.quantity);
+  const price = safeNumber(item.unitPrice);
+  const taxRate = safeNumber(item.taxRate);
+  const discInput = safeNumber(item.itemDiscountAmount);
+
+  // Calculate base amount
+  const baseAmount = qty * price;
+
+  // Calculate discount
+  let discountAmount = 0;
+  if (item.itemDiscountType === "PERCENTAGE") {
+    discountAmount = baseAmount * (discInput / 100);
+  } else if (item.itemDiscountType === "AMOUNT") {
+    discountAmount = discInput;
+  }
+  discountAmount = Math.min(discountAmount, baseAmount);
+
+  // Calculate net amount (after discount)
+  const netAmount = Math.max(0, baseAmount - discountAmount);
+
+  // Calculate tax
+  const taxAmount = netAmount * (taxRate / 100);
+
+  // Calculate total (net + tax)
+  const totalAmount = netAmount + taxAmount;
+
+  return (
+    <div className="mt-2 p-3 bg-muted/30 rounded-md text-xs space-y-1">
+      <div className="flex justify-between">
+        <span className="font-medium">Tax Calculation Breakdown:</span>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <Info className="h-3 w-3 text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="space-y-1 text-xs">
+                <p>
+                  Base: {qty} × {formatCurrency(price)} ={" "}
+                  {formatCurrency(baseAmount)}
+                </p>
+                <p>Discount: {formatCurrency(discountAmount)}</p>
+                <p>
+                  Net: {formatCurrency(baseAmount)} -{" "}
+                  {formatCurrency(discountAmount)} = {formatCurrency(netAmount)}
+                </p>
+                <p>
+                  Tax: {formatCurrency(netAmount)} × {taxRate}% ={" "}
+                  {formatCurrency(taxAmount)}
+                </p>
+                <p>
+                  Total: {formatCurrency(netAmount)} +{" "}
+                  {formatCurrency(taxAmount)} = {formatCurrency(totalAmount)}
+                </p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1">
+        <div className="text-muted-foreground">Base Amount:</div>
+        <div className="text-right">{formatCurrency(baseAmount)}</div>
+
+        {discountAmount > 0 && (
+          <>
+            <div className="text-muted-foreground">Discount:</div>
+            <div className="text-right text-red-600">
+              -{formatCurrency(discountAmount)}
+            </div>
+          </>
+        )}
+
+        <div className="text-muted-foreground">Net Amount:</div>
+        <div className="text-right font-medium">
+          {formatCurrency(netAmount)}
+        </div>
+
+        <div className="text-muted-foreground">Tax ({taxRate}%):</div>
+        <div className="text-right">{formatCurrency(taxAmount)}</div>
+
+        <div className="font-medium">Total:</div>
+        <div className="text-right font-bold">
+          {formatCurrency(totalAmount)}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export function SubpackageForm({
   mode,
   packageId,
@@ -138,15 +472,18 @@ export function SubpackageForm({
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [searchableItems, setSearchableItems] = useState<SearchableItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1);
+  const [searchInputs, setSearchInputs] = useState<{ [key: number]: string }>(
+    {}
+  );
+  const [showDropdown, setShowDropdown] = useState<number | null>(null);
   const [features, setFeatures] = useState<string[]>([]);
   const [featureInput, setFeatureInput] = useState("");
   const [autoCalculatedPrice, setAutoCalculatedPrice] = useState<number | null>(
     null
   );
   const [useAutoPrice, setUseAutoPrice] = useState(true);
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [showTaxBreakdown, setShowTaxBreakdown] = useState<number | null>(null);
 
   const form = useForm<SubPackageFormValues>({
     resolver: zodResolver(subpackageFormSchema),
@@ -172,14 +509,77 @@ export function SubpackageForm({
   const discountValue = form.watch("discountValue");
   const discountPercentage = form.watch("discountPercentage");
 
-  // Calculate total cost of selected items
+  // Calculate total cost of selected items with detailed breakdown
   const calculateTotalCost = useCallback(() => {
     return selectedItems.reduce((total, item) => {
-      if (item.type === "product") {
-        return total + item.price * (item.quantity || 1);
+      if (!item.name || item.unitPrice === 0) return total;
+
+      const qty = safeNumber(item.quantity);
+      const price = safeNumber(item.unitPrice);
+      const taxRate = safeNumber(item.taxRate);
+      const discInput = safeNumber(item.itemDiscountAmount);
+
+      const base = qty * price;
+      let disc = 0;
+      if (item.itemDiscountType === "PERCENTAGE") {
+        disc = base * (discInput / 100);
+      } else if (item.itemDiscountType === "AMOUNT") {
+        disc = discInput;
       }
-      return total + item.price;
+      disc = Math.min(disc, base);
+      const net = Math.max(0, base - disc);
+
+      const tax = net * (taxRate / 100);
+      return total + net + tax;
     }, 0);
+  }, [selectedItems]);
+
+  // Calculate detailed tax summary
+  const calculateTaxSummary = useCallback(() => {
+    const summary = {
+      subtotal: 0,
+      totalDiscount: 0,
+      taxableAmount: 0,
+      totalTax: 0,
+      grandTotal: 0,
+      taxByRate: {} as Record<number, { amount: number; taxable: number }>,
+    };
+
+    selectedItems.forEach((item) => {
+      if (!item.name || item.unitPrice === 0) return;
+
+      const qty = safeNumber(item.quantity);
+      const price = safeNumber(item.unitPrice);
+      const taxRate = safeNumber(item.taxRate);
+      const discInput = safeNumber(item.itemDiscountAmount);
+
+      const base = qty * price;
+      let disc = 0;
+      if (item.itemDiscountType === "PERCENTAGE") {
+        disc = base * (discInput / 100);
+      } else if (item.itemDiscountType === "AMOUNT") {
+        disc = discInput;
+      }
+      disc = Math.min(disc, base);
+      const net = Math.max(0, base - disc);
+
+      const tax = net * (taxRate / 100);
+
+      summary.subtotal += base;
+      summary.totalDiscount += disc;
+      summary.taxableAmount += net;
+      summary.totalTax += tax;
+      summary.grandTotal += net + tax;
+
+      // Group tax by rate
+      if (!summary.taxByRate[taxRate]) {
+        summary.taxByRate[taxRate] = { amount: 0, taxable: 0 };
+      }
+      summary.taxByRate[taxRate].amount += tax;
+      summary.taxByRate[taxRate].taxable += net;
+    });
+
+    return summary;
   }, [selectedItems]);
 
   // Calculate final price based on discount
@@ -197,14 +597,14 @@ export function SubpackageForm({
 
   // Update auto-calculated price whenever selected items change
   useEffect(() => {
+    if (selectedItems.length === 0) return;
+
     const total = calculateTotalCost();
     setAutoCalculatedPrice(total);
 
     // Auto-fill original price field if useAutoPrice is true
     if (useAutoPrice && total > 0) {
       form.setValue("originalPrice", total);
-
-      // Calculate final price based on discount
       const finalPrice = calculateFinalPrice();
       form.setValue("finalPrice", finalPrice);
     }
@@ -229,10 +629,83 @@ export function SubpackageForm({
     form,
   ]);
 
-  // Load existing data for edit mode
+  // Calculate row net total
+  const getRowNetTotal = (index: number) => {
+    const item = selectedItems[index];
+    if (!item || !item.name || item.unitPrice === 0) return 0;
+
+    const qty = safeNumber(item.quantity);
+    const price = safeNumber(item.unitPrice);
+    const taxRate = safeNumber(item.taxRate);
+    const discInput = safeNumber(item.itemDiscountAmount);
+
+    const base = qty * price;
+    let disc = 0;
+    if (item.itemDiscountType === "PERCENTAGE") {
+      disc = base * (discInput / 100);
+    } else if (item.itemDiscountType === "AMOUNT") {
+      disc = discInput;
+    }
+    disc = Math.min(disc, base);
+    const net = Math.max(0, base - disc);
+
+    const tax = net * (taxRate / 100);
+    return net + tax;
+  };
+
+  // Calculate detailed breakdown for a specific item
+  const getItemBreakdown = (index: number) => {
+    const item = selectedItems[index];
+    if (!item || !item.name || item.unitPrice === 0) return null;
+
+    const qty = safeNumber(item.quantity);
+    const price = safeNumber(item.unitPrice);
+    const taxRate = safeNumber(item.taxRate);
+    const discInput = safeNumber(item.itemDiscountAmount);
+
+    const base = qty * price;
+    let disc = 0;
+    if (item.itemDiscountType === "PERCENTAGE") {
+      disc = base * (discInput / 100);
+    } else if (item.itemDiscountType === "AMOUNT") {
+      disc = discInput;
+    }
+    disc = Math.min(disc, base);
+    const net = Math.max(0, base - disc);
+    const tax = net * (taxRate / 100);
+    const total = net + tax;
+
+    return {
+      quantity: qty,
+      unitPrice: price,
+      baseAmount: base,
+      discountAmount: disc,
+      netAmount: net,
+      taxRate: taxRate,
+      taxAmount: tax,
+      totalAmount: total,
+    };
+  };
+
+  // Calculate item discount amount
+  const getItemDiscountAmount = (index: number) => {
+    const item = selectedItems[index];
+    if (!item || !item.itemDiscountType) return 0;
+
+    const base = item.unitPrice * item.quantity;
+    if (item.itemDiscountType === "PERCENTAGE" && item.itemDiscountAmount) {
+      return base * (item.itemDiscountAmount / 100);
+    } else if (item.itemDiscountType === "AMOUNT" && item.itemDiscountAmount) {
+      return item.itemDiscountAmount;
+    }
+    return 0;
+  };
+
+  // Load existing data for edit mode - FIXED VERSION
   useEffect(() => {
-    if (mode === "edit" && subpackageData) {
-      // Calculate discount type and values from existing data
+    if (mode === "edit" && subpackageData && !hasInitialized) {
+      console.log("Initializing edit mode with data:", subpackageData);
+
       let discountType: "percentage" | "amount" | "none" = "none";
       let discountValue = 0;
       let discountPercentage = 0;
@@ -240,15 +713,12 @@ export function SubpackageForm({
       let originalPrice =
         subpackageData.originalPrice || subpackageData.price || 0;
 
-      // Determine discount type from existing data
       if (subpackageData.discount) {
         if (subpackageData.discount <= 100) {
-          // Assume it's percentage if <= 100
           discountType = "percentage";
           discountPercentage = subpackageData.discount;
           finalPrice = originalPrice * (1 - subpackageData.discount / 100);
         } else {
-          // Assume it's amount if > 100
           discountType = "amount";
           discountValue = subpackageData.discount;
           finalPrice = Math.max(0, originalPrice - subpackageData.discount);
@@ -272,45 +742,114 @@ export function SubpackageForm({
       });
 
       // Load existing items
-      const existingItems: SelectedItem[] = [
-        ...(subpackageData.products || []).map((product: any) => ({
-          id: product.id,
-          name: product.name,
-          type: "product" as const,
-          price: product.price || product.unitPrice || 0,
-          quantity: product.quantity || 1,
-          sku: product.sku,
-          image: product.image,
-          description: product.description,
-        })),
-        ...(subpackageData.services || []).map((service: any) => ({
-          id: service.id,
-          name: service.name,
-          type: "service" as const,
-          price: service.price || service.amount || 0,
-          duration: service.duration,
-          image: service.image,
-          description: service.description,
-        })),
-      ];
-      setSelectedItems(existingItems);
+      const existingItems: SelectedItem[] = [];
+      const searchInputsObj: { [key: number]: string } = {};
+
+      // Helper function to add items from array
+      const addItemsFromArray = (items: any[], type: "product" | "service") => {
+        if (items && items.length > 0) {
+          items.forEach((item) => {
+            const currentIndex = existingItems.length;
+
+            // Extract item data - handle both nested and flat structures
+            const itemData = item.product || item.service || item;
+
+            const selectedItem: SelectedItem = {
+              id: itemData.id || item.id,
+              name: itemData.name || item.name || "",
+              type: type,
+              price: Number(
+                item.unitPrice || item.price || itemData.price || 0
+              ),
+              unitPrice: Number(
+                item.unitPrice || item.price || itemData.price || 0
+              ),
+              quantity: item.quantity || 1,
+              amount:
+                Number(item.unitPrice || item.price || itemData.price || 0) *
+                (item.quantity || 1),
+              duration: itemData.duration || item.duration,
+              category: itemData.category,
+              sku: itemData.sku,
+              image: itemData.image || item.image,
+              description: itemData.description || item.description,
+              itemDiscountType: item.itemDiscountType,
+              itemDiscountAmount: item.itemDiscountAmount
+                ? Number(item.itemDiscountAmount)
+                : 0,
+              taxRate: item.taxRate ? Number(item.taxRate) : 15,
+              taxAmount: item.taxAmount ? Number(item.taxAmount) : 0,
+            };
+
+            existingItems.push(selectedItem);
+            searchInputsObj[currentIndex] = selectedItem.name;
+          });
+        }
+      };
+
+      // Load products
+      console.log("Loading products:", subpackageData.products);
+      addItemsFromArray(subpackageData.products || [], "product");
+
+      // Load services
+      console.log("Loading services:", subpackageData.services);
+      addItemsFromArray(subpackageData.services || [], "service");
+
+      console.log("Existing items loaded:", existingItems);
+      console.log("Search inputs:", searchInputsObj);
+
+      // Only set state if we have items
+      if (existingItems.length > 0) {
+        setSelectedItems(existingItems);
+        setSearchInputs(searchInputsObj);
+        setHasInitialized(true);
+      } else {
+        // Add empty item for create mode
+        setSelectedItems([
+          {
+            id: "",
+            name: "",
+            type: "product",
+            price: 0,
+            unitPrice: 0,
+            quantity: 1,
+            amount: 0,
+            taxRate: 15,
+            itemDiscountType: undefined,
+            itemDiscountAmount: 0,
+            taxAmount: 0,
+          },
+        ]);
+        setSearchInputs({ 0: "" });
+      }
 
       // Load existing features
       setFeatures(subpackageData.features || []);
-
-      // Check if we should use auto-price
-      const totalItemsCost = existingItems.reduce(
-        (sum, item) =>
-          item.type === "product"
-            ? sum + item.price * (item.quantity || 1)
-            : sum + item.price,
-        0
-      );
-
-      // If the current original price matches the calculated total, enable auto-price
-      setUseAutoPrice(Math.abs(totalItemsCost - originalPrice) < 0.01);
     }
-  }, [mode, subpackageData, form]);
+  }, [mode, subpackageData, form, hasInitialized]);
+
+  // Initialize for create mode
+  useEffect(() => {
+    if (mode === "create" && !hasInitialized) {
+      setSelectedItems([
+        {
+          id: "",
+          name: "",
+          type: "product",
+          price: 0,
+          unitPrice: 0,
+          quantity: 1,
+          amount: 0,
+          taxRate: 15,
+          itemDiscountType: undefined,
+          itemDiscountAmount: 0,
+          taxAmount: 0,
+        },
+      ]);
+      setSearchInputs({ 0: "" });
+      setHasInitialized(true);
+    }
+  }, [mode, hasInitialized]);
 
   // Fetch items for search
   const fetchItems = useCallback(async () => {
@@ -321,37 +860,57 @@ export function SubpackageForm({
         axios.get("/api/services"),
       ]);
 
+      const products: any[] = productsResponse?.data || [];
+      const services: any[] = servicesResponse?.data || [];
+
       const combinedItems: SearchableItem[] = [
-        ...(productsResponse?.data?.data || productsResponse?.data || []).map(
-          (product: any) => ({
+        ...products.map((product) => {
+          let firstImage: string | undefined;
+          if (product.images) {
+            try {
+              const imagesData =
+                typeof product.images === "string"
+                  ? JSON.parse(product.images)
+                  : product.images;
+              if (Array.isArray(imagesData) && imagesData.length > 0) {
+                if (typeof imagesData[0] === "string") {
+                  firstImage = imagesData[0];
+                } else if (imagesData[0]?.url) {
+                  firstImage = imagesData[0].url;
+                }
+              }
+            } catch (error) {
+              console.warn("Error parsing images:", error);
+            }
+          }
+
+          return {
             id: product.id,
             name: product.name,
             type: "product" as const,
-            price: Number(product.price || product.unitPrice || 0),
-            category: product.category?.name || product.category,
-            sku: product.sku || undefined,
-            description: product.description || undefined,
-            image: product.images?.[0] || product.image || undefined,
-          })
-        ),
-        ...(servicesResponse?.data?.data || servicesResponse?.data || []).map(
-          (service: any) => ({
-            id: service.id,
-            name: service.name,
-            type: "service" as const,
-            price: Number(service.amount || service.price || 0),
-            category: service.category?.name || service.category,
-            duration: service.duration || undefined,
-            features: service.features || [],
-            description: service.description || undefined,
-            image: service.image || undefined,
-          })
-        ),
+            price: Number(product.price || 0),
+            category: product.category,
+            sku: product.sku,
+            description: product.description,
+            image: firstImage,
+          };
+        }),
+        ...services.map((service) => ({
+          id: service.id,
+          name: service.name,
+          type: "service" as const,
+          price: Number(service.amount || 0),
+          category: service.category,
+          duration: service.duration,
+          features: service.features,
+          description: service.description,
+          image: service.image,
+        })),
       ];
       setSearchableItems(combinedItems);
     } catch (err) {
       console.error("Error fetching items:", err);
-      toast.error("Failed to load items");
+      toast.error("Failed to load products and services");
     } finally {
       setIsLoadingItems(false);
     }
@@ -362,125 +921,219 @@ export function SubpackageForm({
     fetchItems();
   }, [fetchItems]);
 
-  // Filter items based on search term
-  const filteredItems = searchableItems.filter((item) => {
-    if (!searchTerm.trim()) return false;
+  // Handle search input change
+  const handleSearchInputChange = (index: number, value: string) => {
+    setSearchInputs((prev) => ({ ...prev, [index]: value }));
 
-    const searchLower = searchTerm.toLowerCase();
-    const matchesName = item.name.toLowerCase().includes(searchLower);
-    const matchesSku = item.sku?.toLowerCase().includes(searchLower) || false;
-    const matchesCategory =
-      item.category?.toLowerCase().includes(searchLower) || false;
-    const matchesDescription =
-      item.description?.toLowerCase().includes(searchLower) || false;
+    // Only update the item name if we're not clearing it
+    const newItems = [...selectedItems];
+    if (newItems[index]) {
+      if (value === "") {
+        // Clear the entire item if search is empty
+        newItems[index] = {
+          id: "",
+          name: "",
+          type: "product",
+          price: 0,
+          unitPrice: 0,
+          quantity: 1,
+          amount: 0,
+          taxRate: 15,
+          itemDiscountType: undefined,
+          itemDiscountAmount: 0,
+          taxAmount: 0,
+        };
+      } else if (!newItems[index].id) {
+        // Only update name if it's not a selected item yet
+        newItems[index] = { ...newItems[index], name: value };
+      }
+    }
+    setSelectedItems(newItems);
 
-    return matchesName || matchesSku || matchesCategory || matchesDescription;
-  });
+    if (value.length > 0) {
+      setShowDropdown(index);
+    } else {
+      setShowDropdown(null);
+    }
+  };
 
   // Handle item selection
-  const handleSelectItem = (item: SearchableItem) => {
-    // Check if item already selected
-    if (
-      selectedItems.some(
-        (selected) => selected.id === item.id && selected.type === item.type
-      )
-    ) {
-      toast.error("Item already added");
-      return;
-    }
+  const handleItemSelect = (index: number, item: SearchableItem) => {
+    setSearchInputs((prev) => ({ ...prev, [index]: item.name }));
 
     const selectedItem: SelectedItem = {
       id: item.id,
       name: item.name,
       type: item.type,
       price: item.price,
-      quantity: item.type === "product" ? 1 : undefined,
+      unitPrice: item.price,
+      quantity: 1,
+      amount: item.price,
       duration: item.duration,
       category: item.category,
       sku: item.sku,
       image: item.image || undefined,
       description: item.description || undefined,
+      taxRate: 15,
+      itemDiscountType: undefined,
+      itemDiscountAmount: 0,
+      taxAmount: item.price * 0.15,
     };
 
-    setSelectedItems([...selectedItems, selectedItem]);
-    setSearchTerm("");
-    setShowDropdown(false);
-    setSelectedIndex(-1);
+    const newItems = [...selectedItems];
+    newItems[index] = selectedItem;
+    setSelectedItems(newItems);
+
+    setShowDropdown(null);
   };
 
-  // Handle item removal
-  const handleRemoveItem = (
-    itemId: string,
-    itemType: "product" | "service"
-  ) => {
-    setSelectedItems(
-      selectedItems.filter(
-        (item) => !(item.id === itemId && item.type === itemType)
-      )
-    );
-  };
-
-  // Update item quantity
-  const handleUpdateQuantity = (
-    itemId: string,
-    itemType: "product" | "service",
-    quantity: number
-  ) => {
-    setSelectedItems(
-      selectedItems.map((item) =>
-        item.id === itemId && item.type === itemType
-          ? { ...item, quantity: Math.max(1, quantity) }
-          : item
-      )
-    );
-  };
-
-  // Calculate total cost for products
-  const calculateProductsCost = () => {
-    return selectedItems
-      .filter((item) => item.type === "product")
-      .reduce((total, item) => total + item.price * (item.quantity || 1), 0);
-  };
-
-  // Calculate total cost for services
-  const calculateServicesCost = () => {
-    return selectedItems
-      .filter((item) => item.type === "service")
-      .reduce((total, item) => total + item.price, 0);
-  };
-
-  // Handle keyboard navigation
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showDropdown || filteredItems.length === 0) return;
-
-    switch (e.key) {
-      case "ArrowDown":
-        e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev < filteredItems.length - 1 ? prev + 1 : 0
-        );
-        break;
-
-      case "ArrowUp":
-        e.preventDefault();
-        setSelectedIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredItems.length - 1
-        );
-        break;
-
-      case "Enter":
-        e.preventDefault();
-        if (selectedIndex >= 0 && selectedIndex < filteredItems.length) {
-          handleSelectItem(filteredItems[selectedIndex]);
-        }
-        break;
-
-      case "Escape":
-        setSelectedIndex(-1);
-        setShowDropdown(false);
-        break;
+  // Handle search focus
+  const handleSearchFocus = (index: number) => {
+    const currentValue = searchInputs[index] || "";
+    if (currentValue.length > 0) {
+      setShowDropdown(index);
     }
   };
+
+  // Handle search blur
+  const handleSearchBlur = () => {
+    setTimeout(() => {
+      setShowDropdown(null);
+    }, 200);
+  };
+
+  // Add item
+  const addItem = () => {
+    const newIndex = selectedItems.length;
+    setSelectedItems([
+      ...selectedItems,
+      {
+        id: "",
+        name: "",
+        type: "product",
+        price: 0,
+        unitPrice: 0,
+        quantity: 1,
+        amount: 0,
+        taxRate: 15,
+        itemDiscountType: undefined,
+        itemDiscountAmount: 0,
+        taxAmount: 0,
+      },
+    ]);
+    setSearchInputs((prev) => ({ ...prev, [newIndex]: "" }));
+  };
+
+  // Update item field
+  const handleUpdateItemField = <K extends keyof SelectedItem>(
+    index: number,
+    field: K,
+    value: SelectedItem[K]
+  ) => {
+    const newItems = [...selectedItems];
+    newItems[index] = { ...newItems[index], [field]: value };
+    setSelectedItems(newItems);
+  };
+
+  // Remove item
+  const handleRemoveItem = (index: number) => {
+    if (selectedItems.length <= 1) {
+      // If it's the last item, just clear it
+      const newItems = [...selectedItems];
+      newItems[index] = {
+        id: "",
+        name: "",
+        type: "product",
+        price: 0,
+        unitPrice: 0,
+        quantity: 1,
+        amount: 0,
+        taxRate: 15,
+        itemDiscountType: undefined,
+        itemDiscountAmount: 0,
+        taxAmount: 0,
+      };
+      setSelectedItems(newItems);
+      setSearchInputs((prev) => ({ ...prev, [index]: "" }));
+    } else {
+      const newItems = selectedItems.filter((_, i) => i !== index);
+      setSelectedItems(newItems);
+
+      const newSearchInputs = { ...searchInputs };
+      delete newSearchInputs[index];
+
+      // Reindex remaining inputs
+      const reindexedInputs: { [key: number]: string } = {};
+      Object.entries(newSearchInputs).forEach(([key, value], newIndex) => {
+        reindexedInputs[newIndex] = value;
+      });
+
+      setSearchInputs(reindexedInputs);
+    }
+  };
+
+  // Calculate total tax amount from selected items
+  const calculateTotalTax = useCallback(() => {
+    return selectedItems.reduce((total, item) => {
+      if (!item.name || item.unitPrice === 0) return total;
+
+      const qty = safeNumber(item.quantity);
+      const price = safeNumber(item.unitPrice);
+      const taxRate = safeNumber(item.taxRate);
+      const discInput = safeNumber(item.itemDiscountAmount);
+
+      const base = qty * price;
+      let disc = 0;
+      if (item.itemDiscountType === "PERCENTAGE") {
+        disc = base * (discInput / 100);
+      } else if (item.itemDiscountType === "AMOUNT") {
+        disc = discInput;
+      }
+      disc = Math.min(disc, base);
+      const net = Math.max(0, base - disc);
+
+      const tax = net * (taxRate / 100);
+      return total + tax;
+    }, 0);
+  }, [selectedItems]);
+
+  // Calculate subtotal (before tax and discounts)
+  const calculateSubtotal = useCallback(() => {
+    return selectedItems.reduce((total, item) => {
+      if (!item.name || item.unitPrice === 0) return total;
+      return total + item.unitPrice * item.quantity;
+    }, 0);
+  }, [selectedItems]);
+
+  // Calculate total discounts from items
+  const calculateTotalItemDiscounts = useCallback(() => {
+    return selectedItems.reduce((total, item) => {
+      if (!item.name || !item.itemDiscountType) return total;
+
+      const base = item.unitPrice * item.quantity;
+      if (item.itemDiscountType === "PERCENTAGE" && item.itemDiscountAmount) {
+        return total + base * (item.itemDiscountAmount / 100);
+      } else if (
+        item.itemDiscountType === "AMOUNT" &&
+        item.itemDiscountAmount
+      ) {
+        return total + item.itemDiscountAmount;
+      }
+      return total;
+    }, 0);
+  }, [selectedItems]);
+
+  // Calculate net total (after item discounts but before tax)
+  const calculateNetTotal = useCallback(() => {
+    return calculateSubtotal() - calculateTotalItemDiscounts();
+  }, [calculateSubtotal, calculateTotalItemDiscounts]);
+
+  // Add these calculations to the component
+  const subtotal = calculateSubtotal();
+  const totalItemDiscounts = calculateTotalItemDiscounts();
+  const netTotal = calculateNetTotal();
+  const totalTax = calculateTotalTax();
+  const grandTotal = calculateTotalCost();
 
   // Handle feature management
   const addFeature = () => {
@@ -500,7 +1153,14 @@ export function SubpackageForm({
     try {
       setLoading(true);
 
-      // Prepare discount data for API
+      // Filter out empty items
+      const validItems = selectedItems.filter((item) => item.name && item.id);
+
+      if (validItems.length === 0) {
+        toast.error("Please add at least one item to the subpackage");
+        return;
+      }
+
       let discountData = {};
       if (values.discountType === "percentage") {
         discountData = { discount: values.discountPercentage };
@@ -510,23 +1170,36 @@ export function SubpackageForm({
 
       const data = {
         ...values,
-        price: values.finalPrice, // Use final price as the actual price
+        price: values.finalPrice,
         originalPrice: values.originalPrice,
         ...discountData,
         features,
-        products: selectedItems
+        products: validItems
           .filter((item) => item.type === "product")
           .map((item) => ({
             id: item.id,
-            quantity: item.quantity || 1,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            itemDiscountType: item.itemDiscountType,
+            itemDiscountAmount: item.itemDiscountAmount,
+            taxRate: item.taxRate,
+            taxAmount: item.taxAmount,
           })),
-        services: selectedItems
+        services: validItems
           .filter((item) => item.type === "service")
           .map((item) => ({
             id: item.id,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            itemDiscountType: item.itemDiscountType,
+            itemDiscountAmount: item.itemDiscountAmount,
+            taxRate: item.taxRate,
+            taxAmount: item.taxAmount,
           })),
         packageId,
       };
+
+      console.log("Submitting data:", data);
 
       let response;
       if (mode === "edit" && subpackageData) {
@@ -553,24 +1226,12 @@ export function SubpackageForm({
     }
   };
 
-  // Helper function to format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: "ZAR",
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
-
   // Apply auto-calculated price
   const applyAutoPrice = () => {
     if (autoCalculatedPrice !== null && autoCalculatedPrice > 0) {
       form.setValue("originalPrice", autoCalculatedPrice);
-
-      // Recalculate final price with current discount settings
       const finalPrice = calculateFinalPrice();
       form.setValue("finalPrice", finalPrice);
-
       setUseAutoPrice(true);
     }
   };
@@ -580,14 +1241,12 @@ export function SubpackageForm({
     const numValue = parseFloat(value) || 0;
     form.setValue("originalPrice", numValue);
 
-    // If user manually changes price, disable auto-price
     if (
       autoCalculatedPrice !== null &&
       Math.abs(numValue - autoCalculatedPrice) > 0.01
     ) {
       setUseAutoPrice(false);
     } else if (numValue === 0 && selectedItems.length === 0) {
-      // If no items and price is 0, keep auto-price enabled
       setUseAutoPrice(true);
     }
   };
@@ -611,6 +1270,9 @@ export function SubpackageForm({
     }
     return 0;
   };
+
+  // Calculate tax summary for display
+  const taxSummary = calculateTaxSummary();
 
   return (
     <div className="space-y-6">
@@ -687,274 +1349,225 @@ export function SubpackageForm({
           {/* Products & Services Selection */}
           <Card>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-medium">Products & Services</h3>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Calculator className="h-3 w-3" />
-                    {autoCalculatedPrice !== null && autoCalculatedPrice > 0
-                      ? `Auto-calculated: ${formatCurrency(autoCalculatedPrice)}`
-                      : "Add items to calculate price"}
-                  </Badge>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold">Subpackage Items</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Search for products or services, or type custom descriptions
+                  </p>
                 </div>
               </div>
 
-              {/* Search Input */}
-              <div className="relative mb-6">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <input
-                    placeholder="Search products/services by name, SKU, description, or category..."
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pl-10"
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      if (e.target.value.trim()) {
-                        setShowDropdown(true);
-                      } else {
-                        setShowDropdown(false);
-                      }
-                      setSelectedIndex(-1);
-                    }}
-                    onKeyDown={handleKeyDown}
-                    onFocus={() => {
-                      if (searchTerm.trim()) {
-                        setShowDropdown(true);
-                      }
-                    }}
-                    onBlur={() => {
-                      setTimeout(() => {
-                        setShowDropdown(false);
-                        setSelectedIndex(-1);
-                      }, 200);
-                    }}
-                    disabled={loading || isLoadingItems}
-                  />
-                </div>
+              {/* Items Header */}
+              <div className="grid grid-cols-12 gap-3 mb-3 px-4 py-2 bg-muted/50 rounded-lg text-sm font-medium">
+                <div className="col-span-4">Description</div>
+                <div className="col-span-1 text-center">Qty</div>
+                <div className="col-span-2 text-center">Price</div>
+                <div className="col-span-1 text-center">Discount</div>
+                <div className="col-span-1 text-center">Tax %</div>
+                <div className="col-span-2 text-center">Total</div>
+                <div className="col-span-1"></div>
+              </div>
 
-                {isLoadingItems && (
-                  <div className="absolute right-3 top-3">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                )}
+              {/* Items List */}
+              <div className="space-y-3">
+                {selectedItems.map((item, index) => (
+                  <div
+                    key={index}
+                    className="border rounded-lg bg-background hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="grid grid-cols-12 gap-3 items-center p-4">
+                      {/* Searchable Item Input - Column 1 */}
+                      <div className="col-span-4">
+                        <SearchableItemInput
+                          index={index}
+                          searchTerm={searchInputs[index] || ""}
+                          searchableItems={searchableItems}
+                          showDropdown={showDropdown}
+                          onSearchChange={handleSearchInputChange}
+                          onFocus={handleSearchFocus}
+                          onBlur={handleSearchBlur}
+                          onSelect={handleItemSelect}
+                          setShowDropdown={setShowDropdown}
+                        />
+                      </div>
 
-                {/* Search Dropdown */}
-                {showDropdown && filteredItems.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-96 overflow-auto">
-                    <div className="p-1">
-                      {filteredItems.slice(0, 10).map((item, itemIndex) => (
-                        <div
-                          key={`${item.type}-${item.id}`}
-                          className={`
-                            flex items-start p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0 gap-3
-                            ${selectedIndex === itemIndex ? "bg-accent" : ""}
-                          `}
-                          onMouseEnter={() => setSelectedIndex(itemIndex)}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleSelectItem(item);
+                      {/* Quantity - Column 2 */}
+                      <div className="col-span-1">
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            className="text-center"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              const finalValue = isNaN(value) ? 1 : value;
+                              handleUpdateItemField(
+                                index,
+                                "quantity",
+                                finalValue
+                              );
+                            }}
+                            disabled={loading || !item.name}
+                          />
+                        </FormControl>
+                      </div>
+
+                      {/* Unit Price - Column 3 */}
+                      <div className="col-span-2">
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            className="text-left"
+                            value={item.unitPrice}
+                            onChange={(e) => {
+                              const value =
+                                e.target.valueAsNumber ||
+                                parseFloat(e.target.value) ||
+                                0;
+                              handleUpdateItemField(index, "unitPrice", value);
+                            }}
+                            disabled={loading || !item.name}
+                          />
+                        </FormControl>
+                      </div>
+
+                      {/* Item Discount - Column 4 */}
+                      <div className="col-span-1 space-y-1">
+                        <Select
+                          value={item.itemDiscountType || ""}
+                          onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                            handleUpdateItemField(
+                              index,
+                              "itemDiscountType",
+                              value
+                            );
                           }}
                         >
-                          {/* Image thumbnail */}
-                          {item.image && (
-                            <div className="flex-shrink-0 w-12 h-12 rounded-md overflow-hidden border">
-                              <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display =
-                                    "none";
-                                }}
-                              />
-                            </div>
-                          )}
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="AMOUNT">R</SelectItem>
+                            <SelectItem value="PERCENTAGE">%</SelectItem>
+                          </SelectContent>
+                        </Select>
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1 min-w-0">
-                                <span className="font-medium text-sm truncate block">
-                                  {item.name}
-                                </span>
-                                {item.sku && (
-                                  <span className="text-[10px] font-mono bg-muted px-1 rounded mt-0.5 inline-block">
-                                    SKU: {item.sku}
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-sm text-muted-foreground flex-shrink-0 ml-2">
-                                {formatCurrency(item.price)}
-                              </span>
-                            </div>
+                        {item.itemDiscountType && (
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              step={
+                                item.itemDiscountType === "PERCENTAGE"
+                                  ? "0.1"
+                                  : "0.01"
+                              }
+                              placeholder="0.00"
+                              className="h-8 text-center text-xs"
+                              value={item.itemDiscountAmount || ""}
+                              onChange={(e) => {
+                                const input = e.target.value;
+                                if (input === "") {
+                                  handleUpdateItemField(
+                                    index,
+                                    "itemDiscountAmount",
+                                    0
+                                  );
+                                  return;
+                                }
+                                let value = parseFloat(input);
+                                if (isNaN(value)) {
+                                  handleUpdateItemField(
+                                    index,
+                                    "itemDiscountAmount",
+                                    0
+                                  );
+                                  return;
+                                }
+                                if (
+                                  item.itemDiscountType === "PERCENTAGE" &&
+                                  value > 100
+                                ) {
+                                  value = 100;
+                                }
+                                handleUpdateItemField(
+                                  index,
+                                  "itemDiscountAmount",
+                                  value
+                                );
+                              }}
+                              disabled={loading || !item.name}
+                            />
+                          </FormControl>
+                        )}
+                      </div>
 
-                            <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
-                              <span>
-                                {item.type === "product"
-                                  ? "Product"
-                                  : "Service"}
-                                {item.category && ` • ${item.category}`}
-                              </span>
-                            </div>
+                      {/* Tax Rate - Column 5 */}
+                      <div className="col-span-1">
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.1"
+                            className="text-center"
+                            value={item.taxRate || ""}
+                            onChange={(e) => {
+                              const value =
+                                e.target.value === ""
+                                  ? 0
+                                  : parseFloat(e.target.value);
+                              handleUpdateItemField(index, "taxRate", value);
+                            }}
+                            disabled={loading || !item.name}
+                          />
+                        </FormControl>
+                      </div>
 
-                            {item.description && (
-                              <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                                {item.description.replace(/<[^>]*>/g, "")}
-                              </div>
-                            )}
-
-                            {item.features && item.features.length > 0 && (
-                              <div className="text-[10px] text-muted-foreground mt-1 italic truncate">
-                                • Includes:{" "}
-                                {item.features.slice(0, 3).join(", ")}
-                                {item.features.length > 3 && "..."}
-                              </div>
-                            )}
-                          </div>
+                      {/* Item Total (Display Only) - Column 6 */}
+                      <div className="col-span-2 text-center">
+                        <div className="text-sm font-medium">
+                          {formatCurrency(getRowNetTotal(index))}
                         </div>
-                      ))}
+                        {getItemDiscountAmount(index) > 0 && (
+                          <div className="text-xs text-red-600">
+                            -{formatCurrency(getItemDiscountAmount(index))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Remove Button - Column 7 */}
+                      <div className="col-span-1 flex justify-center">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveItem(index)}
+                          disabled={loading}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                )}
-
-                {showDropdown &&
-                  searchTerm.trim() &&
-                  filteredItems.length === 0 &&
-                  !isLoadingItems && (
-                    <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md p-4 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        No items found
-                      </p>
-                    </div>
-                  )}
+                ))}
               </div>
 
-              {/* Selected Items */}
-              {selectedItems.length > 0 ? (
-                <Tabs defaultValue="all" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="all">
-                      All Items ({selectedItems.length})
-                    </TabsTrigger>
-                    <TabsTrigger value="products">
-                      Products (
-                      {selectedItems.filter((i) => i.type === "product").length}
-                      )
-                    </TabsTrigger>
-                    <TabsTrigger value="services">
-                      Services (
-                      {selectedItems.filter((i) => i.type === "service").length}
-                      )
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="all" className="space-y-4">
-                    <div className="space-y-3">
-                      {selectedItems.map((item) => (
-                        <SelectedItemCard
-                          key={`${item.type}-${item.id}`}
-                          item={item}
-                          onRemove={() => handleRemoveItem(item.id, item.type)}
-                          onUpdateQuantity={(quantity) =>
-                            handleUpdateQuantity(item.id, item.type, quantity)
-                          }
-                          disabled={loading}
-                        />
-                      ))}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="products" className="space-y-4">
-                    <div className="space-y-3">
-                      {selectedItems
-                        .filter((item) => item.type === "product")
-                        .map((item) => (
-                          <SelectedItemCard
-                            key={`${item.type}-${item.id}`}
-                            item={item}
-                            onRemove={() =>
-                              handleRemoveItem(item.id, item.type)
-                            }
-                            onUpdateQuantity={(quantity) =>
-                              handleUpdateQuantity(item.id, item.type, quantity)
-                            }
-                            disabled={loading}
-                          />
-                        ))}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="services" className="space-y-4">
-                    <div className="space-y-3">
-                      {selectedItems
-                        .filter((item) => item.type === "service")
-                        .map((item) => (
-                          <SelectedItemCard
-                            key={`${item.type}-${item.id}`}
-                            item={item}
-                            onRemove={() =>
-                              handleRemoveItem(item.id, item.type)
-                            }
-                            onUpdateQuantity={(quantity) =>
-                              handleUpdateQuantity(item.id, item.type, quantity)
-                            }
-                            disabled={loading}
-                          />
-                        ))}
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              ) : (
-                <div className="text-center py-8 border-2 border-dashed rounded-lg">
-                  <Package className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h4 className="text-lg font-medium mb-2">
-                    No items added yet
-                  </h4>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Search for products or services above to add them to this
-                    subpackage
-                  </p>
-                  <p className="text-xs text-muted-foreground italic">
-                    The total cost of selected items will automatically fill the
-                    original price field below
-                  </p>
-                </div>
-              )}
-
-              {/* Cost Summary */}
-              {selectedItems.length > 0 && (
-                <div className="mt-6 p-4 bg-muted rounded-lg">
-                  <h4 className="font-medium mb-3">Cost Summary</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>
-                        Products (
-                        {
-                          selectedItems.filter((i) => i.type === "product")
-                            .length
-                        }
-                        )
-                      </span>
-                      <span>{formatCurrency(calculateProductsCost())}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>
-                        Services (
-                        {
-                          selectedItems.filter((i) => i.type === "service")
-                            .length
-                        }
-                        )
-                      </span>
-                      <span>{formatCurrency(calculateServicesCost())}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between font-medium">
-                      <span>Total Cost</span>
-                      <span>{formatCurrency(calculateTotalCost())}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Add Item Button */}
+              <div className="mt-4 flex justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addItem}
+                  className="border-dashed"
+                  disabled={loading}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Item
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
@@ -963,7 +1576,7 @@ export function SubpackageForm({
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium">Pricing</h3>
-                {selectedItems.length > 0 &&
+                {selectedItems.filter((item) => item.name).length > 0 &&
                   autoCalculatedPrice !== null &&
                   autoCalculatedPrice > 0 && (
                     <div className="flex items-center gap-2">
@@ -1028,7 +1641,7 @@ export function SubpackageForm({
                         />
                       </div>
                     </FormControl>
-                    {selectedItems.length > 0 && (
+                    {selectedItems.filter((item) => item.name).length > 0 && (
                       <FormDescription>
                         {useAutoPrice
                           ? "Original price is automatically calculated from selected items"
@@ -1150,19 +1763,63 @@ export function SubpackageForm({
               <div className="border rounded-lg p-4 mb-6 bg-muted/30">
                 <h4 className="font-medium mb-3">Price Summary</h4>
                 <div className="space-y-2">
+                  {/* Subtotal */}
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Original Price
-                    </span>
-                    <span>{formatCurrency(originalPrice || 0)}</span>
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>{formatCurrency(subtotal)}</span>
                   </div>
 
+                  {/* Item-level discounts */}
+                  {totalItemDiscounts > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Item Discounts
+                      </span>
+                      <span className="text-green-600 font-medium">
+                        -{formatCurrency(totalItemDiscounts)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Net total after item discounts */}
+                  {totalItemDiscounts > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Net Total</span>
+                      <span>{formatCurrency(netTotal)}</span>
+                    </div>
+                  )}
+
+                  {/* Tax breakdown */}
+                  {totalTax > 0 && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          Tax ({" "}
+                          {Array.from(
+                            new Set(
+                              selectedItems
+                                .filter((item) => item.name && item.taxRate > 0)
+                                .map((item) => `${item.taxRate}%`)
+                            )
+                          ).join(", ")}
+                          )
+                        </span>
+                        <span className="text-red-600 font-medium">
+                          +{formatCurrency(totalTax)}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Package-level discount */}
                   {discountType !== "none" && (
                     <>
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Discount</span>
+                        <span className="text-muted-foreground">
+                          Package Discount
+                        </span>
                         <span className="text-green-600 font-medium">
-                          {getDiscountSummary()}
+                          -{getDiscountSummary()}
                         </span>
                       </div>
 
@@ -1177,16 +1834,75 @@ export function SubpackageForm({
                     </>
                   )}
 
-                  <div className="flex justify-between font-medium text-base">
-                    <span>Final Price</span>
+                  {/* Grand total */}
+                  <div className="flex justify-between font-medium text-base pt-2 border-t">
+                    <span>Grand Total</span>
                     <span className="text-primary">
                       {formatCurrency(form.getValues("finalPrice") || 0)}
                     </span>
                   </div>
+
+                  {/* Cost breakdown summary */}
+                  <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                    <div className="grid grid-cols-2 gap-1">
+                      <div>
+                        <div>
+                          Items:{" "}
+                          {selectedItems.filter((item) => item.name).length}
+                        </div>
+                        <div>
+                          Products:{" "}
+                          {
+                            selectedItems.filter(
+                              (item) => item.type === "product" && item.name
+                            ).length
+                          }
+                        </div>
+                        <div>
+                          Services:{" "}
+                          {
+                            selectedItems.filter(
+                              (item) => item.type === "service" && item.name
+                            ).length
+                          }
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div>
+                          Auto-calculated:{" "}
+                          {formatCurrency(calculateTotalCost())}
+                        </div>
+                        <div>
+                          Final price:{" "}
+                          {formatCurrency(form.getValues("finalPrice") || 0)}
+                        </div>
+                        {calculateTotalCost() > 0 && (
+                          <div
+                            className={cn(
+                              "font-medium",
+                              Math.abs(
+                                calculateTotalCost() -
+                                  (form.getValues("finalPrice") || 0)
+                              ) < 0.01
+                                ? "text-green-600"
+                                : "text-yellow-600"
+                            )}
+                          >
+                            {Math.abs(
+                              calculateTotalCost() -
+                                (form.getValues("finalPrice") || 0)
+                            ) < 0.01
+                              ? "✓ Price matches auto-calculation"
+                              : "⚠ Price differs from auto-calculation"}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Final Price (Hidden field for form, but shown in summary) */}
+              {/* Final Price (Hidden field) */}
               <FormField
                 control={form.control}
                 name="finalPrice"
@@ -1326,132 +2042,6 @@ export function SubpackageForm({
           </div>
         </form>
       </Form>
-    </div>
-  );
-}
-
-// Selected Item Card Component
-interface SelectedItemCardProps {
-  item: SelectedItem;
-  onRemove: () => void;
-  onUpdateQuantity?: (quantity: number) => void;
-  disabled?: boolean;
-}
-
-function SelectedItemCard({
-  item,
-  onRemove,
-  onUpdateQuantity,
-  disabled,
-}: SelectedItemCardProps) {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: "ZAR",
-      minimumFractionDigits: 2,
-    }).format(amount);
-  };
-
-  return (
-    <div className="flex items-center justify-between p-3 border rounded-lg">
-      <div className="flex items-center gap-3 flex-1">
-        {item.image ? (
-          <div className="w-12 h-12 rounded-md overflow-hidden border flex-shrink-0">
-            <img
-              src={item.image}
-              alt={item.name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = "none";
-                (e.target as HTMLImageElement).parentElement?.classList.add(
-                  "hidden"
-                );
-              }}
-            />
-          </div>
-        ) : (
-          <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-            <Package className="h-6 w-6 text-muted-foreground" />
-          </div>
-        )}
-
-        <div className="flex-1 min-w-0">
-          <div className="l items-center gap-2">
-            <h4 className="font-medium text-sm line-clamp-2 ">{item.name}</h4>
-          </div>
-
-          <div className="flex items-center gap-4 mt-1">
-            <div className="text-sm text-muted-foreground">
-              {formatCurrency(item.price)} each
-            </div>
-
-            {item.sku && (
-              <div className="text-xs font-mono text-muted-foreground">
-                SKU: {item.sku}
-              </div>
-            )}
-          </div>
-          <Badge variant="outline" className="text-xs capitalize">
-            {item.type}
-          </Badge>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-4">
-        {item.type === "product" && onUpdateQuantity && (
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onUpdateQuantity((item.quantity || 1) - 1)}
-              disabled={disabled || (item.quantity || 1) <= 1}
-            >
-              <span>-</span>
-            </Button>
-            <span className="w-8 text-center font-medium">
-              {item.quantity || 1}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => onUpdateQuantity((item.quantity || 1) + 1)}
-              disabled={disabled}
-            >
-              <span>+</span>
-            </Button>
-          </div>
-        )}
-
-        <div className="text-right min-w-[100px]">
-          <div className="font-medium">
-            {formatCurrency(
-              item.type === "product"
-                ? item.price * (item.quantity || 1)
-                : item.price
-            )}
-          </div>
-          {item.type === "product" && (item.quantity || 1) > 1 && (
-            <div className="text-xs text-muted-foreground">
-              {item.quantity || 1} × {formatCurrency(item.price)}
-            </div>
-          )}
-        </div>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-destructive hover:text-destructive"
-          onClick={onRemove}
-          disabled={disabled}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
     </div>
   );
 }

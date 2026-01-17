@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Subpackage } from "../types";
-import { updateSubpackage } from "../actions";
+import { updateSubpackage } from "../subpackages/[subpackageId]/actions";
 import { toast } from "@/components/ui/use-toast";
 
 interface EditSubpackageDialogProps {

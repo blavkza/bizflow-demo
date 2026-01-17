@@ -21,7 +21,6 @@ export async function GET(
         subpackages: {
           orderBy: { sortOrder: "asc" },
           include: {
-            // Use junction tables
             products: {
               include: {
                 product: {
@@ -65,7 +64,32 @@ export async function GET(
       return NextResponse.json({ error: "Package not found" }, { status: 404 });
     }
 
-    // Transform the data to match your frontend expectations
+    // Helper function to safely get image
+    const getProductImage = (images: any) => {
+      try {
+        if (!images) return null;
+        if (typeof images === "string") {
+          try {
+            const parsed = JSON.parse(images);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed[0];
+            }
+            return parsed;
+          } catch {
+            return images;
+          }
+        }
+        if (Array.isArray(images) && images.length > 0) {
+          return images[0];
+        }
+        return null;
+      } catch (error) {
+        console.error("Error parsing product images:", error);
+        return null;
+      }
+    };
+
+    // Transform the data to match your frontend expectations WITH NEW FIELDS
     const transformedPackage = {
       ...pkg,
       subpackages: pkg.subpackages.map((subpackage) => ({
@@ -79,9 +103,17 @@ export async function GET(
           category: p.product.category,
           stock: p.product.stock,
           images: p.product.images,
+          image: getProductImage(p.product.images), // Added image field for convenience
           status: p.product.status,
           quantity: p.quantity,
           unitPrice: p.unitPrice ? Number(p.unitPrice) : null,
+          // NEW FIELDS
+          itemDiscountType: p.itemDiscountType,
+          itemDiscountAmount: p.itemDiscountAmount
+            ? Number(p.itemDiscountAmount)
+            : null,
+          taxRate: p.taxRate ? Number(p.taxRate) : null,
+          taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
         })),
         services: subpackage.services.map((s) => ({
           id: s.service.id,
@@ -94,12 +126,23 @@ export async function GET(
           status: s.service.status,
           quantity: s.quantity,
           unitPrice: s.unitPrice ? Number(s.unitPrice) : null,
+          // NEW FIELDS
+          itemDiscountType: s.itemDiscountType,
+          itemDiscountAmount: s.itemDiscountAmount
+            ? Number(s.itemDiscountAmount)
+            : null,
+          taxRate: s.taxRate ? Number(s.taxRate) : null,
+          taxAmount: s.taxAmount ? Number(s.taxAmount) : null,
         })),
         price: Number(subpackage.price),
         originalPrice: subpackage.originalPrice
           ? Number(subpackage.originalPrice)
           : null,
+        discount: subpackage.discount,
+        discountType: subpackage.discountType,
         revenue: Number(subpackage.revenue),
+        createdAt: subpackage.createdAt,
+        updatedAt: subpackage.updatedAt,
       })),
       allProducts: Array.from(
         new Set(
@@ -171,11 +214,79 @@ export async function PUT(
         benefits: data.benefits,
       },
       include: {
-        subpackages: true,
+        subpackages: {
+          include: {
+            products: {
+              include: {
+                product: {
+                  select: {
+                    id: true,
+                    name: true,
+                    price: true,
+                    sku: true,
+                  },
+                },
+              },
+            },
+            services: {
+              include: {
+                service: {
+                  select: {
+                    id: true,
+                    name: true,
+                    amount: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
-    return NextResponse.json(updatedPackage);
+    // Transform the response to include new fields
+    const transformedResponse = {
+      ...updatedPackage,
+      subpackages: updatedPackage.subpackages.map((subpackage) => ({
+        ...subpackage,
+        price: Number(subpackage.price),
+        originalPrice: subpackage.originalPrice
+          ? Number(subpackage.originalPrice)
+          : null,
+        revenue: Number(subpackage.revenue),
+        products: subpackage.products.map((p) => ({
+          id: p.product.id,
+          name: p.product.name,
+          price: Number(p.product.price),
+          sku: p.product.sku,
+          quantity: p.quantity,
+          unitPrice: p.unitPrice ? Number(p.unitPrice) : null,
+          // NEW FIELDS
+          itemDiscountType: p.itemDiscountType,
+          itemDiscountAmount: p.itemDiscountAmount
+            ? Number(p.itemDiscountAmount)
+            : null,
+          taxRate: p.taxRate ? Number(p.taxRate) : null,
+          taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
+        })),
+        services: subpackage.services.map((s) => ({
+          id: s.service.id,
+          name: s.service.name,
+          amount: Number(s.service.amount),
+          quantity: s.quantity,
+          unitPrice: s.unitPrice ? Number(s.unitPrice) : null,
+          // NEW FIELDS
+          itemDiscountType: s.itemDiscountType,
+          itemDiscountAmount: s.itemDiscountAmount
+            ? Number(s.itemDiscountAmount)
+            : null,
+          taxRate: s.taxRate ? Number(s.taxRate) : null,
+          taxAmount: s.taxAmount ? Number(s.taxAmount) : null,
+        })),
+      })),
+    };
+
+    return NextResponse.json(transformedResponse);
   } catch (error) {
     console.error("Error updating package:", error);
     return NextResponse.json(
@@ -201,7 +312,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Package not found" }, { status: 404 });
     }
 
-    // Delete package (cascade will delete subpackages)
+    // Delete package (cascade will delete subpackages and their relations)
     await db.package.delete({
       where: { id },
     });
