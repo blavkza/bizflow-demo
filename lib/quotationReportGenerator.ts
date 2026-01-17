@@ -22,6 +22,25 @@ interface CompanyInfo {
   email: string;
 }
 
+// Type for combined service calculations
+interface CombinedServiceData {
+  description: string;
+  quantity: number;
+  price: number;
+  discountInput: string;
+  vat: number;
+  total: number;
+  individualServices: Array<{
+    description: string;
+    qty: number;
+    price: number;
+    discountInput: string;
+    vat: number;
+    total: number;
+  }>;
+  displayType: "combined-service";
+}
+
 export class QuotationReportGenerator {
   private static decimalToNumber(decimalValue: any): number {
     if (decimalValue === null || decimalValue === undefined) return 0;
@@ -71,12 +90,32 @@ export class QuotationReportGenerator {
     const cWeb = companyInfo?.website || "http://necsengineers.co.za/";
     const logo = companyInfo?.logo || "";
 
-    // --- CALCULATIONS ---
+    // --- SEPARATE ITEMS INTO PRODUCTS AND SERVICES ---
+    const productItems: Array<{
+      description: string;
+      qty: number;
+      price: number;
+      discountInput: string;
+      vat: number;
+      total: number;
+    }> = [];
+
+    const serviceItems: Array<{
+      description: string;
+      qty: number;
+      price: number;
+      discountInput: string;
+      vat: number;
+      total: number;
+    }> = [];
+
+    // Track totals for calculations
     let subtotalNet = 0;
     let totalVat = 0;
     let totalDiscountMoney = 0;
 
-    const items = quotation.items.map((item) => {
+    // Process all items
+    quotation.items.forEach((item) => {
       const qty = this.decimalToNumber(item.quantity);
       const price = this.decimalToNumber(item.unitPrice);
       const taxRate = this.decimalToNumber(item.taxRate);
@@ -100,7 +139,7 @@ export class QuotationReportGenerator {
       totalVat += vat;
       totalDiscountMoney += discountVal;
 
-      return {
+      const itemData = {
         description: item.description,
         qty,
         price,
@@ -109,8 +148,84 @@ export class QuotationReportGenerator {
         vat,
         total,
       };
+
+      // Determine if item is product or service
+      if (item.shopProductId) {
+        productItems.push(itemData);
+      } else if (item.serviceId) {
+        serviceItems.push(itemData);
+      } else {
+        // If no IDs, check description for hints or default to product
+        const descLower = item.description?.toLowerCase() || "";
+        if (
+          descLower.includes("service") ||
+          descLower.includes("labour") ||
+          descLower.includes("install")
+        ) {
+          serviceItems.push(itemData);
+        } else {
+          productItems.push(itemData);
+        }
+      }
     });
 
+    // --- CREATE COMBINED SERVICES ROW ---
+    let combinedServiceData: CombinedServiceData | null = null;
+
+    if (serviceItems.length > 0) {
+      // Calculate combined totals
+      let totalQuantity = 0;
+      let totalGross = 0;
+      let totalDiscount = 0;
+      let totalNet = 0;
+      let totalVatServices = 0;
+      let totalAmountServices = 0;
+      const serviceDescriptions: string[] = [];
+
+      serviceItems.forEach((service) => {
+        totalQuantity += service.qty;
+        totalGross += service.qty * service.price;
+        totalDiscount +=
+          service.discountInput !== "0.00"
+            ? (service.qty *
+                service.price *
+                parseFloat(service.discountInput)) /
+              100
+            : 0;
+        totalNet += service.total - service.vat;
+        totalVatServices += service.vat;
+        totalAmountServices += service.total;
+
+        if (service.description) {
+          serviceDescriptions.push(service.description);
+        }
+      });
+
+      // Calculate weighted average unit price
+      const averageUnitPrice =
+        totalQuantity > 0 ? totalAmountServices / totalQuantity : 0;
+
+      // Calculate combined discount percentage
+      const combinedDiscountPercent =
+        totalGross > 0
+          ? ((totalDiscount / totalGross) * 100).toFixed(1)
+          : "0.0";
+
+      combinedServiceData = {
+        description: `Services Package (${serviceItems.length} services)`,
+        quantity: totalQuantity,
+        price: averageUnitPrice,
+        discountInput: serviceItems.some((s) => s.discountInput !== "0.00")
+          ? combinedDiscountPercent
+          : "0.00",
+        vat: totalVatServices,
+        total: totalAmountServices,
+        individualServices: serviceItems,
+        displayType: "combined-service",
+      };
+    }
+
+    // --- CALCULATE GLOBAL DISCOUNT AND FINAL TOTALS ---
     let globalDiscVal = 0;
     const globalDiscInput = this.decimalToNumber(quotation.discountAmount);
     if (quotation.discountType === "PERCENTAGE") {
@@ -125,6 +240,87 @@ export class QuotationReportGenerator {
     const finalTotal = finalSubtotalExVat + finalVat;
 
     const totalDiscountDisplay = totalDiscountMoney + globalDiscVal;
+
+    // --- BUILD TABLE ROWS ---
+    const tableRows: string[] = [];
+
+    // Add product rows
+    productItems.forEach((item) => {
+      tableRows.push(`
+        <tr>
+          <td class="col-code"> </td>
+          <td class="col-desc">${item.description}</td>
+          <td class="col-qty">${item.qty}</td>
+          <td class="col-price">${this.formatMoney(item.price)}</td>
+          <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
+          <td class="col-vat">${this.formatMoney(item.vat)}</td>
+          <td class="col-total">${this.formatMoney(item.total)}</td>
+        </tr>
+      `);
+    });
+
+    // Add combined services row if exists
+    if (combinedServiceData) {
+      tableRows.push(`
+        <tr style="background-color: #f8fafc;">
+          <td class="col-code">SVC</td>
+       <td class="col-desc">
+  <strong>${combinedServiceData.description}</strong>
+
+  <div
+    style="
+      font-size: 8px;
+      color: #666;
+      margin-top: 2px;
+      font-style: italic;
+    "
+  >
+    Includes:
+    <ul style="margin: 2px 0 0 12px; padding: 0;">
+      ${serviceItems
+        .slice(0, 3)
+        .map(
+          (s) =>
+            `<li style="list-style-type: disc; margin-left: 8px;">
+              ${s.description}
+            </li>`
+        )
+        .join("")}
+    </ul>
+
+    ${
+      serviceItems.length > 3
+        ? `<div style="margin-left: 12px;">
+             and ${serviceItems.length - 3} more
+           </div>`
+        : ""
+    }
+  </div>
+</td>
+
+          <td class="col-qty">${combinedServiceData.quantity}</td>
+          <td class="col-price">-</td>
+          <td class="col-disc">${combinedServiceData.discountInput === "0.00" ? "-" : combinedServiceData.discountInput}</td>
+          <td class="col-vat">${this.formatMoney(combinedServiceData.vat)}</td>
+          <td class="col-total"><strong>${this.formatMoney(combinedServiceData.total)}</strong></td>
+        </tr>
+      `);
+    } else if (serviceItems.length > 0) {
+      // If not combined, show services individually
+      serviceItems.forEach((item) => {
+        tableRows.push(`
+          <tr>
+            <td class="col-code">SVC</td>
+            <td class="col-desc">${item.description}</td>
+            <td class="col-qty">${item.qty}</td>
+            <td class="col-price">${this.formatMoney(item.price)}</td>
+            <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
+            <td class="col-vat">${this.formatMoney(item.vat)}</td>
+            <td class="col-total">${this.formatMoney(item.total)}</td>
+          </tr>
+        `);
+      });
+    }
 
     return `
       <!DOCTYPE html>
@@ -173,7 +369,7 @@ export class QuotationReportGenerator {
               margin-bottom: 15px;
             }
             .details-table td {
-              border: none; /* Removed border */
+              border: none;
               padding: 4px 8px;
               font-weight: bold;
             }
@@ -183,7 +379,7 @@ export class QuotationReportGenerator {
             /* Client Box */
             .client-box-label { font-weight: bold; margin-bottom: 2px; color: #555; }
             .client-box {
-              border: 1px solid #ddd; /* Softer border for client box */
+              border: 1px solid #ddd;
               border-radius: 4px;
               padding: 10px;
               min-height: 80px;
@@ -213,7 +409,7 @@ export class QuotationReportGenerator {
             /* Plain Cells */
             .items-table td {
               border: none;
-              border-bottom: 1px solid #f0f0f0; /* Very subtle divider */
+              border-bottom: 1px solid #f0f0f0;
               padding: 8px 6px;
               vertical-align: top;
               font-size: 10px;
@@ -253,7 +449,7 @@ export class QuotationReportGenerator {
               font-size: 11px; 
               margin-bottom: 5px; 
               text-transform: uppercase;
-              color: ${headerGreenText}; /* Matching header color */
+              color: ${headerGreenText};
             }
             .terms-list { padding-left: 15px; margin: 0; }
             .terms-list li { margin-bottom: 2px; }
@@ -347,21 +543,7 @@ export class QuotationReportGenerator {
               </tr>
             </thead>
             <tbody>
-              ${items
-                .map(
-                  (item) => `
-                <tr>
-                  <td class="col-code"> </td>
-                  <td class="col-desc">${item.description}</td>
-                  <td class="col-qty">${item.qty}</td>
-                  <td class="col-price">${this.formatMoney(item.price)}</td>
-                  <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
-                  <td class="col-vat">${this.formatMoney(item.vat)}</td>
-                  <td class="col-total">${this.formatMoney(item.total)}</td>
-                </tr>
-              `
-                )
-                .join("")}
+              ${tableRows.join("")}
             </tbody>
           </table>
 
@@ -405,7 +587,7 @@ export class QuotationReportGenerator {
           </div>
 
           <div class="terms-section">
-\            <ul class="terms-list">
+            <ul class="terms-list">
              ${
                quotation.paymentTerms
                  ? `<li>${quotation.paymentTerms.replace(/\n/g, "</li><li>")}</li>`
@@ -434,9 +616,6 @@ export class QuotationReportGenerator {
               `
               }
             </ul>
-          </div>
-
-         
           </div>
 
           <div class="footer-strip">

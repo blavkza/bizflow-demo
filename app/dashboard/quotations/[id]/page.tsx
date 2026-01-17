@@ -61,19 +61,19 @@ export default function QuotationDetailPage({
     : false;
 
   const canViewQuotations = data?.permissions?.includes(
-    UserPermission.QUOTATIONS_VIEW
+    UserPermission.QUOTATIONS_VIEW || hasFullAccess
   );
 
   const canEditQuotations = data?.permissions?.includes(
-    UserPermission.QUOTATIONS_EDIT
+    UserPermission.QUOTATIONS_EDIT || hasFullAccess
   );
 
   const canCreateInvoice = data?.permissions?.includes(
-    UserPermission.INVOICES_CREATE
+    UserPermission.INVOICES_CREATE || hasFullAccess
   );
 
   const canDeleteQuotations = data?.permissions?.includes(
-    UserPermission.QUOTATIONS_DELETE
+    UserPermission.QUOTATIONS_DELETE || hasFullAccess
   );
 
   useEffect(() => {

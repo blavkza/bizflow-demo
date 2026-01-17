@@ -41,48 +41,227 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
   let subtotalGross = 0;
   let totalItemDiscount = 0;
 
-  // Re-calculate item level data for display
-  const items = invoice.items.map((item) => {
+  // --- SEPARATE ITEMS INTO PRODUCTS AND SERVICES ---
+  const productItems: Array<{
+    description: string;
+    qty: number;
+    price: number;
+    linePrice: number;
+    discountInput: string;
+    vat: number;
+    total: number;
+  }> = [];
+
+  const serviceItems: Array<{
+    description: string;
+    qty: number;
+    price: number;
+    linePrice: number;
+    discountInput: string;
+    vat: number;
+    total: number;
+  }> = [];
+
+  // Process all items
+  invoice.items.forEach((item) => {
     const qty = Number(item.quantity);
     const price = Number(item.unitPrice);
-    const gross = qty * price;
+    const taxRate = Number(item.taxRate || 15);
+    const linePrice = qty * price;
 
     let discountVal = 0;
     const discountInput = Number(item.itemDiscountAmount || 0);
 
     if (item.itemDiscountType === "PERCENTAGE") {
-      discountVal = gross * (discountInput / 100);
+      discountVal = linePrice * (discountInput / 100);
     } else if (item.itemDiscountType === "AMOUNT") {
       discountVal = discountInput;
     }
-    discountVal = Math.min(discountVal, gross);
 
-    const net = gross - discountVal;
-
-    // Tax for this line
-    const taxRate = Number(item.taxRate || 0);
+    discountVal = Math.min(discountVal, linePrice);
+    const net = linePrice - discountVal;
     const taxVal = net * (taxRate / 100);
-
-    // Total (Net + Tax)
     const totalLine = net + taxVal;
 
-    subtotalGross += net; // Net amount accumulator
+    subtotalGross += net;
     totalItemDiscount += discountVal;
 
-    return {
-      desc: item.description,
+    const itemData = {
+      description: item.description,
       qty,
       price,
-      disc:
-        item.itemDiscountType === "PERCENTAGE"
-          ? `${discountInput}%`
-          : discountVal > 0
-            ? "Yes"
-            : "-",
+      linePrice,
+      discountInput:
+        item.itemDiscountType === "PERCENTAGE" ? `${discountInput}%` : "-",
       vat: taxVal,
       total: totalLine,
     };
+
+    // Determine if item is product or service
+    if (item.shopProductId) {
+      productItems.push(itemData);
+    } else if (item.serviceId) {
+      serviceItems.push(itemData);
+    } else {
+      const descLower = item.description?.toLowerCase() || "";
+      if (
+        descLower.includes("service") ||
+        descLower.includes("labour") ||
+        descLower.includes("install")
+      ) {
+        serviceItems.push(itemData);
+      } else {
+        productItems.push(itemData);
+      }
+    }
   });
+
+  // --- CREATE COMBINED SERVICES DATA ---
+  let combinedServicesData: {
+    description: string;
+    quantity: number;
+    linePrice: number;
+    discountInput: string;
+    vat: number;
+    total: number;
+    individualServices: Array<{
+      description: string;
+      qty: number;
+      price: number;
+      linePrice: number;
+      discountInput: string;
+      vat: number;
+      total: number;
+    }>;
+  } | null = null;
+
+  if (serviceItems.length > 0) {
+    let totalQuantity = 0;
+    let totalLinePrice = 0;
+    let totalDiscount = 0;
+    let totalNet = 0;
+    let totalVatServices = 0;
+    let totalAmountServices = 0;
+    const serviceDescriptions: string[] = [];
+
+    serviceItems.forEach((service) => {
+      totalQuantity += service.qty;
+      totalLinePrice += service.linePrice;
+      totalDiscount +=
+        service.discountInput !== "-" && service.discountInput !== "0%"
+          ? (service.linePrice * parseFloat(service.discountInput)) / 100
+          : 0;
+      totalNet += service.total - service.vat;
+      totalVatServices += service.vat;
+      totalAmountServices += service.total;
+
+      if (service.description) {
+        serviceDescriptions.push(service.description);
+      }
+    });
+
+    const combinedDiscountPercent =
+      totalLinePrice > 0
+        ? ((totalDiscount / totalLinePrice) * 100).toFixed(1)
+        : "0.0";
+
+    combinedServicesData = {
+      description: `Services Package (${serviceItems.length} services)`,
+      quantity: totalQuantity,
+      linePrice: totalLinePrice,
+      discountInput: serviceItems.some((s) => s.discountInput !== "-")
+        ? `${combinedDiscountPercent}%`
+        : "-",
+      vat: totalVatServices,
+      total: totalAmountServices,
+      individualServices: serviceItems,
+    };
+  }
+
+  // --- BUILD TABLE ROWS ---
+  const tableRows: JSX.Element[] = [];
+
+  // Add product rows
+  productItems.forEach((item, index) => {
+    tableRows.push(
+      <tr key={`product-${index}`}>
+        <td className="table-cell text-center"></td>
+        <td className="table-cell">{item.description}</td>
+        <td className="table-cell text-center">{item.qty}</td>
+        <td className="table-cell text-right">R{formatMoney(item.price)}</td>
+        <td className="table-cell text-center">{item.discountInput}</td>
+        <td className="table-cell text-right">R{formatMoney(item.vat)}</td>
+        <td className="table-cell text-right">R{formatMoney(item.total)}</td>
+      </tr>
+    );
+  });
+
+  // Add combined services row if exists
+  if (combinedServicesData) {
+    tableRows.push(
+      <tr key="combined-services" style={{ backgroundColor: "#f8fafc" }}>
+        <td className="table-cell text-center">SVC</td>
+        <td className="table-cell">
+          <div style={{ fontWeight: "bold" }}>
+            {combinedServicesData.description}
+          </div>
+          <div
+            style={{
+              fontSize: "8px",
+              color: "#666",
+              marginTop: "2px",
+              fontStyle: "italic",
+            }}
+          >
+            Includes:
+            <ul style={{ margin: "2px 0 0 12px", padding: "0" }}>
+              {serviceItems.slice(0, 3).map((service, index) => (
+                <li
+                  key={index}
+                  style={{ listStyleType: "disc", marginLeft: "8px" }}
+                >
+                  {service.description}
+                </li>
+              ))}
+            </ul>
+            {serviceItems.length > 3 && (
+              <div style={{ marginLeft: "12px" }}>
+                and {serviceItems.length - 3} more
+              </div>
+            )}
+          </div>
+        </td>
+        <td className="table-cell text-center">
+          {combinedServicesData.quantity}
+        </td>
+        <td className="table-cell text-right">-</td>
+        <td className="table-cell text-center">
+          {combinedServicesData.discountInput}
+        </td>
+        <td className="table-cell text-right">
+          R{formatMoney(combinedServicesData.vat)}
+        </td>
+        <td className="table-cell text-right" style={{ fontWeight: "bold" }}>
+          R{formatMoney(combinedServicesData.total)}
+        </td>
+      </tr>
+    );
+  } else if (serviceItems.length > 0) {
+    // Show services individually if not combined
+    serviceItems.forEach((item, index) => {
+      tableRows.push(
+        <tr key={`service-${index}`}>
+          <td className="table-cell text-center">SVC</td>
+          <td className="table-cell">{item.description}</td>
+          <td className="table-cell text-center">{item.qty}</td>
+          <td className="table-cell text-right">R{formatMoney(item.price)}</td>
+          <td className="table-cell text-center">{item.discountInput}</td>
+          <td className="table-cell text-right">R{formatMoney(item.vat)}</td>
+          <td className="table-cell text-right">R{formatMoney(item.total)}</td>
+        </tr>
+      );
+    });
+  }
 
   // Global Discount
   let globalDiscVal = 0;
@@ -361,25 +540,7 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
                   </th>
                 </tr>
               </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr key={index}>
-                    <td className="table-cell text-center"></td>
-                    <td className="table-cell">{item.desc}</td>
-                    <td className="table-cell text-center">{item.qty}</td>
-                    <td className="table-cell text-right">
-                      R{formatMoney(item.price)}
-                    </td>
-                    <td className="table-cell text-center">{item.disc}</td>
-                    <td className="table-cell text-right">
-                      {formatMoney(item.vat)}
-                    </td>
-                    <td className="table-cell text-right">
-                      {formatMoney(item.total)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
+              <tbody>{tableRows}</tbody>
             </table>
           </Section>
 
@@ -389,6 +550,29 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
               <Column style={{ width: "60%" }} />
               <Column style={{ width: "40%" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  {totalItemDiscount > 0 && (
+                    <tr>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        ITEM DISCOUNTS:
+                      </td>
+                      <td
+                        style={{
+                          padding: "6px 8px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          textAlign: "right",
+                        }}
+                      >
+                        R{formatMoney(totalItemDiscount)}
+                      </td>
+                    </tr>
+                  )}
                   <tr>
                     <td
                       style={{
@@ -407,7 +591,7 @@ export function InvoiceEmail({ invoice }: InvoiceEmailProps) {
                         textAlign: "right",
                       }}
                     >
-                      R{formatMoney(finalSubtotalNet)}
+                      R{formatMoney(subtotalGross)}
                     </td>
                   </tr>
                   {globalDiscVal > 0 && (

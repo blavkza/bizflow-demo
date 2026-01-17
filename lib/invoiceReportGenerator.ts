@@ -22,6 +22,27 @@ interface CompanyInfo {
   email: string;
 }
 
+// Type for combined service calculations
+interface CombinedServiceData {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  linePrice: number;
+  discountInput: string;
+  vat: number;
+  total: number;
+  individualServices: Array<{
+    description: string;
+    qty: number;
+    unitPrice: number;
+    linePrice: number;
+    discountInput: string;
+    vat: number;
+    total: number;
+  }>;
+  displayType: "combined-service";
+}
+
 export class InvoiceReportGenerator {
   private static decimalToNumber(decimalValue: any): number {
     if (decimalValue === null || decimalValue === undefined) return 0;
@@ -65,27 +86,49 @@ export class InvoiceReportGenerator {
     const cWeb = companyInfo?.website || "";
     const logo = companyInfo?.logo || "";
 
-    // --- CALCULATIONS ---
+    // --- SEPARATE ITEMS INTO PRODUCTS AND SERVICES ---
+    const productItems: Array<{
+      description: string;
+      qty: number;
+      unitPrice: number;
+      linePrice: number;
+      discountInput: string;
+      vat: number;
+      total: number;
+    }> = [];
+
+    const serviceItems: Array<{
+      description: string;
+      qty: number;
+      unitPrice: number;
+      linePrice: number;
+      discountInput: string;
+      vat: number;
+      total: number;
+    }> = [];
+
+    // Track totals for calculations
     let subtotalNet = 0;
     let totalVat = 0;
     let totalDiscountMoney = 0;
 
-    const items = invoice.items.map((item) => {
+    // Process all items
+    invoice.items.forEach((item) => {
       const qty = this.decimalToNumber(item.quantity);
-      const price = this.decimalToNumber(item.unitPrice);
+      const unitPrice = this.decimalToNumber(item.unitPrice);
       const taxRate = this.decimalToNumber(item.taxRate);
-      const gross = qty * price;
+      const linePrice = qty * unitPrice; // Total price before discount
 
       let discountVal = 0;
       const discountInput = this.decimalToNumber(item.itemDiscountAmount);
 
       if (item.itemDiscountType === "PERCENTAGE") {
-        discountVal = gross * (discountInput / 100);
+        discountVal = linePrice * (discountInput / 100);
       } else if (item.itemDiscountType === "AMOUNT") {
         discountVal = discountInput;
       }
 
-      const net = gross - discountVal;
+      const net = linePrice - discountVal;
       const vat = net * (taxRate / 100);
       const total = net + vat;
 
@@ -93,18 +136,92 @@ export class InvoiceReportGenerator {
       totalVat += vat;
       totalDiscountMoney += discountVal;
 
-      return {
+      const itemData = {
         description: item.description,
         qty,
-        price,
+        unitPrice,
+        linePrice,
         discountInput:
           item.itemDiscountType === "PERCENTAGE" ? `${discountInput}` : "0.00",
         vat,
         total,
       };
+
+      // Determine if item is product or service
+      if (item.shopProductId) {
+        productItems.push(itemData);
+      } else if (item.serviceId) {
+        serviceItems.push(itemData);
+      } else {
+        // If no IDs, check description for hints or default to product
+        const descLower = item.description?.toLowerCase() || "";
+        if (
+          descLower.includes("service") ||
+          descLower.includes("labour") ||
+          descLower.includes("install")
+        ) {
+          serviceItems.push(itemData);
+        } else {
+          productItems.push(itemData);
+        }
+      }
     });
 
-    // Global Discount
+    // --- CREATE COMBINED SERVICES ROW ---
+    let combinedServiceData: CombinedServiceData | null = null;
+
+    if (serviceItems.length > 0) {
+      // Calculate combined totals
+      let totalQuantity = 0;
+      let totalLinePrice = 0;
+      let totalDiscount = 0;
+      let totalNet = 0;
+      let totalVatServices = 0;
+      let totalAmountServices = 0;
+      const serviceDescriptions: string[] = [];
+
+      serviceItems.forEach((service) => {
+        totalQuantity += service.qty;
+        totalLinePrice += service.linePrice;
+        totalDiscount +=
+          service.discountInput !== "0.00"
+            ? (service.linePrice * parseFloat(service.discountInput)) / 100
+            : 0;
+        totalNet += service.total - service.vat;
+        totalVatServices += service.vat;
+        totalAmountServices += service.total;
+
+        if (service.description) {
+          serviceDescriptions.push(service.description);
+        }
+      });
+
+      // Calculate weighted average unit price (not shown but used for calculations)
+      const averageUnitPrice =
+        totalQuantity > 0 ? totalLinePrice / totalQuantity : 0;
+
+      // Calculate combined discount percentage
+      const combinedDiscountPercent =
+        totalLinePrice > 0
+          ? ((totalDiscount / totalLinePrice) * 100).toFixed(1)
+          : "0.0";
+
+      combinedServiceData = {
+        description: `Services Package (${serviceItems.length} services)`,
+        quantity: totalQuantity,
+        unitPrice: averageUnitPrice,
+        linePrice: totalLinePrice,
+        discountInput: serviceItems.some((s) => s.discountInput !== "0.00")
+          ? combinedDiscountPercent
+          : "0.00",
+        vat: totalVatServices,
+        total: totalAmountServices,
+        individualServices: serviceItems,
+        displayType: "combined-service",
+      };
+    }
+
+    // --- CALCULATE GLOBAL DISCOUNT AND FINAL TOTALS ---
     let globalDiscVal = 0;
     const globalDiscInput = this.decimalToNumber(invoice.discountAmount);
     if (invoice.discountType === "PERCENTAGE") {
@@ -117,7 +234,82 @@ export class InvoiceReportGenerator {
     const vatRatio = subtotalNet > 0 ? finalSubtotalExVat / subtotalNet : 1;
     const finalVat = totalVat * vatRatio;
     const finalTotal = finalSubtotalExVat + finalVat;
+
     const totalDiscountDisplay = totalDiscountMoney + globalDiscVal;
+
+    // --- BUILD TABLE ROWS ---
+    const tableRows: string[] = [];
+
+    // Add product rows
+    productItems.forEach((item) => {
+      tableRows.push(`
+        <tr>
+          <td class="col-code"> </td>
+          <td class="col-desc">${item.description}</td>
+          <td class="col-qty">${item.qty}</td>
+          <td class="col-unit-price">${this.formatMoney(item.unitPrice)}</td>
+          <td class="col-line-price">${this.formatMoney(item.linePrice)}</td>
+          <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
+          <td class="col-vat">${this.formatMoney(item.vat)}</td>
+          <td class="col-total">${this.formatMoney(item.total)}</td>
+        </tr>
+      `);
+    });
+
+    // Add combined services row if exists
+    if (combinedServiceData) {
+      tableRows.push(`
+        <tr style="background-color: #f8fafc;">
+          <td class="col-code">SVC</td>
+          <td class="col-desc">
+            <strong>${combinedServiceData.description}</strong>
+            <div style="font-size: 8px; color: #666; margin-top: 2px; font-style: italic;">
+              Includes:
+              <ul style="margin: 2px 0 0 12px; padding: 0;">
+                ${serviceItems
+                  .slice(0, 3)
+                  .map(
+                    (s) =>
+                      `<li style="list-style-type: disc; margin-left: 8px;">
+                        ${s.description}
+                      </li>`
+                  )
+                  .join("")}
+              </ul>
+              ${
+                serviceItems.length > 3
+                  ? `<div style="margin-left: 12px;">
+                     and ${serviceItems.length - 3} more
+                   </div>`
+                  : ""
+              }
+            </div>
+          </td>
+          <td class="col-qty">${combinedServiceData.quantity}</td>
+          <td class="col-unit-price">-</td>
+          <td class="col-line-price">${this.formatMoney(combinedServiceData.linePrice)}</td>
+          <td class="col-disc">${combinedServiceData.discountInput === "0.00" ? "-" : combinedServiceData.discountInput}</td>
+          <td class="col-vat">${this.formatMoney(combinedServiceData.vat)}</td>
+          <td class="col-total"><strong>${this.formatMoney(combinedServiceData.total)}</strong></td>
+        </tr>
+      `);
+    } else if (serviceItems.length > 0) {
+      // If not combined, show services individually
+      serviceItems.forEach((item) => {
+        tableRows.push(`
+          <tr>
+            <td class="col-code">SVC</td>
+            <td class="col-desc">${item.description}</td>
+            <td class="col-qty">${item.qty}</td>
+            <td class="col-unit-price">${this.formatMoney(item.unitPrice)}</td>
+            <td class="col-line-price">${this.formatMoney(item.linePrice)}</td>
+            <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
+            <td class="col-vat">${this.formatMoney(item.vat)}</td>
+            <td class="col-total">${this.formatMoney(item.total)}</td>
+          </tr>
+        `);
+      });
+    }
 
     // Payments Logic
     // Assuming invoice.payments exists on InvoiceProps, otherwise use depositAmount
@@ -157,13 +349,15 @@ export class InvoiceReportGenerator {
             .items-table th { border: none; padding: 8px 6px; background-color: ${headerGreenBg}; color: ${headerGreenText}; font-weight: bold; text-align: center; font-size: 9px; text-transform: uppercase; }
             .items-table td { border: none; border-bottom: 1px solid #f0f0f0; padding: 8px 6px; vertical-align: top; font-size: 10px; }
             
-            .col-code { width: 8%; text-align: center; }
-            .col-desc { width: 35%; text-align: left; }
-            .col-qty { width: 10%; text-align: center; }
-            .col-price { width: 12%; text-align: right; }
-            .col-disc { width: 10%; text-align: center; }
-            .col-vat { width: 12%; text-align: right; }
-            .col-total { width: 13%; text-align: right; }
+            /* Updated column widths for both price columns */
+            .col-code { width: 6%; text-align: center; }
+            .col-desc { width: 28%; text-align: left; }
+            .col-qty { width: 8%; text-align: center; }
+            .col-unit-price { width: 10%; text-align: right; }
+            .col-line-price { width: 10%; text-align: right; }
+            .col-disc { width: 8%; text-align: center; }
+            .col-vat { width: 10%; text-align: right; }
+            .col-total { width: 10%; text-align: right; }
 
             .totals-wrapper { display: flex; justify-content: flex-end; margin-top: 20px; }
             .totals-table { width: 300px; border-collapse: collapse; }
@@ -186,10 +380,18 @@ export class InvoiceReportGenerator {
             <div class="col-left">
               ${logo ? `<img src="${logo}" class="logo-img" />` : ""}
               ${!logo ? `<div class="company-header">${cName}</div>` : ""}
-              <div class="address-block"><strong>${cName}</strong><br>${cAddress}<br>${cCity} ${cCode}<br>${cProv}</div>
-              ${cVat && ` <div class="reg-info">VAT No.: ${cVat}</div>`}
-             
-              <div class="contact-info">${cPhone}<br>${cPhone2}<br>${cEmail}</div>
+              <div class="address-block">
+                <strong>${cName}</strong><br>
+                ${cAddress}<br>
+                ${cCity} ${cCode}<br>
+                ${cProv}
+              </div>
+              ${cVat ? `<div class="reg-info">VAT No.: ${cVat}</div>` : ""}
+              <div class="contact-info">
+                ${cPhone ? `${cPhone}<br>` : ""}
+                ${cPhone2 ? `${cPhone2}<br>` : ""}
+                ${cEmail ? `${cEmail}` : ""}
+              </div>
             </div>
             <div class="col-right">
               <div class="quote-title-main">INVOICE</div>
@@ -201,7 +403,9 @@ export class InvoiceReportGenerator {
               <div class="client-box-label">BILL TO</div>
               <div class="client-box">
                 <div class="client-name">${invoice.client.company || invoice.client.name}</div>
-                ${invoice.client.address || ""}<br>${invoice.client.town || ""} ${invoice.client.village || ""}<br>${invoice.client.province || "South Africa"}
+                ${invoice.client.address || ""}<br>
+                ${invoice.client.town || ""} ${invoice.client.village || ""}<br>
+                ${invoice.client.province || "South Africa"}
               </div>
             </div>
           </div>
@@ -212,34 +416,25 @@ export class InvoiceReportGenerator {
                 <th class="col-code">CODE</th>
                 <th class="col-desc">DESCRIPTION</th>
                 <th class="col-qty">QTY</th>
-                <th class="col-price">PRICE (R)</th>
+                <th class="col-unit-price">UNIT PRICE (R)</th>
+                <th class="col-line-price">PRICE (R)</th>
                 <th class="col-disc">DISC %</th>
                 <th class="col-vat">VAT (R)</th>
                 <th class="col-total">TOTAL (R)</th>
               </tr>
             </thead>
             <tbody>
-              ${items
-                .map(
-                  (item) => `
-                <tr>
-                  <td class="col-code"></td>
-                  <td class="col-desc">${item.description}</td>
-                  <td class="col-qty">${item.qty}</td>
-                  <td class="col-price">${this.formatMoney(item.price)}</td>
-                  <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
-                  <td class="col-vat">${this.formatMoney(item.vat)}</td>
-                  <td class="col-total">${this.formatMoney(item.total)}</td>
-                </tr>
-              `
-                )
-                .join("")}
+              ${tableRows.join("")}
             </tbody>
           </table>
 
           <div class="totals-wrapper">
             <table class="totals-table">
-              ${totalDiscountDisplay > 0 ? `<tr><td class="label-cell">DISCOUNT:</td><td class="text-right">R${this.formatMoney(totalDiscountDisplay)}</td></tr>` : ""}
+              ${
+                totalDiscountDisplay > 0
+                  ? `<tr><td class="label-cell">DISCOUNT:</td><td class="text-right">R${this.formatMoney(totalDiscountDisplay)}</td></tr>`
+                  : ""
+              }
               <tr><td class="label-cell">SUBTOTAL:</td><td class="text-right">R${this.formatMoney(subtotalNet)}</td></tr>
               <tr><td class="label-cell">VAT 15%:</td><td class="text-right">R${this.formatMoney(finalVat)}</td></tr>
               <tr style="border-top: 2px solid ${headerGreenText}; color: ${headerGreenText};">
@@ -265,7 +460,7 @@ export class InvoiceReportGenerator {
           </div>
 
           <div class="footer-strip">
-            Account holder: ${companyInfo?.companyName} &nbsp;&nbsp;
+            Account holder: ${companyInfo?.companyName || ""} &nbsp;&nbsp;
             Bank: ${companyInfo?.bankName || ""} Account No.: ${companyInfo?.bankAccount || ""} &nbsp;&nbsp;
             Bank: ${companyInfo?.bankName2 || ""}  Account No.: ${companyInfo?.bankAccount2 || ""}
           </div>

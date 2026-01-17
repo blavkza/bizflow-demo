@@ -238,8 +238,8 @@ export default function InvoicesFilterTable({
                         className={
                           overdue
                             ? isPartiallyPaidOverdue
-                              ? "bg-orange-50 hover:bg-orange-100"
-                              : "bg-red-50 hover:bg-red-100"
+                              ? "bg-orange-50 dark:bg-zinc-700 hover:bg-orange-100 dark:hover:bg-zinc-600"
+                              : "bg-red-50 dark:bg-zinc-700 hover:bg-red-100 dark:hover:bg-zinc-600"
                             : ""
                         }
                       >
