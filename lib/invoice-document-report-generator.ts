@@ -28,6 +28,27 @@ interface CompanyInfo {
   note?: string;
 }
 
+// Type for combined service calculations
+interface CombinedServiceData {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  linePrice: number;
+  discountInput: string;
+  vat: number;
+  total: number;
+  individualServices: Array<{
+    description: string;
+    qty: number;
+    unitPrice: number;
+    linePrice: number;
+    discountInput: string;
+    vat: number;
+    total: number;
+  }>;
+  displayType: "combined-service";
+}
+
 export class InvoiceDocumentReportGenerator {
   private static decimalToNumber(decimalValue: any): number {
     if (decimalValue === null || decimalValue === undefined) return 0;
@@ -55,7 +76,7 @@ export class InvoiceDocumentReportGenerator {
         showTotals: false,
         showVAT: false,
         showDeliveryInfo: true,
-        showOnlyProducts: true,
+        showOnlyProducts: true, // Delivery notes typically show only products
         showUnit: false,
         showTotalWeight: true,
         showSKU: true,
@@ -71,7 +92,7 @@ export class InvoiceDocumentReportGenerator {
         showTotals: true,
         showVAT: true,
         showDeliveryInfo: false,
-        showOnlyProducts: true,
+        showOnlyProducts: true, // Purchase orders typically show only products
         showUnit: false,
         showTotalWeight: false,
         showSKU: true,
@@ -87,7 +108,7 @@ export class InvoiceDocumentReportGenerator {
         showTotals: true,
         showVAT: true,
         showDeliveryInfo: false,
-        showOnlyProducts: false,
+        showOnlyProducts: false, // Pro forma can show both products and services
         showUnit: false,
         showTotalWeight: false,
         showSKU: true,
@@ -103,7 +124,7 @@ export class InvoiceDocumentReportGenerator {
         showTotals: true,
         showVAT: true,
         showDeliveryInfo: false,
-        showOnlyProducts: false,
+        showOnlyProducts: false, // Credit notes can show both products and services
         showUnit: false,
         showTotalWeight: false,
         showSKU: true,
@@ -119,7 +140,7 @@ export class InvoiceDocumentReportGenerator {
         showTotals: false,
         showVAT: false,
         showDeliveryInfo: false,
-        showOnlyProducts: true,
+        showOnlyProducts: true, // Supplier lists typically show only products
         showUnit: false,
         showTotalWeight: true,
         showSKU: false,
@@ -135,7 +156,7 @@ export class InvoiceDocumentReportGenerator {
         showTotals: true,
         showVAT: true,
         showDeliveryInfo: false,
-        showOnlyProducts: false,
+        showOnlyProducts: false, // Invoices can show both products and services
         showUnit: false,
         showTotalWeight: false,
         showSKU: true,
@@ -163,6 +184,7 @@ export class InvoiceDocumentReportGenerator {
     const documentColor = config.color;
     const isSupplierList = document.invoiceDocumentType === "SUPPLIER_LIST";
     const showSupplierDetails = config.showSupplierDetails;
+    const showOnlyProducts = config.showOnlyProducts;
 
     // --- DATA PREPARATION ---
     const issueDate = new Date(document.issueDate).toLocaleDateString("en-GB");
@@ -278,33 +300,62 @@ export class InvoiceDocumentReportGenerator {
         `;
     }
 
-    // --- ITEMS PROCESSING ---
+    // --- SEPARATE ITEMS INTO PRODUCTS AND SERVICES ---
+    const productItems: Array<{
+      description: string;
+      qty: number;
+      unitPrice: number;
+      linePrice: number;
+      unitOfMeasure: string;
+      taxRate: number;
+      vat: number;
+      total: number;
+      weight: number;
+      totalWeight: number;
+      productName: string;
+      sku: string;
+      isService: boolean;
+    }> = [];
+
+    const serviceItems: Array<{
+      description: string;
+      qty: number;
+      unitPrice: number;
+      linePrice: number;
+      unitOfMeasure: string;
+      taxRate: number;
+      vat: number;
+      total: number;
+      weight: number;
+      totalWeight: number;
+      productName: string;
+      sku: string;
+      isService: boolean;
+    }> = [];
+
+    // Track totals for calculations
     let subtotalGross = 0; // Total before discount
     let subtotalNet = 0; // Total after discount (before VAT)
     let totalVat = 0;
     let totalWeight = 0;
 
-    // Filter items based on document type
-    let filteredItems = document.items;
-
-    if (config.showOnlyProducts) {
-      // Only show items with products (not services)
-      filteredItems = document.items.filter((item) => item.productId);
-    }
-
-    const items = filteredItems.map((item: DocumentItem) => {
+    // Process all items
+    document.items.forEach((item: DocumentItem) => {
       // Convert Decimal to number
       const qty = this.decimalToNumber(item.quantity);
-      const price = config.showPrice ? this.decimalToNumber(item.unitPrice) : 0;
+      const unitPrice = config.showPrice
+        ? this.decimalToNumber(item.unitPrice)
+        : 0;
       const taxRate = this.decimalToNumber(item.taxRate || 15);
+      const unitOfMeasure = item.unitOfMeasure || "pcs";
 
       // Calculate item amounts
-      const gross = qty * price;
-      const net = gross; // Line item net (discount is applied at document level)
+      const linePrice = qty * unitPrice;
+      const net = linePrice; // Line item net (discount is applied at document level)
       const vat = net * (taxRate / 100);
       const total = net + vat;
 
-      subtotalGross += gross;
+      subtotalGross += linePrice;
       subtotalNet += net;
       totalVat += vat;
 
@@ -315,11 +366,12 @@ export class InvoiceDocumentReportGenerator {
       const itemTotalWeight = itemWeight * qty;
       totalWeight += itemTotalWeight;
 
-      return {
+      const itemData = {
         description: item.description,
         qty,
-        price,
-        unitOfMeasure: item.unitOfMeasure || "pcs",
+        unitPrice,
+        linePrice,
+        unitOfMeasure,
         taxRate,
         vat,
         total,
@@ -327,8 +379,79 @@ export class InvoiceDocumentReportGenerator {
         totalWeight: itemTotalWeight,
         productName: item.product?.name || "",
         sku: item.product?.sku || "",
+        isService: false,
       };
+
+      // Determine if item is product or service
+      // For document items, we need to check different properties
+      // Service items typically have serviceId or description hints
+      const descLower = item.description?.toLowerCase() || "";
+      const isService =
+        (item as any).serviceId || // Check if it has serviceId
+        descLower.includes("service") ||
+        descLower.includes("labour") ||
+        descLower.includes("install") ||
+        descLower.includes("consult") ||
+        descLower.includes("support") ||
+        descLower.includes("maintenance");
+
+      if (isService && !showOnlyProducts) {
+        // Only add services if document type allows them
+        serviceItems.push({ ...itemData, isService: true });
+      } else {
+        productItems.push({ ...itemData, isService: false });
+      }
     });
+
+    // --- CREATE COMBINED SERVICES ROW (if document type allows services) ---
+    let combinedServicesData: CombinedServiceData | null = null;
+
+    if (serviceItems.length > 0 && !showOnlyProducts) {
+      // Calculate combined totals
+      let totalQuantity = 0;
+      let totalLinePrice = 0;
+      let totalDiscount = 0;
+      let totalNet = 0;
+      let totalVatServices = 0;
+      let totalAmountServices = 0;
+      const serviceDescriptions: string[] = [];
+
+      serviceItems.forEach((service) => {
+        totalQuantity += service.qty;
+        totalLinePrice += service.linePrice;
+        totalNet += service.total - service.vat;
+        totalVatServices += service.vat;
+        totalAmountServices += service.total;
+
+        if (service.description) {
+          serviceDescriptions.push(service.description);
+        }
+      });
+
+      // Calculate weighted average unit price (not shown but used for calculations)
+      const averageUnitPrice =
+        totalQuantity > 0 ? totalLinePrice / totalQuantity : 0;
+
+      combinedServicesData = {
+        description: `Services Package (${serviceItems.length} services)`,
+        quantity: totalQuantity,
+        unitPrice: averageUnitPrice,
+        linePrice: totalLinePrice,
+        discountInput: "0.00", // Services in documents typically don't have individual discounts
+        vat: totalVatServices,
+        total: totalAmountServices,
+        individualServices: serviceItems.map((s) => ({
+          description: s.description,
+          qty: s.qty,
+          unitPrice: s.unitPrice,
+          linePrice: s.linePrice,
+          discountInput: "0.00",
+          vat: s.vat,
+          total: s.total,
+        })),
+        displayType: "combined-service",
+      };
+    }
 
     // Apply document-level discount based on discount type
     let calculatedDiscountAmount = 0;
@@ -383,25 +506,28 @@ export class InvoiceDocumentReportGenerator {
     const showSKU = config.showSKU && config.showOnlyProducts;
 
     if (config.showPrice) {
-      // When showing prices, NO UNIT column
+      // When showing prices, include both UNIT PRICE and PRICE columns
       tableHeaders = `
           <th class="col-code">#</th>
           <th class="col-desc">DESCRIPTION</th>
           ${showSKU ? `<th class="col-sku">SKU</th>` : ""}
           <th class="col-qty">QTY</th>
-          <th class="col-price">PRICE (R)</th>
+          <th class="col-unit-price">UNIT PRICE (R)</th>
+          <th class="col-line-price">PRICE (R)</th>
           <th class="col-tax">VAT %</th>
           <th class="col-total">TOTAL (R)</th>
         `;
 
+      // Adjust column widths to accommodate both price columns
       tableColumns = `
-          .col-code { width: 5%; text-align: center; }
-          .col-desc { width: ${showSKU ? "30%" : "40%"}; text-align: left; }
-          ${showSKU ? ".col-sku { width: 10%; text-align: center; }" : ""}
-          .col-qty { width: 10%; text-align: center; }
-          .col-price { width: 15%; text-align: right; }
-          .col-tax { width: 10%; text-align: center; }
-          .col-total { width: 15%; text-align: right; }
+          .col-code { width: 4%; text-align: center; }
+          .col-desc { width: ${showSKU ? "25%" : "35%"}; text-align: left; }
+          ${showSKU ? ".col-sku { width: 8%; text-align: center; }" : ""}
+          .col-qty { width: 8%; text-align: center; }
+          .col-unit-price { width: 10%; text-align: right; }
+          .col-line-price { width: 10%; text-align: right; }
+          .col-tax { width: 8%; text-align: center; }
+          .col-total { width: 12%; text-align: right; }
         `;
     } else {
       // For non-price documents
@@ -427,26 +553,12 @@ export class InvoiceDocumentReportGenerator {
         `;
     }
 
-    // Generate table rows based on document type
+    // --- BUILD TABLE ROWS ---
     let tableRows = "";
-    if (config.showPrice) {
-      tableRows = items
-        .map(
-          (item, index) => `
-          <tr>
-            <td class="col-code">${index + 1}</td>
-            <td class="col-desc">${item.description || item.productName}</td>
-            ${showSKU ? `<td class="col-sku">${item.sku}</td>` : ""}
-            <td class="col-qty">${item.qty}</td>
-            <td class="col-price">${this.formatMoney(item.price)}</td>
-            <td class="col-tax">${item.taxRate}%</td>
-            <td class="col-total">${this.formatMoney(item.total)}</td>
-          </tr>
-        `
-        )
-        .join("");
-    } else {
-      tableRows = items
+
+    if (!config.showPrice) {
+      // For non-price documents (delivery notes, supplier lists)
+      tableRows = productItems
         .map(
           (item, index) => `
           <tr>
@@ -460,6 +572,83 @@ export class InvoiceDocumentReportGenerator {
         `
         )
         .join("");
+    } else {
+      // For price documents (invoices, pro forma, credit notes)
+
+      // Add product rows
+      productItems.forEach((item, index) => {
+        tableRows += `
+          <tr>
+            <td class="col-code">${index + 1}</td>
+            <td class="col-desc">${item.description || item.productName}</td>
+            ${showSKU ? `<td class="col-sku">${item.sku}</td>` : ""}
+            <td class="col-qty">${item.qty}</td>
+            <td class="col-unit-price">${this.formatMoney(item.unitPrice)}</td>
+            <td class="col-line-price">${this.formatMoney(item.linePrice)}</td>
+            <td class="col-tax">${item.taxRate}%</td>
+            <td class="col-total">${this.formatMoney(item.total)}</td>
+          </tr>
+        `;
+      });
+
+      // Add combined services row if exists
+      if (combinedServicesData && !showOnlyProducts) {
+        tableRows += `
+          <tr style="background-color: #f8fafc;">
+            <td class="col-code">SVC</td>
+            <td class="col-desc">
+              <strong>${combinedServicesData.description}</strong>
+              <div style="font-size: 8px; color: #666; margin-top: 2px; font-style: italic;">
+                Includes:
+                <ul style="margin: 2px 0 0 12px; padding: 0;">
+                  ${serviceItems
+                    .slice(0, 3)
+                    .map(
+                      (service, index) => `
+                    <li style="list-style-type: disc; margin-left: 8px;">
+                      ${service.description}
+                    </li>
+                  `
+                    )
+                    .join("")}
+                </ul>
+                ${
+                  serviceItems.length > 3
+                    ? `
+                  <div style="margin-left: 12px;">
+                    and ${serviceItems.length - 3} more
+                  </div>
+                `
+                    : ""
+                }
+              </div>
+            </td>
+            ${showSKU ? `<td class="col-sku">-</td>` : ""}
+            <td class="col-qty">${combinedServicesData.quantity}</td>
+            <td class="col-unit-price">-</td>
+            <td class="col-line-price">${this.formatMoney(combinedServicesData.linePrice)}</td>
+            <td class="col-tax">15%</td>
+            <td class="col-total"><strong>${this.formatMoney(combinedServicesData.total)}</strong></td>
+          </tr>
+        `;
+      } else if (serviceItems.length > 0 && !showOnlyProducts) {
+        // Show services individually if not combined
+        const startIndex = productItems.length;
+        serviceItems.forEach((item, index) => {
+          tableRows += `
+            <tr>
+              <td class="col-code">${startIndex + index + 1}</td>
+              <td class="col-desc">${item.description || item.productName}</td>
+              ${showSKU ? `<td class="col-sku">${item.sku}</td>` : ""}
+              <td class="col-qty">${item.qty}</td>
+              <td class="col-unit-price">${this.formatMoney(item.unitPrice)}</td>
+              <td class="col-line-price">${this.formatMoney(item.linePrice)}</td>
+              <td class="col-tax">${item.taxRate}%</td>
+              <td class="col-total">${this.formatMoney(item.total)}</td>
+            </tr>
+          `;
+        });
+      }
     }
 
     // Generate total weight section for documents that need it

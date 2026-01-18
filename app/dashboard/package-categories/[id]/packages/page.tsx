@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
-import { FileDown, PackageIcon } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { ChevronLeft, FileDown, PackageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -44,6 +44,7 @@ async function deletePackage(id: string) {
 
 export default function CategoryPackagesPage() {
   const params = useParams();
+  const router = useRouter();
   const categoryId = params.id as string;
 
   const [category, setCategory] = useState<{
@@ -225,6 +226,15 @@ export default function CategoryPackagesPage() {
         <div className="flex items-center gap-2 px-4">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
+          <Button variant="ghost" size="sm" onClick={() => router.back()}>
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Back to categories
+          </Button>
+        </div>
+      </header>
+
+      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold">
               {category ? `${category.name} Packages` : "Loading..."}
@@ -235,20 +245,7 @@ export default function CategoryPackagesPage() {
               </p>
             )}
           </div>
-        </div>
-      </header>
-
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Manage packages within this category
-          </p>
           <div className="flex gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/package-categories">
-                Back to Categories
-              </Link>
-            </Button>
             <PackageDialog categoryId={categoryId} onSuccess={loadData} />
           </div>
         </div>

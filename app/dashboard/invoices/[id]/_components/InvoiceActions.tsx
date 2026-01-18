@@ -384,7 +384,7 @@ export function InvoiceActions({
           open={!!convertingTo}
           onOpenChange={() => setConvertingTo(null)}
         >
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[95vh] lg:min-w-[800px] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 Create {getDocumentTypeLabel(convertingTo)}
@@ -431,7 +431,7 @@ export function InvoiceActions({
 
               {convertingTo === "DELIVERY_NOTE" && (
                 <>
-                  <div className="grid gap-2">
+                  {/*   <div className="grid gap-2">
                     <Label htmlFor="deliveryAddress">Delivery Address</Label>
                     <Textarea
                       id="deliveryAddress"
@@ -445,8 +445,8 @@ export function InvoiceActions({
                       placeholder="Enter delivery address"
                       rows={2}
                     />
-                  </div>
-                  <div className="grid gap-2">
+                  </div> */}
+                  {/*   <div className="grid gap-2">
                     <Label htmlFor="shippingMethod">Shipping Method</Label>
                     <Input
                       id="shippingMethod"
@@ -459,8 +459,8 @@ export function InvoiceActions({
                       }
                       placeholder="e.g., Courier, Pickup"
                     />
-                  </div>
-                  <div className="grid gap-2">
+                  </div> */}
+                  {/*   <div className="grid gap-2">
                     <Label htmlFor="shippingTrackingNumber">
                       Tracking Number
                     </Label>
@@ -475,11 +475,11 @@ export function InvoiceActions({
                       }
                       placeholder="Optional tracking number"
                     />
-                  </div>
+                  </div> */}
                 </>
               )}
 
-              {(convertingTo === "PURCHASE_ORDER" ||
+              {/*   {(convertingTo === "PURCHASE_ORDER" ||
                 convertingTo === "DELIVERY_NOTE") && (
                 <div className="grid gap-2">
                   <Label htmlFor="referenceNumber">
@@ -503,7 +503,7 @@ export function InvoiceActions({
                     }
                   />
                 </div>
-              )}
+              )} */}
 
               <div className="grid gap-2">
                 <Label htmlFor="notes">Additional Notes (Optinal)</Label>

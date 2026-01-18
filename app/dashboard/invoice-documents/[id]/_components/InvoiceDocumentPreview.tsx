@@ -5,11 +5,19 @@ import { InvoiceDocumentWithRelations } from "@/types/invoice-document";
 import { InvoiceDocumentReportGenerator } from "@/lib/invoice-document-report-generator";
 import { useCompanyInfo } from "@/hooks/use-company-info";
 import { Card } from "@/components/ui/card";
-import { Loader2, Download, Printer, ArrowLeft, Edit } from "lucide-react";
+import {
+  Loader2,
+  Download,
+  Printer,
+  ArrowLeft,
+  Edit,
+  Mail,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { SendEmailDialog } from "./send-email-dialog";
 
 interface InvoiceDocumentPreviewProps {
   document: InvoiceDocumentWithRelations;
@@ -26,6 +34,8 @@ export const InvoiceDocumentPreview = ({
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const router = useRouter();
+
+  const [showEmailDialog, setShowEmailDialog] = useState(false);
 
   useEffect(() => {
     if (!loading) {
@@ -70,6 +80,49 @@ export const InvoiceDocumentPreview = ({
       toast.error("Failed to print document");
       setIsPrinting(false);
     }
+  };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      // Generate HTML content
+      const htmlContent =
+        InvoiceDocumentReportGenerator.generateInvoiceDocumentHTML(
+          document,
+          companyInfo
+        );
+
+      // Create a blob from the HTML content
+      const blob = new Blob([htmlContent], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+
+      const link = window.document.createElement("a");
+
+      const linkElement = window.document.createElement("a");
+      linkElement.href = url;
+      linkElement.download = `${document.invoiceDocumentNumber}_${document.invoiceDocumentType.toLowerCase()}.html`;
+
+      // Trigger download
+      window.document.body.appendChild(linkElement);
+      linkElement.click();
+      window.document.body.removeChild(linkElement);
+
+      // Clean up
+      URL.revokeObjectURL(url);
+
+      toast.success("Document downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading document:", error);
+      toast.error("Failed to download document");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const hasEmailContact = () => {
+    if (document.client?.email) return true;
+    if (document.supplier?.email) return true;
+    return false;
   };
 
   const getDocumentTypeLabel = (type: string) => {
@@ -129,8 +182,38 @@ export const InvoiceDocumentPreview = ({
               </Button>
             )}
 
+            {/* Download Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleDownload()}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Download
+            </Button>
+
+            {/* Send Email Button */}
+            <Button
+              size="sm"
+              onClick={() => setShowEmailDialog(true)}
+              disabled={!hasEmailContact()}
+            >
+              <Mail className="mr-2 h-4 w-4" />
+              Send Email
+            </Button>
+
+            {/* Print Button */}
             <Button size="sm" onClick={handlePrint} disabled={isPrinting}>
-              <Printer className="mr-2 h-4 w-4" />
+              {isPrinting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Printer className="mr-2 h-4 w-4" />
+              )}
               Print
             </Button>
           </div>
@@ -297,6 +380,18 @@ export const InvoiceDocumentPreview = ({
           </div>
         )}
       </Card>
+
+      <SendEmailDialog
+        open={showEmailDialog}
+        onOpenChange={setShowEmailDialog}
+        document={document}
+        htmlContent={htmlContent}
+        companyInfo={companyInfo}
+        onSuccess={() => {
+          toast.success("Email sent successfully");
+          setShowEmailDialog(false);
+        }}
+      />
     </div>
   );
 };

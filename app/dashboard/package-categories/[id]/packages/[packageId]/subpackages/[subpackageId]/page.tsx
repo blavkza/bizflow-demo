@@ -613,11 +613,7 @@ export default function SubpackageDetailPage() {
                                 SKU: {item.sku}
                               </div>
                             )}
-                            {item.description && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">
-                                {item.description}
-                              </div>
-                            )}
+
                             <div
                               className={`text-xs mt-1 flex items-center gap-1 ${
                                 item.type === "product"
@@ -633,12 +629,32 @@ export default function SubpackageDetailPage() {
                                   Product
                                 </>
                               ) : isCombinedService ? (
-                                <>
-                                  <Layers className="h-3 w-3" />
-                                  Combined Services (
-                                  {item.individualServices?.length || 0}{" "}
-                                  services)
-                                </>
+                                <div className="flex flex-col items-start gap-2">
+                                  <div className="flex items-center gap-1">
+                                    <Layers className="h-3 w-3" />
+                                    Combined Services (
+                                    {item.individualServices?.length || 0}{" "}
+                                    services)
+                                  </div>
+
+                                  <div className="space-y-1 text-sm">
+                                    {combinedServices?.services.map(
+                                      (service, index) => (
+                                        <div
+                                          key={service.id}
+                                          className="flex justify-between items-center py-1"
+                                        >
+                                          <div className="flex items-center gap-1">
+                                            <span className="text-xs text-gray-600 dark:text-gray-400">
+                                              {service.name ||
+                                                `Service ${index + 1}`}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
                               ) : (
                                 <>
                                   <Briefcase className="h-3 w-3" />
@@ -651,8 +667,13 @@ export default function SubpackageDetailPage() {
                             {quantity}
                           </div>
                           <div className="col-span-1 text-right text-gray-900 dark:text-gray-100">
-                            {unitPrice ? formatNumber(unitPrice) : "-"}
+                            {isCombinedService
+                              ? "-"
+                              : unitPrice
+                                ? formatNumber(unitPrice)
+                                : "-"}
                           </div>
+
                           <div className="col-span-1 text-right">
                             {discountAmount > 0 ? (
                               <div className="text-red-600 dark:text-red-400">
