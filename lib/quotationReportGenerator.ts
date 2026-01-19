@@ -500,6 +500,7 @@ export class QuotationReportGenerator {
                 ${cEmail}<br>
                 ${cWeb}
               </div>
+          
             </div>
 
             <div class="col-right">
@@ -518,6 +519,16 @@ export class QuotationReportGenerator {
                   <td class="label-cell">Valid until:</td>
                   <td class="value-cell">${validUntil}</td>
                 </tr>
+                    ${
+                quotation.creator
+                  ? `
+<tr>
+  <td class="label-cell">Prepared by:</td>
+  <td class="value-cell">${quotation.creator.name}</td>
+</tr>
+`
+                  : ""
+              }
               </table>
 
               <div class="client-box-label">FOR</div>

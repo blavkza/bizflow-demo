@@ -197,7 +197,9 @@ export function CartSection({
                   <div
                     key={item.id}
                     className={`flex items-start space-x-3 p-2 border rounded-lg ${
-                      exceedsStock ? "border-amber-200 bg-amber-50" : ""
+                      exceedsStock
+                        ? "border-amber-200 bg-amber-50 dark:bg-zinc-900"
+                        : ""
                     }`}
                   >
                     <div className="flex-1 min-w-0">

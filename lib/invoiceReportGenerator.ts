@@ -392,6 +392,7 @@ export class InvoiceReportGenerator {
                 ${cPhone2 ? `${cPhone2}<br>` : ""}
                 ${cEmail ? `${cEmail}` : ""}
               </div>
+              
             </div>
             <div class="col-right">
               <div class="quote-title-main">INVOICE</div>
@@ -399,6 +400,16 @@ export class InvoiceReportGenerator {
                 <tr><td class="label-cell">Invoice No.:</td><td class="value-cell">${invoice.invoiceNumber}</td></tr>
                 <tr><td class="label-cell">Date:</td><td class="value-cell">${issueDate}</td></tr>
                 <tr><td class="label-cell">Due Date:</td><td class="value-cell">${dueDate}</td></tr>
+                    ${
+                      invoice.creator
+                        ? `
+<tr>
+  <td class="label-cell">Prepared by:</td>
+  <td class="value-cell">${invoice.creator.name}</td>
+</tr>
+`
+                        : ""
+                    }
               </table>
               <div class="client-box-label">BILL TO</div>
               <div class="client-box">

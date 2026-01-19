@@ -49,6 +49,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AddVendorDialog } from "./AddVendorDialog";
+import { useCompanyInfo } from "@/hooks/use-company-info";
+import { Editor } from "@/components/ui/editor";
 
 interface InvoiceActionsProps {
   invoice: InvoiceProps;
@@ -75,6 +77,7 @@ export function InvoiceActions({
     []
   );
   const [selectedVendorId, setSelectedVendorId] = useState<string>("");
+  const { companyInfo } = useCompanyInfo();
 
   const [customData, setCustomData] = useState({
     referenceNumber: "",
@@ -94,6 +97,18 @@ export function InvoiceActions({
     }
   }, [convertingTo]);
 
+  // Initialize notes and terms from company settings when conversion dialog opens
+  useEffect(() => {
+    if (convertingTo && companyInfo) {
+      const defaultNotesAndTerms = getDefaultNotesAndTerms(convertingTo);
+      setCustomData((prev) => ({
+        ...prev,
+        notes: defaultNotesAndTerms.notes,
+        terms: defaultNotesAndTerms.terms,
+      }));
+    }
+  }, [convertingTo, companyInfo]);
+
   const fetchVendors = async () => {
     try {
       const response = await fetch("/api/vendors");
@@ -107,6 +122,41 @@ export function InvoiceActions({
       );
     } catch (error) {
       console.error("Error fetching vendors:", error);
+    }
+  };
+
+  // Get default notes and terms based on document type
+  const getDefaultNotesAndTerms = (documentType: string) => {
+    if (!companyInfo) return { notes: "", terms: "" };
+
+    switch (documentType) {
+      case "DELIVERY_NOTE":
+        return {
+          notes: companyInfo.deliveryNoteNote || "",
+          terms: companyInfo.deliveryNoteTerms || "",
+        };
+      case "PURCHASE_ORDER":
+        return {
+          notes: companyInfo.purchaseOrderNote || "",
+          terms: companyInfo.purchaseOrderTerms || "",
+        };
+      case "PRO_FORMA_INVOICE":
+        return {
+          notes: companyInfo.proFormaNote || "",
+          terms: companyInfo.proFormaTerms || "",
+        };
+      case "CREDIT_NOTE":
+        return {
+          notes: companyInfo.creditNoteNote || "",
+          terms: companyInfo.creditNoteTerms || "",
+        };
+      case "SUPPLIER_LIST":
+        return {
+          notes: companyInfo.supplierListNote || "",
+          terms: companyInfo.supplierListTerms || "",
+        };
+      default:
+        return { notes: "", terms: "" };
     }
   };
 
@@ -236,6 +286,17 @@ export function InvoiceActions({
     toast.success("Vendor added successfully");
   };
 
+  // Handle opening conversion dialog
+  const handleOpenConversion = (documentType: string) => {
+    setConvertingTo(documentType);
+    const defaults = getDefaultNotesAndTerms(documentType);
+    setCustomData((prev) => ({
+      ...prev,
+      notes: defaults.notes,
+      terms: defaults.terms,
+    }));
+  };
+
   return (
     <div className="flex items-center space-x-2">
       {/* Send Invoice Dialog */}
@@ -300,25 +361,31 @@ export function InvoiceActions({
           {/* Document Conversion Options */}
           <DropdownMenuSeparator />
           <DropdownMenuLabel>Create From Invoice</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => setConvertingTo("DELIVERY_NOTE")}>
+          <DropdownMenuItem
+            onClick={() => handleOpenConversion("DELIVERY_NOTE")}
+          >
             <Truck className="mr-2 h-4 w-4" />
             Delivery Note
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setConvertingTo("PURCHASE_ORDER")}>
+          <DropdownMenuItem
+            onClick={() => handleOpenConversion("PURCHASE_ORDER")}
+          >
             <FileText className="mr-2 h-4 w-4" />
             Purchase Order
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => setConvertingTo("PRO_FORMA_INVOICE")}
+            onClick={() => handleOpenConversion("PRO_FORMA_INVOICE")}
           >
             <FileText className="mr-2 h-4 w-4" />
             Pro Forma Invoice
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setConvertingTo("CREDIT_NOTE")}>
+          <DropdownMenuItem onClick={() => handleOpenConversion("CREDIT_NOTE")}>
             <CreditCard className="mr-2 h-4 w-4" />
             Credit Note
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setConvertingTo("SUPPLIER_LIST")}>
+          <DropdownMenuItem
+            onClick={() => handleOpenConversion("SUPPLIER_LIST")}
+          >
             <List className="mr-2 h-4 w-4" />
             Supplier List
           </DropdownMenuItem>
@@ -391,7 +458,7 @@ export function InvoiceActions({
               </DialogTitle>
               <DialogDescription>
                 Customize your {convertingTo.toLowerCase().replace("_", " ")}{" "}
-                details or use invoice default
+                details. Default notes and terms are pre-filled from settings.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -431,7 +498,8 @@ export function InvoiceActions({
 
               {convertingTo === "DELIVERY_NOTE" && (
                 <>
-                  {/*   <div className="grid gap-2">
+                  {/* Optional delivery note specific fields */}
+                  {/* <div className="grid gap-2">
                     <Label htmlFor="deliveryAddress">Delivery Address</Label>
                     <Textarea
                       id="deliveryAddress"
@@ -446,90 +514,47 @@ export function InvoiceActions({
                       rows={2}
                     />
                   </div> */}
-                  {/*   <div className="grid gap-2">
-                    <Label htmlFor="shippingMethod">Shipping Method</Label>
-                    <Input
-                      id="shippingMethod"
-                      value={customData.shippingMethod}
-                      onChange={(e) =>
-                        setCustomData({
-                          ...customData,
-                          shippingMethod: e.target.value,
-                        })
-                      }
-                      placeholder="e.g., Courier, Pickup"
-                    />
-                  </div> */}
-                  {/*   <div className="grid gap-2">
-                    <Label htmlFor="shippingTrackingNumber">
-                      Tracking Number
-                    </Label>
-                    <Input
-                      id="shippingTrackingNumber"
-                      value={customData.shippingTrackingNumber}
-                      onChange={(e) =>
-                        setCustomData({
-                          ...customData,
-                          shippingTrackingNumber: e.target.value,
-                        })
-                      }
-                      placeholder="Optional tracking number"
-                    />
-                  </div> */}
                 </>
               )}
 
-              {/*   {(convertingTo === "PURCHASE_ORDER" ||
-                convertingTo === "DELIVERY_NOTE") && (
-                <div className="grid gap-2">
-                  <Label htmlFor="referenceNumber">
-                    {convertingTo === "PURCHASE_ORDER"
-                      ? "PO Reference Number"
-                      : "Delivery Note Number"}
-                  </Label>
-                  <Input
-                    id="referenceNumber"
-                    value={customData.referenceNumber}
-                    onChange={(e) =>
-                      setCustomData({
-                        ...customData,
-                        referenceNumber: e.target.value,
-                      })
+              {/* Notes Field */}
+              <div className="grid gap-2">
+                <Label htmlFor="notes">Additional Notes (Optional)</Label>
+                <div className="border rounded-md">
+                  <Editor
+                    value={customData.notes}
+                    onChange={(value) =>
+                      setCustomData({ ...customData, notes: value })
                     }
-                    placeholder={
-                      convertingTo === "PURCHASE_ORDER"
-                        ? "e.g., PO-2024-001"
-                        : "e.g., DN-2024-001"
-                    }
+                    placeholder="Add any special instructions"
                   />
                 </div>
-              )} */}
-
-              <div className="grid gap-2">
-                <Label htmlFor="notes">Additional Notes (Optinal)</Label>
-                <Textarea
-                  id="notes"
-                  value={customData.notes}
-                  onChange={(e) =>
-                    setCustomData({ ...customData, notes: e.target.value })
-                  }
-                  placeholder="Add any special instructions"
-                  rows={2}
-                />
               </div>
 
+              {/* Terms Field */}
               <div className="grid gap-2">
-                <Label htmlFor="terms">Terms & Conditions (Optinal)</Label>
-                <Textarea
-                  id="terms"
-                  value={customData.terms}
-                  onChange={(e) =>
-                    setCustomData({ ...customData, terms: e.target.value })
-                  }
-                  placeholder="Add terms and conditions"
-                  rows={2}
-                />
+                <Label htmlFor="terms">Terms & Conditions (Optional)</Label>
+                <div className="border rounded-md">
+                  <Editor
+                    value={customData.terms}
+                    onChange={(value) =>
+                      setCustomData({ ...customData, terms: value })
+                    }
+                    placeholder="Add terms and conditions"
+                  />
+                </div>
               </div>
+
+              {/* Information about defaults */}
+              {companyInfo && (
+                <div className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded">
+                  <p>
+                    Default notes and terms are pre-filled from your company
+                    settings.
+                  </p>
+                  <p>You can edit them above or leave them as is.</p>
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button
@@ -537,6 +562,16 @@ export function InvoiceActions({
                 onClick={() => {
                   setConvertingTo(null);
                   setSelectedVendorId("");
+                  setCustomData({
+                    referenceNumber: "",
+                    deliveryAddress: "",
+                    shippingMethod: "",
+                    shippingTrackingNumber: "",
+                    notes: "",
+                    terms: "",
+                    deliveryNoteNumber: "",
+                    supplierId: "",
+                  });
                 }}
               >
                 Cancel

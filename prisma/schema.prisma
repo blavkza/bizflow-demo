@@ -104,6 +104,17 @@ model GeneralSetting {
   province     String
   postCode     String
 
+  deliveryNoteNote   String?
+  deliveryNoteTerms  String?
+  purchaseOrderNote  String?
+  purchaseOrderTerms String?
+  proFormaNote       String?
+  proFormaTerms      String?
+  creditNoteNote     String?
+  creditNoteTerms    String?
+  supplierListNote   String?
+  supplierListTerms  String?
+
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

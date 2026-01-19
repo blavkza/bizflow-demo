@@ -56,6 +56,16 @@ export async function POST(req: Request) {
       phone2,
       phone3,
       email,
+      deliveryNoteNote,
+      deliveryNoteTerms,
+      purchaseOrderNote,
+      purchaseOrderTerms,
+      proFormaNote,
+      proFormaTerms,
+      creditNoteNote,
+      creditNoteTerms,
+      supplierListNote,
+      supplierListTerms,
     } = body;
 
     const allUsers = await db.user.findMany({
@@ -95,6 +105,16 @@ export async function POST(req: Request) {
             phone2,
             phone3,
             email,
+            deliveryNoteNote,
+            deliveryNoteTerms,
+            purchaseOrderNote,
+            purchaseOrderTerms,
+            proFormaNote,
+            proFormaTerms,
+            creditNoteNote,
+            creditNoteTerms,
+            supplierListNote,
+            supplierListTerms,
           },
         });
         results.push({
@@ -123,6 +143,16 @@ export async function POST(req: Request) {
             phone2,
             phone3,
             email,
+            deliveryNoteNote,
+            deliveryNoteTerms,
+            purchaseOrderNote,
+            purchaseOrderTerms,
+            proFormaNote,
+            proFormaTerms,
+            creditNoteNote,
+            creditNoteTerms,
+            supplierListNote,
+            supplierListTerms,
           },
         });
         results.push({
@@ -192,6 +222,16 @@ export async function GET() {
         phone2: true,
         phone3: true,
         email: true,
+        deliveryNoteNote: true,
+        deliveryNoteTerms: true,
+        purchaseOrderNote: true,
+        purchaseOrderTerms: true,
+        proFormaNote: true,
+        proFormaTerms: true,
+        creditNoteNote: true,
+        creditNoteTerms: true,
+        supplierListNote: true,
+        supplierListTerms: true,
       },
     });
 
@@ -219,6 +259,16 @@ export async function GET() {
       phone2: settings.phone2,
       phone3: settings.phone3,
       email: settings.email,
+      deliveryNoteNote: settings.deliveryNoteNote,
+      deliveryNoteTerms: settings.deliveryNoteTerms,
+      purchaseOrderNote: settings.purchaseOrderNote,
+      purchaseOrderTerms: settings.purchaseOrderTerms,
+      proFormaNote: settings.proFormaNote,
+      proFormaTerms: settings.purchaseOrderTerms,
+      creditNoteNote: settings.creditNoteNote,
+      creditNoteTerms: settings.deliveryNoteTerms,
+      supplierListNote: settings.supplierListNote,
+      supplierListTerms: settings.purchaseOrderTerms,
     };
 
     return NextResponse.json({ data: transformedSettings });

@@ -152,6 +152,9 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
                     {generalSetting?.bankAccount2 || "N/A"}
                   </div>
                 </div>
+                <div className="text-sm text-muted-foreground">
+                  Prepared By: {invoice.creator?.name || "N/A"}
+                </div>
               </div>
             </div>
 

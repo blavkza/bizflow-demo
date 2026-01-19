@@ -76,7 +76,7 @@ export class InvoiceDocumentReportGenerator {
         showTotals: false,
         showVAT: false,
         showDeliveryInfo: true,
-        showOnlyProducts: true, // Delivery notes typically show only products
+        showOnlyProducts: true,
         showUnit: false,
         showTotalWeight: true,
         showSKU: true,
@@ -781,17 +781,25 @@ export class InvoiceDocumentReportGenerator {
                   ${cWeb ? `${cWeb}` : ""}
                 </div>
               </div>
+            
               <div class="col-right">
                 <div class="document-title-main">
                   ${config.title} 
                 </div>
+                
                 <table class="details-table">
                   <tr><td class="label-cell">Document No.:</td><td class="value-cell">${document.invoiceDocumentNumber}</td></tr>
                   <tr><td class="label-cell">Date:</td><td class="value-cell">${issueDate}</td></tr>
                   ${document.dueDate ? `<tr><td class="label-cell">Due Date:</td><td class="value-cell">${dueDate}</td></tr>` : ""}
+                  ${
+                    document.creator && document.creator.name
+                      ? `<tr><td class="label-cell">Prepared by:</td><td class="value-cell">${document.creator.name}</td></tr>`
+                      : ""
+                  }
                   ${additionalInfo}
                   ${document.referenceNumber ? `<tr><td class="label-cell">Reference:</td><td class="value-cell">${document.referenceNumber}</td></tr>` : ""}
                 </table>
+                
                 <div class="contact-box-label">${contactLabel}</div>
                 <div class="contact-box">
                   <div class="contact-name">${contactName}</div>
@@ -803,6 +811,7 @@ export class InvoiceDocumentReportGenerator {
                   ${contactEmail ? `${contactEmail}` : ""}
                   ${contactWebsite ? `<br>Website: ${contactWebsite}` : ""}
                 </div>
+                
                 ${detailedSupplierInfo}
               </div>
             </div>

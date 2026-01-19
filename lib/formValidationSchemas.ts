@@ -677,6 +677,17 @@ export const GeneralSettingsSchema = z.object({
   city: z.string().min(1, "City is required"),
   province: z.string().min(1, "Province is required"),
   postCode: z.string().min(1, "Post code is required"),
+
+  deliveryNoteNote: z.string().optional(),
+  deliveryNoteTerms: z.string().optional(),
+  purchaseOrderNote: z.string().optional(),
+  purchaseOrderTerms: z.string().optional(),
+  proFormaNote: z.string().optional(),
+  proFormaTerms: z.string().optional(),
+  creditNoteNote: z.string().optional(),
+  creditNoteTerms: z.string().optional(),
+  supplierListNote: z.string().optional(),
+  supplierListTerms: z.string().optional(),
 });
 
 export type GeneralSettingsSchemaType = z.infer<typeof GeneralSettingsSchema>;

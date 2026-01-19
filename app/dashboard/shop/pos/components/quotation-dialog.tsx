@@ -630,13 +630,13 @@ export function QuotationDialog({
           </div>
 
           {/* Order Summary */}
-          <div className="p-4 border rounded-lg space-y-2 bg-gray-50">
-            <h4 className="font-semibold text-lg text-gray-900 mb-3">
+          <div className="p-4 border rounded-lg space-y-2 bg-gray-50 dark:bg-zinc-900">
+            <h4 className="font-semibold text-lg text-gray-900 dark:text-zinc-200 mb-3">
               Order Summary
             </h4>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">Subtotal:</span>
+                <span className="text-muted-foreground">Subtotal:</span>
                 <span>R{subtotal.toFixed(2)}</span>
               </div>
               {discountAmount > 0 && (

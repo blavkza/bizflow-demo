@@ -22,6 +22,8 @@ import {
   User,
   Calendar,
   BadgeCheck,
+  Eye, // ADD THIS
+  EyeOff, // ADD THIS
 } from "lucide-react";
 import { quotationGenerator } from "@/lib/quotation-generator";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +42,8 @@ interface QuotationReceiptDialogProps {
   isSendingEmail: boolean;
   setIsSendingEmail: (sending: boolean) => void;
   handleFinishQuotation: () => void;
+  showItemPrices?: boolean; // ADD THIS
+  setShowItemPrices?: (show: boolean) => void; // ADD THIS
 }
 
 export function QuotationReceiptDialog({
@@ -53,11 +57,24 @@ export function QuotationReceiptDialog({
   isSendingEmail,
   setIsSendingEmail,
   handleFinishQuotation,
+  showItemPrices: externalShowItemPrices, // ADD THIS
+  setShowItemPrices: externalSetShowItemPrices, // ADD THIS
 }: QuotationReceiptDialogProps) {
   const { toast } = useToast();
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const { companyInfo } = useCompanyInfo();
+
+  // Internal state for price display if not provided from parent
+  const [internalShowItemPrices, setInternalShowItemPrices] = useState(true);
+
+  // Use external if provided, otherwise use internal
+  const showItemPrices =
+    externalShowItemPrices !== undefined
+      ? externalShowItemPrices
+      : internalShowItemPrices;
+  const setShowItemPrices =
+    externalSetShowItemPrices || setInternalShowItemPrices;
 
   useEffect(() => {
     if (companyInfo) {
@@ -75,9 +92,11 @@ export function QuotationReceiptDialog({
     if (completedQuotation) {
       setIsPrinting(true);
       try {
+        // You'll need to update QuotationGenerator to accept showItemPrices parameter
         await quotationGenerator.printQuotation(
           completedQuotation,
-          receiptSize
+          receiptSize,
+          showItemPrices // Pass the toggle state
         );
         toast({
           title: "Printing Quotation",
@@ -100,9 +119,11 @@ export function QuotationReceiptDialog({
     if (completedQuotation) {
       setIsDownloading(true);
       try {
+        // You'll need to update QuotationGenerator to accept showItemPrices parameter
         const blob = await quotationGenerator.generateQuotationPDF(
           completedQuotation,
-          receiptSize
+          receiptSize,
+          showItemPrices // Pass the toggle state
         );
         await quotationGenerator.downloadQuotation(
           blob,
@@ -139,12 +160,14 @@ export function QuotationReceiptDialog({
       setIsSendingEmail(true);
 
       try {
+        // You'll need to update QuotationGenerator to accept showItemPrices parameter
         const quotationHTML =
           await quotationGenerator.generateQuotationForEmail(
-            completedQuotation
+            completedQuotation,
+            showItemPrices // Pass the toggle state
           );
 
-        const response = await fetch("/api/sales/send-receipt", {
+        const response = await fetch("/api/shop/sales/send-receipt", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -223,7 +246,7 @@ export function QuotationReceiptDialog({
         <div className="space-y-6 py-4">
           {/* Quotation Summary */}
           {completedQuotation && (
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="p-4 bg-blue-50 dark:bg-zinc-900 rounded-lg border border-blue-200">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-semibold">Quotation Number:</span>
                 <span className="font-mono">
@@ -271,29 +294,81 @@ export function QuotationReceiptDialog({
             </div>
           )}
 
-          {/* Quotation Size Selection */}
-          <div className="space-y-3">
-            <Label>Quotation Size</Label>
-            <RadioGroup
-              value={receiptSize}
-              onValueChange={(value) =>
-                setReceiptSize(value as "A4" | "thermal")
-              }
-              className="flex space-x-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="thermal" id="thermal" />
-                <Label htmlFor="thermal" className="font-normal cursor-pointer">
-                  Small Size (80mm)
-                </Label>
+          {/* Quotation Options WITH THE FUCKING BUTTON */}
+          <div className="space-y-4">
+            {/* Quotation Size Selection */}
+            <div className="space-y-3">
+              <Label>Quotation Size</Label>
+              <RadioGroup
+                value={receiptSize}
+                onValueChange={(value) =>
+                  setReceiptSize(value as "A4" | "thermal")
+                }
+                className="flex space-x-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="thermal" id="thermal" />
+                  <Label
+                    htmlFor="thermal"
+                    className="font-normal cursor-pointer"
+                  >
+                    Small Size (80mm)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="A4" id="a4" />
+                  <Label htmlFor="a4" className="font-normal cursor-pointer">
+                    A4 Size (Standard)
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {/* PRICE DISPLAY TOGGLE BUTTON - HERE IT IS! */}
+            <div className="space-y-3">
+              <Label>Price Display</Label>
+              <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-zinc-800 rounded-lg border">
+                <div className="flex items-center space-x-2">
+                  <div
+                    className={`p-2 rounded ${
+                      showItemPrices
+                        ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                        : "bg-gray-100 text-gray-700 dark:bg-zinc-700 dark:text-gray-300"
+                    }`}
+                  >
+                    {showItemPrices ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium">Show Item Prices</span>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {showItemPrices
+                        ? "Individual prices visible"
+                        : "Only totals visible"}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant={showItemPrices ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setShowItemPrices(!showItemPrices)}
+                  className="min-w-[100px]"
+                >
+                  {showItemPrices ? "Visible" : "Hidden"}
+                </Button>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="A4" id="a4" />
-                <Label htmlFor="a4" className="font-normal cursor-pointer">
-                  A4 Size (Standard)
-                </Label>
-              </div>
-            </RadioGroup>
+            </div>
+
+            {/* Info note about price display */}
+            <div className="p-3 bg-gray-50 rounded-lg border">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Note:</span> This controls whether
+                individual item prices are shown in the quotation.
+              </p>
+            </div>
           </div>
 
           <Separator />

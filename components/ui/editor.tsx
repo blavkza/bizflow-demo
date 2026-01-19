@@ -8,9 +8,15 @@ interface EditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 
-export const Editor = ({ value, onChange, placeholder }: EditorProps) => {
+export const Editor = ({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: EditorProps) => {
   // Dynamically import ReactQuillNew to avoid SSR issues
   const ReactQuill = useMemo(
     () => dynamic(() => import("react-quill-new"), { ssr: false }),

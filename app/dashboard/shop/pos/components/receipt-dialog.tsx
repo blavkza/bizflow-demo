@@ -269,7 +269,7 @@ export function ReceiptDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] lg:min-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {completedSale?.status === "AWAITING_STOCK" ? (
@@ -297,8 +297,8 @@ export function ReceiptDialog({
             <div
               className={`p-4 rounded-lg border ${
                 completedSale.status === "AWAITING_STOCK"
-                  ? "bg-yellow-50 border-yellow-200"
-                  : "bg-green-50 border-green-200"
+                  ? "bg-yellow-50 dark:bg-zinc-800 border-yellow-200"
+                  : "bg-green-50 dark:bg-zinc-800 border-green-200"
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -344,7 +344,7 @@ export function ReceiptDialog({
 
           {/* Stock Await Warning */}
           {completedSale?.status === "AWAITING_STOCK" && (
-            <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+            <div className="p-4 bg-yellow-50 dark:bg-zinc-900 rounded-lg border border-yellow-200">
               <div className="flex items-center gap-2 mb-3">
                 <Package className="h-5 w-5 text-yellow-600" />
                 <span className="font-semibold text-yellow-700">
@@ -367,7 +367,7 @@ export function ReceiptDialog({
                       Loading stock information...
                     </span>
                   </div>
-                  <Alert className="bg-yellow-50 border-yellow-200">
+                  <Alert className="bg-yellow-50 dark:bg-zinc-900 border-yellow-200">
                     <Clock className="h-4 w-4 text-yellow-600" />
                     <AlertDescription className="text-yellow-700">
                       Please wait while we fetch the stock details for items
@@ -382,7 +382,7 @@ export function ReceiptDialog({
                     {stockAwaitItems.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between p-2 bg-white rounded border"
+                        className="flex items-center justify-between p-2 bg-white dark:bg-zinc-900 rounded border"
                       >
                         <div className="flex-1">
                           <div className="font-medium text-sm">
@@ -513,44 +513,6 @@ export function ReceiptDialog({
                 </Button>
               </div>
             </div>
-          </div>
-
-          {/* Debug button - remove in production */}
-          <div className="pt-4 border-t">
-            <Button
-              onClick={async () => {
-                console.log("=== DEBUG RECEIPT GENERATOR ===");
-                console.log("Company Info:", companyInfo);
-                console.log("Sale Data:", completedSale);
-                console.log("Sale Items:", completedSale?.items);
-
-                try {
-                  const html = await receiptGenerator.generateReceiptHTML(
-                    completedSale,
-                    receiptSize
-                  );
-                  console.log("Generated HTML length:", html.length);
-                  console.log(
-                    "HTML preview (first 1000 chars):",
-                    html.substring(0, 1000)
-                  );
-
-                  // Show in new tab for debugging
-                  const debugWindow = window.open();
-                  if (debugWindow) {
-                    debugWindow.document.write(html);
-                    debugWindow.document.close();
-                  }
-                } catch (error) {
-                  console.error("Error generating HTML:", error);
-                }
-              }}
-              variant="outline"
-              size="sm"
-              className="w-full text-xs"
-            >
-              Debug Receipt
-            </Button>
           </div>
         </div>
 

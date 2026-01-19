@@ -318,7 +318,9 @@ export function SearchQuotationDialog({
                       <TableRow
                         key={quote.id}
                         className={
-                          selectedQuotation?.id === quote.id ? "bg-blue-50" : ""
+                          selectedQuotation?.id === quote.id
+                            ? "bg-blue-50 dark:bg-zinc-800"
+                            : ""
                         }
                         onClick={() => setSelectedQuotation(quote)}
                       >
@@ -396,7 +398,7 @@ export function SearchQuotationDialog({
                 selectedQuotation.subtotal !== null;
 
               return (
-                <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="space-y-4 p-4 bg-blue-50 dark:bg-zinc-900 rounded-lg border border-blue-200">
                   {/* Header */}
                   <div className="flex items-center justify-between">
                     <div>
@@ -431,7 +433,7 @@ export function SearchQuotationDialog({
                         <User className="h-4 w-4" />
                         Customer Details
                       </div>
-                      <div className="space-y-2 text-sm bg-white p-3 rounded border">
+                      <div className="space-y-2 text-sm bg-white dark:bg-zinc-800 p-3 rounded border">
                         <div className="flex items-center gap-2">
                           <User className="h-3 w-3 text-gray-500" />
                           <span className="font-medium">Name:</span>
@@ -493,7 +495,7 @@ export function SearchQuotationDialog({
                           </Badge>
                         )}
                       </div>
-                      <div className="space-y-1 text-sm bg-white p-3 rounded border">
+                      <div className="space-y-1 text-sm bg-white dark:bg-zinc-800 p-3 rounded border">
                         <div className="grid grid-cols-2 gap-2">
                           <div className="font-medium">Items:</div>
                           <div className="text-right">
@@ -597,7 +599,7 @@ export function SearchQuotationDialog({
                     <div className="font-medium mb-2">
                       Items ({selectedQuotation.items.length})
                     </div>
-                    <div className="max-h-60 overflow-y-auto space-y-2">
+                    <div className=" space-y-2">
                       {selectedQuotation.items.map((item, index) => {
                         const itemPrice = safeToNumber(item.price);
                         const itemTotal = safeToNumber(item.total);
@@ -608,7 +610,7 @@ export function SearchQuotationDialog({
                         return (
                           <div
                             key={index}
-                            className="flex justify-between items-center p-3 bg-white rounded border hover:bg-gray-50"
+                            className="flex justify-between items-center p-3 bg-white dark:bg-zinc-800 rounded border hover:bg-gray-50"
                           >
                             <div className="flex items-center gap-3">
                               {item.shopProduct.images?.[0] ? (

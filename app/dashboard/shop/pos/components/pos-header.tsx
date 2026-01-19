@@ -85,7 +85,7 @@ export function POSHeader({
       )}
 
       {/* Cart Summary */}
-      <div className="flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm">
+      <div className="flex items-center justify-between p-4  rounded-lg border shadow-sm">
         <div className="flex items-center gap-4">
           <div className="relative flex items-center gap-2">
             <SidebarTrigger className="-ml-1" />
@@ -110,10 +110,7 @@ export function POSHeader({
 
         <div className="flex items-center gap-2">
           {activeQuotation ? (
-            <Badge
-              variant="outline"
-              className="bg-blue-50 text-blue-700 border-blue-300"
-            >
+            <Badge variant="outline" className=" text-blue-700 border-blue-300">
               Quotation Mode
             </Badge>
           ) : (

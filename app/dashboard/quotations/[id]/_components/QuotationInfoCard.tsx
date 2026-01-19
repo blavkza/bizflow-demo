@@ -80,6 +80,9 @@ export const QuotationInfoCard = ({
           <span className="text-muted-foreground">Status:</span>
           <StatusBadge status={quotation.status} />
         </div>
+        <div className="text-sm text-muted-foreground">
+          Prepared By: {quotation.creator?.name || "N/A"}
+        </div>
 
         {/* Amount Information */}
         <div className="pt-2 border-t">

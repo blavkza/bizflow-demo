@@ -20,6 +20,17 @@ interface CompanyInfo {
   phone2: string;
   phone3: string;
   email: string;
+
+  deliveryNoteNote: string;
+  deliveryNoteTerms: string;
+  purchaseOrderNote: string;
+  purchaseOrderTerms: string;
+  proFormaNote: string;
+  proFormaTerms: string;
+  creditNoteNote: string;
+  creditNoteTerms: string;
+  supplierListNote: string;
+  supplierListTerms: string;
 }
 
 export function useCompanyInfo() {

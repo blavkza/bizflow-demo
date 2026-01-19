@@ -126,16 +126,27 @@ class QuotationGenerator {
   }
 
   private formatExpiryDate(dateString: string | undefined): string {
-    if (!dateString) return "No expiry date";
+    if (!dateString) {
+      // Calculate 7 days from now if no expiry date
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 7);
+      return expiryDate.toLocaleDateString() + " (7 days)";
+    }
 
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
-        return "No expiry date";
+        // Calculate 7 days from now if date is invalid
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 7);
+        return expiryDate.toLocaleDateString() + " (7 days)";
       }
-      return date.toLocaleString();
+      return date.toLocaleDateString();
     } catch (error) {
-      return "No expiry date";
+      // Calculate 7 days from now on error
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + 7);
+      return expiryDate.toLocaleDateString() + " (7 days)";
     }
   }
 
@@ -217,7 +228,8 @@ class QuotationGenerator {
   async generateQuotationHTML(
     quoteData: any,
     size: QuotationSize = "thermal",
-    includePrintButton: boolean = true
+    includePrintButton: boolean = true,
+    showItemPrices: boolean = true
   ): Promise<string> {
     const itemsWithProducts = await this.fetchProductDetails(
       quoteData.items || []
@@ -273,12 +285,23 @@ class QuotationGenerator {
     };
 
     if (size === "A4") {
-      return this.generateA4Quotation(safeData, includePrintButton);
+      return this.generateA4Quotation(
+        safeData,
+        includePrintButton,
+        showItemPrices
+      );
     }
-    return this.generateThermalQuotation(safeData, includePrintButton);
+    return this.generateThermalQuotation(
+      safeData,
+      includePrintButton,
+      showItemPrices
+    );
   }
 
-  async generateQuotationForEmail(quoteData: any): Promise<string> {
+  async generateQuotationForEmail(
+    quoteData: any,
+    showItemPrices: boolean = true
+  ): Promise<string> {
     const itemsWithProducts = await this.fetchProductDetails(
       quoteData.items || []
     );
@@ -337,27 +360,27 @@ class QuotationGenerator {
         ${
           this.companyInfo.logo
             ? `
-          <div style="text-align: center; margin-bottom: 20px;">
+          <div style="text-align: center; margin-bottom: 40px;">
             <img src="${this.companyInfo.logo}" alt="${this.companyInfo.name}" 
-                 style="max-height: 100px; max-width: 300px; object-fit: contain;">
+                 style="height: 300px; width: 800px; object-fit: contain; margin: 0 auto; display: block;">
           </div>
         `
             : ""
         }
         
-        <h2 style="text-align: center; color: #333; margin-bottom: 10px; font-weight: 800; font-size: 22px;">${this.companyInfo.name}</h2>
-        <div style="text-align: center; color: #666; margin-bottom: 20px; font-size: 15px; font-weight: 600;">
+        <h2 style="text-align: center; color: #333; margin-bottom: 15px; font-weight: 800; font-size: 28px;">${this.companyInfo.name}</h2>
+        <div style="text-align: center; color: #666; margin-bottom: 30px; font-size: 18px; font-weight: 600;">
           ${this.companyInfo.address}<br>
           Tel: ${this.companyInfo.phone} | Email: ${this.companyInfo.email}<br>
           ${this.companyInfo.taxNumber ? `VAT: ${this.companyInfo.taxNumber}<br>` : ""}
           ${this.companyInfo.website ? `Website: ${this.companyInfo.website}` : ""}
         </div>
 
-        <h3 style="color: #333; border-bottom: 3px solid #333; padding-bottom: 12px; margin-bottom: 20px; font-weight: 800; font-size: 20px;">
+        <h3 style="color: #333; border-bottom: 3px solid #333; padding-bottom: 15px; margin-bottom: 25px; font-weight: 800; font-size: 24px;">
           QUOTATION: ${safeData.quoteNumber}
         </h3>
         
-        <div style="background: #f5f5f5; padding: 18px; border-radius: 5px; margin-bottom: 20px; font-size: 15px; font-weight: 600;">
+        <div style="background: #f5f5f5; padding: 20px; border-radius: 5px; margin-bottom: 25px; font-size: 16px; font-weight: 600;">
           <div><strong style="font-weight: 700;">Date:</strong> ${this.formatDate(safeData.date)}</div>
           <div><strong style="font-weight: 700;">Valid Until:</strong> ${this.formatExpiryDate(safeData.expiryDate)}</div>
           ${safeData.customerName ? `<div><strong style="font-weight: 700;">Customer:</strong> ${safeData.customerName}</div>` : ""}
@@ -378,14 +401,20 @@ class QuotationGenerator {
           }
         </div>
 
-        <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 15px;">
+        <table style="width: 100%; border-collapse: collapse; margin: 25px 0; font-size: 16px;">
           <thead>
             <tr style="background-color: #333; color: white;">
-              <th style="padding: 14px; text-align: left; border: 1px solid #ddd; width: 45%; font-weight: 800; font-size: 16px;">Item</th>
-              <th style="padding: 14px; text-align: left; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 16px;">SKU</th>
-              <th style="padding: 14px; text-align: right; border: 1px solid #ddd; width: 10%; font-weight: 800; font-size: 16px;">Qty</th>
-              <th style="padding: 14px; text-align: right; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 16px;">Price</th>
-              <th style="padding: 14px; text-align: right; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 16px;">Total</th>
+              <th style="padding: 15px; text-align: left; border: 1px solid #ddd; width: ${showItemPrices ? "45%" : "60%"}; font-weight: 800; font-size: 18px;">Item</th>
+              <th style="padding: 15px; text-align: left; border: 1px solid #ddd; width: 20%; font-weight: 800; font-size: 18px;">SKU</th>
+              <th style="padding: 15px; text-align: right; border: 1px solid #ddd; width: 10%; font-weight: 800; font-size: 18px;">Qty</th>
+              ${
+                showItemPrices
+                  ? `
+              <th style="padding: 15px; text-align: right; border: 1px solid #ddd; width: 15%; font-weight: 800; font-size: 18px;">Unit Price</th>
+              `
+                  : ""
+              }
+              <th style="padding: 15px; text-align: right; border: 1px solid #ddd; width: ${showItemPrices ? "10%" : "10%"}; font-weight: 800; font-size: 18px;">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -393,15 +422,21 @@ class QuotationGenerator {
               .map(
                 (item) => `
               <tr>
-                <td style="padding: 14px; border: 1px solid #ddd; vertical-align: top;">
-                  <div style="font-weight: 700; word-wrap: break-word; white-space: normal; font-size: 15px;">
+                <td style="padding: 15px; border: 1px solid #ddd; vertical-align: top;">
+                  <div style="font-weight: 700; word-wrap: break-word; white-space: normal; font-size: 16px;">
                     ${this.getItemName(item)}
                   </div>
                 </td>
-                <td style="padding: 14px; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">${this.getItemSKU(item)}</td>
-                <td style="padding: 14px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">${item.quantity}</td>
-                <td style="padding: 14px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">R${this.formatNumber(item.price)}</td>
-                <td style="padding: 14px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 700;">R${this.formatNumber(item.total)}</td>
+                <td style="padding: 15px; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">${this.getItemSKU(item)}</td>
+                <td style="padding: 15px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">${item.quantity}</td>
+                ${
+                  showItemPrices
+                    ? `
+                <td style="padding: 15px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">R${this.formatNumber(item.price)}</td>
+                `
+                    : ""
+                }
+                <td style="padding: 15px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 700;">R${this.formatNumber(item.total)}</td>
               </tr>
             `
               )
@@ -412,23 +447,23 @@ class QuotationGenerator {
         ${
           safeData.notes
             ? `
-          <div style="background: #fef3c7; border: 2px solid #fbbf24; border-radius: 5px; padding: 18px; margin: 20px 0;">
-            <h4 style="color: #92400e; margin: 0 0 10px 0; font-weight: 800; font-size: 18px;">Notes & Terms</h4>
-            <div style="white-space: pre-line; font-weight: 600; font-size: 15px;">${safeData.notes}</div>
+          <div style="background: #fef3c7; border: 2px solid #fbbf24; border-radius: 5px; padding: 20px; margin: 25px 0;">
+            <h4 style="color: #92400e; margin: 0 0 12px 0; font-weight: 800; font-size: 20px;">Notes & Terms</h4>
+            <div style="white-space: pre-line; font-weight: 600; font-size: 16px;">${safeData.notes}</div>
           </div>
         `
             : ""
         }
 
-        <div style="float: right; width: 320px;">
-          <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; font-size: 16px; font-weight: 700;">
+        <div style="float: right; width: 350px;">
+          <div style="display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 2px solid #ddd; font-size: 18px; font-weight: 700;">
             <span>Subtotal:</span>
             <span>R${this.formatNumber(safeData.subtotal)}</span>
           </div>
           ${
             safeData.discount > 0
               ? `
-            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; color: #10b981; font-size: 16px; font-weight: 700;">
+            <div style="display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 2px solid #ddd; color: #10b981; font-size: 18px; font-weight: 700;">
               <span>Discount (${this.formatNumber(safeData.discountPercent, 0)}%):</span>
               <span>-R${this.formatNumber(safeData.discount)}</span>
             </div>
@@ -438,7 +473,7 @@ class QuotationGenerator {
           ${
             safeData.tax && safeData.tax > 0
               ? `
-            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; font-size: 16px; font-weight: 700;">
+            <div style="display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 2px solid #ddd; font-size: 18px; font-weight: 700;">
               <span>VAT (${this.formatNumber(safeData.taxPercent || 15, 0)}%):</span>
               <span>R${this.formatNumber(safeData.tax)}</span>
             </div>
@@ -448,27 +483,27 @@ class QuotationGenerator {
           ${
             safeData.deliveryFee > 0
               ? `
-            <div style="display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 2px solid #ddd; font-size: 16px; font-weight: 700;">
+            <div style="display: flex; justify-content: space-between; padding: 15px 0; border-bottom: 2px solid #ddd; font-size: 18px; font-weight: 700;">
               <span>Delivery Fee:</span>
               <span>R${this.formatNumber(safeData.deliveryFee)}</span>
             </div>
           `
               : ""
           }
-          <div style="display: flex; justify-content: space-between; padding: 15px 0; border-top: 3px solid #333; border-bottom: 3px solid #333; font-weight: 800; font-size: 20px; margin-top: 10px;">
+          <div style="display: flex; justify-content: space-between; padding: 20px 0; border-top: 3px solid #333; border-bottom: 3px solid #333; font-weight: 800; font-size: 24px; margin-top: 15px;">
             <span>TOTAL:</span>
             <span>R${this.formatNumber(safeData.total)}</span>
           </div>
         </div>
 
-        <div style="clear: both; margin-top: 20px; padding: 18px; background: #e8f5e9; border-radius: 5px; font-size: 16px; font-weight: 700;">
+        <div style="clear: both; margin-top: 25px; padding: 20px; background: #e8f5e9; border-radius: 5px; font-size: 18px; font-weight: 700;">
           <div><strong style="font-weight: 800;">Quotation Expiry:</strong> ${this.formatExpiryDate(safeData.expiryDate)}</div>
           <div><strong style="font-weight: 800;">To accept this quotation:</strong> Please contact us at ${this.companyInfo.phone} or reply to this email</div>
         </div>
 
-        <div style="clear: both; margin-top: 30px; padding-top: 20px; border-top: 3px solid #333; text-align: center;">
-          <div style="font-size: 20px; font-weight: 800; margin-bottom: 10px;">Thank You for Considering Our Services!</div>
-          <div style="color: #666; font-size: 16px; font-weight: 600;">For any queries, please contact us at ${this.companyInfo.phone}</div>
+        <div style="clear: both; margin-top: 40px; padding-top: 25px; border-top: 3px solid #333; text-align: center;">
+          <div style="font-size: 24px; font-weight: 800; margin-bottom: 15px;">Thank You for Considering Our Services!</div>
+          <div style="color: #666; font-size: 18px; font-weight: 600;">For any queries, please contact us at ${this.companyInfo.phone}</div>
         </div>
       </div>
     `;
@@ -476,7 +511,8 @@ class QuotationGenerator {
 
   private generateThermalQuotation(
     data: QuotationData,
-    includePrintButton: boolean = true
+    includePrintButton: boolean = true,
+    showItemPrices: boolean = true
   ): string {
     const hasLogo = data.company.logo;
 
@@ -497,9 +533,9 @@ class QuotationGenerator {
             width: 80mm;
             margin: 0 auto;
             padding: 5mm;
-            font-size: 14px; /* Increased from 12px */
+            font-size: 14px;
             line-height: 1.3;
-            font-weight: 600; /* Added base boldness */
+            font-weight: 600;
           }
           .print-button {
             display: ${includePrintButton ? "block" : "none"};
@@ -508,8 +544,8 @@ class QuotationGenerator {
             color: white;
             border: none;
             padding: 12px;
-            font-size: 16px; /* Increased from 14px */
-            font-weight: 800; /* Bolder */
+            font-size: 16px;
+            font-weight: 800;
             border-radius: 5px;
             cursor: pointer;
             margin-bottom: 10px;
@@ -522,27 +558,27 @@ class QuotationGenerator {
             background-color: #004085;
           }
           .center { text-align: center; }
-          .bold { font-weight: 800; } /* Increased from bold to 800 */
-          .extra-bold { font-weight: 900; } /* Extra bold for important elements */
-          .line { border-top: 2px solid #000; margin: 5px 0; } /* Thicker line */
+          .bold { font-weight: 800; }
+          .extra-bold { font-weight: 900; }
+          .line { border-top: 2px solid #000; margin: 5px 0; }
           .item-row { margin: 5px 0; }
           .item-name { 
-            font-weight: 800; /* Bolder */
+            font-weight: 800;
             word-wrap: break-word;
             white-space: normal;
             margin-bottom: 2px;
-            font-size: 14px; /* Increased */
+            font-size: 14px;
           }
           .item-details { 
-            font-size: 13px; /* Increased from 10px */
-            font-weight: 700; /* Added boldness */
+            font-size: 13px;
+            font-weight: 700;
             color: #333;
             display: flex;
             justify-content: space-between;
           }
           .total-row { 
-            font-weight: 900; /* Extra bold */
-            font-size: 16px; /* Increased from 14px */
+            font-weight: 900;
+            font-size: 16px;
           }
           .header { 
             margin-bottom: 10px;
@@ -550,54 +586,59 @@ class QuotationGenerator {
           }
           .footer { 
             margin-top: 10px; 
-            font-size: 12px; /* Increased from 10px */
-            font-weight: 700; /* Added boldness */
+            font-size: 12px;
+            font-weight: 700;
           }
           .text-small { 
-            font-size: 12px; /* Increased from 10px */
-            font-weight: 700; /* Added boldness */
+            font-size: 12px;
+            font-weight: 700;
           }
           .text-xsmall { 
-            font-size: 11px; /* Increased from 9px */
-            font-weight: 700; /* Added boldness */
+            font-size: 11px;
+            font-weight: 700;
           }
           .logo { 
             max-width: 100%; 
             height: auto; 
-            margin-bottom: 5px;
-            max-height: 60px; /* Increased from 50px */
+            margin-bottom: 20px;
+            max-height: 150px;
+            object-fit: contain;
+            width: 100%;
           }
           .column-layout {
             display: flex;
             justify-content: space-between;
             margin: 3px 0;
-            font-weight: 700; /* Added boldness */
+            font-weight: 700;
           }
           .item-container {
-            margin-bottom: 6px; /* Increased from 4px */
-            padding-bottom: 4px; /* Increased from 2px */
+            margin-bottom: 6px;
+            padding-bottom: 4px;
             border-bottom: 1px dotted #ccc;
           }
           .section-title {
-            font-weight: 900; /* Extra bold */
-            font-size: 16px; /* Increased */
+            font-weight: 900;
+            font-size: 16px;
             text-align: center;
             margin: 8px 0;
           }
           .quotation-number {
-            font-weight: 900; /* Extra bold */
-            font-size: 18px; /* Increased */
+            font-weight: 900;
+            font-size: 18px;
             text-align: center;
             margin: 5px 0;
           }
           .customer-info {
-            font-weight: 700; /* Added boldness */
+            font-weight: 700;
             margin: 3px 0;
           }
           .expiry-info {
-            font-weight: 800; /* Bolder */
+            font-weight: 800;
             margin: 5px 0;
             color: #dc2626;
+          }
+          .price-column {
+            display: ${showItemPrices ? "block" : "none"};
           }
         </style>
         <script>
@@ -619,7 +660,7 @@ class QuotationGenerator {
         
         <div class="header center">
           ${hasLogo ? `<img src="${data.company.logo}" alt="${data.company.name}" class="logo">` : ""}
-          <div class="bold extra-bold" style="font-size: 16px;">${data.company.name}</div>
+          <div class="bold extra-bold" style="font-size: 24px; margin: 5px 0;">${data.company.name}</div>
           <div class="text-small">${data.company.address}</div>
           <div class="text-small">Tel: ${data.company.phone}</div>
           <div class="text-small">Email: ${data.company.email}</div>
@@ -662,12 +703,25 @@ class QuotationGenerator {
               <div class="item-name">${this.getItemName(item)}</div>
               <div class="item-details">
                 <div>SKU: ${this.getItemSKU(item)}</div>
-                <div>${item.quantity} x R${this.formatNumber(item.price)}</div>
+                ${
+                  showItemPrices
+                    ? `
+                <div class="price-column">${item.quantity} x R${this.formatNumber(item.price)}</div>
+                `
+                    : ""
+                }
+                <div>Qty: ${item.quantity}</div>
               </div>
+              ${
+                showItemPrices
+                  ? `
               <div class="item-details">
                 <div></div>
                 <div class="bold">R${this.formatNumber(item.total)}</div>
               </div>
+              `
+                  : ""
+              }
             </div>
           `
             )
@@ -763,7 +817,8 @@ class QuotationGenerator {
 
   private generateA4Quotation(
     data: QuotationData,
-    includePrintButton: boolean = true
+    includePrintButton: boolean = true,
+    showItemPrices: boolean = true
   ): string {
     const hasLogo = data.company.logo;
 
@@ -784,7 +839,7 @@ class QuotationGenerator {
             max-width: 210mm;
             margin: 0 auto;
             padding: 20px;
-            font-weight: 600; /* Added base boldness */
+            font-weight: 600;
           }
           .print-button {
             display: ${includePrintButton ? "block" : "none"};
@@ -793,8 +848,8 @@ class QuotationGenerator {
             color: white;
             border: none;
             padding: 15px;
-            font-size: 18px; /* Increased from 16px */
-            font-weight: 900; /* Extra bold */
+            font-size: 18px;
+            font-weight: 900;
             border-radius: 5px;
             cursor: pointer;
             margin-bottom: 20px;
@@ -808,46 +863,46 @@ class QuotationGenerator {
           }
           .header { 
             text-align: center; 
-            margin-bottom: 30px;
-            border-bottom: 3px solid #333; /* Thicker border */
-            padding-bottom: 20px;
+            margin-bottom: 40px;
+            border-bottom: 3px solid #333;
+            padding-bottom: 30px;
           }
           .company-name { 
-            font-size: 28px; /* Increased from 24px */
-            font-weight: 900; /* Extra bold */
+            font-size: 28px;
+            font-weight: 900;
             margin-bottom: 15px;
           }
           .quotation-title {
-            font-size: 24px; /* Increased from 20px */
-            font-weight: 900; /* Extra bold */
+            font-size: 24px;
+            font-weight: 900;
             margin: 25px 0;
             text-align: center;
           }
           .info-section {
             margin: 25px 0;
-            padding: 20px; /* Increased from 15px */
+            padding: 20px;
             background: #f5f5f5;
             border-radius: 5px;
-            font-size: 16px; /* Increased */
-            font-weight: 700; /* Added boldness */
+            font-size: 16px;
+            font-weight: 700;
           }
           .items-table { 
             width: 100%; 
             border-collapse: collapse; 
             margin: 25px 0; 
-            font-size: 15px; /* Increased */
+            font-size: 15px;
           }
           .items-table th, .items-table td { 
-            border: 2px solid #ddd; /* Thicker borders */
-            padding: 15px; /* Increased from 12px */
+            border: 2px solid #ddd;
+            padding: 15px;
             text-align: left; 
             vertical-align: top;
           }
           .items-table th { 
             background-color: #333; 
             color: white;
-            font-weight: 900; /* Extra bold */
-            font-size: 17px; /* Increased */
+            font-weight: 900;
+            font-size: 17px;
           }
           .items-table tr:nth-child(even) {
             background-color: #f9f9f9;
@@ -855,21 +910,21 @@ class QuotationGenerator {
           .totals { 
             margin-top: 25px;
             float: right;
-            width: 350px; /* Increased from 300px */
+            width: 350px;
           }
           .totals-row { 
             display: flex; 
             justify-content: space-between; 
-            padding: 12px 0; /* Increased from 8px */
-            border-bottom: 2px solid #ddd; /* Thicker border */
-            font-size: 17px; /* Increased */
-            font-weight: 700; /* Added boldness */
+            padding: 12px 0;
+            border-bottom: 2px solid #ddd;
+            font-size: 17px;
+            font-weight: 700;
           }
           .total-row { 
-            font-weight: 900; /* Extra bold */
-            font-size: 22px; /* Increased from 18px */
-            border-top: 3px solid #333; /* Thicker border */
-            border-bottom: 3px solid #333; /* Thicker border */
+            font-weight: 900;
+            font-size: 22px;
+            border-top: 3px solid #333;
+            border-bottom: 3px solid #333;
             margin-top: 15px;
             padding-top: 15px;
           }
@@ -878,51 +933,62 @@ class QuotationGenerator {
             margin-top: 50px;
             text-align: center;
             padding-top: 25px;
-            border-top: 3px solid #333; /* Thicker border */
-            font-size: 18px; /* Increased */
+            border-top: 3px solid #333;
+            font-size: 18px;
           }
           .quotation-info {
             margin: 25px 0;
-            padding: 20px; /* Increased from 15px */
+            padding: 20px;
             background: #e8f5e9;
             border-radius: 5px;
-            font-size: 17px; /* Increased */
-            font-weight: 800; /* Added boldness */
+            font-size: 17px;
+            font-weight: 800;
           }
           .notes-section {
             background: #fef3c7;
-            border: 2px solid #fbbf24; /* Thicker border */
+            border: 2px solid #fbbf24;
             border-radius: 5px;
-            padding: 20px; /* Increased from 15px */
+            padding: 20px;
             margin: 25px 0;
-            font-weight: 700; /* Added boldness */
+            font-weight: 700;
           }
           .logo {
-            max-height: 120px; /* Increased from 100px */
-            max-width: 350px; /* Increased from 300px */
-            margin-bottom: 15px;
+            height: 300px;
+            max-width: 100%;
+            margin-bottom: 30px;
             object-fit: contain;
+            width: auto;
           }
           .highlight {
-            font-weight: 900; /* Extra bold */
+            font-weight: 900;
             color: #333;
           }
           .quotation-number-display {
-            font-size: 26px; /* Increased */
-            font-weight: 900; /* Extra bold */
+            font-size: 26px;
+            font-weight: 900;
             color: #2c5282;
             text-align: center;
             margin: 10px 0;
           }
           .expiry-warning {
             color: #dc2626;
-            font-weight: 800; /* Bolder */
+            font-weight: 800;
           }
           .product-name {
             word-wrap: break-word;
             white-space: normal;
             max-width: 200px;
-            font-weight: 700; /* Added boldness */
+            font-weight: 700;
+          }
+          .price-column {
+            display: ${showItemPrices ? "table-cell" : "none"};
+          }
+          .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+            height: 320px;
           }
         </style>
         <script>
@@ -943,7 +1009,15 @@ class QuotationGenerator {
         }
         
         <div class="header">
-          ${hasLogo ? `<img src="${data.company.logo}" alt="${data.company.name}" class="logo">` : ""}
+          ${
+            hasLogo
+              ? `
+            <div class="logo-container">
+              <img src="${data.company.logo}" alt="${data.company.name}" class="logo">
+            </div>
+          `
+              : ""
+          }
           <div class="company-name">${data.company.name}</div>
           <div style="font-weight: 700; font-size: 16px;">${data.company.address}</div>
           <div style="font-weight: 700; font-size: 16px;">Tel: ${data.company.phone} | Email: ${data.company.email}</div>
@@ -979,11 +1053,17 @@ class QuotationGenerator {
         <table class="items-table">
           <thead>
             <tr>
-              <th style="width: 35%;">Item</th>
-              <th style="width: 15%;">SKU</th>
+              <th style="width: ${showItemPrices ? "40%" : "50%"};">Item</th>
+              <th style="width: 20%;">SKU</th>
               <th style="width: 10%; text-align: right;">Qty</th>
-              <th style="width: 20%; text-align: right;">Price</th>
-              <th style="width: 20%; text-align: right;">Total</th>
+              ${
+                showItemPrices
+                  ? `
+              <th class="price-column" style="width: 15%; text-align: right;">Unit Price</th>
+              `
+                  : ""
+              }
+              <th style="width: ${showItemPrices ? "15%" : "20%"}; text-align: right;">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -996,7 +1076,13 @@ class QuotationGenerator {
                 </td>
                 <td style="font-weight: 700;">${this.getItemSKU(item)}</td>
                 <td style="text-align: right; font-weight: 700;">${item.quantity}</td>
-                <td style="text-align: right; font-weight: 700;">R${this.formatNumber(item.price)}</td>
+                ${
+                  showItemPrices
+                    ? `
+                <td class="price-column" style="text-align: right; font-weight: 700;">R${this.formatNumber(item.price)}</td>
+                `
+                    : ""
+                }
                 <td style="text-align: right; font-weight: 800;">R${this.formatNumber(item.total)}</td>
               </tr>
             `
@@ -1077,12 +1163,14 @@ class QuotationGenerator {
 
   async generateQuotationPDF(
     quoteData: any,
-    size: QuotationSize = "thermal"
+    size: QuotationSize = "thermal",
+    showItemPrices: boolean = true
   ): Promise<Blob> {
     const htmlContent = await this.generateQuotationHTML(
       quoteData,
       size,
-      false
+      false,
+      showItemPrices
     );
     const blob = new Blob([htmlContent], { type: "text/html" });
     return blob;
@@ -1101,19 +1189,20 @@ class QuotationGenerator {
 
   async printQuotation(
     quoteData: any,
-    size: QuotationSize = "thermal"
+    size: QuotationSize = "thermal",
+    showItemPrices: boolean = true
   ): Promise<void> {
-    const htmlContent = await this.generateQuotationHTML(quoteData, size, true);
+    const htmlContent = await this.generateQuotationHTML(
+      quoteData,
+      size,
+      true,
+      showItemPrices
+    );
     const printWindow = window.open("", "_blank");
     if (printWindow) {
       printWindow.document.write(htmlContent);
       printWindow.document.close();
       printWindow.focus();
-
-      // Auto-print after a short delay to ensure content is loaded
-      /*   setTimeout(() => {
-        printWindow.print();
-      }, 500); */
     }
   }
 }

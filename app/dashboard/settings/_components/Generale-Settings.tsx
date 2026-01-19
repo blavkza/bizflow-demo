@@ -32,6 +32,7 @@ import {
   GeneralSettingsSchemaType,
 } from "@/lib/formValidationSchemas";
 import { Editor } from "@/components/ui/editor";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface GeneralSettingsFormProps {
   canManageSettings: boolean;
@@ -68,6 +69,18 @@ export default function GeneralSettingsForm({
       city: "",
       province: "",
       postCode: "",
+      // New document-specific fields
+
+      deliveryNoteNote: "",
+      deliveryNoteTerms: "",
+      purchaseOrderNote: "",
+      purchaseOrderTerms: "",
+      proFormaNote: "",
+      proFormaTerms: "",
+      creditNoteNote: "",
+      creditNoteTerms: "",
+      supplierListNote: "",
+      supplierListTerms: "",
     },
   });
 
@@ -110,6 +123,18 @@ export default function GeneralSettingsForm({
             bankName2: settings.bankName2,
             province: settings.province,
             postCode: settings.postCode,
+            // New document-specific fields
+
+            deliveryNoteNote: settings.deliveryNoteNote || "",
+            deliveryNoteTerms: settings.deliveryNoteTerms || "",
+            purchaseOrderNote: settings.purchaseOrderNote || "",
+            purchaseOrderTerms: settings.purchaseOrderTerms || "",
+            proFormaNote: settings.proFormaNote || "",
+            proFormaTerms: settings.proFormaTerms || "",
+            creditNoteNote: settings.creditNoteNote || "",
+            creditNoteTerms: settings.creditNoteTerms || "",
+            supplierListNote: settings.supplierListNote || "",
+            supplierListTerms: settings.supplierListTerms || "",
           });
         }
       } catch (error) {
@@ -381,49 +406,6 @@ export default function GeneralSettingsForm({
                 )}
               />
             </div>
-
-            {/*INVOICE*/}
-            <p className="font-semibold text-xl">INVOICE / Quotation</p>
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="paymentTerms"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel>Payment Terms (Optional)</FormLabel>
-                    <FormControl>
-                      <Editor
-                        placeholder="Enter Invoice / Quotation Payment Terms"
-                        value={form.watch("paymentTerms") || ""}
-                        onChange={(value) =>
-                          form.setValue("paymentTerms", value)
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="note"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel>Invoice / Quotation Note (Optional)</FormLabel>
-                    <FormControl>
-                      <Editor
-                        placeholder="Enter Invoice / Quotation Note or instructions..."
-                        value={form.watch("note") || ""}
-                        onChange={(value) => form.setValue("note", value)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
             <FormField
               control={form.control}
               name="address"
@@ -501,6 +483,311 @@ export default function GeneralSettingsForm({
                 )}
               />
             </div>
+
+            {/* Document Settings Tabs */}
+            <p className="font-semibold text-xl">Document Settings</p>
+            <Tabs defaultValue="invoice" className="w-full">
+              <TabsList className="grid grid-cols-6">
+                <TabsTrigger value="invoice">Invoice / Quotation</TabsTrigger>
+                <TabsTrigger value="deliveryNote">Delivery Note</TabsTrigger>
+                <TabsTrigger value="purchaseOrder">Purchase Order</TabsTrigger>
+                <TabsTrigger value="proForma">Pro Forma</TabsTrigger>
+                <TabsTrigger value="creditNote">Credit Note</TabsTrigger>
+                <TabsTrigger value="supplierList">Supplier List</TabsTrigger>
+              </TabsList>
+
+              {/* Invoice Tab */}
+              <TabsContent value="invoice" className="space-y-4">
+                <p className="font-semibold text-lg"></p>
+                {/* General Settings (Kept for backward compatibility) */}
+                <p className="font-semibold text-xl">
+                  General Payment Terms & Note (Legacy)
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="paymentTerms"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Payment Terms (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter Payment Terms"
+                            value={form.watch("paymentTerms") || ""}
+                            onChange={(value) =>
+                              form.setValue("paymentTerms", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="note"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Note (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter Note or instructions..."
+                            value={form.watch("note") || ""}
+                            onChange={(value) => form.setValue("note", value)}
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Delivery Note Tab */}
+              <TabsContent value="deliveryNote" className="space-y-4">
+                <p className="font-semibold text-lg">Delivery Note Settings</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="deliveryNoteNote"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Delivery Note Note (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default note for delivery notes..."
+                            value={form.watch("deliveryNoteNote") || ""}
+                            onChange={(value) =>
+                              form.setValue("deliveryNoteNote", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="deliveryNoteTerms"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Delivery Note Terms (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default terms for delivery notes..."
+                            value={form.watch("deliveryNoteTerms") || ""}
+                            onChange={(value) =>
+                              form.setValue("deliveryNoteTerms", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Purchase Order Tab */}
+              <TabsContent value="purchaseOrder" className="space-y-4">
+                <p className="font-semibold text-lg">Purchase Order Settings</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="purchaseOrderNote"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Purchase Order Note (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default note for purchase orders..."
+                            value={form.watch("purchaseOrderNote") || ""}
+                            onChange={(value) =>
+                              form.setValue("purchaseOrderNote", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="purchaseOrderTerms"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Purchase Order Terms (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default terms for purchase orders..."
+                            value={form.watch("purchaseOrderTerms") || ""}
+                            onChange={(value) =>
+                              form.setValue("purchaseOrderTerms", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Pro Forma Tab */}
+              <TabsContent value="proForma" className="space-y-4">
+                <p className="font-semibold text-lg">
+                  Pro Forma Invoice Settings
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="proFormaNote"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Pro Forma Note (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default note for pro forma invoices..."
+                            value={form.watch("proFormaNote") || ""}
+                            onChange={(value) =>
+                              form.setValue("proFormaNote", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="proFormaTerms"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Pro Forma Terms (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default terms for pro forma invoices..."
+                            value={form.watch("proFormaTerms") || ""}
+                            onChange={(value) =>
+                              form.setValue("proFormaTerms", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Credit Note Tab */}
+              <TabsContent value="creditNote" className="space-y-4">
+                <p className="font-semibold text-lg">Credit Note Settings</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="creditNoteNote"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Credit Note Note (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default note for credit notes..."
+                            value={form.watch("creditNoteNote") || ""}
+                            onChange={(value) =>
+                              form.setValue("creditNoteNote", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="creditNoteTerms"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Credit Note Terms (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default terms for credit notes..."
+                            value={form.watch("creditNoteTerms") || ""}
+                            onChange={(value) =>
+                              form.setValue("creditNoteTerms", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+
+              {/* Supplier List Tab */}
+              <TabsContent value="supplierList" className="space-y-4">
+                <p className="font-semibold text-lg">Supplier List Settings</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="supplierListNote"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Supplier List Note (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default note for supplier lists..."
+                            value={form.watch("supplierListNote") || ""}
+                            onChange={(value) =>
+                              form.setValue("supplierListNote", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="supplierListTerms"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel>Supplier List Terms (Optional)</FormLabel>
+                        <FormControl>
+                          <Editor
+                            placeholder="Enter default terms for supplier lists..."
+                            value={form.watch("supplierListTerms") || ""}
+                            onChange={(value) =>
+                              form.setValue("supplierListTerms", value)
+                            }
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
 
             <div className="flex justify-end gap-4 pt-6">
               {(hasFullAccess || canManageSettings) && (
