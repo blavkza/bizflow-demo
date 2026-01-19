@@ -76,7 +76,7 @@ export class InvoiceDocumentReportGenerator {
         showTotals: false,
         showVAT: false,
         showDeliveryInfo: true,
-        showOnlyProducts: true,
+        showOnlyProducts: true, // Delivery notes typically show only products
         showUnit: false,
         showTotalWeight: true,
         showSKU: true,
@@ -355,16 +355,11 @@ export class InvoiceDocumentReportGenerator {
       const vat = net * (taxRate / 100);
       const total = net + vat;
 
-      subtotalGross += linePrice;
-      subtotalNet += net;
-      totalVat += vat;
-
       // Get product weight if available
       const itemWeight = item.product?.weight
         ? this.decimalToNumber(item.product.weight)
         : 0;
       const itemTotalWeight = itemWeight * qty;
-      totalWeight += itemTotalWeight;
 
       const itemData = {
         description: item.description,
@@ -383,8 +378,6 @@ export class InvoiceDocumentReportGenerator {
       };
 
       // Determine if item is product or service
-      // For document items, we need to check different properties
-      // Service items typically have serviceId or description hints
       const descLower = item.description?.toLowerCase() || "";
       const isService =
         (item as any).serviceId || // Check if it has serviceId
@@ -395,17 +388,30 @@ export class InvoiceDocumentReportGenerator {
         descLower.includes("support") ||
         descLower.includes("maintenance");
 
-      if (isService && !showOnlyProducts) {
-        // Only add services if document type allows them
-        serviceItems.push({ ...itemData, isService: true });
+      if (isService) {
+        // Add to serviceItems only if document type allows services
+        if (!showOnlyProducts) {
+          serviceItems.push({ ...itemData, isService: true });
+          // For documents that allow services, include service totals
+          subtotalGross += linePrice;
+          subtotalNet += net;
+          totalVat += vat;
+        }
+        // For delivery notes (showOnlyProducts = true), skip services entirely
       } else {
+        // Always add products
         productItems.push({ ...itemData, isService: false });
+        subtotalGross += linePrice;
+        subtotalNet += net;
+        totalVat += vat;
+        totalWeight += itemTotalWeight;
       }
     });
 
     // --- CREATE COMBINED SERVICES ROW (if document type allows services) ---
     let combinedServicesData: CombinedServiceData | null = null;
 
+    // Only create combined services for documents that allow services
     if (serviceItems.length > 0 && !showOnlyProducts) {
       // Calculate combined totals
       let totalQuantity = 0;
@@ -556,9 +562,14 @@ export class InvoiceDocumentReportGenerator {
     // --- BUILD TABLE ROWS ---
     let tableRows = "";
 
+    // For delivery notes and supplier lists (showOnlyProducts = true), show only products
+    const itemsToShow = showOnlyProducts
+      ? productItems
+      : [...productItems, ...serviceItems];
+
     if (!config.showPrice) {
       // For non-price documents (delivery notes, supplier lists)
-      tableRows = productItems
+      tableRows = itemsToShow
         .map(
           (item, index) => `
           <tr>
@@ -574,28 +585,30 @@ export class InvoiceDocumentReportGenerator {
         .join("");
     } else {
       // For price documents (invoices, pro forma, credit notes)
-
-      // Add product rows
-      productItems.forEach((item, index) => {
-        tableRows += `
-          <tr>
-            <td class="col-code">${index + 1}</td>
-            <td class="col-desc">${item.description || item.productName}</td>
-            ${showSKU ? `<td class="col-sku">${item.sku}</td>` : ""}
-            <td class="col-qty">${item.qty}</td>
-            <td class="col-unit-price">${this.formatMoney(item.unitPrice)}</td>
-            <td class="col-line-price">${this.formatMoney(item.linePrice)}</td>
-            <td class="col-tax">${item.taxRate}%</td>
-            <td class="col-total">${this.formatMoney(item.total)}</td>
-          </tr>
-        `;
+      // Add product rows first
+      itemsToShow.forEach((item, index) => {
+        if (!item.isService) {
+          tableRows += `
+            <tr>
+              <td class="col-code">${index + 1}</td>
+              <td class="col-desc">${item.description || item.productName}</td>
+              ${showSKU ? `<td class="col-sku">${item.sku}</td>` : ""}
+              <td class="col-qty">${item.qty}</td>
+              <td class="col-unit-price">${this.formatMoney(item.unitPrice)}</td>
+              <td class="col-line-price">${this.formatMoney(item.linePrice)}</td>
+              <td class="col-tax">${item.taxRate}%</td>
+              <td class="col-total">${this.formatMoney(item.total)}</td>
+            </tr>
+          `;
+        }
       });
 
-      // Add combined services row if exists
+      // Add combined services row if exists (only for documents that allow services)
       if (combinedServicesData && !showOnlyProducts) {
+        const serviceIndex = productItems.length;
         tableRows += `
           <tr style="background-color: #f8fafc;">
-            <td class="col-code">SVC</td>
+            <td class="col-code">${serviceIndex + 1}</td>
             <td class="col-desc">
               <strong>${combinedServicesData.description}</strong>
               <div style="font-size: 8px; color: #666; margin-top: 2px; font-style: italic;">
