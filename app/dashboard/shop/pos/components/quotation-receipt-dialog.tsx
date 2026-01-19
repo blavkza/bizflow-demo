@@ -377,20 +377,8 @@ export function QuotationReceiptDialog({
           <div className="space-y-3">
             <Label>Quotation Actions</Label>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                onClick={handlePrintQuotation}
-                variant="outline"
-                className="w-full bg-transparent"
-                disabled={isPrinting}
-              >
-                {isPrinting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Printer className="h-4 w-4 mr-2" />
-                )}
-                {isPrinting ? "Printing..." : "Print Quotation"}
-              </Button>
+            {/*   <div className="grid grid-cols-2 gap-3">
+             
               <Button
                 onClick={handleDownloadQuotation}
                 variant="outline"
@@ -404,7 +392,7 @@ export function QuotationReceiptDialog({
                 )}
                 {isDownloading ? "Downloading..." : "Download"}
               </Button>
-            </div>
+            </div> */}
 
             {/* Email Quotation */}
             <div className="space-y-2">
@@ -434,12 +422,25 @@ export function QuotationReceiptDialog({
             </div>
           </div>
         </div>
+        <Button
+          onClick={handlePrintQuotation}
+          className="w-full "
+          disabled={isPrinting}
+          variant={"default"}
+        >
+          {isPrinting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Printer className="h-4 w-4 mr-2" />
+          )}
+          {isPrinting ? "Printing..." : "Print Quotation"}
+        </Button>
 
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button
             onClick={handleFinishQuotation}
             className="w-full"
-            variant="default"
+            variant="outline"
           >
             <Check className="mr-2 h-4 w-4" />
             Finish & New Quotation

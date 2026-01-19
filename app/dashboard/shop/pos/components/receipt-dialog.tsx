@@ -453,22 +453,9 @@ export function ReceiptDialog({
 
           {/* Receipt Actions */}
           <div className="space-y-3">
-            <Label>Receipt Actions</Label>
+            {/*  <Label>Receipt Actions</Label>
 
             <div className="grid grid-cols-2 gap-3">
-              <Button
-                onClick={handlePrintReceipt}
-                variant="outline"
-                className="w-full bg-transparent"
-                disabled={isPrinting || loadingStockAwait || !completedSale}
-              >
-                {isPrinting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Printer className="h-4 w-4 mr-2" />
-                )}
-                {isPrinting ? "Printing..." : "Print Receipt"}
-              </Button>
               <Button
                 onClick={handleDownloadReceipt}
                 variant="outline"
@@ -482,7 +469,7 @@ export function ReceiptDialog({
                 )}
                 {isDownloading ? "Downloading..." : "Download"}
               </Button>
-            </div>
+            </div> */}
 
             {/* Email Receipt */}
             <div className="space-y-2">
@@ -516,7 +503,21 @@ export function ReceiptDialog({
           </div>
         </div>
 
-        <DialogFooter>
+        <Button
+          onClick={handlePrintReceipt}
+          variant="default"
+          className="w-full "
+          disabled={isPrinting || loadingStockAwait || !completedSale}
+        >
+          {isPrinting ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Printer className="h-4 w-4 mr-2" />
+          )}
+          {isPrinting ? "Printing..." : "Print Receipt"}
+        </Button>
+
+        <DialogFooter className="mt-4">
           <Button
             onClick={handleFinishSale}
             className="w-full"
