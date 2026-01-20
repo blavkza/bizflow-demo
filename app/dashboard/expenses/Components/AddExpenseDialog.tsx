@@ -46,15 +46,15 @@ import {
   FileText,
   ImageIcon,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ExpenseFormValues, expenseSchema } from "@/lib/formValidationSchemas";
 import { ComboboxOption } from "../types";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { VendorForm } from "../../suppliers/components/VendorForm";
+import CategoryForm from "../../categories/_components/category-Form";
 
-// AddVendorDialog Component
 function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -63,6 +63,34 @@ function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
     setLoading(true);
 
     try {
+      // Parse payment terms to extract number of days from various formats
+      let paymentTermsDays = null;
+      if (data.paymentTerms && data.paymentTerms !== "no-payment-terms") {
+        const paymentTerms = data.paymentTerms.trim();
+
+        // Format 1: "net-30" or "net 30"
+        let match = paymentTerms.toLowerCase().match(/net[- ]?(\d+)/);
+        if (match) {
+          paymentTermsDays = parseInt(match[1], 10);
+        }
+
+        // Format 2: "Payment In 30 days" or similar
+        if (!paymentTermsDays) {
+          match = paymentTerms.match(/(?:payment|pay)[\w\s]*(\d+)[\w\s]*day/i);
+          if (match) {
+            paymentTermsDays = parseInt(match[1], 10);
+          }
+        }
+
+        // Format 3: Extract any number
+        if (!paymentTermsDays) {
+          match = paymentTerms.match(/(\d+)/);
+          if (match) {
+            paymentTermsDays = parseInt(match[1], 10);
+          }
+        }
+      }
+
       const apiData = {
         name: data.name.trim(),
         email: data.email?.trim() || null,
@@ -79,6 +107,7 @@ function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
           data.paymentTerms === "no-payment-terms"
             ? null
             : data.paymentTerms?.trim(),
+        paymentTermsDays: paymentTermsDays,
         notes: data.notes?.trim() || null,
       };
 
@@ -96,7 +125,6 @@ function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
       }
 
       await response.json();
-      toast.success("Vendor created successfully");
       setIsOpen(false);
       onVendorAdded();
     } catch (error) {
@@ -142,6 +170,42 @@ function AddVendorDialog({ onVendorAdded }: { onVendorAdded: () => void }) {
   );
 }
 
+// AddCategoryDialog Component
+function AddCategoryDialog({
+  onCategoryAdded,
+}: {
+  onCategoryAdded: () => void;
+}) {
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  return (
+    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="ml-2">
+          <Plus className="h-3 w-3 mr-1" />
+          New Category
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Add New Category</DialogTitle>
+          <DialogDescription>
+            Create a new expense category for better organization.
+          </DialogDescription>
+        </DialogHeader>
+        <CategoryForm
+          type="create"
+          onCancel={() => setIsAddDialogOpen(false)}
+          onSubmitSuccess={() => {
+            setIsAddDialogOpen(false);
+            onCategoryAdded();
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // Main Add Expense Dialog Component
 interface AddExpenseDialogProps {
   open: boolean;
@@ -149,7 +213,8 @@ interface AddExpenseDialogProps {
   onExpenseAdded: () => void;
   categoriesOptions: ComboboxOption[];
   vendorsOptions: ComboboxOption[];
-  defaultVendorId?: string; // Add this
+  vendorsData: any[];
+  defaultVendorId?: string;
 }
 
 export default function AddExpenseDialog({
@@ -158,15 +223,27 @@ export default function AddExpenseDialog({
   onExpenseAdded,
   categoriesOptions,
   vendorsOptions,
-  defaultVendorId, // Add this
+  vendorsData,
+  defaultVendorId,
 }: AddExpenseDialogProps) {
   const [invoicesOptions, setInvoicesOptions] = useState<ComboboxOption[]>([]);
   const [projectsOptions, setProjectsOptions] = useState<ComboboxOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [vendors, setVendors] = useState<ComboboxOption[]>(vendorsOptions);
-
-  // Attachment State
+  const [categories, setCategories] =
+    useState<ComboboxOption[]>(categoriesOptions);
+  const [fullVendorsData, setFullVendorsData] = useState<any[]>(
+    vendorsData || []
+  );
+  const [selectedVendorPaymentTerms, setSelectedVendorPaymentTerms] = useState<
+    number | null
+  >(null);
+  const [isManualDueDate, setIsManualDueDate] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Add refs to track state
+  const isManualSelectionRef = useRef(false);
+  const hasResetRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ExpenseFormValues>({
@@ -174,7 +251,7 @@ export default function AddExpenseDialog({
     defaultValues: {
       description: "",
       categoryId: "",
-      vendorId: defaultVendorId || "", // Set default vendor ID here
+      vendorId: defaultVendorId || "",
       totalAmount: 0,
       paidAmount: 0,
       expenseDate: new Date(),
@@ -188,17 +265,81 @@ export default function AddExpenseDialog({
     },
   });
 
-  // Reset form when dialog opens with new defaultVendorId
+  // Watchers
+  const totalAmount = form.watch("totalAmount");
+  const paidAmount = form.watch("paidAmount");
+  const expenseDate = form.watch("expenseDate");
+  const vendorId = form.watch("vendorId");
+  const remainingAmount = totalAmount - paidAmount;
+  const attachments = form.watch("attachments") || [];
+
+  // Function to get vendor payment terms from local data
+  const getVendorPaymentTerms = useCallback(
+    (vendorId: string) => {
+      if (!vendorId || !fullVendorsData || fullVendorsData.length === 0) {
+        setSelectedVendorPaymentTerms(null);
+        return;
+      }
+
+      const vendor = fullVendorsData.find((v) => v.id === vendorId);
+
+      if (!vendor) {
+        setSelectedVendorPaymentTerms(null);
+        return;
+      }
+
+      if (vendor.paymentTermsDays) {
+        setSelectedVendorPaymentTerms(vendor.paymentTermsDays);
+      } else if (vendor.paymentTerms) {
+        // Try multiple formats
+        let days = null;
+
+        // Format 1: "net-30" or "net 30"
+        let match = vendor.paymentTerms.toLowerCase().match(/net[- ]?(\d+)/);
+        if (match) {
+          days = parseInt(match[1], 10);
+        }
+
+        // Format 2: "Payment In 30 days" or "Payment within 30 days"
+        if (!days) {
+          match = vendor.paymentTerms.match(
+            /(?:payment|pay)[\w\s]*(\d+)[\w\s]*day/i
+          );
+          if (match) {
+            days = parseInt(match[1], 10);
+          }
+        }
+
+        // Format 3: Extract any number from the string
+        if (!days) {
+          match = vendor.paymentTerms.match(/(\d+)/);
+          if (match) {
+            days = parseInt(match[1], 10);
+          }
+        }
+
+        setSelectedVendorPaymentTerms(days);
+      } else {
+        setSelectedVendorPaymentTerms(null);
+      }
+    },
+    [fullVendorsData]
+  );
+
+  // Reset form when dialog opens
   useEffect(() => {
-    if (open) {
+    if (open && !hasResetRef.current) {
+      const initialExpenseDate = new Date();
+      const initialDueDate = new Date();
+
       form.reset({
         description: "",
         categoryId: "",
         vendorId: defaultVendorId || "",
         totalAmount: 0,
         paidAmount: 0,
-        expenseDate: new Date(),
-        dueDate: new Date(),
+        expenseDate: initialExpenseDate,
+        dueDate: initialDueDate,
         priority: "MEDIUM",
         status: "PENDING",
         paymentMethod: "",
@@ -206,16 +347,103 @@ export default function AddExpenseDialog({
         projectId: "",
         attachments: [],
       });
+
+      // Reset state flags
+      setIsManualDueDate(false);
+      isManualSelectionRef.current = false;
+      hasResetRef.current = true;
+
       fetchInvoicesAndProjects();
       refreshVendors();
-    }
-  }, [open, defaultVendorId]);
+      refreshCategories();
 
-  // Watchers
-  const totalAmount = form.watch("totalAmount");
-  const paidAmount = form.watch("paidAmount");
-  const remainingAmount = totalAmount - paidAmount;
-  const attachments = form.watch("attachments") || [];
+      // Fetch payment terms if default vendor is set
+      if (defaultVendorId) {
+        getVendorPaymentTerms(defaultVendorId);
+      }
+    }
+
+    // Reset the ref when dialog closes
+    return () => {
+      if (!open) {
+        hasResetRef.current = false;
+      }
+    };
+  }, [open, defaultVendorId, form]);
+
+  // Update vendors and categories from props when they change
+  useEffect(() => {
+    if (vendorsOptions) {
+      setVendors(vendorsOptions);
+    }
+  }, [vendorsOptions]);
+
+  useEffect(() => {
+    if (categoriesOptions) {
+      setCategories(categoriesOptions);
+    }
+  }, [categoriesOptions]);
+
+  // Update full vendors data when props change
+  useEffect(() => {
+    if (vendorsData) {
+      setFullVendorsData(vendorsData);
+    }
+  }, [vendorsData]);
+
+  // Get vendor payment terms when vendor changes
+  useEffect(() => {
+    if (vendorId) {
+      getVendorPaymentTerms(vendorId);
+      // Reset manual flag when vendor changes
+      setIsManualDueDate(false);
+      isManualSelectionRef.current = false;
+    } else {
+      setSelectedVendorPaymentTerms(null);
+    }
+  }, [vendorId, getVendorPaymentTerms]);
+
+  // Auto-calculate due date when expense date or payment terms change
+  useEffect(() => {
+    // Skip if we just manually selected
+    if (isManualSelectionRef.current) {
+      isManualSelectionRef.current = false;
+      return;
+    }
+
+    if (isManualDueDate) {
+      return;
+    }
+
+    if (!expenseDate || !selectedVendorPaymentTerms) {
+      return;
+    }
+
+    try {
+      const calculatedDueDate = addDays(
+        new Date(expenseDate),
+        selectedVendorPaymentTerms
+      );
+
+      // Get current due date
+      const currentDueDate = form.getValues("dueDate");
+
+      // Only update if the calculated date is different from current
+      if (
+        !currentDueDate ||
+        format(new Date(currentDueDate), "yyyy-MM-dd") !==
+          format(calculatedDueDate, "yyyy-MM-dd")
+      ) {
+        form.setValue("dueDate", calculatedDueDate, {
+          shouldValidate: true,
+          shouldDirty: true,
+          shouldTouch: true,
+        });
+      }
+    } catch (error) {
+      console.error("Error calculating due date:", error);
+    }
+  }, [expenseDate, selectedVendorPaymentTerms, isManualDueDate, form]);
 
   // Functions to fetch data
   const fetchInvoicesAndProjects = async () => {
@@ -245,23 +473,85 @@ export default function AddExpenseDialog({
     }
   };
 
-  const refreshVendors = async () => {
+  const refreshVendors = useCallback(async () => {
     try {
       const vendorsRes = await axios.get("/api/vendors");
-      setVendors(
-        vendorsRes.data.map((vendor: any) => ({
-          label: vendor.name,
-          value: vendor.id,
-        }))
-      );
+      // Update both the options and full data
+      const newVendors = vendorsRes.data.map((vendor: any) => ({
+        label: vendor.name,
+        value: vendor.id,
+      }));
+      setVendors(newVendors);
+      setFullVendorsData(vendorsRes.data);
     } catch (error) {
-      console.error("Error refreshing vendors:", error);
+      toast.error("Failed to refresh vendors");
+    }
+  }, []);
+
+  const refreshCategories = async () => {
+    try {
+      const categoriesRes = await axios.get("/api/category/all-category");
+      const newCategories = categoriesRes.data.map((category: any) => ({
+        label: category.name,
+        value: category.id,
+      }));
+      setCategories(newCategories);
+    } catch (error) {
+      toast.error("Failed to refresh categories");
     }
   };
 
   const handleInvoiceChange = (invoiceId: string) => {
     form.setValue("invoiceId", invoiceId);
     form.setValue("projectId", "");
+  };
+
+  // Handle expense date selection
+  const handleExpenseDateSelect = (date: Date | undefined) => {
+    if (date) {
+      form.setValue("expenseDate", date, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+    }
+  };
+
+  // Handle due date selection manually
+  const handleDueDateSelect = (date: Date | undefined) => {
+    if (date) {
+      // Set the ref to indicate manual selection
+      isManualSelectionRef.current = true;
+      setIsManualDueDate(true);
+
+      form.setValue("dueDate", date, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+    }
+  };
+
+  // Apply payment terms button handler
+  const handleApplyPaymentTerms = () => {
+    if (expenseDate && selectedVendorPaymentTerms) {
+      const calculatedDueDate = addDays(
+        new Date(expenseDate),
+        selectedVendorPaymentTerms
+      );
+
+      // Reset manual selection flag when applying payment terms
+      isManualSelectionRef.current = false;
+      setIsManualDueDate(false);
+
+      form.setValue("dueDate", calculatedDueDate, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+
+      toast.success(`Due date set to ${format(calculatedDueDate, "PPP")}`);
+    }
   };
 
   // File Upload Logic
@@ -369,29 +659,47 @@ export default function AddExpenseDialog({
                         <Combobox
                           options={vendors}
                           value={field.value}
-                          onChange={field.onChange}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            // Clear manual due date flag when selecting a new vendor
+                            setIsManualDueDate(false);
+                            isManualSelectionRef.current = false;
+                          }}
                           placeholder="Select vendor"
                         />
                       </div>
                       <AddVendorDialog onVendorAdded={refreshVendors} />
                     </div>
                     <FormMessage />
+                    {selectedVendorPaymentTerms && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-muted-foreground">
+                          Payment terms: Net {selectedVendorPaymentTerms} days
+                        </span>
+                      </div>
+                    )}
                   </FormItem>
                 )}
               />
 
+              {/* Category Field with Add New Button */}
               <FormField
                 control={form.control}
                 name="categoryId"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
                     <FormLabel>Category</FormLabel>
-                    <Combobox
-                      options={categoriesOptions}
-                      value={field.value}
-                      onChange={field.onChange}
-                      placeholder="Select category"
-                    />
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Combobox
+                          options={categories}
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select category"
+                        />
+                      </div>
+                      <AddCategoryDialog onCategoryAdded={refreshCategories} />
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -498,7 +806,7 @@ export default function AddExpenseDialog({
                               {field.value ? (
                                 format(field.value, "PPP")
                               ) : (
-                                <span>When occurred?</span>
+                                <span>Select date</span>
                               )}
                             </Button>
                           </FormControl>
@@ -507,7 +815,7 @@ export default function AddExpenseDialog({
                           <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={handleExpenseDateSelect}
                             initialFocus
                           />
                         </PopoverContent>
@@ -523,35 +831,67 @@ export default function AddExpenseDialog({
                   render={({ field }) => (
                     <FormItem className="space-y-1">
                       <FormLabel>Due Date</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  <CalendarIcon className="mr-2 h-4 w-4" />
+                                  {field.value ? (
+                                    format(field.value, "PPP")
+                                  ) : (
+                                    <span>Select date</span>
+                                  )}
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-auto p-0"
+                              align="start"
                             >
-                              <CalendarIcon className="mr-2 h-4 w-4" />
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>When due?</span>
-                              )}
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={handleDueDateSelect}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        {selectedVendorPaymentTerms && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleApplyPaymentTerms}
+                            title={`Set due date to net ${selectedVendorPaymentTerms} days from expense date`}
+                            disabled={!expenseDate}
+                          >
+                            Apply Net {selectedVendorPaymentTerms}
+                          </Button>
+                        )}
+                      </div>
                       <FormMessage />
+                      {selectedVendorPaymentTerms &&
+                        expenseDate &&
+                        !isManualDueDate && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Auto-calculated from expense date +{" "}
+                            {selectedVendorPaymentTerms} days
+                          </p>
+                        )}
+                      {isManualDueDate && (
+                        <p className="text-xs text-blue-500 mt-1">
+                          Manually set date
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />

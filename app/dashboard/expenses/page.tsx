@@ -92,7 +92,7 @@ export default function ExpensesPage() {
   }
 
   return (
-    <div>
+    <div className="p-6">
       <ExpensesHeader
         onExpenseAdded={fetchExpenses}
         searchQuery={searchQuery}

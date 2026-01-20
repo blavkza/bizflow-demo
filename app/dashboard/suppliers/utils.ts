@@ -5,7 +5,7 @@ import { VendorStatus } from "@prisma/client";
 export const PAYMENT_TERMS = [
   "Due on receipt",
   "Net 7 (Payment In 7 days)",
-  "Net 15 (Payment In 14 days)",
+  "Net 15 (Payment In 15 days)",
   "Net 30 (Payment In 30 days)",
   "Net 45 (Payment In 45 days)",
   "Net 60 (Payment In 60 days)",
