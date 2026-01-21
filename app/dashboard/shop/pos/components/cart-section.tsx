@@ -17,6 +17,7 @@ import {
   Edit,
   Check,
   Tag,
+  Percent,
 } from "lucide-react";
 import Image from "next/image";
 import { CartItem, POSSettings } from "@/types/pos";
@@ -44,7 +45,7 @@ interface CartSectionProps {
   posSettings: POSSettings | null;
   updateQuantity: (id: string, quantity: number) => void;
   removeFromCart: (id: string) => void;
-  updatePrice: (id: string, price: number) => void; // Add this prop
+  updatePrice: (id: string, price: number) => void;
   clearCart: () => void;
   handleCheckout: () => void;
   onCreateQuotation: () => void;
@@ -65,7 +66,7 @@ export function CartSection({
   posSettings,
   updateQuantity,
   removeFromCart,
-  updatePrice, // Add this prop
+  updatePrice,
   clearCart,
   handleCheckout,
   onCreateQuotation,
@@ -226,6 +227,29 @@ export function CartSection({
     }
     return null;
   };
+
+  // Calculate total item discounts for the whole cart
+  const calculateTotalItemDiscounts = () => {
+    return cart.reduce((total, item) => {
+      const itemDiscount = getItemDiscount(item);
+      if (itemDiscount) {
+        return total + itemDiscount.amount * item.quantity;
+      }
+      return total;
+    }, 0);
+  };
+
+  // Calculate original subtotal (before any item discounts)
+  const calculateOriginalSubtotal = () => {
+    return cart.reduce((total, item) => {
+      const originalPrice = Number(item.originalPrice) || Number(item.price);
+      return total + originalPrice * item.quantity;
+    }, 0);
+  };
+
+  const totalItemDiscounts = calculateTotalItemDiscounts();
+  const originalSubtotal = calculateOriginalSubtotal();
+  const hasItemDiscounts = totalItemDiscounts > 0;
 
   return (
     <div className="space-y-4">
@@ -408,8 +432,7 @@ export function CartSection({
                                   variant="outline"
                                   className="bg-green-50 text-green-700 border-green-200 text-xs"
                                 >
-                                  <Tag className="h-3 w-3 mr-1" />
-                                  Discount: {itemDiscount.display}
+                                  {itemDiscount.display}
                                 </Badge>
                               )}
                             </div>
@@ -419,6 +442,12 @@ export function CartSection({
                         <p className="text-sm font-semibold">
                           Total ({item.quantity}): R
                           {(itemPrice * item.quantity).toFixed(2)}
+                          {itemDiscount && (
+                            <span className="block text-xs text-green-600">
+                              Saved: R
+                              {(itemDiscount.amount * item.quantity).toFixed(2)}
+                            </span>
+                          )}
                         </p>
                         {exceedsStock && (
                           <p className="text-xs text-amber-600">
@@ -468,37 +497,6 @@ export function CartSection({
             <>
               <Separator />
 
-              {/* Summary of item discounts */}
-              {cart.some((item) => getItemDiscount(item)) && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-1">
-                    <Tag className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium">Item Discounts</span>
-                  </div>
-                  {cart
-                    .map((item) => {
-                      const discount = getItemDiscount(item);
-                      if (discount) {
-                        return (
-                          <div
-                            key={item.id}
-                            className="flex justify-between text-sm"
-                          >
-                            <span className="truncate max-w-[60%]">
-                              {item.name}:
-                            </span>
-                            <span className="text-green-600">
-                              -R{(discount.amount * item.quantity).toFixed(2)}
-                            </span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })
-                    .filter(Boolean)}
-                </div>
-              )}
-
               {/* Global Discount */}
               <div className="space-y-2">
                 <Label>Global Discount (%)</Label>
@@ -541,21 +539,10 @@ export function CartSection({
                 </div>
 
                 {/* Show item discounts total */}
-                {cart.some((item) => getItemDiscount(item)) && (
+                {hasItemDiscounts && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Item Discounts:</span>
-                    <span>
-                      -R
-                      {cart
-                        .reduce((acc, item) => {
-                          const itemDiscount = getItemDiscount(item);
-                          if (itemDiscount) {
-                            return acc + itemDiscount.amount * item.quantity;
-                          }
-                          return acc;
-                        }, 0)
-                        .toFixed(2)}
-                    </span>
+                    <span>-R{totalItemDiscounts.toFixed(2)}</span>
                   </div>
                 )}
 
@@ -588,6 +575,27 @@ export function CartSection({
                 )}
 
                 <Separator />
+
+                {/* Total Savings Summary */}
+                {hasItemDiscounts && (
+                  <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded-lg border border-green-200">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-sm font-medium text-green-700">
+                        Total Savings:
+                      </span>
+                      <span className="text-lg font-bold text-green-700">
+                        R{(totalItemDiscounts + discountAmount).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-green-600 flex justify-between">
+                      <span>
+                        Item discounts: R{totalItemDiscounts.toFixed(2)}
+                      </span>
+                      <span>Global discount: R{discountAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total:</span>
                   <span>R{total.toFixed(2)}</span>
