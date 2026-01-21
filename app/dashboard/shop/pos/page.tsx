@@ -150,6 +150,7 @@ export default function POSPage() {
           name: product.name,
           sku: product.sku,
           price: Number(product.price) || 0,
+          originalPrice: Number(product.price) || 0,
           quantity: 1,
           image: product.images?.[0],
           stock: product.stock,
@@ -197,6 +198,15 @@ export default function POSPage() {
         )
       );
     }
+  };
+
+  // Add this function - it updates the price of a specific cart item
+  const updatePrice = (id: string, newPrice: number) => {
+    setCart((prevCart) =>
+      prevCart.map((item) =>
+        item.id === id ? { ...item, price: newPrice } : item
+      )
+    );
   };
 
   const removeFromCart = (id: string) => {
@@ -417,6 +427,7 @@ export default function POSPage() {
       name: item.shopProduct.name,
       sku: item.shopProduct.sku,
       price: Number(item.price) || 0,
+      originalPrice: Number(item.shopProduct.price) || 0, // Add originalPrice
       quantity: item.quantity,
       image: item.shopProduct.images?.[0],
       stock: item.shopProduct.stock,
@@ -611,6 +622,8 @@ export default function POSPage() {
             sku: item.sku,
             quantity: item.quantity,
             price: Number(item.price) || 0,
+            originalPrice:
+              Number(item.originalPrice) || Number(item.price) || 0, // Add originalPrice
             total: (Number(item.price) || 0) * item.quantity,
           })),
           subtotal,
@@ -802,6 +815,7 @@ export default function POSPage() {
           posSettings={posSettings}
           updateQuantity={updateQuantity}
           removeFromCart={removeFromCart}
+          updatePrice={updatePrice} // Pass the updatePrice function
           clearCart={clearCart}
           handleCheckout={handleCheckout}
           onCreateQuotation={openQuotationDialog}

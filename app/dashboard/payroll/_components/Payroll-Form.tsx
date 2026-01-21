@@ -239,7 +239,6 @@ export default function PayrollForm({
         description: `Salary for ${values.month} - ${emp.paidDays} days worked`,
         departmentId: emp.department?.id,
         isFreelancer: emp.isFreelancer,
-        // Important: Send the edited arrays
         bonuses: emp.bonuses || [],
         deductions: emp.deductions || [],
       }));
@@ -339,7 +338,7 @@ export default function PayrollForm({
 
               {/* Summary Section (Now uses dynamic totals based on selection) */}
               <PayrollSummary
-                payrollData={selectedPayrollData} // Pass selected data only
+                payrollData={selectedPayrollData}
                 totalBaseAmount={totals.baseAmount}
                 totalOvertimeAmount={totals.overtimeAmount}
                 totalBonusAmount={totals.bonusAmount}
@@ -356,7 +355,7 @@ export default function PayrollForm({
 
               {/* Detailed Breakdown Tabs */}
               <PayrollDataTabs
-                payrollData={selectedPayrollData} // Pass selected data only
+                payrollData={selectedPayrollData}
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
                 totalBaseAmount={totals.baseAmount}

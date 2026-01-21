@@ -99,7 +99,7 @@ export function PayrollDataTabs({
         <TabsContent value="bonuses-deductions" className="space-y-4">
           {/* Total Bonuses & Deductions Summary */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="p-4 bg-green-50 dark:bg-zinc-900 border border-green-200 rounded-lg">
               <h3 className="font-semibold text-green-800 mb-2">
                 Total Bonuses
               </h3>
@@ -124,7 +124,7 @@ export function PayrollDataTabs({
               )}
             </div>
 
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-4 bg-red-50 dark:bg-zinc-900 border border-red-200 rounded-lg">
               <h3 className="font-semibold text-red-800 mb-2">
                 Total Deductions
               </h3>

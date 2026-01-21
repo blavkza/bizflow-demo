@@ -14,6 +14,9 @@ import {
   X,
   AlertCircle,
   FileText,
+  Edit,
+  Check,
+  Tag,
 } from "lucide-react";
 import Image from "next/image";
 import { CartItem, POSSettings } from "@/types/pos";
@@ -25,6 +28,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 interface CartSectionProps {
   cart: CartItem[];
@@ -40,6 +44,7 @@ interface CartSectionProps {
   posSettings: POSSettings | null;
   updateQuantity: (id: string, quantity: number) => void;
   removeFromCart: (id: string) => void;
+  updatePrice: (id: string, price: number) => void; // Add this prop
   clearCart: () => void;
   handleCheckout: () => void;
   onCreateQuotation: () => void;
@@ -60,6 +65,7 @@ export function CartSection({
   posSettings,
   updateQuantity,
   removeFromCart,
+  updatePrice, // Add this prop
   clearCart,
   handleCheckout,
   onCreateQuotation,
@@ -67,6 +73,11 @@ export function CartSection({
 }: CartSectionProps) {
   const [discountInput, setDiscountInput] = useState("");
   const [discountError, setDiscountError] = useState("");
+  const [editingPriceForId, setEditingPriceForId] = useState<string | null>(
+    null
+  );
+  const [priceInput, setPriceInput] = useState("");
+  const [priceError, setPriceError] = useState("");
 
   useEffect(() => {
     if (discount === 0) {
@@ -127,6 +138,59 @@ export function CartSection({
     }
   };
 
+  const handleStartEditPrice = (item: CartItem) => {
+    setEditingPriceForId(item.id);
+    setPriceInput(item.price.toString());
+    setPriceError("");
+  };
+
+  const handlePriceChange = (value: string) => {
+    if (value === "" || /^\d*\.?\d*$/.test(value)) {
+      setPriceInput(value);
+    }
+  };
+
+  const handleSavePrice = (itemId: string) => {
+    if (priceInput === "" || priceInput === ".") {
+      setPriceError("Please enter a valid price");
+      return;
+    }
+
+    const numValue = Number.parseFloat(priceInput);
+    if (isNaN(numValue)) {
+      setPriceError("Please enter a valid number");
+      return;
+    }
+
+    if (numValue < 0) {
+      setPriceError("Price cannot be negative");
+      return;
+    }
+
+    if (numValue === 0) {
+      setPriceError("Price cannot be zero");
+      return;
+    }
+
+    // Find the original product to get the original price
+    const item = cart.find((cartItem) => cartItem.id === itemId);
+    if (item && numValue > item.originalPrice) {
+      setPriceError("New price cannot be higher than original price");
+      return;
+    }
+
+    setPriceError("");
+    updatePrice(itemId, numValue);
+    setEditingPriceForId(null);
+    setPriceInput("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPriceForId(null);
+    setPriceInput("");
+    setPriceError("");
+  };
+
   const getStockExceededItems = () => {
     return cart.filter((item) => item.quantity > item.stock);
   };
@@ -142,6 +206,25 @@ export function CartSection({
   const truncateText = (text: string, maxLength: number = 30) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
+  };
+
+  // Calculate item-level discount
+  const getItemDiscount = (item: CartItem) => {
+    const originalPrice = Number(item.originalPrice) || Number(item.price);
+    const currentPrice = Number(item.price);
+    if (currentPrice < originalPrice) {
+      const discountAmount = originalPrice - currentPrice;
+      const discountPercentage = (
+        (discountAmount / originalPrice) *
+        100
+      ).toFixed(1);
+      return {
+        amount: discountAmount,
+        percentage: discountPercentage,
+        display: `-R${discountAmount.toFixed(2)} (${discountPercentage}%)`,
+      };
+    }
+    return null;
   };
 
   return (
@@ -191,7 +274,10 @@ export function CartSection({
               cart.map((item) => {
                 const exceedsStock = item.quantity > item.stock;
                 const itemPrice = Number(item.price) || 0;
+                const originalPrice = Number(item.originalPrice) || itemPrice;
                 const showTooltip = isTextTooLong(item.name, 30);
+                const itemDiscount = getItemDiscount(item);
+                const isEditing = editingPriceForId === item.id;
 
                 return (
                   <div
@@ -200,7 +286,7 @@ export function CartSection({
                       exceedsStock
                         ? "border-amber-200 bg-amber-50 dark:bg-zinc-900"
                         : ""
-                    }`}
+                    } ${itemDiscount ? "border-green-200 bg-green-50 dark:bg-green-900/20" : ""}`}
                   >
                     <div className="flex-1 min-w-0">
                       {/* Name and SKU at the top */}
@@ -233,7 +319,7 @@ export function CartSection({
                       </p>
 
                       {/* Content below (image, price, etc.) */}
-                      <div className="flex items-start justify-center gap-2 flex-col">
+                      <div className="flex items-start gap-2 flex-col">
                         {item.image ? (
                           <Image
                             src={item.image}
@@ -247,7 +333,89 @@ export function CartSection({
                             <ShoppingCart className="h-6 w-6 text-gray-400" />
                           </div>
                         )}
-                        <p className="text-sm">R{itemPrice.toFixed(2)}</p>
+
+                        {/* Price editing section */}
+                        <div className="space-y-1">
+                          {isEditing ? (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  type="number"
+                                  inputMode="decimal"
+                                  value={priceInput}
+                                  onChange={(e) =>
+                                    handlePriceChange(e.target.value)
+                                  }
+                                  className={`w-24 h-8 ${priceError ? "border-red-500" : ""}`}
+                                  placeholder="0.00"
+                                  autoFocus
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleSavePrice(item.id)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Check className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={handleCancelEdit}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <X className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </div>
+                              {priceError && (
+                                <p className="text-red-500 text-xs">
+                                  {priceError}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                Original: R{originalPrice.toFixed(2)}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm">
+                                  {itemDiscount ? (
+                                    <span className="flex flex-col gap-0.5">
+                                      <span className="text-gray-400 line-through text-xs">
+                                        R{originalPrice.toFixed(2)}
+                                      </span>
+                                      <span className="text-green-600 font-semibold">
+                                        R{itemPrice.toFixed(2)}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span>R{itemPrice.toFixed(2)}</span>
+                                  )}
+                                </p>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleStartEditPrice(item)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Edit className="h-3 w-3" />
+                                </Button>
+                              </div>
+
+                              {itemDiscount && (
+                                <Badge
+                                  variant="outline"
+                                  className="bg-green-50 text-green-700 border-green-200 text-xs"
+                                >
+                                  <Tag className="h-3 w-3 mr-1" />
+                                  Discount: {itemDiscount.display}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
                         <p className="text-sm font-semibold">
                           Total ({item.quantity}): R
                           {(itemPrice * item.quantity).toFixed(2)}
@@ -300,9 +468,40 @@ export function CartSection({
             <>
               <Separator />
 
-              {/* Discount */}
+              {/* Summary of item discounts */}
+              {cart.some((item) => getItemDiscount(item)) && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <Tag className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium">Item Discounts</span>
+                  </div>
+                  {cart
+                    .map((item) => {
+                      const discount = getItemDiscount(item);
+                      if (discount) {
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex justify-between text-sm"
+                          >
+                            <span className="truncate max-w-[60%]">
+                              {item.name}:
+                            </span>
+                            <span className="text-green-600">
+                              -R{(discount.amount * item.quantity).toFixed(2)}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })
+                    .filter(Boolean)}
+                </div>
+              )}
+
+              {/* Global Discount */}
               <div className="space-y-2">
-                <Label>Discount (%)</Label>
+                <Label>Global Discount (%)</Label>
                 <div className="relative">
                   <Input
                     type="number"
@@ -341,9 +540,28 @@ export function CartSection({
                   <span>R{subtotal.toFixed(2)}</span>
                 </div>
 
+                {/* Show item discounts total */}
+                {cart.some((item) => getItemDiscount(item)) && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Item Discounts:</span>
+                    <span>
+                      -R
+                      {cart
+                        .reduce((acc, item) => {
+                          const itemDiscount = getItemDiscount(item);
+                          if (itemDiscount) {
+                            return acc + itemDiscount.amount * item.quantity;
+                          }
+                          return acc;
+                        }, 0)
+                        .toFixed(2)}
+                    </span>
+                  </div>
+                )}
+
                 {discount > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
-                    <span>Discount ({discount.toFixed(2)}%):</span>
+                    <span>Global Discount ({discount.toFixed(2)}%):</span>
                     <span>-R{discountAmount.toFixed(2)}</span>
                   </div>
                 )}

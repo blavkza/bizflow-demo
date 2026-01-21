@@ -41,7 +41,7 @@ export function PayrollReviewTable({
 
   return (
     <>
-      <div className="rounded-md border bg-white shadow-sm overflow-hidden">
+      <div className="rounded-md border bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -78,7 +78,11 @@ export function PayrollReviewTable({
                 return (
                   <TableRow
                     key={emp.id}
-                    className={isSelected ? "bg-blue-50/30" : "opacity-60"}
+                    className={
+                      isSelected
+                        ? "bg-blue-50/30 dark:bg-zinc-900"
+                        : "opacity-60"
+                    }
                   >
                     <TableCell className="pl-4">
                       <Checkbox

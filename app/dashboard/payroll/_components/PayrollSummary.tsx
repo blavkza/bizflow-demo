@@ -65,7 +65,7 @@ export function PayrollSummary({
   };
 
   return (
-    <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+    <Card className="">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <CreditCard className="h-5 w-5" />
@@ -74,53 +74,8 @@ export function PayrollSummary({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {/* Workers Card */}
-          <div className="text-center p-4 bg-white rounded-lg border">
-            {getWorkerIcon()}
-            <p className="text-sm text-muted-foreground mt-2">
-              {getWorkerLabel()}
-            </p>
-            <p className="text-lg font-bold text-blue-600">
-              {payrollData.length}
-            </p>
-            {workerType === "all" && (
-              <p className="text-xs text-muted-foreground">
-                {employees.length} emp + {freelancers.length} free
-              </p>
-            )}
-          </div>
-
-          {/* Bonuses Card */}
-          <div className="text-center p-4 bg-white rounded-lg border">
-            <TrendingUp className="h-8 w-8 text-green-600 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Total Bonuses</p>
-            <p className="text-lg font-bold text-green-600">
-              {formatCurrency(totalBonusAmount)}
-            </p>
-          </div>
-
-          {/* Deductions Card */}
-          <div className="text-center p-4 bg-white rounded-lg border">
-            <TrendingDown className="h-8 w-8 text-red-600 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Total Deductions</p>
-            <p className="text-lg font-bold text-red-600">
-              {formatCurrency(totalDeductionAmount)}
-            </p>
-          </div>
-
-          {/* Net Payroll Card */}
-          <div className="text-center p-4 bg-white rounded-lg border">
-            <CreditCard className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Net Payroll</p>
-            <p className="text-lg font-bold text-purple-600">
-              {formatCurrency(netPayroll)}
-            </p>
-          </div>
-        </div>
-
         {/* Detailed Breakdown */}
-        <div className="mt-6 p-4 bg-white rounded-lg border">
+        <div className="mt-6 p-4 bg-white dark:bg-zinc-900 rounded-lg border">
           <h4 className="font-semibold mb-3">Detailed Breakdown</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
             <div className="flex justify-between">
