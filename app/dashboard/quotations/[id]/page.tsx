@@ -172,7 +172,10 @@ export default function QuotationDetailPage({
         </TabsContent>
 
         <TabsContent value="quotation-preview" className="space-y-4">
-          <QuotationPreview quotation={quotation} />
+          <QuotationPreview
+            quotation={quotation}
+            combineServices={combineServices}
+          />
         </TabsContent>
 
         {/*  <TabsContent value="document-preview" className="space-y-4">

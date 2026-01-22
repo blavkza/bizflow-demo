@@ -21,6 +21,7 @@ import {
   Printer,
   Layers,
   List,
+  FileDown,
 } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "./StatusBadge";
@@ -35,6 +36,7 @@ import { toast } from "sonner";
 import { useCompanyInfo } from "@/hooks/use-company-info";
 import { QuotationReportGenerator } from "@/lib/quotationReportGenerator";
 import { QuotationDeliveryNoteGenerator } from "@/lib/QuotationDeliveryNoteGenerator";
+import { PDFGenerator } from "@/lib/pdfGenerator"; // ADD THIS IMPORT
 import axios from "axios";
 import {
   DropdownMenu,
@@ -45,6 +47,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 interface QuotationHeaderProps {
   quotation: QuotationWithRelations & {
@@ -95,6 +99,8 @@ export const QuotationHeader = ({
     useState(false);
   const [isGeneratingPriceSheet, setIsGeneratingPriceSheet] = useState(false);
   const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false); // NEW STATE
+  const [isPrintingPDF, setIsPrintingPDF] = useState(false); // NEW STATE
   const router = useRouter();
   const { companyInfo } = useCompanyInfo();
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
@@ -146,13 +152,50 @@ export const QuotationHeader = ({
     }
   };
 
+  const handleDownloadPDF = async () => {
+    setIsDownloadingPDF(true);
+    try {
+      if (!companyInfo) {
+        toast.error("Company information not available");
+        return;
+      }
+
+      await PDFGenerator.downloadQuotationPDF(quotation, companyInfo, {
+        combineServices,
+      });
+      toast.success("Quotation PDF downloaded successfully");
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast.error("Failed to download PDF");
+    } finally {
+      setIsDownloadingPDF(false);
+    }
+  };
+
+  // NEW: Print PDF function
+  const handlePrintPDF = async () => {
+    setIsPrintingPDF(true);
+    try {
+      await PDFGenerator.printQuotationPDF(quotation, companyInfo, {
+        combineServices,
+      });
+    } catch (error) {
+      console.error("Error printing PDF:", error);
+      toast.error("Failed to print PDF");
+    } finally {
+      setIsPrintingPDF(false);
+    }
+  };
+
+  // Existing print functions (keep these for HTML printing)
   const handlePrintQuotation = async () => {
     setIsGenerating(true);
     try {
       const quotationReportHTML =
         QuotationReportGenerator.generateQuotationReportHTML(
           quotation,
-          companyInfo
+          companyInfo,
+          combineServices
         );
 
       const printWindow = window.open("", "_blank");
@@ -173,65 +216,6 @@ export const QuotationHeader = ({
       toast.error("Failed to generate quotation report");
     } finally {
       setIsGenerating(false);
-    }
-  };
-
-  const handlePrintDeliveryNote = async () => {
-    setIsGeneratingDeliveryNote(true);
-    try {
-      const deliveryNoteHTML =
-        QuotationDeliveryNoteGenerator.generateDeliveryNoteWithoutPrices(
-          quotation,
-          companyInfo
-        );
-
-      const printWindow = window.open("", "_blank");
-      if (printWindow) {
-        printWindow.document.write(deliveryNoteHTML);
-        printWindow.document.close();
-        printWindow.onload = () => {
-          printWindow.focus();
-          printWindow.print();
-        };
-
-        printWindow.onafterprint = () => {
-          printWindow.close();
-        };
-      }
-    } catch (error) {
-      console.error("Error printing delivery note:", error);
-      toast.error("Failed to generate delivery note");
-    } finally {
-      setIsGeneratingDeliveryNote(false);
-    }
-  };
-
-  const handlePrintPriceSheet = async () => {
-    setIsGeneratingPriceSheet(true);
-    try {
-      const priceSheetHTML = QuotationDeliveryNoteGenerator.generatePriceSheet(
-        quotation,
-        companyInfo
-      );
-
-      const printWindow = window.open("", "_blank");
-      if (printWindow) {
-        printWindow.document.write(priceSheetHTML);
-        printWindow.document.close();
-        printWindow.onload = () => {
-          printWindow.focus();
-          printWindow.print();
-        };
-
-        printWindow.onafterprint = () => {
-          printWindow.close();
-        };
-      }
-    } catch (error) {
-      console.error("Error printing price sheet:", error);
-      toast.error("Failed to generate price sheet");
-    } finally {
-      setIsGeneratingPriceSheet(false);
     }
   };
 
@@ -276,25 +260,26 @@ export const QuotationHeader = ({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {/* Combine Services Toggle Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onToggleCombineServices}
-            className="flex items-center gap-2"
-          >
+          <div className="flex items-center gap-3">
             {combineServices ? (
-              <>
-                <Layers className="h-4 w-4" />
-                <span className="hidden md:inline">Combined View</span>
-              </>
+              <Layers className="h-4 w-4 text-muted-foreground" />
             ) : (
-              <>
-                <List className="h-4 w-4" />
-                <span className="hidden md:inline">List View</span>
-              </>
+              <List className="h-4 w-4 text-muted-foreground" />
             )}
-          </Button>
+
+            <Switch
+              checked={combineServices}
+              onCheckedChange={onToggleCombineServices}
+              id="combine-services"
+            />
+
+            <Label
+              htmlFor="combine-services"
+              className="hidden md:inline cursor-pointer"
+            >
+              {combineServices ? "Combined View" : "List View"}
+            </Label>
+          </div>
 
           {/* Convert to Invoice Button (Always Visible) */}
           {quotation.status !== "CANCELLED" &&
@@ -355,13 +340,30 @@ export const QuotationHeader = ({
 
               {/* Print Group */}
               <DropdownMenuGroup>
-                <DropdownMenuLabel>Print Documents</DropdownMenuLabel>
+                <DropdownMenuLabel>Print & Export</DropdownMenuLabel>
+
                 <DropdownMenuItem
-                  onClick={handlePrintQuotation}
-                  disabled={isGenerating}
+                  onClick={handlePrintPDF}
+                  disabled={isPrintingPDF}
                 >
-                  <FileText className="mr-2 h-4 w-4" />
-                  {isGenerating ? "Generating..." : " Quotation PDF"}
+                  {isPrintingPDF ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Printer className="mr-2 h-4 w-4" />
+                  )}
+                  {isPrintingPDF ? "Printing..." : "Print Quotation (PDF)"}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={handleDownloadPDF}
+                  disabled={isDownloadingPDF}
+                >
+                  {isDownloadingPDF ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  {isDownloadingPDF ? "Downloading..." : "Download (PDF)"}
                 </DropdownMenuItem>
               </DropdownMenuGroup>
 

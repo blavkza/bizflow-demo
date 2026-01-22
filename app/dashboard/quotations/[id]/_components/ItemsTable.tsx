@@ -12,7 +12,7 @@ import {
 import { QuotationWithRelations } from "@/types/quotation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Box, Briefcase, Layers, Grid } from "lucide-react";
+import { Box, Briefcase, Layers, Grid, Package } from "lucide-react"; // Added Package icon
 
 // Extended type for calculated items
 type CalculatedItem = QuotationWithRelations["items"][0] & {
@@ -22,7 +22,7 @@ type CalculatedItem = QuotationWithRelations["items"][0] & {
   netAmount: number;
   taxAmount: number;
   itemTotal: number;
-  itemType: "product" | "service" | "unknown";
+  itemType: "product" | "service" | "custom";
 };
 
 // Type for combined services row
@@ -95,11 +95,12 @@ export const ItemsTable = ({
       const itemTotal = netAmount + taxAmount;
 
       // Determine item type based on available IDs
-      const itemType: "product" | "service" | "unknown" = item.shopProductId
+      // If it has neither shopProductId nor serviceId, it's a custom item
+      const itemType: "product" | "service" | "custom" = item.shopProductId
         ? "product"
         : item.serviceId
           ? "service"
-          : "unknown";
+          : "custom";
 
       // Accumulate totals
       subtotalGross += grossAmount;
@@ -171,7 +172,11 @@ export const ItemsTable = ({
     return itemsWithCalculations.filter((item) => item.itemType === "service");
   }, [itemsWithCalculations]);
 
-  // Combined Services calculation
+  const customItems = useMemo(() => {
+    return itemsWithCalculations.filter((item) => item.itemType === "custom");
+  }, [itemsWithCalculations]);
+
+  // Combined Services calculation - only for actual services
   const combinedServices = useMemo(() => {
     if (serviceItems.length === 0) return null;
 
@@ -221,6 +226,9 @@ export const ItemsTable = ({
     // Add all products
     items.push(...productItems);
 
+    // Add all custom items
+    items.push(...customItems);
+
     // Add services based on combineServices setting
     if (combineServices && combinedServices) {
       // Combined view
@@ -252,12 +260,18 @@ export const ItemsTable = ({
     }
 
     return items;
-  }, [productItems, combinedServices, combineServices, serviceItems]);
+  }, [
+    productItems,
+    customItems,
+    combinedServices,
+    combineServices,
+    serviceItems,
+  ]);
 
   // Tab content renderers
   const renderItemsTable = (
     items: Array<CalculatedItem | CombinedServiceItem>,
-    isCombinedView: boolean = false
+    showDetailedBreakdown: boolean = false
   ) => (
     <Table>
       <TableHeader className="bg-muted/50">
@@ -289,9 +303,9 @@ export const ItemsTable = ({
                           ?.length || 0}{" "}
                         services)
                       </div>
-                      {/* Only show individual services in combined view */}
-                      {isCombinedView &&
-                      (item as CombinedServiceItem).individualServices
+
+                      {/* ALWAYS show individual services list under combined service */}
+                      {(item as CombinedServiceItem).individualServices
                         ?.length ? (
                         <ul className="ml-4 list-disc text-[11px]">
                           {(
@@ -304,15 +318,21 @@ export const ItemsTable = ({
                         </ul>
                       ) : null}
                     </>
-                  ) : item.itemType === "product" ? (
+                  ) : "itemType" in item && item.itemType === "product" ? (
                     <div className="flex items-center gap-1">
                       <Box className="h-3 w-3" />
                       Product
                     </div>
-                  ) : (
+                  ) : "itemType" in item && item.itemType === "service" ? (
                     <div className="flex items-center gap-1">
                       <Briefcase className="h-3 w-3" />
                       Service
+                    </div>
+                  ) : (
+                    // Custom item
+                    <div className="flex items-center gap-1">
+                      <Package className="h-3 w-3" />
+                      Custom Item
                     </div>
                   )}
                 </div>
@@ -328,19 +348,21 @@ export const ItemsTable = ({
                 )}
               </TableCell>
               <TableCell className="text-right text-red-600">
-                {item.itemDiscountVal > 0 ? (
+                {"itemDiscountVal" in item && item.itemDiscountVal > 0 ? (
                   <>
                     -{formatCurrency(item.itemDiscountVal)}
-                    {item.itemDiscountType === "PERCENTAGE" && (
-                      <span className="text-xs ml-1 text-muted-foreground">
-                        ({item.discountInputVal}%)
-                      </span>
-                    )}
-                    {item.itemDiscountType === "COMBINED" && (
-                      <span className="text-xs ml-1 text-muted-foreground">
-                        (Combined)
-                      </span>
-                    )}
+                    {"itemDiscountType" in item &&
+                      item.itemDiscountType === "PERCENTAGE" && (
+                        <span className="text-xs ml-1 text-muted-foreground">
+                          ({item.discountInputVal}%)
+                        </span>
+                      )}
+                    {"itemDiscountType" in item &&
+                      item.itemDiscountType === "COMBINED" && (
+                        <span className="text-xs ml-1 text-muted-foreground">
+                          (Combined)
+                        </span>
+                      )}
                   </>
                 ) : (
                   "-"

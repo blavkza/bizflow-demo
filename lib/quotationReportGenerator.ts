@@ -61,7 +61,8 @@ export class QuotationReportGenerator {
 
   static generateQuotationReportHTML(
     quotation: QuotationWithRelations,
-    companyInfo?: CompanyInfo | null
+    companyInfo?: CompanyInfo | null,
+    combineServices: boolean = true // ADD THIS PARAMETER WITH DEFAULT TRUE
   ): string {
     // --- COLORS ---
     const colorRed = "#A00000";
@@ -90,7 +91,7 @@ export class QuotationReportGenerator {
     const cWeb = companyInfo?.website || "http://necsengineers.co.za/";
     const logo = companyInfo?.logo || "";
 
-    // --- SEPARATE ITEMS INTO PRODUCTS AND SERVICES ---
+    // --- SEPARATE ITEMS INTO PRODUCTS, SERVICES, AND CUSTOM ITEMS ---
     const productItems: Array<{
       description: string;
       qty: number;
@@ -98,6 +99,7 @@ export class QuotationReportGenerator {
       discountInput: string;
       vat: number;
       total: number;
+      itemType: "product" | "service" | "custom";
     }> = [];
 
     const serviceItems: Array<{
@@ -107,6 +109,17 @@ export class QuotationReportGenerator {
       discountInput: string;
       vat: number;
       total: number;
+      itemType: "product" | "service" | "custom";
+    }> = [];
+
+    const customItems: Array<{
+      description: string;
+      qty: number;
+      price: number;
+      discountInput: string;
+      vat: number;
+      total: number;
+      itemType: "product" | "service" | "custom";
     }> = [];
 
     // Track totals for calculations
@@ -147,32 +160,26 @@ export class QuotationReportGenerator {
           item.itemDiscountType === "PERCENTAGE" ? `${discountInput}` : "0.00",
         vat,
         total,
+        itemType: "product" as "product" | "service" | "custom",
       };
 
-      // Determine if item is product or service
+      // Determine item type
       if (item.shopProductId) {
+        itemData.itemType = "product";
         productItems.push(itemData);
       } else if (item.serviceId) {
+        itemData.itemType = "service";
         serviceItems.push(itemData);
       } else {
-        // If no IDs, check description for hints or default to product
-        const descLower = item.description?.toLowerCase() || "";
-        if (
-          descLower.includes("service") ||
-          descLower.includes("labour") ||
-          descLower.includes("install")
-        ) {
-          serviceItems.push(itemData);
-        } else {
-          productItems.push(itemData);
-        }
+        itemData.itemType = "custom";
+        customItems.push(itemData);
       }
     });
 
     // --- CREATE COMBINED SERVICES ROW ---
     let combinedServiceData: CombinedServiceData | null = null;
 
-    if (serviceItems.length > 0) {
+    if (combineServices && serviceItems.length > 0) {
       // Calculate combined totals
       let totalQuantity = 0;
       let totalGross = 0;
@@ -220,7 +227,14 @@ export class QuotationReportGenerator {
           : "0.00",
         vat: totalVatServices,
         total: totalAmountServices,
-        individualServices: serviceItems,
+        individualServices: serviceItems.map((s) => ({
+          description: s.description,
+          qty: s.qty,
+          price: s.price,
+          discountInput: s.discountInput,
+          vat: s.vat,
+          total: s.total,
+        })),
         displayType: "combined-service",
       };
     }
@@ -248,7 +262,7 @@ export class QuotationReportGenerator {
     productItems.forEach((item) => {
       tableRows.push(`
         <tr>
-          <td class="col-code"> </td>
+          <td class="col-code">PRD</td>
           <td class="col-desc">${item.description}</td>
           <td class="col-qty">${item.qty}</td>
           <td class="col-price">${this.formatMoney(item.price)}</td>
@@ -259,45 +273,51 @@ export class QuotationReportGenerator {
       `);
     });
 
-    // Add combined services row if exists
-    if (combinedServiceData) {
+    // Add custom items rows
+    customItems.forEach((item) => {
+      tableRows.push(`
+        <tr style="background-color: #f9fafb;">
+          <td class="col-code">CST</td>
+          <td class="col-desc">${item.description}</td>
+          <td class="col-qty">${item.qty}</td>
+          <td class="col-price">${this.formatMoney(item.price)}</td>
+          <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
+          <td class="col-vat">${this.formatMoney(item.vat)}</td>
+          <td class="col-total">${this.formatMoney(item.total)}</td>
+        </tr>
+      `);
+    });
+
+    // Add services rows based on combineServices toggle
+    if (combineServices && combinedServiceData) {
+      // Combined services view
       tableRows.push(`
         <tr style="background-color: #f8fafc;">
           <td class="col-code">SVC</td>
-       <td class="col-desc">
-  <strong>${combinedServiceData.description}</strong>
-
-  <div
-    style="
-      font-size: 8px;
-      color: #666;
-      margin-top: 2px;
-      font-style: italic;
-    "
-  >
-    Includes:
-    <ul style="margin: 2px 0 0 12px; padding: 0;">
-      ${serviceItems
-        .slice(0, 3)
-        .map(
-          (s) =>
-            `<li style="list-style-type: disc; margin-left: 8px;">
-              ${s.description}
-            </li>`
-        )
-        .join("")}
-    </ul>
-
-    ${
-      serviceItems.length > 3
-        ? `<div style="margin-left: 12px;">
-             and ${serviceItems.length - 3} more
-           </div>`
-        : ""
-    }
-  </div>
-</td>
-
+          <td class="col-desc">
+            <strong>${combinedServiceData.description}</strong>
+            <div style="font-size: 8px; color: #666; margin-top: 2px; font-style: italic;">
+              Includes:
+              <ul style="margin: 2px 0 0 12px; padding: 0;">
+                ${serviceItems
+                  .slice(0, 3)
+                  .map(
+                    (s) =>
+                      `<li style="list-style-type: disc; margin-left: 8px;">
+                        ${s.description}
+                      </li>`
+                  )
+                  .join("")}
+              </ul>
+              ${
+                serviceItems.length > 3
+                  ? `<div style="margin-left: 12px;">
+                       and ${serviceItems.length - 3} more
+                     </div>`
+                  : ""
+              }
+            </div>
+          </td>
           <td class="col-qty">${combinedServiceData.quantity}</td>
           <td class="col-price">-</td>
           <td class="col-disc">${combinedServiceData.discountInput === "0.00" ? "-" : combinedServiceData.discountInput}</td>
@@ -306,7 +326,7 @@ export class QuotationReportGenerator {
         </tr>
       `);
     } else if (serviceItems.length > 0) {
-      // If not combined, show services individually
+      // Individual services view
       serviceItems.forEach((item) => {
         tableRows.push(`
           <tr>
@@ -520,15 +540,15 @@ export class QuotationReportGenerator {
                   <td class="value-cell">${validUntil}</td>
                 </tr>
                     ${
-                quotation.creator
-                  ? `
+                      quotation.creator
+                        ? `
 <tr>
   <td class="label-cell">Prepared by:</td>
   <td class="value-cell">${quotation.creator.name}</td>
 </tr>
 `
-                  : ""
-              }
+                        : ""
+                    }
               </table>
 
               <div class="client-box-label">FOR</div>

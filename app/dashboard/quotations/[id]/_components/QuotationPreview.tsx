@@ -9,9 +9,13 @@ import { Loader2 } from "lucide-react";
 
 interface QuotationPreviewProps {
   quotation: QuotationWithRelations;
+  combineServices: boolean; 
 }
 
-export const QuotationPreview = ({ quotation }: QuotationPreviewProps) => {
+export const QuotationPreview = ({
+  quotation,
+  combineServices,
+}: QuotationPreviewProps) => {
   const { companyInfo, loading } = useCompanyInfo();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [htmlContent, setHtmlContent] = useState<string>("");
@@ -20,11 +24,12 @@ export const QuotationPreview = ({ quotation }: QuotationPreviewProps) => {
     if (!loading) {
       const html = QuotationReportGenerator.generateQuotationReportHTML(
         quotation,
-        companyInfo
+        companyInfo,
+        combineServices 
       );
       setHtmlContent(html);
     }
-  }, [quotation, companyInfo, loading]);
+  }, [quotation, companyInfo, loading, combineServices]); 
 
   useEffect(() => {
     if (iframeRef.current && htmlContent) {

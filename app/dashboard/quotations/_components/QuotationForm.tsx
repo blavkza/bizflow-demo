@@ -386,7 +386,7 @@ export function QuotationForm({
                 description: "",
                 quantity: 1,
                 unitPrice: 0,
-                taxRate: 0,
+                taxRate: 15,
                 shopProductId: undefined,
                 serviceId: undefined,
                 itemDiscountType: undefined,
@@ -727,7 +727,7 @@ export function QuotationForm({
           ? "/api/quotations"
           : `/api/quotations/${quotationId}`;
 
-      await axios({
+      const response = await axios({
         method,
         url,
         data: quotationData,
@@ -736,8 +736,14 @@ export function QuotationForm({
       toast.success(
         `Quotation ${type === "create" ? "created" : "updated"} successfully`
       );
-      onSubmitSuccess();
-      router.refresh();
+
+      if (type === "create") {
+        const newQuotationId = response.data.id;
+        router.push(`/dashboard/quotations/${newQuotationId}`);
+      } else {
+        router.refresh();
+        onSubmitSuccess();
+      }
     } catch (error: any) {
       console.error(error);
       toast.error(error.response?.data?.message || "Something went wrong", {
@@ -759,7 +765,7 @@ export function QuotationForm({
         description: "",
         quantity: 1,
         unitPrice: 0,
-        taxRate: 0,
+        taxRate: 15,
         shopProductId: undefined,
         serviceId: undefined,
         itemDiscountType: undefined,
@@ -1102,23 +1108,19 @@ export function QuotationForm({
                 </div>
 
                 {/* Unit Price */}
-                <div className="col-span-2">
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      className="text-left"
-                      value={item.unitPrice}
-                      onChange={(e) => {
-                        const value =
-                          e.target.valueAsNumber ||
-                          parseFloat(e.target.value) ||
-                          0;
-                        handleUnitPriceChange(index, value);
-                      }}
-                    />
-                  </FormControl>
-                </div>
+                <Input
+                  type="number"
+                  step="0.01"
+                  className="text-left"
+                  value={item.unitPrice === 0 ? "" : item.unitPrice}
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    if (value === "") return;
+
+                    handleUnitPriceChange(index, Number(value));
+                  }}
+                />
 
                 {/* Item Discount */}
                 <div className="col-span-1 space-y-1">
