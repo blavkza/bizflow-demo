@@ -779,7 +779,6 @@ export default function AddExpenseDialog({
                           value={field.value}
                           onChange={(value) => {
                             field.onChange(value);
-                            // Clear manual due date flag when selecting a new vendor
                             setIsManualDueDate(false);
                             isManualSelectionRef.current = false;
                           }}

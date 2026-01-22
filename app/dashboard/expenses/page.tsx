@@ -4,9 +4,8 @@ import { useState, useEffect } from "react";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { Loader2 } from "lucide-react";
 import ExpensesHeader from "./Components/ExpensesHeader";
-import ExpensesSummary from "./Components/ExpensesSummary";
 import ExpensesTable from "./Components/ExpensesTable";
-import ExpensesOverview from "./Components/ExpensesOverview";
+import ExpensesDashboard from "./Components/ExpensesDashboard";
 import { Expense } from "./types";
 import axios from "axios";
 import { toast } from "sonner";
@@ -21,6 +20,13 @@ export default function ExpensesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [vendorFilter, setVendorFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<{
+    from: Date | null;
+    to: Date | null;
+  }>({
+    from: null,
+    to: null,
+  });
 
   const fetchExpenses = async () => {
     try {
@@ -76,12 +82,35 @@ export default function ExpensesPage() {
       );
     }
 
+    // Apply date range filter
+    if (dateRange.from && dateRange.to) {
+      filtered = filtered.filter((expense) => {
+        const expenseDate = new Date(expense.expenseDate);
+        return expenseDate >= dateRange.from! && expenseDate <= dateRange.to!;
+      });
+    }
+
     setFilteredExpenses(filtered);
-  }, [expenses, searchQuery, statusFilter, categoryFilter, vendorFilter]);
+  }, [
+    expenses,
+    searchQuery,
+    statusFilter,
+    categoryFilter,
+    vendorFilter,
+    dateRange,
+  ]);
 
   useEffect(() => {
     fetchExpenses();
   }, []);
+
+  const handleDateRangeChange = (from: Date | null, to: Date | null) => {
+    setDateRange({ from, to });
+  };
+
+  const clearDateFilter = () => {
+    setDateRange({ from: null, to: null });
+  };
 
   if (isLoading) {
     return (
@@ -101,7 +130,14 @@ export default function ExpensesPage() {
         vendorFilter={vendorFilter}
       />
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <ExpensesOverview expenses={filteredExpenses} />
+        {/* Updated: Using ExpensesDashboard with integrated date filter */}
+        <ExpensesDashboard
+          expenses={filteredExpenses}
+          dateRange={dateRange}
+          onDateRangeChange={handleDateRangeChange}
+          onClearDateFilter={clearDateFilter}
+        />
+
         <ExpensesFilters
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -112,6 +148,7 @@ export default function ExpensesPage() {
           vendorFilter={vendorFilter}
           setVendorFilter={setVendorFilter}
         />
+
         <ExpensesTable expenses={filteredExpenses} />
       </div>
     </div>
