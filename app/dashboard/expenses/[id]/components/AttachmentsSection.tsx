@@ -21,6 +21,7 @@ import {
   ImageIcon,
   FileText,
   Download,
+  File,
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -50,23 +51,32 @@ export default function AttachmentsSection({
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith("image/")) {
-        toast.error("Please select an image file");
+      // Check if file is an image or PDF
+      const isImage = file.type.startsWith("image/");
+      const isPDF = file.type === "application/pdf";
+
+      if (!isImage && !isPDF) {
+        toast.error("Please select an image or PDF file");
         return;
       }
 
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > 10 * 1024 * 1024) {
         toast.error("File size must be less than 5MB");
         return;
       }
 
       setSelectedFile(file);
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAttachmentPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      // Only create preview for images, not PDFs
+      if (isImage) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setAttachmentPreview(e.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setAttachmentPreview(null);
+      }
     }
   };
 
@@ -137,14 +147,20 @@ export default function AttachmentsSection({
   const getFileIcon = (type: string) => {
     switch (type) {
       case "IMAGE":
-        return <ImageIcon className="h-4 w-4" />;
+        return <ImageIcon className="h-4 w-4 text-blue-500" />;
       case "PDF":
-        return <FileText className="h-4 w-4" />;
+        return <FileText className="h-4 w-4 text-red-500" />;
       case "DOCUMENT":
-        return <FileText className="h-4 w-4" />;
+        return <FileText className="h-4 w-4 text-orange-500" />;
       default:
-        return <Paperclip className="h-4 w-4" />;
+        return <Paperclip className="h-4 w-4 text-gray-500" />;
     }
+  };
+
+  const getFileType = (file: File): string => {
+    if (file.type.startsWith("image/")) return "IMAGE";
+    if (file.type === "application/pdf") return "PDF";
+    return "DOCUMENT";
   };
 
   return (
@@ -179,30 +195,32 @@ export default function AttachmentsSection({
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
             <Input
               type="file"
-              accept="image/*"
+              accept="image/*,.pdf,.PDF" // Accept images and PDFs
               onChange={handleFileSelect}
               className="hidden"
               id="attachment-upload"
             />
-            <Label
-              htmlFor="attachment-upload"
-              className="cursor-pointer flex flex-col items-center justify-center gap-3"
-            >
-              <Paperclip className="h-12 w-12 text-muted-foreground" />
-              <div>
-                <p className="font-medium text-lg">Click to upload files</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  PNG, JPG, GIF up to 5MB
-                </p>
-              </div>
-            </Label>
+            {!selectedFile && (
+              <Label
+                htmlFor="attachment-upload"
+                className="cursor-pointer flex flex-col items-center justify-center gap-3"
+              >
+                <Paperclip className="h-8 w-8 text-muted-foreground" />
+                <div>
+                  <p className="font-medium text-lg">Click to upload files</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    PNG, JPG, GIF, PDF up to 5MB
+                  </p>
+                </div>
+              </Label>
+            )}
 
             {/* File Preview */}
-            {attachmentPreview && selectedFile && (
+            {selectedFile && (
               <div className="mt-6 max-w-md mx-auto">
                 <div className="flex items-center justify-between mb-3 p-3 bg-muted rounded-lg">
                   <div className="flex items-center gap-2">
-                    {getFileIcon("IMAGE")}
+                    {getFileIcon(getFileType(selectedFile))}
                     <span className="text-sm font-medium truncate">
                       {selectedFile.name}
                     </span>
@@ -218,15 +236,34 @@ export default function AttachmentsSection({
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="relative inline-block">
-                  <Image
-                    src={attachmentPreview}
-                    alt="Preview"
-                    width={200}
-                    height={200}
-                    className="max-h-48 rounded-lg border shadow-sm object-contain"
-                  />
-                </div>
+
+                {/* Show preview for images */}
+                {attachmentPreview &&
+                  selectedFile.type.startsWith("image/") && (
+                    <div className="relative inline-block mb-4">
+                      <Image
+                        src={attachmentPreview}
+                        alt="Preview"
+                        width={200}
+                        height={200}
+                        className="max-h-48 rounded-lg border shadow-sm object-contain"
+                      />
+                    </div>
+                  )}
+
+                {/* Show PDF icon for PDF files */}
+                {selectedFile.type === "application/pdf" && (
+                  <div className="flex flex-col items-center justify-center mb-4 p-4 bg-red-50 rounded-lg border border-red-100">
+                    <FileText className="h-24 w-24 text-red-400 mb-2" />
+                    <span className="text-sm font-medium text-red-700">
+                      PDF Document
+                    </span>
+                    <span className="text-xs text-red-600 mt-1">
+                      {formatFileSize(selectedFile.size)}
+                    </span>
+                  </div>
+                )}
+
                 <Button
                   onClick={handleUploadAttachment}
                   disabled={isUploading}
@@ -289,6 +326,17 @@ export default function AttachmentsSection({
                     </div>
                   )}
 
+                  {attachment.type === "PDF" && (
+                    <div className="aspect-video bg-red-50 rounded-md overflow-hidden border border-red-100 flex items-center justify-center">
+                      <div className="text-center p-4">
+                        <FileText className="h-16 w-16 text-red-400 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-red-700">
+                          PDF Document
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex justify-between items-center text-xs text-muted-foreground">
                     <span>{formatFileSize(attachment.size)}</span>
                     <span>
@@ -328,8 +376,8 @@ export default function AttachmentsSection({
               ))}
             </div>
           ) : (
-            <div className="text-center text-muted-foreground py-12">
-              <Paperclip className="h-16 w-16 mx-auto mb-4 opacity-50" />
+            <div className="text-center text-muted-foreground py-8">
+              <Paperclip className="h-10 w-10 mx-auto mb-4 opacity-50" />
               <p className="text-lg font-medium">No attachments yet</p>
               <p className="text-sm mt-1">
                 Upload your first file to get started
