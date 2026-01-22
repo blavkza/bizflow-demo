@@ -43,6 +43,7 @@ export default function QuotationDetailPage({
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [combineServices, setCombineServices] = useState(true); // NEW STATE
 
   const router = useRouter();
   const { userId } = useAuth();
@@ -74,6 +75,10 @@ export default function QuotationDetailPage({
 
   const canDeleteQuotations = data?.permissions?.includes(
     UserPermission.QUOTATIONS_DELETE || hasFullAccess
+  );
+
+  const canCreateQuotations = data?.permissions?.includes(
+    UserPermission.QUOTATIONS_CREATE || hasFullAccess
   );
 
   useEffect(() => {
@@ -132,8 +137,11 @@ export default function QuotationDetailPage({
         hasFullAccess={hasFullAccess}
         canCreateInvoice={canCreateInvoice}
         canDeleteQuotations={canDeleteQuotations}
+        canCreateQuotations={canCreateQuotations}
         quotation={quotation}
         refresh={fetchQuotation}
+        combineServices={combineServices}
+        onToggleCombineServices={() => setCombineServices(!combineServices)}
       />
 
       <KeyMetrics quotation={quotation} />
@@ -149,7 +157,7 @@ export default function QuotationDetailPage({
         </TabsList>
 
         <TabsContent value="items" className="space-y-4">
-          <ItemsTable quotation={quotation} />
+          <ItemsTable quotation={quotation} combineServices={combineServices} />
         </TabsContent>
 
         <TabsContent value="details" className="space-y-4">

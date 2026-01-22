@@ -823,39 +823,43 @@ export default function AddExpenseDialog({
                 )}
               />
 
-              {mode !== "edit" && (
-                <div className="grid grid-cols-3 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="totalAmount"
-                    render={({ field }) => (
-                      <FormItem className="space-y-1">
-                        <FormLabel>Total Amount</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={field.value === 0 ? "" : field.value}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              field.onChange(value === "" ? "0" : value);
-                            }}
-                            onBlur={(e) => {
-                              const value = e.target.value;
-                              const numValue =
-                                value === "" ? 0 : parseFloat(value);
-                              field.onChange(
-                                isNaN(numValue) ? "0" : numValue.toString()
-                              );
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
+              <div
+                className={cn(
+                  `grid  gap-4`,
+                  mode === "edit" ? `grid-cols-2` : `grid-cols-3`
+                )}
+              >
+                <FormField
+                  control={form.control}
+                  name="totalAmount"
+                  render={({ field }) => (
+                    <FormItem className="space-y-1">
+                      <FormLabel>Total Amount</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={field.value === 0 ? "" : field.value}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === "" ? "0" : value);
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value;
+                            const numValue =
+                              value === "" ? 0 : parseFloat(value);
+                            field.onChange(
+                              isNaN(numValue) ? "0" : numValue.toString()
+                            );
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {mode !== "edit" && (
                   <FormField
                     control={form.control}
                     name="paidAmount"
@@ -886,34 +890,34 @@ export default function AddExpenseDialog({
                       </FormItem>
                     )}
                   />
+                )}
 
-                  {/* Remaining Balance Display */}
-                  <FormItem className="space-y-1">
-                    <FormLabel>Remaining Balance</FormLabel>
-                    <div className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background">
-                      <span
-                        className={cn(
-                          "flex items-center",
-                          remainingAmount > 0
-                            ? "text-orange-600 font-medium"
-                            : remainingAmount < 0
-                              ? "text-red-600 font-medium"
-                              : "text-green-600 font-medium"
-                        )}
-                      >
-                        R{remainingAmount.toLocaleString()}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {remainingAmount > 0
-                        ? "Outstanding amount"
-                        : remainingAmount < 0
-                          ? "Overpayment detected"
-                          : "Fully paid"}
-                    </p>
-                  </FormItem>
-                </div>
-              )}
+                {/* Remaining Balance Display */}
+                <FormItem className="space-y-1">
+                  <FormLabel>Remaining Balance</FormLabel>
+                  <div className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background">
+                    <span
+                      className={cn(
+                        "flex items-center",
+                        remainingAmount > 0
+                          ? "text-orange-600 font-medium"
+                          : remainingAmount < 0
+                            ? "text-red-600 font-medium"
+                            : "text-green-600 font-medium"
+                      )}
+                    >
+                      R{remainingAmount.toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {remainingAmount > 0
+                      ? "Outstanding amount"
+                      : remainingAmount < 0
+                        ? "Overpayment detected"
+                        : "Fully paid"}
+                  </p>
+                </FormItem>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField

@@ -50,8 +50,10 @@ type CombinedServiceItem = {
 
 export const ItemsTable = ({
   quotation,
+  combineServices,
 }: {
   quotation: QuotationWithRelations;
+  combineServices: boolean;
 }) => {
   const [activeTab, setActiveTab] = useState<string>("all");
 
@@ -219,8 +221,9 @@ export const ItemsTable = ({
     // Add all products
     items.push(...productItems);
 
-    // Add combined services (single row) instead of individual services
-    if (combinedServices) {
+    // Add services based on combineServices setting
+    if (combineServices && combinedServices) {
+      // Combined view
       items.push({
         id: "combined-services",
         description: combinedServices.name,
@@ -243,14 +246,18 @@ export const ItemsTable = ({
         name: combinedServices.name,
         individualServices: combinedServices.services,
       } as CombinedServiceItem);
+    } else {
+      // List view - add individual services
+      items.push(...serviceItems);
     }
 
     return items;
-  }, [productItems, combinedServices]);
+  }, [productItems, combinedServices, combineServices, serviceItems]);
 
   // Tab content renderers
   const renderItemsTable = (
-    items: Array<CalculatedItem | CombinedServiceItem>
+    items: Array<CalculatedItem | CombinedServiceItem>,
+    isCombinedView: boolean = false
   ) => (
     <Table>
       <TableHeader className="bg-muted/50">
@@ -264,89 +271,92 @@ export const ItemsTable = ({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((item) => (
-          <TableRow key={item.id}>
-            <TableCell className="font-medium">
-              <div>{item.description}</div>
-              <div className="text-xs text-muted-foreground mt-1 flex flex-col gap-1">
-                {"displayType" in item &&
-                item.displayType === "combined-service" ? (
-                  <>
-                    <div className="flex items-center gap-1">
-                      <Layers className="h-3 w-3" />
-                      Combined Services (
-                      {(item as CombinedServiceItem).individualServices
-                        ?.length || 0}{" "}
-                      services)
-                    </div>
+        {items.map((item) => {
+          const isCombinedService =
+            "displayType" in item && item.displayType === "combined-service";
 
-                    {(item as CombinedServiceItem).individualServices
-                      ?.length ? (
-                      <ul className="ml-4 list-disc text-[11px]">
-                        {(item as CombinedServiceItem).individualServices?.map(
-                          (service, index) => (
+          return (
+            <TableRow key={item.id}>
+              <TableCell className="font-medium">
+                <div>{item.description}</div>
+                <div className="text-xs text-muted-foreground mt-1 flex flex-col gap-1">
+                  {isCombinedService ? (
+                    <>
+                      <div className="flex items-center gap-1">
+                        <Layers className="h-3 w-3" />
+                        Combined Services (
+                        {(item as CombinedServiceItem).individualServices
+                          ?.length || 0}{" "}
+                        services)
+                      </div>
+                      {/* Only show individual services in combined view */}
+                      {isCombinedView &&
+                      (item as CombinedServiceItem).individualServices
+                        ?.length ? (
+                        <ul className="ml-4 list-disc text-[11px]">
+                          {(
+                            item as CombinedServiceItem
+                          ).individualServices?.map((service, index) => (
                             <li key={service.id ?? index}>
                               {service.description}
                             </li>
-                          )
-                        )}
-                      </ul>
-                    ) : null}
-                  </>
-                ) : item.itemType === "product" ? (
-                  <div className="flex items-center gap-1">
-                    <Box className="h-3 w-3" />
-                    Product
-                  </div>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </>
+                  ) : item.itemType === "product" ? (
+                    <div className="flex items-center gap-1">
+                      <Box className="h-3 w-3" />
+                      Product
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <Briefcase className="h-3 w-3" />
+                      Service
+                    </div>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="text-center">
+                {Number(item.quantity).toLocaleString("en-ZA")}
+              </TableCell>
+              <TableCell className="text-right">
+                {isCombinedService ? (
+                  <span className="text-muted-foreground italic">-</span>
                 ) : (
-                  <div className="flex items-center gap-1">
-                    <Briefcase className="h-3 w-3" />
-                    Service
-                  </div>
+                  formatCurrency(Number(item.unitPrice))
                 )}
-              </div>
-            </TableCell>
-            <TableCell className="text-center">
-              {Number(item.quantity).toLocaleString("en-ZA")}
-            </TableCell>
-            <TableCell className="text-right">
-              {/* Hide unit price for combined services */}
-              {"displayType" in item &&
-              item.displayType === "combined-service" ? (
-                <span className="text-muted-foreground italic">-</span>
-              ) : (
-                formatCurrency(Number(item.unitPrice))
-              )}
-            </TableCell>
-            <TableCell className="text-right text-red-600">
-              {item.itemDiscountVal > 0 ? (
-                <>
-                  -{formatCurrency(item.itemDiscountVal)}
-                  {item.itemDiscountType === "PERCENTAGE" && (
-                    <span className="text-xs ml-1 text-muted-foreground">
-                      ({item.discountInputVal}%)
-                    </span>
-                  )}
-                  {item.itemDiscountType === "COMBINED" && (
-                    <span className="text-xs ml-1 text-muted-foreground">
-                      (Combined)
-                    </span>
-                  )}
-                </>
-              ) : (
-                "-"
-              )}
-            </TableCell>
-            <TableCell className="text-center">
-              {"displayType" in item && item.displayType === "combined-service"
-                ? `${Number((item as CombinedServiceItem).weightedTaxRate).toFixed(1)}%`
-                : `${Number(item.taxRate) || 0}%`}
-            </TableCell>
-            <TableCell className="text-right font-medium">
-              {formatCurrency(item.itemTotal)}
-            </TableCell>
-          </TableRow>
-        ))}
+              </TableCell>
+              <TableCell className="text-right text-red-600">
+                {item.itemDiscountVal > 0 ? (
+                  <>
+                    -{formatCurrency(item.itemDiscountVal)}
+                    {item.itemDiscountType === "PERCENTAGE" && (
+                      <span className="text-xs ml-1 text-muted-foreground">
+                        ({item.discountInputVal}%)
+                      </span>
+                    )}
+                    {item.itemDiscountType === "COMBINED" && (
+                      <span className="text-xs ml-1 text-muted-foreground">
+                        (Combined)
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  "-"
+                )}
+              </TableCell>
+              <TableCell className="text-center">
+                {isCombinedService
+                  ? `${Number((item as CombinedServiceItem).weightedTaxRate).toFixed(1)}%`
+                  : `${Number(item.taxRate) || 0}%`}
+              </TableCell>
+              <TableCell className="text-right font-medium">
+                {formatCurrency(item.itemTotal)}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
@@ -430,7 +440,7 @@ export const ItemsTable = ({
               <Layers className="h-4 w-4" />
               Combined Services
               <Badge variant="secondary" className="ml-1">
-                1
+                {combinedServices ? 1 : 0}
               </Badge>
             </TabsTrigger>
           </TabsList>
@@ -462,32 +472,35 @@ export const ItemsTable = ({
           <TabsContent value="combined" className="m-0">
             {combinedServices ? (
               <>
-                {renderItemsTable([
-                  {
-                    id: "combined-services",
-                    description: combinedServices.name,
-                    quantity: combinedServices.quantity,
-                    unitPrice: combinedServices.unitPrice,
-                    taxRate: combinedServices.weightedTaxRate,
-                    itemDiscountType:
-                      combinedServices.itemDiscountVal > 0
-                        ? ("COMBINED" as const)
-                        : null,
-                    itemDiscountAmount: combinedServices.itemDiscountVal,
-                    itemDiscountVal: combinedServices.itemDiscountVal,
-                    discountInputVal: combinedServices.itemDiscountVal,
-                    taxAmount: combinedServices.taxAmount,
-                    amount: combinedServices.itemTotal,
-                    itemType: "service",
-                    grossAmount: combinedServices.grossAmount,
-                    netAmount: combinedServices.netAmount,
-                    itemTotal: combinedServices.itemTotal,
-                    displayType: "combined-service",
-                    weightedTaxRate: combinedServices.weightedTaxRate,
-                    name: combinedServices.name,
-                    individualServices: combinedServices.services,
-                  } as CombinedServiceItem,
-                ])}
+                {renderItemsTable(
+                  [
+                    {
+                      id: "combined-services",
+                      description: combinedServices.name,
+                      quantity: combinedServices.quantity,
+                      unitPrice: combinedServices.unitPrice,
+                      taxRate: combinedServices.weightedTaxRate,
+                      itemDiscountType:
+                        combinedServices.itemDiscountVal > 0
+                          ? ("COMBINED" as const)
+                          : null,
+                      itemDiscountAmount: combinedServices.itemDiscountVal,
+                      itemDiscountVal: combinedServices.itemDiscountVal,
+                      discountInputVal: combinedServices.itemDiscountVal,
+                      taxAmount: combinedServices.taxAmount,
+                      amount: combinedServices.itemTotal,
+                      itemType: "service",
+                      grossAmount: combinedServices.grossAmount,
+                      netAmount: combinedServices.netAmount,
+                      itemTotal: combinedServices.itemTotal,
+                      displayType: "combined-service",
+                      weightedTaxRate: combinedServices.weightedTaxRate,
+                      name: combinedServices.name,
+                      individualServices: combinedServices.services,
+                    } as CombinedServiceItem,
+                  ],
+                  true
+                )}
 
                 {/* Detailed breakdown of individual services */}
                 <div className=" px-4 py-4 border-t ">

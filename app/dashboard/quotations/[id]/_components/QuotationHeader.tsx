@@ -19,6 +19,8 @@ import {
   MoreVertical,
   Eye,
   Printer,
+  Layers,
+  List,
 } from "lucide-react";
 import Link from "next/link";
 import { StatusBadge } from "./StatusBadge";
@@ -72,6 +74,8 @@ interface QuotationHeaderProps {
   canDeleteQuotations: boolean;
   canCreateQuotations: boolean;
   refresh: () => void;
+  combineServices: boolean;
+  onToggleCombineServices: () => void;
 }
 
 export const QuotationHeader = ({
@@ -82,6 +86,8 @@ export const QuotationHeader = ({
   canCreateInvoice,
   canDeleteQuotations,
   canCreateQuotations,
+  combineServices,
+  onToggleCombineServices,
 }: QuotationHeaderProps) => {
   const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -270,6 +276,26 @@ export const QuotationHeader = ({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {/* Combine Services Toggle Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onToggleCombineServices}
+            className="flex items-center gap-2"
+          >
+            {combineServices ? (
+              <>
+                <Layers className="h-4 w-4" />
+                <span className="hidden md:inline">Combined View</span>
+              </>
+            ) : (
+              <>
+                <List className="h-4 w-4" />
+                <span className="hidden md:inline">List View</span>
+              </>
+            )}
+          </Button>
+
           {/* Convert to Invoice Button (Always Visible) */}
           {quotation.status !== "CANCELLED" &&
             quotation.status !== "CONVERTED" &&
@@ -337,8 +363,6 @@ export const QuotationHeader = ({
                   <FileText className="mr-2 h-4 w-4" />
                   {isGenerating ? "Generating..." : " Quotation PDF"}
                 </DropdownMenuItem>
-
-               
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />
