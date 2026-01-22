@@ -20,6 +20,7 @@ import Link from "next/link";
 import { Expense } from "../types";
 import { useState } from "react";
 import { PaginationControls } from "@/components/PaginationControls";
+import { useRouter } from "next/navigation";
 
 interface ExpensesTableProps {
   expenses: Expense[];
@@ -28,6 +29,8 @@ interface ExpensesTableProps {
 export default function ExpensesTable({ expenses }: ExpensesTableProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const router = useRouter();
 
   // Calculate pagination
   const totalItems = expenses.length;
@@ -101,7 +104,11 @@ export default function ExpensesTable({ expenses }: ExpensesTableProps) {
           </TableHeader>
           <TableBody>
             {currentExpenses.map((expense) => (
-              <TableRow key={expense.id}>
+              <TableRow
+                key={expense.id}
+                className=" cursor-pointer"
+                onClick={() => router.push(`/dashboard/expenses/${expense.id}`)}
+              >
                 <TableCell className="font-medium">
                   {expense.expenseNumber}
                 </TableCell>

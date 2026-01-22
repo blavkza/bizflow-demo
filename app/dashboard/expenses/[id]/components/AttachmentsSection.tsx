@@ -21,7 +21,6 @@ import {
   ImageIcon,
   FileText,
   Download,
-  File,
 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -45,13 +44,15 @@ export default function AttachmentsSection({
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<
     string | null
   >(null);
+  const [downloadingAttachmentId, setDownloadingAttachmentId] = useState<
+    string | null
+  >(null);
 
   const attachments: Attachment[] = expense.attachments || [];
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Check if file is an image or PDF
       const isImage = file.type.startsWith("image/");
       const isPDF = file.type === "application/pdf";
 
@@ -61,13 +62,12 @@ export default function AttachmentsSection({
       }
 
       if (file.size > 10 * 1024 * 1024) {
-        toast.error("File size must be less than 5MB");
+        toast.error("File size must be less than 10MB");
         return;
       }
 
       setSelectedFile(file);
 
-      // Only create preview for images, not PDFs
       if (isImage) {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -136,6 +136,61 @@ export default function AttachmentsSection({
     }
   };
 
+  const handleDownloadAttachment = async (attachment: Attachment) => {
+    try {
+      setDownloadingAttachmentId(attachment.id);
+
+      // Fetch the file
+      const response = await fetch(attachment.url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch file: ${response.statusText}`);
+      }
+
+      // Convert to blob
+      const blob = await response.blob();
+
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      // Set the filename for download
+      link.download = attachment.filename || `attachment-${attachment.id}`;
+
+      // Append to document, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up the URL object
+      window.URL.revokeObjectURL(url);
+
+      toast.success("Download started");
+    } catch (error) {
+      console.error("Error downloading attachment:", error);
+
+      // Fallback: Try direct download
+      try {
+        const link = document.createElement("a");
+        link.href = attachment.url;
+        link.download = attachment.filename || `attachment-${attachment.id}`;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        toast.info("Opening file in new tab. You can save it manually.");
+      } catch (fallbackError) {
+        console.error("Fallback download failed:", fallbackError);
+        toast.error(
+          "Failed to download file. Please try opening it in a new tab."
+        );
+      }
+    } finally {
+      setDownloadingAttachmentId(null);
+    }
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes";
     const k = 1024;
@@ -195,7 +250,7 @@ export default function AttachmentsSection({
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
             <Input
               type="file"
-              accept="image/*,.pdf,.PDF" // Accept images and PDFs
+              accept="image/*,.pdf,.PDF"
               onChange={handleFileSelect}
               className="hidden"
               id="attachment-upload"
@@ -209,7 +264,7 @@ export default function AttachmentsSection({
                 <div>
                   <p className="font-medium text-lg">Click to upload files</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    PNG, JPG, GIF, PDF up to 5MB
+                    PNG, JPG, GIF, PDF up to 10MB
                   </p>
                 </div>
               </Label>
@@ -237,7 +292,6 @@ export default function AttachmentsSection({
                   </Button>
                 </div>
 
-                {/* Show preview for images */}
                 {attachmentPreview &&
                   selectedFile.type.startsWith("image/") && (
                     <div className="relative inline-block mb-4">
@@ -251,7 +305,6 @@ export default function AttachmentsSection({
                     </div>
                   )}
 
-                {/* Show PDF icon for PDF files */}
                 {selectedFile.type === "application/pdf" && (
                   <div className="flex flex-col items-center justify-center mb-4 p-4 bg-red-50 rounded-lg border border-red-100">
                     <FileText className="h-24 w-24 text-red-400 mb-2" />
@@ -349,27 +402,24 @@ export default function AttachmentsSection({
                       variant="outline"
                       size="sm"
                       className="flex-1"
-                      asChild
+                      onClick={() => window.open(attachment.url, "_blank")}
                     >
-                      <a
-                        href={attachment.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Eye className="h-3 w-3 mr-1" />
-                        View
-                      </a>
+                      <Eye className="h-3 w-3 mr-1" />
+                      View
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       className="flex-1"
-                      asChild
+                      onClick={() => handleDownloadAttachment(attachment)}
+                      disabled={downloadingAttachmentId === attachment.id}
                     >
-                      <a href={attachment.url} download>
+                      {downloadingAttachmentId === attachment.id ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
                         <Download className="h-3 w-3 mr-1" />
-                        Download
-                      </a>
+                      )}
+                      Download
                     </Button>
                   </div>
                 </div>
