@@ -338,47 +338,7 @@ export const QuotationHeader = ({
                   {isGenerating ? "Generating..." : " Quotation PDF"}
                 </DropdownMenuItem>
 
-                {/*  <DropdownMenuItem
-                  onClick={handlePrintDeliveryNote}
-                  disabled={isGeneratingDeliveryNote}
-                >
-                  <Package className="mr-2 h-4 w-4" />
-                  {isGeneratingDeliveryNote ? "Generating..." : "Delivery Note"}
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={handlePrintPriceSheet}
-                  disabled={isGeneratingPriceSheet}
-                >
-                  <DollarSign className="mr-2 h-4 w-4" />
-                  {isGeneratingPriceSheet ? "Generating..." : "Price Sheet"}
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => {
-                    QuotationDeliveryNoteGenerator.generatePackingList(
-                      quotation,
-                      companyInfo
-                    );
-                    const packingListHTML =
-                      QuotationDeliveryNoteGenerator.generatePackingList(
-                        quotation,
-                        companyInfo
-                      );
-                    const printWindow = window.open("", "_blank");
-                    if (printWindow) {
-                      printWindow.document.write(packingListHTML);
-                      printWindow.document.close();
-                      printWindow.onload = () => {
-                        printWindow.focus();
-                        printWindow.print();
-                      };
-                    }
-                  }}
-                >
-                  <Package className="mr-2 h-4 w-4" />
-                  Packing List
-                </DropdownMenuItem> */}
+               
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />

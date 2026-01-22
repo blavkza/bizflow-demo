@@ -728,7 +728,7 @@ export default function POSPage() {
   return (
     <div className="flex-1 p-4 md:p-8 pt-6">
       {/* Active Quotation Banner */}
-      {activeQuotation && (
+      {/* {activeQuotation && (
         <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -765,7 +765,7 @@ export default function POSPage() {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       <POSHeader
         cart={cart}
@@ -906,6 +906,7 @@ export default function POSPage() {
             ? `Convert Quotation ${activeQuotation.quoteNumber}`
             : "Complete Transaction"
         }
+        cart={cart}
       />
 
       <ReceiptDialog

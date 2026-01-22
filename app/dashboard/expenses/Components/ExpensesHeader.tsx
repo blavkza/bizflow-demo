@@ -106,6 +106,7 @@ export default function ExpensesHeader({
           onExpenseAdded={onExpenseAdded}
           categoriesOptions={categoriesOptions}
           vendorsOptions={vendorsOptions}
+          mode="add"
         />
       </div>
     </header>

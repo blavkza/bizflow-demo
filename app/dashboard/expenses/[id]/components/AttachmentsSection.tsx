@@ -41,6 +41,9 @@ export default function AttachmentsSection({
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(
     null
   );
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<
+    string | null
+  >(null);
 
   const attachments: Attachment[] = expense.attachments || [];
 
@@ -109,6 +112,7 @@ export default function AttachmentsSection({
     if (!confirm("Are you sure you want to delete this attachment?")) return;
 
     try {
+      setDeletingAttachmentId(attachmentId);
       await axios.delete(
         `/api/expenses/${expense.id}/attachments?attachmentId=${attachmentId}`
       );
@@ -117,6 +121,8 @@ export default function AttachmentsSection({
     } catch (error: any) {
       console.error("Error deleting attachment:", error);
       toast.error(error.response?.data?.error || "Failed to delete attachment");
+    } finally {
+      setDeletingAttachmentId(null);
     }
   };
 
@@ -253,13 +259,20 @@ export default function AttachmentsSection({
                         {attachment.filename}
                       </span>
                     </div>
-                    {/* <Button
+                    <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDeleteAttachment(attachment.id)}
+                      disabled={deletingAttachmentId === attachment.id}
+                      className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                      title="Delete attachment"
                     >
-                      <X className="h-4 w-4 text-destructive" />
-                    </Button> */}
+                      {deletingAttachmentId === attachment.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <X className="h-3 w-3" />
+                      )}
+                    </Button>
                   </div>
 
                   {attachment.type === "IMAGE" && (

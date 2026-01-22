@@ -23,6 +23,8 @@ import {
   Package,
   AlertTriangle,
   Clock,
+  Tag,
+  Percent,
 } from "lucide-react";
 import { receiptGenerator } from "@/lib/receipt-generator";
 import { useToast } from "@/hooks/use-toast";
@@ -101,6 +103,35 @@ export function ReceiptDialog({
       setLoadingStockAwait(false);
     }
   };
+
+  // Calculate total item discounts from the sale items
+  const calculateTotalItemDiscounts = () => {
+    if (!completedSale?.items) return 0;
+
+    return completedSale.items.reduce((total: number, item: any) => {
+      const originalPrice = Number(item.originalPrice) || Number(item.price);
+      const currentPrice = Number(item.price);
+      if (currentPrice < originalPrice) {
+        const discountAmount = originalPrice - currentPrice;
+        return total + discountAmount * item.quantity;
+      }
+      return total;
+    }, 0);
+  };
+
+  // Calculate original subtotal before item discounts
+  const calculateOriginalSubtotal = () => {
+    if (!completedSale?.items) return 0;
+
+    return completedSale.items.reduce((total: number, item: any) => {
+      const originalPrice = Number(item.originalPrice) || Number(item.price);
+      return total + originalPrice * item.quantity;
+    }, 0);
+  };
+
+  const totalItemDiscounts = calculateTotalItemDiscounts();
+  const originalSubtotal = calculateOriginalSubtotal();
+  const hasItemDiscounts = totalItemDiscounts > 0;
 
   const handlePrintReceipt = async () => {
     if (!completedSale) {
@@ -320,12 +351,74 @@ export function ReceiptDialog({
                     "Staff"}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+
+              {/* Discount Summary */}
+              {hasItemDiscounts && (
+                <div className="mb-3 p-3 bg-green-100 dark:bg-green-900/30 rounded border border-green-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Tag className="h-4 w-4 text-green-600" />
+                    <span className="font-semibold text-green-700">
+                      Discount Summary
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Original Total:</span>
+                        <span className="font-medium">
+                          R{originalSubtotal.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-green-600">Item Discounts:</span>
+                        <span className="font-medium text-green-600">
+                          -R{totalItemDiscounts.toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t pt-1">
+                        <span className="font-semibold">Subtotal:</span>
+                        <span className="font-semibold">
+                          R
+                          {completedSale.subtotal?.toFixed(2) ||
+                            (originalSubtotal - totalItemDiscounts).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-green-600">Global Discount:</span>
+                        <span className="font-medium text-green-600">
+                          -R{completedSale.discount?.toFixed(2) || "0.00"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">VAT:</span>
+                        <span className="font-medium">
+                          R{completedSale.tax?.toFixed(2) || "0.00"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t pt-1">
+                        <span className="font-semibold">Total Savings:</span>
+                        <span className="font-semibold text-green-600">
+                          R
+                          {(
+                            totalItemDiscounts + (completedSale.discount || 0)
+                          ).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between border-t pt-2">
                 <span className="font-semibold">Total Amount:</span>
                 <span className="text-2xl font-bold text-green-600">
                   R{completedSale.total?.toFixed(2)}
                 </span>
               </div>
+
               {completedSale.amountReceived &&
                 completedSale.amountReceived > completedSale.total && (
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-200">
@@ -453,24 +546,6 @@ export function ReceiptDialog({
 
           {/* Receipt Actions */}
           <div className="space-y-3">
-            {/*  <Label>Receipt Actions</Label>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                onClick={handleDownloadReceipt}
-                variant="outline"
-                className="w-full bg-transparent"
-                disabled={isDownloading || loadingStockAwait || !completedSale}
-              >
-                {isDownloading ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FileText className="h-4 w-4 mr-2" />
-                )}
-                {isDownloading ? "Downloading..." : "Download"}
-              </Button>
-            </div> */}
-
             {/* Email Receipt */}
             <div className="space-y-2">
               <Label htmlFor="receipt-email">Send via Email</Label>

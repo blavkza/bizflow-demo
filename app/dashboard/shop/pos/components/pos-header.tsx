@@ -34,7 +34,7 @@ export function POSHeader({
   return (
     <div className="space-y-4 mb-6">
       {/* Scan Notice */}
-      {scanNotice.visible && (
+      {/*    {scanNotice.visible && (
         <div
           className={`p-3 rounded-lg border ${
             scanNotice.type === "error"
@@ -53,7 +53,7 @@ export function POSHeader({
             <span className="font-medium">{scanNotice.message}</span>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Active Quotation Status */}
       {activeQuotation && (

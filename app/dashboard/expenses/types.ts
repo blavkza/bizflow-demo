@@ -1,3 +1,5 @@
+import { Attachment } from "./[id]/types";
+
 export interface Expense {
   id: string;
   expenseNumber: string;
@@ -26,6 +28,7 @@ export interface Expense {
   paidDate?: string;
   paymentMethod?: string;
   notes?: string;
+  attachments?: Attachment[];
   invoiceId?: string;
   projectId?: string;
   invoice?: {

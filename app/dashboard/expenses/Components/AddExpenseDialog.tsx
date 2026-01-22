@@ -45,12 +45,13 @@ import {
   X,
   FileText,
   ImageIcon,
+  Edit,
 } from "lucide-react";
 import { format, addDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ExpenseFormValues, expenseSchema } from "@/lib/formValidationSchemas";
-import { ComboboxOption } from "../types";
+import { ComboboxOption, Expense } from "../types";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { VendorForm } from "../../suppliers/components/VendorForm";
 import CategoryForm from "../../categories/_components/category-Form";
@@ -206,7 +207,7 @@ function AddCategoryDialog({
   );
 }
 
-// Main Add Expense Dialog Component
+// Main Add/Edit Expense Dialog Component
 interface AddExpenseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -215,6 +216,10 @@ interface AddExpenseDialogProps {
   vendorsOptions: ComboboxOption[];
   vendorsData: any[];
   defaultVendorId?: string;
+  mode?: "add" | "edit";
+  expenseData?: Expense | null;
+  initialInvoicesOptions?: ComboboxOption[];
+  initialProjectsOptions?: ComboboxOption[];
 }
 
 export default function AddExpenseDialog({
@@ -225,9 +230,17 @@ export default function AddExpenseDialog({
   vendorsOptions,
   vendorsData,
   defaultVendorId,
+  mode = "add",
+  expenseData = null,
+  initialInvoicesOptions = [],
+  initialProjectsOptions = [],
 }: AddExpenseDialogProps) {
-  const [invoicesOptions, setInvoicesOptions] = useState<ComboboxOption[]>([]);
-  const [projectsOptions, setProjectsOptions] = useState<ComboboxOption[]>([]);
+  const [invoicesOptions, setInvoicesOptions] = useState<ComboboxOption[]>(
+    initialInvoicesOptions
+  );
+  const [projectsOptions, setProjectsOptions] = useState<ComboboxOption[]>(
+    initialProjectsOptions
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [vendors, setVendors] = useState<ComboboxOption[]>(vendorsOptions);
   const [categories, setCategories] =
@@ -243,8 +256,8 @@ export default function AddExpenseDialog({
 
   // Add refs to track state
   const isManualSelectionRef = useRef(false);
-  const hasResetRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasInitializedRef = useRef(false);
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -326,69 +339,189 @@ export default function AddExpenseDialog({
     [fullVendorsData]
   );
 
-  // Reset form when dialog opens
-  useEffect(() => {
-    if (open && !hasResetRef.current) {
-      const initialExpenseDate = new Date();
-      const initialDueDate = new Date();
-
-      form.reset({
-        description: "",
-        categoryId: "",
-        vendorId: defaultVendorId || "",
-        totalAmount: 0,
-        paidAmount: 0,
-        expenseDate: initialExpenseDate,
-        dueDate: initialDueDate,
-        priority: "MEDIUM",
-        status: "PENDING",
-        paymentMethod: "",
-        invoiceId: "",
-        projectId: "",
-        attachments: [],
-      });
-
-      // Reset state flags
-      setIsManualDueDate(false);
-      isManualSelectionRef.current = false;
-      hasResetRef.current = true;
-
-      fetchInvoicesAndProjects();
-      refreshVendors();
-      refreshCategories();
-
-      // Fetch payment terms if default vendor is set
-      if (defaultVendorId) {
-        getVendorPaymentTerms(defaultVendorId);
-      }
+  // Functions to fetch data
+  const fetchInvoicesAndProjects = useCallback(async () => {
+    // If we already have data from props, use it
+    if (
+      initialInvoicesOptions.length > 0 &&
+      initialProjectsOptions.length > 0
+    ) {
+      return;
     }
 
-    // Reset the ref when dialog closes
-    return () => {
-      if (!open) {
-        hasResetRef.current = false;
+    try {
+      setIsLoading(true);
+      const [invoicesRes, projectsRes] = await Promise.all([
+        axios.get("/api/invoices"),
+        axios.get("/api/projects"),
+      ]);
+
+      setInvoicesOptions(
+        invoicesRes.data.map((invoice: any) => ({
+          label: invoice.invoiceNumber,
+          value: invoice.id,
+        }))
+      );
+
+      setProjectsOptions(
+        projectsRes.data.map((project: any) => ({
+          label: project.title,
+          value: project.id,
+        }))
+      );
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [initialInvoicesOptions.length, initialProjectsOptions.length]);
+
+  const refreshVendors = useCallback(async () => {
+    try {
+      const vendorsRes = await axios.get("/api/vendors");
+      const newVendors = vendorsRes.data.map((vendor: any) => ({
+        label: vendor.name,
+        value: vendor.id,
+      }));
+      setVendors(newVendors);
+      setFullVendorsData(vendorsRes.data);
+    } catch (error) {
+      toast.error("Failed to refresh vendors");
+    }
+  }, []);
+
+  const refreshCategories = useCallback(async () => {
+    try {
+      const categoriesRes = await axios.get("/api/category/all-category");
+      const newCategories = categoriesRes.data.map((category: any) => ({
+        label: category.name,
+        value: category.id,
+      }));
+      setCategories(newCategories);
+    } catch (error) {
+      toast.error("Failed to refresh categories");
+    }
+  }, []);
+
+  // Initialize form when dialog opens
+  useEffect(() => {
+    if (!open) {
+      hasInitializedRef.current = false;
+      return;
+    }
+
+    // Only initialize once when dialog opens
+    if (!hasInitializedRef.current && open) {
+      hasInitializedRef.current = true;
+
+      if (mode === "edit" && expenseData) {
+        // Format dates properly for edit mode
+        const expenseDateValue = expenseData.expenseDate
+          ? new Date(expenseData.expenseDate)
+          : new Date();
+
+        const dueDateValue = expenseData.dueDate
+          ? new Date(expenseData.dueDate)
+          : new Date();
+
+        const paidDateValue = expenseData.paidDate
+          ? new Date(expenseData.paidDate)
+          : null;
+
+        form.reset({
+          description: expenseData.description || "",
+          categoryId: expenseData.categoryId || "",
+          vendorId: expenseData.vendorId || "",
+          totalAmount: expenseData.totalAmount || 0,
+          paidAmount: expenseData.paidAmount || 0,
+          expenseDate: expenseDateValue,
+          dueDate: dueDateValue,
+          priority: expenseData.priority || "MEDIUM",
+          status: expenseData.status || "PENDING",
+          paymentMethod: expenseData.paymentMethod || "",
+          invoiceId: expenseData.invoiceId || "",
+          projectId: expenseData.projectId || "",
+          attachments: [],
+          notes: expenseData.notes || "",
+
+          paidDate: paidDateValue,
+        });
+
+        // Get vendor payment terms
+        if (expenseData.vendorId) {
+          getVendorPaymentTerms(expenseData.vendorId);
+        }
+      } else {
+        // Add mode
+        const initialExpenseDate = new Date();
+        const initialDueDate = new Date();
+
+        form.reset({
+          description: "",
+          categoryId: "",
+          vendorId: defaultVendorId || "",
+          totalAmount: 0,
+          paidAmount: 0,
+          expenseDate: initialExpenseDate,
+          dueDate: initialDueDate,
+          priority: "MEDIUM",
+          status: "PENDING",
+          paymentMethod: "",
+          invoiceId: "",
+          projectId: "",
+          attachments: [],
+          notes: "",
+          vendorEmail: "",
+          vendorPhone: "",
+          paidDate: null,
+          accountCode: "",
+          projectCode: "",
+        });
+
+        // Fetch payment terms if default vendor is set
+        if (defaultVendorId) {
+          getVendorPaymentTerms(defaultVendorId);
+        }
       }
-    };
-  }, [open, defaultVendorId, form]);
+
+      // Fetch data if needed
+      if (
+        initialInvoicesOptions.length === 0 ||
+        initialProjectsOptions.length === 0
+      ) {
+        fetchInvoicesAndProjects();
+      }
+
+      // Always refresh vendors and categories to ensure we have latest data
+      refreshVendors();
+      refreshCategories();
+    }
+  }, [
+    open,
+    mode,
+    expenseData,
+    defaultVendorId,
+    form,
+    getVendorPaymentTerms,
+    initialInvoicesOptions.length,
+    initialProjectsOptions.length,
+    fetchInvoicesAndProjects,
+    refreshVendors,
+    refreshCategories,
+  ]);
 
   // Update vendors and categories from props when they change
   useEffect(() => {
-    if (vendorsOptions) {
-      setVendors(vendorsOptions);
-    }
+    setVendors(vendorsOptions);
   }, [vendorsOptions]);
 
   useEffect(() => {
-    if (categoriesOptions) {
-      setCategories(categoriesOptions);
-    }
+    setCategories(categoriesOptions);
   }, [categoriesOptions]);
 
   // Update full vendors data when props change
   useEffect(() => {
-    if (vendorsData) {
-      setFullVendorsData(vendorsData);
-    }
+    setFullVendorsData(vendorsData);
   }, [vendorsData]);
 
   // Get vendor payment terms when vendor changes
@@ -445,62 +578,6 @@ export default function AddExpenseDialog({
     }
   }, [expenseDate, selectedVendorPaymentTerms, isManualDueDate, form]);
 
-  // Functions to fetch data
-  const fetchInvoicesAndProjects = async () => {
-    try {
-      setIsLoading(true);
-      const [invoicesRes, projectsRes] = await Promise.all([
-        axios.get("/api/invoices"),
-        axios.get("/api/projects"),
-      ]);
-
-      setInvoicesOptions(
-        invoicesRes.data.map((invoice: any) => ({
-          label: invoice.invoiceNumber,
-          value: invoice.id,
-        }))
-      );
-
-      setProjectsOptions(
-        projectsRes.data.map((project: any) => ({
-          label: project.title,
-          value: project.id,
-        }))
-      );
-      setIsLoading(false);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
-
-  const refreshVendors = useCallback(async () => {
-    try {
-      const vendorsRes = await axios.get("/api/vendors");
-      // Update both the options and full data
-      const newVendors = vendorsRes.data.map((vendor: any) => ({
-        label: vendor.name,
-        value: vendor.id,
-      }));
-      setVendors(newVendors);
-      setFullVendorsData(vendorsRes.data);
-    } catch (error) {
-      toast.error("Failed to refresh vendors");
-    }
-  }, []);
-
-  const refreshCategories = async () => {
-    try {
-      const categoriesRes = await axios.get("/api/category/all-category");
-      const newCategories = categoriesRes.data.map((category: any) => ({
-        label: category.name,
-        value: category.id,
-      }));
-      setCategories(newCategories);
-    } catch (error) {
-      toast.error("Failed to refresh categories");
-    }
-  };
-
   const handleInvoiceChange = (invoiceId: string) => {
     form.setValue("invoiceId", invoiceId);
     form.setValue("projectId", "");
@@ -554,8 +631,10 @@ export default function AddExpenseDialog({
     }
   };
 
-  // File Upload Logic
+  // File Upload Logic - only for add mode
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (mode === "edit") return; // Don't handle attachments in edit mode
+
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -595,6 +674,8 @@ export default function AddExpenseDialog({
   };
 
   const removeAttachment = (indexToRemove: number) => {
+    if (mode === "edit") return; // Don't remove attachments in edit mode
+
     const currentAttachments = form.getValues("attachments") || [];
     const newAttachments = currentAttachments.filter(
       (_, index) => index !== indexToRemove
@@ -604,31 +685,68 @@ export default function AddExpenseDialog({
 
   const onSubmit = async (data: ExpenseFormValues) => {
     try {
-      await axios.post("/api/expenses", data);
-      toast.success("Expense created successfully");
+      const formData = {
+        ...data,
+        totalAmount:
+          typeof data.totalAmount === "string"
+            ? parseFloat(data.totalAmount)
+            : data.totalAmount,
+        paidAmount:
+          typeof data.paidAmount === "string"
+            ? parseFloat(data.paidAmount)
+            : data.paidAmount,
+      };
+
+      if (mode === "edit" && expenseData?.id) {
+        await axios.put(`/api/expenses/${expenseData.id}`, formData);
+        toast.success("Expense updated successfully");
+      } else {
+        await axios.post("/api/expenses", formData);
+        toast.success("Expense created successfully");
+      }
+
       onOpenChange(false);
       form.reset();
       onExpenseAdded();
     } catch (error) {
-      console.error("Error creating expense:", error);
-      toast.error("Failed to create expense");
+      console.error(
+        `Error ${mode === "edit" ? "updating" : "creating"} expense:`,
+        error
+      );
+      toast.error(`Failed to ${mode === "edit" ? "update" : "create"} expense`);
     }
   };
 
+  // Determine dialog title and button text based on mode
+  const dialogTitle = mode === "edit" ? "Edit Expense" : "Add New Expense";
+  const dialogDescription =
+    mode === "edit"
+      ? "Update the expense details."
+      : "Record a new business expense with payment details.";
+  const submitButtonText = mode === "edit" ? "Update Expense" : "Add Expense";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Expense
-        </Button>
-      </DialogTrigger>
+      {mode === "add" && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Expense
+          </Button>
+        </DialogTrigger>
+      )}
+      {mode === "edit" && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm">
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[800px] max-h-[95vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Expense</DialogTitle>
-          <DialogDescription>
-            Record a new business expense with payment details.
-          </DialogDescription>
+          <DialogTitle>{dialogTitle}</DialogTitle>
+          <DialogDescription>{dialogDescription}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -705,85 +823,97 @@ export default function AddExpenseDialog({
                 )}
               />
 
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="totalAmount"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel>Total Amount</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={field.value === 0 ? "" : field.value}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value === ""
-                                ? 0
-                                : parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {mode !== "edit" && (
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="totalAmount"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel>Total Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={field.value === 0 ? "" : field.value}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value === "" ? "0" : value);
+                            }}
+                            onBlur={(e) => {
+                              const value = e.target.value;
+                              const numValue =
+                                value === "" ? 0 : parseFloat(value);
+                              field.onChange(
+                                isNaN(numValue) ? "0" : numValue.toString()
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <FormField
-                  control={form.control}
-                  name="paidAmount"
-                  render={({ field }) => (
-                    <FormItem className="space-y-1">
-                      <FormLabel>Amount Paid</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={field.value === 0 ? "" : field.value}
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value === ""
-                                ? 0
-                                : parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="paidAmount"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel>Amount Paid</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={field.value === 0 ? "" : field.value}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value === "" ? "0" : value);
+                            }}
+                            onBlur={(e) => {
+                              const value = e.target.value;
+                              const numValue =
+                                value === "" ? 0 : parseFloat(value);
+                              field.onChange(
+                                isNaN(numValue) ? "0" : numValue.toString()
+                              );
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                {/* Remaining Balance Display */}
-                <FormItem className="space-y-1">
-                  <FormLabel>Remaining Balance</FormLabel>
-                  <div className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background">
-                    <span
-                      className={cn(
-                        "flex items-center",
-                        remainingAmount > 0
-                          ? "text-orange-600 font-medium"
-                          : remainingAmount < 0
-                            ? "text-red-600 font-medium"
-                            : "text-green-600 font-medium"
-                      )}
-                    >
-                      R{remainingAmount.toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {remainingAmount > 0
-                      ? "Outstanding amount"
-                      : remainingAmount < 0
-                        ? "Overpayment detected"
-                        : "Fully paid"}
-                  </p>
-                </FormItem>
-              </div>
+                  {/* Remaining Balance Display */}
+                  <FormItem className="space-y-1">
+                    <FormLabel>Remaining Balance</FormLabel>
+                    <div className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background">
+                      <span
+                        className={cn(
+                          "flex items-center",
+                          remainingAmount > 0
+                            ? "text-orange-600 font-medium"
+                            : remainingAmount < 0
+                              ? "text-red-600 font-medium"
+                              : "text-green-600 font-medium"
+                        )}
+                      >
+                        R{remainingAmount.toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {remainingAmount > 0
+                        ? "Outstanding amount"
+                        : remainingAmount < 0
+                          ? "Overpayment detected"
+                          : "Fully paid"}
+                    </p>
+                  </FormItem>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField
@@ -943,71 +1073,74 @@ export default function AddExpenseDialog({
               />
 
               {/* === ATTACHMENT SECTION === */}
-              <div className="space-y-2">
-                <FormLabel>Receipt / Attachment</FormLabel>
-                <div className="flex flex-col gap-3">
-                  {/* Hidden Input */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    onChange={handleFileSelect}
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                  />
+              {/* Only show attachment section in add mode */}
+              {mode === "add" && (
+                <div className="space-y-2">
+                  <FormLabel>Receipt / Attachment</FormLabel>
+                  <div className="flex flex-col gap-3">
+                    {/* Hidden Input */}
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      onChange={handleFileSelect}
+                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                    />
 
-                  {/* Upload Button */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full h-20 border-dashed border-2 flex flex-col gap-2"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                  >
-                    {isUploading ? (
-                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    ) : (
-                      <UploadCloud className="h-6 w-6 text-muted-foreground" />
-                    )}
-                    <span className="text-xs text-muted-foreground">
-                      {isUploading
-                        ? "Uploading..."
-                        : "Click to upload receipt or document"}
-                    </span>
-                  </Button>
+                    {/* Upload Button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-20 border-dashed border-2 flex flex-col gap-2"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                      {isUploading ? (
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      ) : (
+                        <UploadCloud className="h-6 w-6 text-muted-foreground" />
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {isUploading
+                          ? "Uploading..."
+                          : "Click to upload receipt or document"}
+                      </span>
+                    </Button>
 
-                  {/* Attachments List */}
-                  {attachments.length > 0 && (
-                    <div className="grid grid-cols-1 gap-2">
-                      {attachments.map((file: any, index: number) => (
-                        <div
-                          key={file.id || index}
-                          className="flex items-center justify-between p-2 border rounded-md bg-muted/20"
-                        >
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            {file.type === "IMAGE" ? (
-                              <ImageIcon className="h-4 w-4 text-blue-500 shrink-0" />
-                            ) : (
-                              <FileText className="h-4 w-4 text-orange-500 shrink-0" />
-                            )}
-                            <span className="text-sm truncate max-w-[200px]">
-                              {file.filename}
-                            </span>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
-                            onClick={() => removeAttachment(index)}
+                    {/* Attachments List */}
+                    {attachments.length > 0 && (
+                      <div className="grid grid-cols-1 gap-2">
+                        {attachments.map((file: any, index: number) => (
+                          <div
+                            key={file.id || index}
+                            className="flex items-center justify-between p-2 border rounded-md bg-muted/20"
                           >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              {file.type === "IMAGE" ? (
+                                <ImageIcon className="h-4 w-4 text-blue-500 shrink-0" />
+                              ) : (
+                                <FileText className="h-4 w-4 text-orange-500 shrink-0" />
+                              )}
+                              <span className="text-sm truncate max-w-[200px]">
+                                {file.filename}
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-100"
+                              onClick={() => removeAttachment(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               <FormField
                 control={form.control}
@@ -1033,12 +1166,14 @@ export default function AddExpenseDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={form.formState.isSubmitting || isUploading}
+                disabled={
+                  form.formState.isSubmitting || (mode === "add" && isUploading)
+                }
               >
                 {form.formState.isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  "Add Expense"
+                  submitButtonText
                 )}
               </Button>
             </DialogFooter>

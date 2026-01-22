@@ -113,7 +113,6 @@ export async function DELETE(
     const currentExpense = await db.expense.findUnique({
       where: {
         id: params.id,
-        userId: user.id,
       },
       select: {
         attachments: true,

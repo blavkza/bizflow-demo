@@ -82,3 +82,11 @@ export interface UpcomingPayment {
   description: string;
   status: "PENDING";
 }
+export interface ComboboxOption {
+  label: string;
+  value: string;
+  type?: string;
+  color?: string;
+  email?: string;
+  phone?: string;
+}

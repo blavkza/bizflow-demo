@@ -85,7 +85,7 @@ export default function ExpensesPage() {
 
   if (isLoading) {
     return (
-      <div className="m-6">
+      <div className="">
         <ExpenseDetailLoading />
       </div>
     );

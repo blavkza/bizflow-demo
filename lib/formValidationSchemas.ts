@@ -958,14 +958,31 @@ export const expenseSchema = z.object({
   vendorId: z.string().min(1, "Vendor is required"),
   vendorEmail: z.string().email().optional().or(z.literal("")),
   vendorPhone: z.string().optional(),
-  totalAmount: z.number().min(0.01, "Amount must be greater than 0"),
-  paidAmount: z.number().min(0).default(0),
+  totalAmount: z
+    .union([
+      z.number().min(0.01, "Amount must be greater than 0"),
+      z
+        .string()
+        .min(1)
+        .transform((val) => parseFloat(val)),
+    ])
+    .refine((val) => !isNaN(val) && val > 0, {
+      message: "Amount must be greater than 0",
+    }),
+  paidAmount: z
+    .union([
+      z.number().min(0),
+      z.string().transform((val) => parseFloat(val) || 0),
+    ])
+    .refine((val) => !isNaN(val), {
+      message: "Please enter a valid number",
+    })
+    .default(0),
   dueDate: z.date(),
   paidDate: z.date().optional().nullable(),
   paymentMethod: z.string().optional(),
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
   status: z.enum(["PENDING", "PARTIAL", "PAID", "OVERDUE"]).default("PENDING"),
-
   notes: z.string().optional(),
   expenseDate: z.date(),
   invoiceId: z.string().optional().nullable(),
