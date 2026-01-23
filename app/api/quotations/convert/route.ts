@@ -115,6 +115,7 @@ export async function POST(request: Request) {
           data: quotation.items.map((item) => ({
             invoiceId: invoice.id,
             description: item.description,
+            details: item.details,
             quantity: safeFloat(item.quantity),
             unitPrice: safeFloat(item.unitPrice),
             amount: safeFloat(item.amount),

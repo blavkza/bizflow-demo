@@ -268,6 +268,29 @@ export const ItemsTable = ({
     serviceItems,
   ]);
 
+  // Helper function to safely render HTML details
+  const renderDetails = (details: string | null | undefined) => {
+    if (!details) return null;
+
+    // Check if details contain HTML tags
+    const hasHtml = /<[^>]*>/.test(details);
+
+    if (hasHtml) {
+      return (
+        <div
+          className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap"
+          dangerouslySetInnerHTML={{ __html: details }}
+        />
+      );
+    }
+
+    return (
+      <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+        {details}
+      </div>
+    );
+  };
+
   // Tab content renderers
   const renderItemsTable = (
     items: Array<CalculatedItem | CombinedServiceItem>,
@@ -293,11 +316,18 @@ export const ItemsTable = ({
             <TableRow key={item.id}>
               <TableCell className="font-medium">
                 <div>{item.description}</div>
+
+                {/* Show details if available (NOT for combined services) */}
+                {!isCombinedService &&
+                  "details" in item &&
+                  item.details &&
+                  renderDetails(item.details)}
+
+                {/* Item type badge */}
                 <div className="text-xs text-muted-foreground mt-1 flex flex-col gap-1">
                   {isCombinedService ? (
                     <>
                       <div className="flex items-center gap-1">
-                        <Layers className="h-3 w-3" />
                         Combined Services (
                         {(item as CombinedServiceItem).individualServices
                           ?.length || 0}{" "}
@@ -312,28 +342,20 @@ export const ItemsTable = ({
                             item as CombinedServiceItem
                           ).individualServices?.map((service, index) => (
                             <li key={service.id ?? index}>
-                              {service.description}
+                              {service.description} ×{" "}
+                              {Number(service.quantity).toLocaleString("en-ZA")}
                             </li>
                           ))}
                         </ul>
                       ) : null}
                     </>
                   ) : "itemType" in item && item.itemType === "product" ? (
-                    <div className="flex items-center gap-1">
-                      <Box className="h-3 w-3" />
-                      Product
-                    </div>
+                    <div className="flex items-center gap-1"></div>
                   ) : "itemType" in item && item.itemType === "service" ? (
-                    <div className="flex items-center gap-1">
-                      <Briefcase className="h-3 w-3" />
-                      Service
-                    </div>
+                    <div className="flex items-center gap-1"></div>
                   ) : (
                     // Custom item
-                    <div className="flex items-center gap-1">
-                      <Package className="h-3 w-3" />
-                      Custom Item
-                    </div>
+                    <div className="flex items-center gap-1"></div>
                   )}
                 </div>
               </TableCell>
@@ -535,13 +557,22 @@ export const ItemsTable = ({
                         key={service.id}
                         className="flex justify-between items-center py-1 border-b  last:border-0"
                       >
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-purple-500"></div>
-                          <span className="text-sm ">
-                            {service.description || `Service ${index + 1}`}
-                          </span>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 w-2 rounded-full bg-purple-500"></div>
+                            <span className="text-sm ">
+                              {service.description || `Service ${index + 1}`} ×{" "}
+                              {Number(service.quantity).toLocaleString("en-ZA")}
+                            </span>
+                          </div>
+                          {/* Show details for each individual service */}
+                          {service.details && (
+                            <div className="ml-4 mt-1">
+                              {renderDetails(service.details)}
+                            </div>
+                          )}
                         </div>
-                        <div className="text-sm ">
+                        <div className="text-sm font-medium">
                           {formatCurrency(service.itemTotal)}
                         </div>
                       </div>

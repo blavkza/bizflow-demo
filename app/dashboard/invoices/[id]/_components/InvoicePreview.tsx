@@ -9,9 +9,13 @@ import { Loader2 } from "lucide-react";
 
 interface InvoicePreviewProps {
   invoice: InvoiceProps;
+  combineServices: boolean;
 }
 
-export const InvoicePreview = ({ invoice }: InvoicePreviewProps) => {
+export const InvoicePreview = ({
+  invoice,
+  combineServices,
+}: InvoicePreviewProps) => {
   const { companyInfo, loading } = useCompanyInfo();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [htmlContent, setHtmlContent] = useState<string>("");
@@ -20,11 +24,12 @@ export const InvoicePreview = ({ invoice }: InvoicePreviewProps) => {
     if (!loading) {
       const html = InvoiceReportGenerator.generateInvoiceReportHTML(
         invoice,
-        companyInfo
+        companyInfo,
+        combineServices
       );
       setHtmlContent(html);
     }
-  }, [invoice, companyInfo, loading]);
+  }, [invoice, companyInfo, loading, combineServices]);
 
   useEffect(() => {
     if (iframeRef.current && htmlContent) {

@@ -39,9 +39,34 @@ interface CombinedServiceData {
     discountInput: string;
     vat: number;
     total: number;
+    details?: string | null;
   }>;
   displayType: "combined-service";
 }
+
+// Helper function to format details with line breaks
+const formatItemDetails = (details: string | null | undefined): string => {
+  if (!details) return "";
+
+  const stripped = details.replace(/<[^>]*>/g, " ");
+
+  const decoded = stripped
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n");
+
+  const lines = decoded.split(/\r?\n/).filter((line) => line.trim().length > 0);
+
+  if (lines.length === 0) return "";
+
+  return lines.map((line) => line.trim()).join("\n");
+};
 
 export class InvoiceReportGenerator {
   private static decimalToNumber(decimalValue: any): number {
@@ -62,7 +87,8 @@ export class InvoiceReportGenerator {
 
   static generateInvoiceReportHTML(
     invoice: InvoiceProps,
-    companyInfo?: CompanyInfo | null
+    companyInfo?: CompanyInfo | null,
+    combineServices: boolean = true
   ): string {
     // --- COLORS ---
     const colorRed = "#990000";
@@ -86,8 +112,11 @@ export class InvoiceReportGenerator {
     const cWeb = companyInfo?.website || "";
     const logo = companyInfo?.logo || "";
 
-    // --- SEPARATE ITEMS INTO PRODUCTS AND SERVICES ---
-    const productItems: Array<{
+    // --- DYNAMIC ITEM CATEGORIZATION BASED ON combineServices ---
+    // We'll process items differently based on the combineServices setting
+
+    // Items to show individually (products, custom items, and services when combineServices is false)
+    const individualItems: Array<{
       description: string;
       qty: number;
       unitPrice: number;
@@ -95,9 +124,13 @@ export class InvoiceReportGenerator {
       discountInput: string;
       vat: number;
       total: number;
+      details?: string | null;
+      itemCode: string; // "PRD", "SVC", or "CST"
+      itemType: "product" | "service" | "custom";
     }> = [];
 
-    const serviceItems: Array<{
+    // Service items that might be combined (only when combineServices is true)
+    const serviceItemsForCombining: Array<{
       description: string;
       qty: number;
       unitPrice: number;
@@ -105,6 +138,7 @@ export class InvoiceReportGenerator {
       discountInput: string;
       vat: number;
       total: number;
+      details?: string | null;
     }> = [];
 
     // Track totals for calculations
@@ -117,7 +151,7 @@ export class InvoiceReportGenerator {
       const qty = this.decimalToNumber(item.quantity);
       const unitPrice = this.decimalToNumber(item.unitPrice);
       const taxRate = this.decimalToNumber(item.taxRate);
-      const linePrice = qty * unitPrice; // Total price before discount
+      const linePrice = qty * unitPrice;
 
       let discountVal = 0;
       const discountInput = this.decimalToNumber(item.itemDiscountAmount);
@@ -145,32 +179,44 @@ export class InvoiceReportGenerator {
           item.itemDiscountType === "PERCENTAGE" ? `${discountInput}` : "0.00",
         vat,
         total,
+        details: (item as any).details || null,
       };
 
-      // Determine if item is product or service
+      // Determine item type and how to handle it based on combineServices setting
       if (item.shopProductId) {
-        productItems.push(itemData);
+        // Product - always show individually
+        individualItems.push({
+          ...itemData,
+          itemCode: "PRD",
+          itemType: "product",
+        });
       } else if (item.serviceId) {
-        serviceItems.push(itemData);
-      } else {
-        // If no IDs, check description for hints or default to product
-        const descLower = item.description?.toLowerCase() || "";
-        if (
-          descLower.includes("service") ||
-          descLower.includes("labour") ||
-          descLower.includes("install")
-        ) {
-          serviceItems.push(itemData);
+        // Service - handle based on combineServices setting
+        if (combineServices) {
+          // When combineServices is ON, add to serviceItemsForCombining
+          serviceItemsForCombining.push(itemData);
         } else {
-          productItems.push(itemData);
+          // When combineServices is OFF, show individually
+          individualItems.push({
+            ...itemData,
+            itemCode: "SVC",
+            itemType: "service",
+          });
         }
+      } else {
+        // Custom item (no shopProductId or serviceId) - always show individually
+        individualItems.push({
+          ...itemData,
+          itemCode: "CST",
+          itemType: "custom",
+        });
       }
     });
 
-    // --- CREATE COMBINED SERVICES ROW ---
+    // --- CREATE COMBINED SERVICES ROW (only if combineServices is true AND there are services to combine) ---
     let combinedServiceData: CombinedServiceData | null = null;
 
-    if (serviceItems.length > 0) {
+    if (combineServices && serviceItemsForCombining.length > 0) {
       // Calculate combined totals
       let totalQuantity = 0;
       let totalLinePrice = 0;
@@ -178,9 +224,8 @@ export class InvoiceReportGenerator {
       let totalNet = 0;
       let totalVatServices = 0;
       let totalAmountServices = 0;
-      const serviceDescriptions: string[] = [];
 
-      serviceItems.forEach((service) => {
+      serviceItemsForCombining.forEach((service) => {
         totalQuantity += service.qty;
         totalLinePrice += service.linePrice;
         totalDiscount +=
@@ -190,13 +235,9 @@ export class InvoiceReportGenerator {
         totalNet += service.total - service.vat;
         totalVatServices += service.vat;
         totalAmountServices += service.total;
-
-        if (service.description) {
-          serviceDescriptions.push(service.description);
-        }
       });
 
-      // Calculate weighted average unit price (not shown but used for calculations)
+      // Calculate weighted average unit price
       const averageUnitPrice =
         totalQuantity > 0 ? totalLinePrice / totalQuantity : 0;
 
@@ -207,16 +248,18 @@ export class InvoiceReportGenerator {
           : "0.0";
 
       combinedServiceData = {
-        description: `Services Package (${serviceItems.length} services)`,
+        description: `Services Package (${serviceItemsForCombining.length} services)`,
         quantity: totalQuantity,
         unitPrice: averageUnitPrice,
         linePrice: totalLinePrice,
-        discountInput: serviceItems.some((s) => s.discountInput !== "0.00")
+        discountInput: serviceItemsForCombining.some(
+          (s) => s.discountInput !== "0.00"
+        )
           ? combinedDiscountPercent
           : "0.00",
         vat: totalVatServices,
         total: totalAmountServices,
-        individualServices: serviceItems,
+        individualServices: serviceItemsForCombining,
         displayType: "combined-service",
       };
     }
@@ -237,15 +280,53 @@ export class InvoiceReportGenerator {
 
     const totalDiscountDisplay = totalDiscountMoney + globalDiscVal;
 
+    // Helper function to render item details with proper line breaks
+    const renderItemDetails = (details: string | null | undefined): string => {
+      if (!details) return "";
+
+      const formatted = formatItemDetails(details);
+      if (!formatted.trim()) return "";
+
+      const lines = formatted
+        .split("\n")
+        .filter((line) => line.trim().length > 0);
+
+      return `
+        <div style="font-size: 10px; color: #666; margin-top: 2px; margin-left: 3px;">
+          ${lines.map((line) => `<div>${line}</div>`).join("")}
+        </div>
+      `;
+    };
+
+    // Helper function to render individual service in combined view with details
+    const renderIndividualService = (service: any): string => {
+      const detailsHtml = renderItemDetails(service.details);
+      const detailsDisplay = detailsHtml
+        ? `<div style="margin-left: 16px; margin-top: 2px;">${detailsHtml}</div>`
+        : "";
+
+      return `
+        <li style="list-style-type: disc; margin-left: 8px; margin-bottom: 4px;">
+          ${service.description} × ${service.qty}
+        </li>
+      `;
+    };
+
     // --- BUILD TABLE ROWS ---
     const tableRows: string[] = [];
 
-    // Add product rows
-    productItems.forEach((item) => {
+    // Add individual items (products, custom items, and services when combineServices is false)
+    individualItems.forEach((item) => {
+      const detailsHtml = renderItemDetails(item.details);
+      const rowStyle =
+        item.itemType === "custom" ? "background-color: #f9fafb;" : "";
+
       tableRows.push(`
-        <tr>
-          <td class="col-code"> </td>
-          <td class="col-desc">${item.description}</td>
+        <tr style="${rowStyle}">
+          <td class="col-desc">
+           <strong> ${item.description}</strong>
+            ${detailsHtml}
+          </td>
           <td class="col-qty">${item.qty}</td>
           <td class="col-unit-price">${this.formatMoney(item.unitPrice)}</td>
           <td class="col-line-price">${this.formatMoney(item.linePrice)}</td>
@@ -256,33 +337,20 @@ export class InvoiceReportGenerator {
       `);
     });
 
-    // Add combined services row if exists
-    if (combinedServiceData) {
+    // Add combined services row if combineServices is ON and there are services
+    if (combineServices && combinedServiceData) {
+      const serviceListHtml = serviceItemsForCombining
+        .map(renderIndividualService)
+        .join("");
+
       tableRows.push(`
         <tr style="background-color: #f8fafc;">
-          <td class="col-code">SVC</td>
           <td class="col-desc">
             <strong>${combinedServiceData.description}</strong>
-            <div style="font-size: 8px; color: #666; margin-top: 2px; font-style: italic;">
-              Includes:
+            <div style="font-size: 10px; color: #666; margin-top: 2px;">
               <ul style="margin: 2px 0 0 12px; padding: 0;">
-                ${serviceItems
-                  .slice(0, 3)
-                  .map(
-                    (s) =>
-                      `<li style="list-style-type: disc; margin-left: 8px;">
-                        ${s.description}
-                      </li>`
-                  )
-                  .join("")}
+                ${serviceListHtml}
               </ul>
-              ${
-                serviceItems.length > 3
-                  ? `<div style="margin-left: 12px;">
-                     and ${serviceItems.length - 3} more
-                   </div>`
-                  : ""
-              }
             </div>
           </td>
           <td class="col-qty">${combinedServiceData.quantity}</td>
@@ -293,26 +361,9 @@ export class InvoiceReportGenerator {
           <td class="col-total"><strong>${this.formatMoney(combinedServiceData.total)}</strong></td>
         </tr>
       `);
-    } else if (serviceItems.length > 0) {
-      // If not combined, show services individually
-      serviceItems.forEach((item) => {
-        tableRows.push(`
-          <tr>
-            <td class="col-code">SVC</td>
-            <td class="col-desc">${item.description}</td>
-            <td class="col-qty">${item.qty}</td>
-            <td class="col-unit-price">${this.formatMoney(item.unitPrice)}</td>
-            <td class="col-line-price">${this.formatMoney(item.linePrice)}</td>
-            <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
-            <td class="col-vat">${this.formatMoney(item.vat)}</td>
-            <td class="col-total">${this.formatMoney(item.total)}</td>
-          </tr>
-        `);
-      });
     }
 
     // Payments Logic
-    // Assuming invoice.payments exists on InvoiceProps, otherwise use depositAmount
     const totalPaid = (invoice.payments || []).reduce(
       (sum: number, p: any) => sum + this.decimalToNumber(p.amount),
       0
@@ -349,7 +400,6 @@ export class InvoiceReportGenerator {
             .items-table th { border: none; padding: 8px 6px; background-color: ${headerGreenBg}; color: ${headerGreenText}; font-weight: bold; text-align: center; font-size: 9px; text-transform: uppercase; }
             .items-table td { border: none; border-bottom: 1px solid #f0f0f0; padding: 8px 6px; vertical-align: top; font-size: 10px; }
             
-            /* Updated column widths for both price columns */
             .col-code { width: 6%; text-align: center; }
             .col-desc { width: 28%; text-align: left; }
             .col-qty { width: 8%; text-align: center; }
@@ -364,7 +414,7 @@ export class InvoiceReportGenerator {
             .totals-table td { border: none; padding: 6px 8px; font-weight: bold; font-size: 11px; }
             .text-right { text-align: right; }
 
-            .terms-section { margin-top: 30px; }
+            .terms-section { margin-top: 60px; }
             .terms-title { font-weight: bold; font-size: 11px; margin-bottom: 5px; text-transform: uppercase; color: ${headerGreenText}; }
             .terms-list { padding-left: 15px; margin: 0; }
             .terms-list li { margin-bottom: 2px; }
@@ -424,7 +474,6 @@ export class InvoiceReportGenerator {
           <table class="items-table">
             <thead>
               <tr>
-                <th class="col-code">CODE</th>
                 <th class="col-desc">DESCRIPTION</th>
                 <th class="col-qty">QTY</th>
                 <th class="col-unit-price">UNIT PRICE (R)</th>

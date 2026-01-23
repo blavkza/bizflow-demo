@@ -38,6 +38,7 @@ export default function InvoiceDetailPage({
   const { userId } = useAuth();
   const [invoice, setInvoice] = useState<InvoiceProps | null>(null);
   const [loadingInvoice, setLoadingInvoice] = useState(true);
+  const [combineServices, setCombineServices] = useState(true);
 
   const unwrappedParams = use(params);
   const invoiceId = unwrappedParams.id;
@@ -86,6 +87,10 @@ export default function InvoiceDetailPage({
     if (invoiceId) fetchInvoice();
   }, [invoiceId]);
 
+  const handleToggleCombineServices = (value: boolean) => {
+    setCombineServices(value);
+  };
+
   if (isLoading || loadingInvoice) return <Loader />;
   if (!canViewInvoices && !hasFullAccess) return null;
   if (!invoice) return <div>Invoice not found</div>;
@@ -97,6 +102,8 @@ export default function InvoiceDetailPage({
         canEditInvoice={canEditInvoice}
         canDeleteInvoice={canDeleteInvoice}
         hasFullAccess={hasFullAccess}
+        combineServices={combineServices}
+        onToggleCombineServices={handleToggleCombineServices}
       />
 
       <Tabs defaultValue="details" className="space-y-4">
@@ -108,7 +115,7 @@ export default function InvoiceDetailPage({
         <TabsContent value="details" className="space-y-6">
           <div className="grid gap-6">
             <InvoiceHeader invoice={invoice} />
-            <InvoiceItems invoice={invoice} />
+            <InvoiceItems invoice={invoice} combineServices={combineServices} />
             <InvoicePayments invoice={invoice} />
             <NoteTermsCard
               notes={invoice.note}
@@ -120,7 +127,7 @@ export default function InvoiceDetailPage({
         </TabsContent>
 
         <TabsContent value="preview">
-          <InvoicePreview invoice={invoice} />
+          <InvoicePreview invoice={invoice} combineServices={combineServices} />
         </TabsContent>
       </Tabs>
     </div>

@@ -1578,6 +1578,7 @@ model InvoiceItem {
   id          String   @id @default(cuid())
   invoiceId   String
   description String
+  details     String?
   quantity    Decimal  @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(15, 2)
   amount      Decimal  @db.Decimal(15, 2)
@@ -1872,6 +1873,7 @@ model QuotationItem {
   id          String   @id @default(cuid())
   quotationId String
   description String
+  details     String?
   quantity    Decimal  @db.Decimal(10, 2)
   unitPrice   Decimal  @db.Decimal(15, 2)
   amount      Decimal  @db.Decimal(15, 2)

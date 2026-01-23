@@ -89,7 +89,8 @@ export async function POST(req: Request) {
         ...item,
         quantity,
         unitPrice,
-        amount: baseAmount, // Store GROSS amount in DB 'amount' column
+        amount: baseAmount,
+        details: item.details || null,
         itemDiscountMoney,
         netAmount,
         taxRate,
@@ -194,7 +195,7 @@ export async function POST(req: Request) {
             project: data.project,
 
             // Financials
-            amount: subtotalGross, // Gross
+            amount: subtotalGross,
             currency: data.currency,
             status:
               calculatedDepositAmount > 0 ? "PARTIALLY_PAID" : data.status,
@@ -209,7 +210,7 @@ export async function POST(req: Request) {
             // Calculated Totals
             taxAmount: totalTax,
             taxRate: effectiveTaxRate,
-            discountAmount: inputGlobalDiscountVal, // Store the input value (e.g. 10 for 10%)
+            discountAmount: inputGlobalDiscountVal,
             discountType: data.discountType,
             totalAmount,
 
@@ -244,6 +245,7 @@ export async function POST(req: Request) {
             // Item Discounts
             itemDiscountType: item.itemDiscountType,
             itemDiscountAmount: item.itemDiscountAmount,
+            details: item.details || null,
           })),
         });
 

@@ -98,6 +98,7 @@ export async function POST(
           data: originalQuotation.items.map((item, index) => ({
             quotationId: duplicatedQuotation.id,
             description: item.description,
+            details: item.details,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             amount: item.amount,

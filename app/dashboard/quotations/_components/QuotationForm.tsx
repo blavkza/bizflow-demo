@@ -46,7 +46,10 @@ import { toast } from "sonner";
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import ClientForm from "../../human-resources/clients/_components/client-Form";
-import { QuotationSchema } from "@/lib/formValidationSchemas";
+import {
+  QuotationSchema,
+  QuotationItemSchema,
+} from "@/lib/formValidationSchemas";
 import {
   Select,
   SelectContent,
@@ -313,6 +316,7 @@ const SearchableItemInput = ({
     </div>
   );
 };
+
 // --- Main Component ---
 
 export function QuotationForm({
@@ -380,6 +384,7 @@ export function QuotationForm({
               itemDiscountAmount: (item as any).itemDiscountAmount
                 ? Number((item as any).itemDiscountAmount)
                 : 0,
+              details: (item as any).details || "", // Added details field
             }))
           : [
               {
@@ -391,6 +396,7 @@ export function QuotationForm({
                 serviceId: undefined,
                 itemDiscountType: undefined,
                 itemDiscountAmount: 0,
+                details: "", // Added details field
               },
             ],
       discountType: data?.discountType || undefined,
@@ -713,6 +719,7 @@ export function QuotationForm({
         serviceId: item.serviceId || undefined,
         itemDiscountType: item.itemDiscountType || undefined,
         itemDiscountAmount: item.itemDiscountAmount || 0,
+        details: item.details || undefined, // Include details in submission
       }));
 
       const quotationData = {
@@ -770,6 +777,7 @@ export function QuotationForm({
         serviceId: undefined,
         itemDiscountType: undefined,
         itemDiscountAmount: 0,
+        details: "",
       },
     ]);
 
@@ -1072,10 +1080,10 @@ export function QuotationForm({
             {form.watch("items").map((item, index) => (
               <div
                 key={index}
-                className="grid grid-cols-12 gap-3 items-center p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
+                className="grid grid-cols-12 gap-3 items-start p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
               >
-                {/* Searchable Item Input */}
-                <div className="col-span-4">
+                {/* Searchable Item Input with Description Textarea */}
+                <div className="col-span-4 space-y-2">
                   <SearchableItemInput
                     index={index}
                     searchTerm={searchInputs[index] || ""}
@@ -1087,6 +1095,18 @@ export function QuotationForm({
                     onSelect={handleItemSelect}
                     setShowDropdown={setShowDropdown}
                   />
+
+                  {/* Added textarea for item details */}
+                  <FormControl>
+                    <textarea
+                      placeholder="Additional item details or specifications..."
+                      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[80px] resize-y"
+                      value={item.details || ""}
+                      onChange={(e) => {
+                        form.setValue(`items.${index}.details`, e.target.value);
+                      }}
+                    />
+                  </FormControl>
                 </div>
 
                 {/* Quantity */}
@@ -1108,19 +1128,23 @@ export function QuotationForm({
                 </div>
 
                 {/* Unit Price */}
-                <Input
-                  type="number"
-                  step="0.01"
-                  className="text-left"
-                  value={item.unitPrice === 0 ? "" : item.unitPrice}
-                  onChange={(e) => {
-                    const value = e.target.value;
-
-                    if (value === "") return;
-
-                    handleUnitPriceChange(index, Number(value));
-                  }}
-                />
+                <div className="col-span-2">
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      className="text-left"
+                      value={item.unitPrice ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        handleUnitPriceChange(
+                          index,
+                          value === "" ? undefined : Number(value)
+                        );
+                      }}
+                    />
+                  </FormControl>
+                </div>
 
                 {/* Item Discount */}
                 <div className="col-span-1 space-y-1">
@@ -1134,7 +1158,7 @@ export function QuotationForm({
                       );
                     }}
                   >
-                    <SelectTrigger className="h-8 text-xs">
+                    <SelectTrigger className="h-10 text-xs">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -1154,7 +1178,7 @@ export function QuotationForm({
                             : "0.01"
                         }
                         placeholder="0.00"
-                        className="h-8 text-center text-xs"
+                        className="h-10 text-center text-xs"
                         value={item.itemDiscountAmount || ""}
                         onChange={(e) => {
                           const input = e.target.value;

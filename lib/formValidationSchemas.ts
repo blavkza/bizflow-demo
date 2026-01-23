@@ -508,6 +508,7 @@ export const InvoiceSchema = z.object({
         serviceId: z.string().optional().nullable(),
         itemDiscountType: z.nativeEnum(DiscountType).optional().nullable(),
         itemDiscountAmount: z.number().optional().nullable(),
+        details: z.string().optional(),
       })
     )
     .min(1, "At least one item is required"),
@@ -523,7 +524,7 @@ export const InvoiceSchema = z.object({
     .transform((val) => Number(val))
     .optional(),
 
-  // Deposit (FIXED: Added missing fields)
+  // Deposit
   depositRequired: z.boolean().default(false),
   depositType: z.nativeEnum(DepositType).optional(),
   depositAmount: z
@@ -535,7 +536,7 @@ export const InvoiceSchema = z.object({
   paymentTerms: z.string().optional(),
   notes: z.string().optional(),
 
-  // Recurring Options (for the toggle in the main form)
+  // Recurring Options
   isRecurring: z.boolean().default(false),
   frequency: z.nativeEnum(RecurringFrequency).optional(),
   interval: z.number().min(1).max(365).default(1).optional(),
@@ -547,8 +548,11 @@ export const RecurringInvoiceSchema = z.object({
   description: z.string().optional(),
   frequency: z.nativeEnum(RecurringFrequency),
   interval: z.number().min(1).max(365).default(1),
-  startDate: dateStringSchema,
-  endDate: dateStringSchema.optional().nullable(),
+  startDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+  endDate: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable(),
 
   items: z
     .array(
@@ -561,6 +565,7 @@ export const RecurringInvoiceSchema = z.object({
         serviceId: z.string().optional().nullable(),
         itemDiscountType: z.nativeEnum(DiscountType).optional().nullable(),
         itemDiscountAmount: z.number().optional().nullable(),
+        details: z.string().optional(),
       })
     )
     .min(1, "At least one item is required"),
@@ -570,7 +575,7 @@ export const RecurringInvoiceSchema = z.object({
   discountType: z.nativeEnum(DiscountType).optional(),
   discountAmount: z.number().min(0).optional(),
 
-  // Deposit (FIXED: Added missing fields to Recurring Schema)
+  // Deposit
   depositRequired: z.boolean().default(false),
   depositType: z.nativeEnum(DepositType).optional(),
   depositAmount: z.number().optional(),
@@ -614,6 +619,7 @@ export const QuotationItemSchema = z.object({
   serviceId: z.string().nullable().optional(),
   itemDiscountType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
   itemDiscountAmount: z.number().min(0).optional(),
+  details: z.string().optional(),
 });
 
 export const QuotationSchema = z.object({

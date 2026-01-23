@@ -15,6 +15,7 @@ import {
   FileDown,
   Plus,
   Loader2,
+  Printer,
 } from "lucide-react";
 import Link from "next/link";
 import { DeleteDialog } from "./DeleteDialog";
@@ -56,9 +57,11 @@ interface InvoiceActionsProps {
   invoice: InvoiceProps;
   isGeneratingPdf: boolean;
   onDownloadPdf: () => void;
+  onPrint: () => void;
   hasFullAccess: boolean;
   canDeleteInvoice: boolean;
   canEditInvoice: boolean;
+  combineServices: boolean;
 }
 
 export function InvoiceActions({
@@ -66,6 +69,9 @@ export function InvoiceActions({
   canEditInvoice,
   canDeleteInvoice,
   hasFullAccess,
+  combineServices,
+  onPrint,
+  onDownloadPdf,
 }: InvoiceActionsProps) {
   const router = useRouter();
   const [email, setEmail] = useState(invoice.client.email || "");
@@ -339,6 +345,26 @@ export function InvoiceActions({
         </DialogContent>
       </Dialog>
 
+      {/* Edit Button */}
+      {invoice.status !== "PAID" && (canEditInvoice || hasFullAccess) && (
+        <Button variant="outline" size="sm" asChild aria-label="Edit invoice">
+          <Link
+            href={`/dashboard/invoices/${invoice.id}/edit`}
+            className="flex items-center gap-2"
+          >
+            <Edit className="mr-2 h-4 w-4" /> Edit
+          </Link>
+        </Button>
+      )}
+
+      {/* Delete Button */}
+      {invoice.status === "DRAFT" && (canDeleteInvoice || hasFullAccess) && (
+        <DeleteDialog
+          invoiceNumber={invoice.invoiceNumber}
+          invoiceId={invoice.id}
+        />
+      )}
+
       {/* More Actions Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -392,58 +418,23 @@ export function InvoiceActions({
 
           {/* Download Options */}
           <DropdownMenuSeparator />
-          <DropdownMenuLabel>Download</DropdownMenuLabel>
-          <DropdownMenuItem onClick={() => handleDownload("pdf")}>
+          <DropdownMenuLabel>Download & Print</DropdownMenuLabel>
+          <DropdownMenuItem
+            onClick={onDownloadPdf} // Fixed: removed arrow function
+          >
             <FileDown className="mr-2 h-4 w-4" />
             PDF Document
           </DropdownMenuItem>
 
-          {/* Duplicate Option */}
-          <DropdownMenuSeparator />
-
-          {/* Delete Option */}
-          {invoice.status === "DRAFT" &&
-            (canDeleteInvoice || hasFullAccess) && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600" asChild>
-                  <div className="flex items-center cursor-pointer w-full">
-                    <DeleteDialog
-                      invoiceNumber={invoice.invoiceNumber}
-                      invoiceId={invoice.id}
-                      trigger={
-                        <div className="flex items-center w-full">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Invoice
-                        </div>
-                      }
-                    />
-                  </div>
-                </DropdownMenuItem>
-              </>
-            )}
+          {/* Print Option */}
+          <DropdownMenuItem onClick={onPrint}>
+            {" "}
+            {/* Fixed: removed arrow function */}
+            <Printer className="mr-2 h-4 w-4" />
+            Print PDF
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* Edit Button */}
-      {invoice.status !== "PAID" && (canEditInvoice || hasFullAccess) && (
-        <Button variant="outline" size="sm" asChild aria-label="Edit invoice">
-          <Link
-            href={`/dashboard/invoices/${invoice.id}/edit`}
-            className="flex items-center gap-2"
-          >
-            <Edit className="mr-2 h-4 w-4" /> Edit
-          </Link>
-        </Button>
-      )}
-
-      {/* Delete Button */}
-      {invoice.status === "DRAFT" && (canDeleteInvoice || hasFullAccess) && (
-        <DeleteDialog
-          invoiceNumber={invoice.invoiceNumber}
-          invoiceId={invoice.id}
-        />
-      )}
 
       {/* Document Conversion Dialogs */}
       {convertingTo && (
@@ -494,27 +485,6 @@ export function InvoiceActions({
                     </AddVendorDialog>
                   </div>
                 </div>
-              )}
-
-              {convertingTo === "DELIVERY_NOTE" && (
-                <>
-                  {/* Optional delivery note specific fields */}
-                  {/* <div className="grid gap-2">
-                    <Label htmlFor="deliveryAddress">Delivery Address</Label>
-                    <Textarea
-                      id="deliveryAddress"
-                      value={customData.deliveryAddress}
-                      onChange={(e) =>
-                        setCustomData({
-                          ...customData,
-                          deliveryAddress: e.target.value,
-                        })
-                      }
-                      placeholder="Enter delivery address"
-                      rows={2}
-                    />
-                  </div> */}
-                </>
               )}
 
               {/* Notes Field */}

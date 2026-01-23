@@ -193,7 +193,6 @@ export default function ExpensesDashboard({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All dates</SelectItem>
-                <SelectItem value="today">Today</SelectItem>
                 <SelectItem value="thisWeek">This week</SelectItem>
                 <SelectItem value="thisMonth">This month</SelectItem>
                 <SelectItem value="lastMonth">Last month</SelectItem>

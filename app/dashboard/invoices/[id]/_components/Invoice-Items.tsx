@@ -13,11 +13,12 @@ import {
 import { InvoiceProps } from "@/types/invoice";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Box, Briefcase, Layers, Grid } from "lucide-react";
+import { Box, Briefcase, Layers, Grid, FileText } from "lucide-react";
 import { useState, useMemo } from "react";
 
 interface InvoiceItemsProps {
   invoice: InvoiceProps;
+  combineServices?: boolean;
 }
 
 // Extended type for calculated items
@@ -28,7 +29,8 @@ type CalculatedItem = InvoiceProps["items"][0] & {
   netAmount: number;
   taxAmount: number;
   lineTotal: number;
-  itemType: "product" | "service" | "unknown";
+  itemType: "product" | "service" | "custom";
+  details?: string | null;
 };
 
 // Type for combined services row
@@ -53,7 +55,10 @@ type CombinedServiceItem = {
   individualServices?: CalculatedItem[];
 };
 
-export default function InvoiceItems({ invoice }: InvoiceProps) {
+export default function InvoiceItems({
+  invoice,
+  combineServices = true,
+}: InvoiceItemsProps) {
   const [activeTab, setActiveTab] = useState<string>("all");
 
   // Helper to format currency
@@ -62,6 +67,29 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
       style: "currency",
       currency: "ZAR",
     }).format(amount);
+  };
+
+  // Helper function to safely render HTML details
+  const renderDetails = (details: string | null | undefined) => {
+    if (!details) return null;
+
+    // Check if details contain HTML tags
+    const hasHtml = /<[^>]*>/.test(details);
+
+    if (hasHtml) {
+      return (
+        <div
+          className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap"
+          dangerouslySetInnerHTML={{ __html: details }}
+        />
+      );
+    }
+
+    return (
+      <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+        {details}
+      </div>
+    );
   };
 
   // --- 1. Calculate Item Level Logic ---
@@ -94,11 +122,12 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
     const lineTotal = netAmount + taxAmount;
 
     // Determine item type based on available IDs
-    const itemType: "product" | "service" | "unknown" = item.shopProductId
+    // If it has neither shopProductId nor serviceId, it's a custom item
+    const itemType: "product" | "service" | "custom" = item.shopProductId
       ? "product"
       : item.serviceId
         ? "service"
-        : "unknown";
+        : "custom";
 
     // Accumulate totals
     subtotalGross += grossAmount;
@@ -111,6 +140,7 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
       itemDiscountVal,
       discountInput,
       netAmount,
+      taxAmount,
       lineTotal,
       itemType,
       // Ensure these are strings as per original type
@@ -119,16 +149,21 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
       amount: String(lineTotal),
       taxRate: item.taxRate || "15",
       taxAmount: String(taxAmount),
+      details: (item as any).details || null,
     } as CalculatedItem;
   });
 
-  // --- 2. Separate Products and Services ---
+  // --- 2. Separate Products, Services, and Custom Items ---
   const productItems = useMemo(() => {
     return itemsWithCalculations.filter((item) => item.itemType === "product");
   }, [itemsWithCalculations]);
 
   const serviceItems = useMemo(() => {
     return itemsWithCalculations.filter((item) => item.itemType === "service");
+  }, [itemsWithCalculations]);
+
+  const customItems = useMemo(() => {
+    return itemsWithCalculations.filter((item) => item.itemType === "custom");
   }, [itemsWithCalculations]);
 
   // --- 3. Combined Services Calculation ---
@@ -200,15 +235,19 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
     };
   }, [serviceItems]);
 
-  // --- 4. All Items with Combined Services ---
+  // --- 4. All Items with Combined Services or Individual Services ---
   const allItemsWithCombinedServices = useMemo(() => {
     const items: Array<CalculatedItem | CombinedServiceItem> = [];
 
     // Add all products
     items.push(...productItems);
 
-    // Add combined services (single row) instead of individual services
-    if (combinedServices) {
+    // Add all custom items
+    items.push(...customItems);
+
+    // Add services based on combineServices setting
+    if (combineServices && combinedServices) {
+      // Add combined services (single row)
       items.push({
         id: "combined-services",
         description: combinedServices.name,
@@ -230,10 +269,19 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
         weightedTaxRate: combinedServices.weightedTaxRate,
         individualServices: combinedServices.services,
       } as CombinedServiceItem);
+    } else {
+      // Add individual services
+      items.push(...serviceItems);
     }
 
     return items;
-  }, [productItems, combinedServices]);
+  }, [
+    productItems,
+    customItems,
+    serviceItems,
+    combineServices,
+    combinedServices,
+  ]);
 
   // --- 5. Global Discount Logic ---
   const subtotalAfterItemDiscounts = subtotalGross - totalItemDiscountMoney;
@@ -279,7 +327,8 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
 
   // --- 7. Render Functions ---
   const renderItemsTable = (
-    items: Array<CalculatedItem | CombinedServiceItem>
+    items: Array<CalculatedItem | CombinedServiceItem>,
+    showDetailedBreakdown: boolean = false
   ) => (
     <Table>
       <TableHeader>
@@ -293,91 +342,101 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {items.map((item) => (
-          <TableRow key={item.id}>
-            <TableCell className="font-medium">
-              <div>{item.description}</div>
-              <div className="text-xs text-muted-foreground mt-1 flex flex-col gap-1">
-                {"displayType" in item &&
-                item.displayType === "combined-service" ? (
-                  <>
-                    <div className="flex items-center gap-1">
-                      <Layers className="h-3 w-3" />
-                      Combined Services (
+        {items.map((item) => {
+          const isCombinedService =
+            "displayType" in item && item.displayType === "combined-service";
+
+          return (
+            <TableRow key={item.id}>
+              <TableCell className="font-medium">
+                <div>{item.description}</div>
+
+                {/* Show item details if available (NOT for combined services) */}
+                {!isCombinedService &&
+                  "details" in item &&
+                  item.details &&
+                  renderDetails(item.details)}
+
+                {/* Item type badge */}
+                <div className="text-xs text-muted-foreground mt-1 flex flex-col gap-1">
+                  {isCombinedService ? (
+                    <>
+                      <div className="flex items-center gap-1">
+                        Combined Services (
+                        {(item as CombinedServiceItem).individualServices
+                          ?.length || 0}{" "}
+                        services)
+                      </div>
+
+                      {/* ALWAYS show individual services list under combined service */}
                       {(item as CombinedServiceItem).individualServices
-                        ?.length || 0}{" "}
-                      services)
-                    </div>
-                    {(item as CombinedServiceItem).individualServices
-                      ?.length ? (
-                      <ul className="ml-4 list-disc text-[11px]">
-                        {(item as CombinedServiceItem).individualServices?.map(
-                          (service, index) => (
+                        ?.length ? (
+                        <ul className="ml-4 list-disc text-[11px]">
+                          {(
+                            item as CombinedServiceItem
+                          ).individualServices?.map((service, index) => (
                             <li key={service.id ?? index}>
-                              {service.description}
+                              {service.description} ×{" "}
+                              {Number(service.quantity).toLocaleString("en-ZA")}
                             </li>
-                          )
-                        )}
-                      </ul>
-                    ) : null}
-                  </>
-                ) : item.itemType === "product" ? (
-                  <div className="flex items-center gap-1">
-                    <Box className="h-3 w-3" />
-                    Product
-                  </div>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </>
+                  ) : item.itemType === "product" ? (
+                    <div className="flex items-center gap-1"></div>
+                  ) : item.itemType === "service" ? (
+                    <div className="flex items-center gap-1"></div>
+                  ) : (
+                    // Custom item
+                    <div className="flex items-center gap-1"></div>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell className="text-center">
+                {"quantity" in item && typeof item.quantity === "number"
+                  ? item.quantity.toLocaleString("en-ZA")
+                  : Number(item.quantity || 0).toLocaleString("en-ZA")}
+              </TableCell>
+              <TableCell className="text-right">
+                {isCombinedService ? (
+                  <span className="text-muted-foreground italic">-</span>
                 ) : (
-                  <div className="flex items-center gap-1">
-                    <Briefcase className="h-3 w-3" />
-                    Service
-                  </div>
+                  formatCurrency(Number(item.unitPrice))
                 )}
-              </div>
-            </TableCell>
-            <TableCell className="text-center">
-              {"quantity" in item && typeof item.quantity === "number"
-                ? item.quantity.toLocaleString("en-ZA")
-                : Number(item.quantity || 0).toLocaleString("en-ZA")}
-            </TableCell>
-            <TableCell className="text-right">
-              {"displayType" in item &&
-              item.displayType === "combined-service" ? (
-                <span className="text-muted-foreground italic">-</span>
-              ) : (
-                formatCurrency(Number(item.unitPrice))
-              )}
-            </TableCell>
-            <TableCell className="text-right text-red-600">
-              {"itemDiscountVal" in item && item.itemDiscountVal > 0 ? (
-                <>
-                  -{formatCurrency(item.itemDiscountVal)}
-                  {item.itemDiscountType === "PERCENTAGE" && (
-                    <span className="text-xs ml-1 text-muted-foreground">
-                      ({item.discountInput}%)
-                    </span>
-                  )}
-                  {item.itemDiscountType === "COMBINED" && (
-                    <span className="text-xs ml-1 text-muted-foreground">
-                      (Combined)
-                    </span>
-                  )}
-                </>
-              ) : (
-                "-"
-              )}
-            </TableCell>
-            <TableCell className="text-center">
-              {"displayType" in item && item.displayType === "combined-service"
-                ? `${Number((item as CombinedServiceItem).taxRate).toFixed(0)}%`
-                : `${Number(item.taxRate) || 0}%`}
-            </TableCell>
-            <TableCell className="text-right font-medium">
-              {"displayType" in item
-                ? formatCurrency((item as CombinedServiceItem).lineTotal)
-                : formatCurrency((item as CalculatedItem).lineTotal)}
-            </TableCell>
-          </TableRow>
-        ))}
+              </TableCell>
+              <TableCell className="text-right text-red-600">
+                {"itemDiscountVal" in item && item.itemDiscountVal > 0 ? (
+                  <>
+                    -{formatCurrency(item.itemDiscountVal)}
+                    {item.itemDiscountType === "PERCENTAGE" && (
+                      <span className="text-xs ml-1 text-muted-foreground">
+                        ({item.discountInput}%)
+                      </span>
+                    )}
+                    {item.itemDiscountType === "COMBINED" && (
+                      <span className="text-xs ml-1 text-muted-foreground">
+                        (Combined)
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  "-"
+                )}
+              </TableCell>
+              <TableCell className="text-center">
+                {isCombinedService
+                  ? `${Number((item as CombinedServiceItem).taxRate).toFixed(0)}%`
+                  : `${Number(item.taxRate) || 0}%`}
+              </TableCell>
+              <TableCell className="text-right font-medium">
+                {isCombinedService
+                  ? formatCurrency((item as CombinedServiceItem).lineTotal)
+                  : formatCurrency((item as CalculatedItem).lineTotal)}
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </TableBody>
     </Table>
   );
@@ -392,6 +451,9 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
       )}
       {type === "combined" && (
         <Layers className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+      )}
+      {type === "custom" && (
+        <FileText className="h-12 w-12 mx-auto text-gray-300 mb-4" />
       )}
       {type === "all" && (
         <Grid className="h-12 w-12 mx-auto text-gray-300 mb-4" />
@@ -458,6 +520,14 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
                 </Badge>
               </TabsTrigger>
 
+              <TabsTrigger value="custom" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Custom Items
+                <Badge variant="secondary" className="ml-1">
+                  {customItems.length}
+                </Badge>
+              </TabsTrigger>
+
               <TabsTrigger value="combined" className="flex items-center gap-2">
                 <Layers className="h-4 w-4" />
                 Combined Services
@@ -488,35 +558,45 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
                 : renderEmptyState("services")}
             </TabsContent>
 
+            {/* Custom Items Tab Content */}
+            <TabsContent value="custom" className="mt-4">
+              {customItems.length > 0
+                ? renderItemsTable(customItems)
+                : renderEmptyState("custom")}
+            </TabsContent>
+
             {/* Combined Services Tab Content */}
             <TabsContent value="combined" className="mt-4">
               {combinedServices ? (
                 <>
-                  {renderItemsTable([
-                    {
-                      id: "combined-services",
-                      description: combinedServices.name,
-                      quantity: combinedServices.quantity,
-                      unitPrice: combinedServices.unitPrice,
-                      taxRate: combinedServices.weightedTaxRate,
-                      itemDiscountType:
-                        combinedServices.itemDiscountVal > 0
-                          ? ("COMBINED" as const)
-                          : null,
-                      itemDiscountAmount: combinedServices.itemDiscountVal,
-                      itemDiscountVal: combinedServices.itemDiscountVal,
-                      discountInput: combinedServices.itemDiscountVal,
-                      taxAmount: combinedServices.taxAmount,
-                      amount: combinedServices.lineTotal,
-                      itemType: "service",
-                      grossAmount: combinedServices.grossAmount,
-                      netAmount: combinedServices.netAmount,
-                      lineTotal: combinedServices.lineTotal,
-                      displayType: "combined-service",
-                      weightedTaxRate: combinedServices.weightedTaxRate,
-                      individualServices: combinedServices.services,
-                    } as CombinedServiceItem,
-                  ])}
+                  {renderItemsTable(
+                    [
+                      {
+                        id: "combined-services",
+                        description: combinedServices.name,
+                        quantity: combinedServices.quantity,
+                        unitPrice: combinedServices.unitPrice,
+                        taxRate: combinedServices.weightedTaxRate,
+                        itemDiscountType:
+                          combinedServices.itemDiscountVal > 0
+                            ? ("COMBINED" as const)
+                            : null,
+                        itemDiscountAmount: combinedServices.itemDiscountVal,
+                        itemDiscountVal: combinedServices.itemDiscountVal,
+                        discountInput: combinedServices.itemDiscountVal,
+                        taxAmount: combinedServices.taxAmount,
+                        amount: combinedServices.lineTotal,
+                        itemType: "service",
+                        grossAmount: combinedServices.grossAmount,
+                        netAmount: combinedServices.netAmount,
+                        lineTotal: combinedServices.lineTotal,
+                        displayType: "combined-service",
+                        weightedTaxRate: combinedServices.weightedTaxRate,
+                        individualServices: combinedServices.services,
+                      } as CombinedServiceItem,
+                    ],
+                    true
+                  )}
 
                   {/* Detailed breakdown of individual services */}
                   <div className="mt-4 p-4 bg-muted/30 rounded-md">
@@ -530,11 +610,23 @@ export default function InvoiceItems({ invoice }: InvoiceProps) {
                           key={service.id}
                           className="flex justify-between items-center py-1 border-b last:border-0"
                         >
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-purple-500"></div>
-                            <span className="text-sm">
-                              {service.description || `Service ${index + 1}`}
-                            </span>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className="h-2 w-2 rounded-full bg-purple-500"></div>
+                              <span className="text-sm">
+                                {service.description || `Service ${index + 1}`}{" "}
+                                ×{" "}
+                                {Number(service.quantity).toLocaleString(
+                                  "en-ZA"
+                                )}
+                              </span>
+                            </div>
+                            {/* Show details for each individual service */}
+                            {service.details && (
+                              <div className="ml-4 mt-1">
+                                {renderDetails(service.details)}
+                              </div>
+                            )}
                           </div>
                           <div className="text-sm font-medium">
                             {formatCurrency(service.lineTotal)}

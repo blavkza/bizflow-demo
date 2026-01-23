@@ -18,6 +18,7 @@ export async function POST(req: Request) {
       where: { userId },
       select: { id: true, name: true },
     });
+
     if (!creator) return new NextResponse("Unauthorized", { status: 401 });
 
     const json = await req.json();
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
       let itemDiscountMoney = 0;
       if (item.itemDiscountType === "PERCENTAGE") {
         itemDiscountMoney = baseAmount * (inputDiscountVal / 100);
-      } else {
+      } else if (item.itemDiscountType === "AMOUNT") {
         itemDiscountMoney = inputDiscountVal;
       }
       itemDiscountMoney = Math.min(itemDiscountMoney, baseAmount);
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
     if (data.discountType === "PERCENTAGE") {
       globalDiscountMoney =
         subtotalAfterItemDiscounts * (inputGlobalDiscountVal / 100);
-    } else {
+    } else if (data.discountType === "AMOUNT") {
       globalDiscountMoney = inputGlobalDiscountVal;
     }
     // Cap global discount
@@ -119,11 +120,11 @@ export async function POST(req: Request) {
         amount: item.baseAmount,
         taxRate: item.taxRate,
         taxAmount: taxAmount,
-
         shopProductId: item.shopProductId || null,
         serviceId: item.serviceId || null,
+        details: item.details || null, 
         itemDiscountType: item.itemDiscountType || null,
-        itemDiscountAmount: item.inputDiscountVal, // Store Input Value
+        itemDiscountAmount: item.inputDiscountVal,
         sortOrder: 0,
       };
     });
@@ -141,7 +142,7 @@ export async function POST(req: Request) {
     if (data.depositRequired) {
       if (data.depositType === "PERCENTAGE") {
         calculatedDepositMoney = totalAmount * (inputDepositVal / 100);
-      } else {
+      } else if (data.depositType === "AMOUNT") {
         calculatedDepositMoney = inputDepositVal;
       }
       calculatedDepositMoney = Math.min(calculatedDepositMoney, totalAmount);
@@ -171,7 +172,7 @@ export async function POST(req: Request) {
             issueDate: issueDate,
             validUntil: validUntil,
             title: data.title,
-            description: data.description,
+            description: data.description || null,
 
             taxAmount: totalTax,
             taxRate: effectiveTaxRate,
@@ -182,15 +183,15 @@ export async function POST(req: Request) {
             totalAmount: totalAmount,
 
             depositRequired: data.depositRequired,
-            depositType: data.depositType,
+            depositType: data.depositType || null,
             depositAmount:
               calculatedDepositMoney > 0 ? calculatedDepositMoney : null,
             depositRate:
               data.depositType === "PERCENTAGE" ? inputDepositVal : 0,
 
-            terms: data.terms,
-            notes: data.notes,
-            paymentTerms: data.paymentTerms,
+            terms: data.terms || null,
+            notes: data.notes || null,
+            paymentTerms: data.paymentTerms || null,
             deliveryTerms: data.deliveryTerms || null,
             createdBy: creator.id,
           },

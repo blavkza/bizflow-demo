@@ -108,14 +108,14 @@ interface CalculationSummary {
   itemDiscounts: number[];
 }
 
-// Extended form schema
+// Extended form schema - UPDATED WITH DETAILS FIELD
 const InvoiceFormSchema = InvoiceSchema.extend({
   isRecurring: z.boolean().default(false),
   frequency: z.nativeEnum(RecurringFrequency).optional(),
   interval: z.number().min(1).max(365).default(1).optional(),
   endDate: z.date().optional(),
 
-  // Ensure items allow the new fields
+  // Ensure items allow the new fields - UPDATED WITH DETAILS
   items: z
     .array(
       z.object({
@@ -127,6 +127,7 @@ const InvoiceFormSchema = InvoiceSchema.extend({
         serviceId: z.string().optional().nullable(),
         itemDiscountType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
         itemDiscountAmount: z.number().optional(),
+        details: z.string().optional(),
       })
     )
     .min(1, "Add at least one item"),
@@ -160,6 +161,7 @@ interface SearchableItemInputProps {
   onFocus: (index: number) => void;
   onBlur: () => void;
   onSelect: (index: number, item: SearchableItem) => void;
+  setShowDropdown: (index: number | null) => void;
 }
 
 const extractTextFromHTML = (html: string | null | undefined): string => {
@@ -170,18 +172,6 @@ const extractTextFromHTML = (html: string | null | undefined): string => {
 
   return tempDiv.textContent || tempDiv.innerText || "";
 };
-
-interface SearchableItemInputProps {
-  index: number;
-  searchTerm: string;
-  searchableItems: SearchableItem[];
-  showDropdown: number | null;
-  onSearchChange: (index: number, value: string) => void;
-  onFocus: (index: number) => void;
-  onBlur: () => void;
-  onSelect: (index: number, item: SearchableItem) => void;
-  setShowDropdown: (index: number | null) => void; // Add this prop
-}
 
 const SearchableItemInput = ({
   index,
@@ -196,15 +186,6 @@ const SearchableItemInput = ({
 }: SearchableItemInputProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
-
-  const extractTextFromHTML = (html: string | null | undefined): string => {
-    if (!html) return "";
-
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html;
-
-    return tempDiv.textContent || tempDiv.innerText || "";
-  };
 
   const filteredItems = searchableItems.filter((item) => {
     const searchLower = searchTerm.toLowerCase();
@@ -446,17 +427,19 @@ export default function InvoiceForm({
               itemDiscountAmount: (item as any).itemDiscountAmount
                 ? Number((item as any).itemDiscountAmount)
                 : 0,
+              details: (item as any).details || "",
             }))
           : [
               {
                 description: "",
                 quantity: 1,
                 unitPrice: 0,
-                taxRate: 0,
+                taxRate: 15,
                 shopProductId: null,
                 serviceId: null,
                 itemDiscountType: undefined,
                 itemDiscountAmount: 0,
+                details: "",
               },
             ],
       discountType: data?.invoice?.discountType || undefined,
@@ -735,9 +718,12 @@ export default function InvoiceForm({
         description: "",
         quantity: 1,
         unitPrice: 0,
-        taxRate: 0,
+        taxRate: 15,
         shopProductId: null,
         serviceId: null,
+        itemDiscountType: undefined,
+        itemDiscountAmount: 0,
+        details: "",
       },
     ]);
     setTimeout(calculateTotals, 0);
@@ -837,6 +823,7 @@ export default function InvoiceForm({
         serviceId: item.serviceId || undefined,
         itemDiscountType: item.itemDiscountType || undefined,
         itemDiscountAmount: item.itemDiscountAmount || 0,
+        details: item.details || undefined, // ADDED DETAILS FIELD
       }));
 
       const invoiceData = {
@@ -1147,7 +1134,7 @@ export default function InvoiceForm({
 
           {/* Recurring Block */}
           {isRecurring && (
-            <div className="mt-6 p-4 border rounded-lg bg-blue-50/50">
+            <div className="mt-6 p-4 border rounded-lg bg-blue-50/50 dark:bg-zinc-900">
               <h4 className="font-semibold mb-3 flex items-center gap-2 text-blue-700">
                 <Repeat className="h-4 w-4" /> Recurring Settings
               </h4>
@@ -1237,7 +1224,7 @@ export default function InvoiceForm({
                 />
               </div>
               {watchedFrequency && (
-                <div className="mt-3 p-3 bg-white rounded border text-sm flex justify-between">
+                <div className="mt-3 p-3 bg-white dark:bg-zinc-800 rounded border text-sm flex justify-between">
                   <span>
                     Every{" "}
                     {getFrequencyLabel(watchedFrequency, watchedInterval || 1)}
@@ -1253,7 +1240,7 @@ export default function InvoiceForm({
           )}
         </div>
 
-        {/* ITEMS SECTION */}
+        {/* ITEMS SECTION - UPDATED WITH DETAILS TEXTAREA */}
         <div className="bg-card border rounded-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-lg font-semibold">Invoice Items</h3>
@@ -1273,10 +1260,10 @@ export default function InvoiceForm({
             {form.watch("items").map((item, index) => (
               <div
                 key={index}
-                className="grid grid-cols-12 gap-3 items-center p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
+                className="grid grid-cols-12 gap-3 items-start p-4 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
               >
-                {/* Description Search */}
-                <div className="col-span-4">
+                {/* Description Search with Details Textarea */}
+                <div className="col-span-4 space-y-2">
                   <SearchableItemInput
                     index={index}
                     searchTerm={searchInputs[index] || ""}
@@ -1288,6 +1275,18 @@ export default function InvoiceForm({
                     onSelect={handleItemSelect}
                     setShowDropdown={setShowDropdown}
                   />
+
+                  {/* Added textarea for item details */}
+                  <FormControl>
+                    <textarea
+                      placeholder="Additional item details or specifications..."
+                      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 min-h-[60px] resize-y"
+                      value={item.details || ""}
+                      onChange={(e) => {
+                        form.setValue(`items.${index}.details`, e.target.value);
+                      }}
+                    />
+                  </FormControl>
                 </div>
 
                 {/* Quantity */}
@@ -1313,10 +1312,13 @@ export default function InvoiceForm({
                       type="number"
                       step="0.01"
                       className="text-left"
-                      value={item.unitPrice}
+                      value={item.unitPrice ?? ""}
                       onChange={(e) => {
-                        const val = parseFloat(e.target.value) || 0;
-                        handleUnitPriceChange(index, val);
+                        const value = e.target.value;
+                        handleUnitPriceChange(
+                          index,
+                          value === "" ? undefined : Number(value)
+                        );
                       }}
                     />
                   </FormControl>

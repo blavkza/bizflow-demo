@@ -113,6 +113,7 @@ export async function PUT(
         serviceId: item.serviceId || null,
         itemDiscountType: item.itemDiscountType || null,
         itemDiscountAmount: item.inputDiscountVal,
+        details: item.details || null,
         sortOrder: 0,
       };
     });

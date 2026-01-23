@@ -37,9 +37,38 @@ interface CombinedServiceData {
     discountInput: string;
     vat: number;
     total: number;
+    details?: string | null;
   }>;
   displayType: "combined-service";
 }
+
+// Helper function to format details with line breaks
+const formatItemDetails = (details: string | null | undefined): string => {
+  if (!details) return "";
+
+  // First strip HTML tags
+  const stripped = details.replace(/<[^>]*>/g, " ");
+
+  // Decode HTML entities
+  const decoded = stripped
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/<br\s*\/?>/gi, "\n") // Convert <br> tags to newlines
+    .replace(/<\/p>/gi, "\n") // Convert paragraph ends to newlines
+    .replace(/<\/div>/gi, "\n"); // Convert div ends to newlines
+
+  // Split by newlines and filter out empty lines
+  const lines = decoded.split(/\r?\n/).filter((line) => line.trim().length > 0);
+
+  if (lines.length === 0) return "";
+
+  // Format each line as a bullet point
+  return lines.map((line) => line.trim()).join("\n");
+};
 
 export class QuotationReportGenerator {
   private static decimalToNumber(decimalValue: any): number {
@@ -62,7 +91,7 @@ export class QuotationReportGenerator {
   static generateQuotationReportHTML(
     quotation: QuotationWithRelations,
     companyInfo?: CompanyInfo | null,
-    combineServices: boolean = true // ADD THIS PARAMETER WITH DEFAULT TRUE
+    combineServices: boolean = true
   ): string {
     // --- COLORS ---
     const colorRed = "#A00000";
@@ -100,6 +129,7 @@ export class QuotationReportGenerator {
       vat: number;
       total: number;
       itemType: "product" | "service" | "custom";
+      details?: string | null;
     }> = [];
 
     const serviceItems: Array<{
@@ -110,6 +140,7 @@ export class QuotationReportGenerator {
       vat: number;
       total: number;
       itemType: "product" | "service" | "custom";
+      details?: string | null;
     }> = [];
 
     const customItems: Array<{
@@ -120,6 +151,7 @@ export class QuotationReportGenerator {
       vat: number;
       total: number;
       itemType: "product" | "service" | "custom";
+      details?: string | null;
     }> = [];
 
     // Track totals for calculations
@@ -161,6 +193,7 @@ export class QuotationReportGenerator {
         vat,
         total,
         itemType: "product" as "product" | "service" | "custom",
+        details: item.details || null,
       };
 
       // Determine item type
@@ -234,6 +267,7 @@ export class QuotationReportGenerator {
           discountInput: s.discountInput,
           vat: s.vat,
           total: s.total,
+          details: s.details,
         })),
         displayType: "combined-service",
       };
@@ -255,15 +289,71 @@ export class QuotationReportGenerator {
 
     const totalDiscountDisplay = totalDiscountMoney + globalDiscVal;
 
+    // Helper function to render item details with proper line breaks
+    const renderItemDetails = (details: string | null | undefined): string => {
+      if (!details) return "";
+
+      const formatted = formatItemDetails(details);
+      if (!formatted.trim()) return "";
+
+      // Split by newlines and format each line
+      const lines = formatted
+        .split("\n")
+        .filter((line) => line.trim().length > 0);
+
+      return `
+        <div style="font-size: 8px; color: #666; margin-top: 2px; font-style: italic;">
+          ${lines.map((line) => `<div>${line}</div>`).join("")}
+        </div>
+      `;
+    };
+
+    // Helper function to render individual service in combined view with details
+    const renderIndividualService = (service: any): string => {
+      const detailsHtml = renderItemDetails(service.details);
+      const detailsDisplay = detailsHtml
+        ? `<div style="margin-left: 16px; margin-top: 2px;">${detailsHtml}</div>`
+        : "";
+
+      return `
+        <li style="list-style-type: disc; margin-left: 8px; margin-bottom: 4px;">
+          ${service.description} × ${service.qty}
+        </li>
+      `;
+    };
+
+    // Helper function to render details in individual items (non-combined view)
+    const renderDetailsForIndividualItem = (
+      details: string | null | undefined
+    ): string => {
+      if (!details) return "";
+
+      const formatted = formatItemDetails(details);
+      if (!formatted.trim()) return "";
+
+      const lines = formatted
+        .split("\n")
+        .filter((line) => line.trim().length > 0);
+
+      return `
+        <div style="font-size: 10px; color: #666; margin-top: 2px; margin-left: 3px;">
+          ${lines.map((line) => `<div>${line}</div>`).join("")}
+        </div>
+      `;
+    };
+
     // --- BUILD TABLE ROWS ---
     const tableRows: string[] = [];
 
     // Add product rows
     productItems.forEach((item) => {
+      const detailsHtml = renderDetailsForIndividualItem(item.details);
       tableRows.push(`
         <tr>
-          <td class="col-code">PRD</td>
-          <td class="col-desc">${item.description}</td>
+          <td class="col-desc">
+            <strong>${item.description}</strong>
+            ${detailsHtml}
+          </td>
           <td class="col-qty">${item.qty}</td>
           <td class="col-price">${this.formatMoney(item.price)}</td>
           <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
@@ -275,10 +365,13 @@ export class QuotationReportGenerator {
 
     // Add custom items rows
     customItems.forEach((item) => {
+      const detailsHtml = renderDetailsForIndividualItem(item.details);
       tableRows.push(`
         <tr style="background-color: #f9fafb;">
-          <td class="col-code">CST</td>
-          <td class="col-desc">${item.description}</td>
+          <td class="col-desc">
+            <strong>${item.description}</strong>
+            ${detailsHtml}
+          </td>
           <td class="col-qty">${item.qty}</td>
           <td class="col-price">${this.formatMoney(item.price)}</td>
           <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
@@ -291,31 +384,18 @@ export class QuotationReportGenerator {
     // Add services rows based on combineServices toggle
     if (combineServices && combinedServiceData) {
       // Combined services view
+      const serviceListHtml = combinedServiceData.individualServices
+        .map(renderIndividualService)
+        .join("");
+
       tableRows.push(`
         <tr style="background-color: #f8fafc;">
-          <td class="col-code">SVC</td>
           <td class="col-desc">
             <strong>${combinedServiceData.description}</strong>
-            <div style="font-size: 8px; color: #666; margin-top: 2px; font-style: italic;">
-              Includes:
+            <div style="font-size: 10px; color: #666; margin-top: 2px;">
               <ul style="margin: 2px 0 0 12px; padding: 0;">
-                ${serviceItems
-                  .slice(0, 3)
-                  .map(
-                    (s) =>
-                      `<li style="list-style-type: disc; margin-left: 8px;">
-                        ${s.description}
-                      </li>`
-                  )
-                  .join("")}
+                ${serviceListHtml}
               </ul>
-              ${
-                serviceItems.length > 3
-                  ? `<div style="margin-left: 12px;">
-                       and ${serviceItems.length - 3} more
-                     </div>`
-                  : ""
-              }
             </div>
           </td>
           <td class="col-qty">${combinedServiceData.quantity}</td>
@@ -328,10 +408,14 @@ export class QuotationReportGenerator {
     } else if (serviceItems.length > 0) {
       // Individual services view
       serviceItems.forEach((item) => {
+        const detailsHtml = renderDetailsForIndividualItem(item.details);
         tableRows.push(`
           <tr>
             <td class="col-code">SVC</td>
-            <td class="col-desc">${item.description}</td>
+            <td class="col-desc">
+              <strong>${item.description}</strong>
+              ${detailsHtml}
+            </td>
             <td class="col-qty">${item.qty}</td>
             <td class="col-price">${this.formatMoney(item.price)}</td>
             <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
@@ -463,7 +547,7 @@ export class QuotationReportGenerator {
             .text-right { text-align: right; }
 
             /* Terms & Conditions */
-            .terms-section { margin-top: 30px; }
+            .terms-section { margin-top: 60px; }
             .terms-title { 
               font-weight: bold; 
               font-size: 11px; 
@@ -564,7 +648,6 @@ export class QuotationReportGenerator {
           <table class="items-table">
             <thead>
               <tr>
-                <th class="col-code">CODE</th>
                 <th class="col-desc">DESCRIPTION</th>
                 <th class="col-qty">QUANTITY</th>
                 <th class="col-price">UNIT PRICE (R)</th>

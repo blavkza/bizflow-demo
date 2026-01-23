@@ -156,6 +156,7 @@ export async function POST(req: Request) {
           taxRate: item.taxRate,
           taxAmount: item.taxAmount, // Tax calculated on discounted item amount
           shopProductId: item.shopProductId || null,
+          details: item.details || null,
         })),
       });
 
