@@ -65,6 +65,7 @@ import {
 import ClientForm from "@/app/dashboard/human-resources/clients/_components/client-Form";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { useRouter } from "next/navigation";
 
 // --- TYPES ---
 
@@ -367,6 +368,8 @@ export default function InvoiceForm({
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+
+  const router = useRouter();
 
   const [calculations, setCalculations] = useState<CalculationSummary>({
     subtotal: 0,
@@ -863,7 +866,16 @@ export default function InvoiceForm({
           toast.success("Invoice updated successfully");
         }
       }
-      onSubmitSuccess();
+      const response = await axios({
+        data: invoiceData,
+      });
+      if (type === "create") {
+        const newInvoiceId = response.data.id;
+        router.push(`/dashboard/invoices/${newInvoiceId}`);
+      } else {
+        router.refresh();
+        onSubmitSuccess();
+      }
     } catch (error: any) {
       console.error("Invoice error:", error);
       toast.error(error.response?.data?.message || "An error occurred");
