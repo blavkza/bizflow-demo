@@ -77,15 +77,15 @@ export default function SidebarHeaderComponent({
         <SidebarMenuItem>
           <div className="w-full mb-1">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-">
-                <div className="flex aspect-square size-9 p-1 items-center justify-center rounded-full">
+              <div className="flex items-center gap-2">
+                <div className="flex aspect-square size-10  items-center justify-center rounded-full">
                   {companyInfo.companyInfo?.logo ? (
                     <Link href="/">
                       <Image
                         src={companyInfo.companyInfo?.logo}
                         alt="Logo"
-                        width={60}
-                        height={60}
+                        width={80}
+                        height={80}
                         className="object-contain rounded-full"
                       />
                     </Link>
