@@ -235,12 +235,15 @@ export default function InvoicesFilterTable({
                     return (
                       <TableRow
                         key={invoice.id}
+                        onClick={() =>
+                          router.push(`/dashboard/invoices/${invoice.id}`)
+                        }
                         className={
                           overdue
                             ? isPartiallyPaidOverdue
-                              ? "bg-orange-50 dark:bg-zinc-700 hover:bg-orange-100 dark:hover:bg-zinc-600"
-                              : "bg-red-50 dark:bg-zinc-700 hover:bg-red-100 dark:hover:bg-zinc-600"
-                            : ""
+                              ? "bg-orange-50 dark:bg-zinc-700 hover:bg-orange-100 dark:hover:bg-zinc-600 cursor-pointer"
+                              : "bg-red-50 dark:bg-zinc-700 hover:bg-red-100 dark:hover:bg-zinc-600 cursor-pointer"
+                            : "cursor-pointer"
                         }
                       >
                         <TableCell className="font-medium">
@@ -313,7 +316,6 @@ export default function InvoicesFilterTable({
                               className="flex items-center gap-2"
                               href={`/dashboard/invoices/${invoice.id}`}
                             >
-                              <Eye className="w-4 h-4" />
                               View
                             </Link>
                           </Button>

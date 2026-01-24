@@ -5,6 +5,7 @@ import CategoryCard from "./Category-Card";
 import Header from "./Header";
 import { CategoryStatus, CategoryType } from "@prisma/client";
 import { Category } from "@/types/category";
+import CategoryStats from "./CategoryStats";
 
 interface CategoriesWrapperProps {
   fetchCategories: () => void;
@@ -43,16 +44,12 @@ export default function CategoriesWrapper({
 
   return (
     <div className="flex flex-1 flex-col gap-4  pt-0 mb-4">
+      <CategoryStats categories={categories} />
+
       <Header
         categories={categories}
         onSearch={handleSearch}
         onFilter={handleFilter}
-        fetchCategories={fetchCategories}
-        canManageCategory={canManageCategory}
-        hasFullAccess={hasFullAccess}
-      />
-      <CategoryCard
-        categories={filteredCategories}
         fetchCategories={fetchCategories}
         canManageCategory={canManageCategory}
         hasFullAccess={hasFullAccess}

@@ -30,6 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
 
 interface RecurringInvoicesTableProps {
   recurringInvoices: RecurringInvoice[];
@@ -45,6 +46,8 @@ export default function RecurringInvoicesTable({
   const [frequencyFilter, setFrequencyFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const router = useRouter();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -214,7 +217,14 @@ export default function RecurringInvoicesTable({
                 </TableHeader>
                 <TableBody>
                   {paginatedInvoices.map((invoice) => (
-                    <TableRow key={invoice.id}>
+                    <TableRow
+                      key={invoice.id}
+                      onClick={() =>
+                        router.push(
+                          `/dashboard/invoices/recurring/${invoice.id}`
+                        )
+                      }
+                    >
                       <TableCell className="font-medium">
                         {invoice.description || "Recurring Invoice"}
                       </TableCell>

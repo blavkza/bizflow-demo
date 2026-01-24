@@ -3577,6 +3577,7 @@ enum InvoiceStatus {
   OVERDUE
   CANCELLED
   REFUNDED
+  PARTIALLY_REFUNDED
 }
 
 enum RecurringStatus {

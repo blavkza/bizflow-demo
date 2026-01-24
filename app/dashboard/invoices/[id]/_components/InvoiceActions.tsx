@@ -253,29 +253,6 @@ export function InvoiceActions({
     }
   };
 
-  const handleDownload = async (format: "pdf" | "excel" | "csv") => {
-    try {
-      const response = await fetch(
-        `/api/invoices/${invoice.id}/export?format=${format}`
-      );
-      if (!response.ok) throw new Error("Export failed");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `invoice-${invoice.invoiceNumber}.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast.success(`Downloaded as ${format.toUpperCase()}`);
-    } catch (error) {
-      toast.error("Failed to download");
-    }
-  };
-
   const getDocumentTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
       DELIVERY_NOTE: "Delivery Note",
@@ -405,7 +382,11 @@ export function InvoiceActions({
             <FileText className="mr-2 h-4 w-4" />
             Pro Forma Invoice
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleOpenConversion("CREDIT_NOTE")}>
+          <DropdownMenuItem
+            onClick={() => {
+              router.push(`/dashboard/invoices/${invoice.id}/credit-note`);
+            }}
+          >
             <CreditCard className="mr-2 h-4 w-4" />
             Credit Note
           </DropdownMenuItem>

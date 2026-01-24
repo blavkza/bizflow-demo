@@ -4,27 +4,70 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
   DollarSign,
   FileText,
   TrendingDown,
   TrendingUp,
   Calendar,
+  CalendarDays,
 } from "lucide-react";
 
 import { FullInvoice } from "@/types/invoice";
 import { formatCurrency } from "@/lib/formatters";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
 
-type TimeFilter = "overall" | "this_month" | "last_6_months";
+type TimeFilter = "overall" | "this_month" | "last_6_months" | "custom";
 
 interface StatsProps {
   invoices: FullInvoice[];
+  onDateFilterChange?: (filteredInvoices: FullInvoice[]) => void;
 }
 
-export default function Stats({ invoices }: StatsProps) {
+export default function Stats({ invoices, onDateFilterChange }: StatsProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("overall");
+  const [dateRange, setDateRange] = useState<{
+    from: Date | null;
+    to: Date | null;
+  }>({
+    from: null,
+    to: null,
+  });
+
+  const handleTimeFilterChange = (filter: TimeFilter) => {
+    setTimeFilter(filter);
+    // Reset custom date range when selecting a preset filter
+    if (filter !== "custom") {
+      setDateRange({ from: null, to: null });
+    }
+    // Notify parent of filter change
+    updateFilteredInvoices();
+  };
+
+  const handleDateRangeChange = (from: Date | null, to: Date | null) => {
+    setDateRange({ from, to });
+    if (from && to) {
+      setTimeFilter("custom");
+    }
+    // Notify parent of filter change
+    updateFilteredInvoices();
+  };
 
   const getDateRange = () => {
     const now = new Date();
+
+    if (timeFilter === "custom" && dateRange.from && dateRange.to) {
+      return {
+        start: dateRange.from,
+        end: dateRange.to,
+      };
+    }
 
     if (timeFilter === "this_month") {
       return {
@@ -43,6 +86,21 @@ export default function Stats({ invoices }: StatsProps) {
   };
 
   const { start, end } = getDateRange();
+
+  // Filter invoices based on time period and status
+  const activeInvoices = invoices
+    .filter((invoice) => invoice.status !== "CANCELLED")
+    .filter((invoice) => {
+      const issueDate = new Date(invoice.issueDate);
+      return issueDate >= start && issueDate <= end;
+    });
+
+  // Notify parent when filtered invoices change
+  const updateFilteredInvoices = () => {
+    if (onDateFilterChange) {
+      onDateFilterChange(activeInvoices);
+    }
+  };
 
   // Helper function to get total paid amount for an invoice
   const getInvoicePaidAmount = (invoice: FullInvoice): number => {
@@ -83,14 +141,6 @@ export default function Stats({ invoices }: StatsProps) {
     const today = new Date();
     return dueDate < today;
   };
-
-  // Filter invoices based on time period and status
-  const activeInvoices = invoices
-    .filter((invoice) => invoice.status !== "CANCELLED")
-    .filter((invoice) => {
-      const issueDate = new Date(invoice.issueDate);
-      return issueDate >= start && issueDate <= end;
-    });
 
   // Calculate total revenue (sum of all invoice total amounts that are paid within the period)
   const totalRevenue = activeInvoices.reduce((sum, invoice) => {
@@ -162,17 +212,23 @@ export default function Stats({ invoices }: StatsProps) {
   const getFilterDisplayText = () => {
     if (timeFilter === "this_month") return "This Month";
     if (timeFilter === "last_6_months") return "Last 6 Months";
+    if (timeFilter === "custom") {
+      if (dateRange.from && dateRange.to) {
+        return `${format(dateRange.from, "MMM dd, yyyy")} - ${format(dateRange.to, "MMM dd, yyyy")}`;
+      }
+      return "Custom Range";
+    }
     return "Overall";
   };
 
   return (
     <div className="space-y-4">
       {/* Filter Buttons */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <Button
           variant={timeFilter === "overall" ? "default" : "outline"}
           size="sm"
-          onClick={() => setTimeFilter("overall")}
+          onClick={() => handleTimeFilterChange("overall")}
           className="flex items-center gap-2"
         >
           <Calendar className="h-4 w-4" />
@@ -182,7 +238,7 @@ export default function Stats({ invoices }: StatsProps) {
         <Button
           variant={timeFilter === "this_month" ? "default" : "outline"}
           size="sm"
-          onClick={() => setTimeFilter("this_month")}
+          onClick={() => handleTimeFilterChange("this_month")}
           className="flex items-center gap-2"
         >
           <Calendar className="h-4 w-4" />
@@ -192,12 +248,55 @@ export default function Stats({ invoices }: StatsProps) {
         <Button
           variant={timeFilter === "last_6_months" ? "default" : "outline"}
           size="sm"
-          onClick={() => setTimeFilter("last_6_months")}
+          onClick={() => handleTimeFilterChange("last_6_months")}
           className="flex items-center gap-2"
         >
           <Calendar className="h-4 w-4" />
           Last 6 Months
         </Button>
+
+        {/* Custom Date Range Picker */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={timeFilter === "custom" ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "flex items-center gap-2",
+                !dateRange.from && !dateRange.to && "text-muted-foreground"
+              )}
+            >
+              <CalendarDays className="h-4 w-4" />
+              {dateRange.from ? (
+                dateRange.to ? (
+                  <>
+                    {format(dateRange.from, "MMM dd")} -{" "}
+                    {format(dateRange.to, "MMM dd, yyyy")}
+                  </>
+                ) : (
+                  format(dateRange.from, "MMM dd, yyyy")
+                )
+              ) : (
+                "Custom Date Range"
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <CalendarComponent
+              initialFocus
+              mode="range"
+              defaultMonth={dateRange.from || new Date()}
+              selected={{
+                from: dateRange.from || undefined,
+                to: dateRange.to || undefined,
+              }}
+              onSelect={(range) =>
+                handleDateRangeChange(range?.from || null, range?.to || null)
+              }
+              numberOfMonths={2}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Stats Cards */}

@@ -37,6 +37,9 @@ const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
 
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<FullInvoice[] | []>([]);
+  const [filteredInvoices, setFilteredInvoices] = useState<FullInvoice[] | []>(
+    []
+  );
   const [recurringInvoices, setRecurringInvoices] = useState<
     RecurringInvoice[] | []
   >([]);
@@ -86,6 +89,7 @@ export default function InvoicesPage() {
 
         const data = await response.json();
         setInvoices(data);
+        setFilteredInvoices(data); // Initialize filtered invoices with all invoices
       } catch (err) {
         setError("Failed to fetch invoices");
         console.error(err);
@@ -108,6 +112,11 @@ export default function InvoicesPage() {
     fetchInvoices();
     fetchRecurringData();
   }, []);
+
+  // Handle date filter changes from Stats component
+  const handleDateFilterChange = (filteredInvoices: FullInvoice[]) => {
+    setFilteredInvoices(filteredInvoices);
+  };
 
   if (loading) {
     return (
@@ -136,7 +145,7 @@ export default function InvoicesPage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full max-w-md grid-cols-2">
             <TabsTrigger value="regular">
-              Regular Invoices ({invoices.length})
+              Regular Invoices ({filteredInvoices.length})
             </TabsTrigger>
             <TabsTrigger value="recurring">
               Recurring Invoices ({recurringInvoices.length})
@@ -144,8 +153,11 @@ export default function InvoicesPage() {
           </TabsList>
 
           <TabsContent value="regular" className="space-y-4">
-            <Stats invoices={invoices} />
-            <InvoicesFilterTable invoices={invoices} />
+            <Stats
+              invoices={invoices}
+              onDateFilterChange={handleDateFilterChange}
+            />
+            <InvoicesFilterTable invoices={filteredInvoices} />
           </TabsContent>
 
           <TabsContent value="recurring" className="space-y-4">

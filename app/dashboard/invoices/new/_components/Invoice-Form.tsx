@@ -357,7 +357,7 @@ export default function InvoiceForm({
   onCancel,
   onSubmitSuccess,
 }: {
-  type: "create" | "update";
+  type: "create" | "update" | "creditNote";
   data: invoicePrompt;
   onCancel: () => void;
   onSubmitSuccess: () => void;
@@ -675,7 +675,6 @@ export default function InvoiceForm({
       setShowDropdown(null);
     }
   };
-
   const handleItemSelect = (index: number, item: SearchableItem) => {
     const description = item.name;
 
@@ -739,12 +738,33 @@ export default function InvoiceForm({
         "items",
         items.filter((_, i) => i !== index)
       );
-      // Remove search input key
+
+      // Remove search input key and re-index the remaining items
       setSearchInputs((prev) => {
-        const newInputs = { ...prev };
-        delete newInputs[index];
+        const newInputs: { [key: number]: string } = {};
+        let newIndex = 0;
+
+        // Re-map all inputs to maintain correct indexing
+        Object.keys(prev).forEach((key) => {
+          const oldIndex = parseInt(key);
+          if (oldIndex !== index) {
+            newInputs[newIndex] = prev[oldIndex];
+            newIndex++;
+          }
+        });
+
         return newInputs;
       });
+
+      // Re-index the showDropdown if needed
+      if (showDropdown !== null) {
+        if (showDropdown === index) {
+          setShowDropdown(null);
+        } else if (showDropdown > index) {
+          setShowDropdown(showDropdown - 1);
+        }
+      }
+
       setTimeout(calculateTotals, 0);
     }
   };
@@ -826,7 +846,7 @@ export default function InvoiceForm({
         serviceId: item.serviceId || undefined,
         itemDiscountType: item.itemDiscountType || undefined,
         itemDiscountAmount: item.itemDiscountAmount || 0,
-        details: item.details || undefined, // ADDED DETAILS FIELD
+        details: item.details || undefined,
       }));
 
       const invoiceData = {
@@ -836,6 +856,8 @@ export default function InvoiceForm({
         dueDate: values.dueDate.toISOString(),
         discountType: values.discountType || undefined,
       };
+
+      let response;
 
       if (values.isRecurring) {
         const recurringData = {
@@ -855,26 +877,49 @@ export default function InvoiceForm({
           paymentTerms: values.paymentTerms,
           notes: values.notes,
         };
-        await axios.post("/api/invoices/recurring", recurringData);
+        response = await axios.post("/api/invoices/recurring", recurringData);
         toast.success("Recurring invoice created successfully");
+
+        if (response?.data?.id) {
+          const newInvoiceId = response.data.id;
+          router.push(`/dashboard/invoices/${newInvoiceId}`);
+        }
+        return;
       } else {
         if (type === "create") {
-          await axios.post("/api/invoices", invoiceData);
+          response = await axios.post("/api/invoices", invoiceData);
           toast.success("Invoice created successfully");
-        } else {
-          await axios.put(`/api/invoices/${data.invoice.id}`, invoiceData);
+
+          if (response?.data?.id) {
+            const newInvoiceId = response.data.id;
+            router.push(`/dashboard/invoices/${newInvoiceId}`);
+          }
+          return;
+        } else if (type === "update") {
+          response = await axios.put(
+            `/api/invoices/${data.invoice.id}`,
+            invoiceData
+          );
           toast.success("Invoice updated successfully");
+
+          router.refresh();
+          onSubmitSuccess();
+          return;
+        } else {
+          // For credit note
+          response = await axios.post(
+            `/api/invoices/${data.invoice.id}/credit-note`,
+            invoiceData
+          );
+
+          if (response?.data?.creditNote?.id) {
+            router.push(
+              `/dashboard/invoice-documents/${response.data.creditNote.id}`
+            );
+            toast.success("Credit Note Created successfully");
+          }
+          return;
         }
-      }
-      const response = await axios({
-        data: invoiceData,
-      });
-      if (type === "create") {
-        const newInvoiceId = response.data.id;
-        router.push(`/dashboard/invoices/${newInvoiceId}`);
-      } else {
-        router.refresh();
-        onSubmitSuccess();
       }
     } catch (error: any) {
       console.error("Invoice error:", error);
@@ -911,7 +956,9 @@ export default function InvoiceForm({
                 <p className="text-muted-foreground">
                   {type === "create"
                     ? "Create a new invoice"
-                    : "Update invoice"}
+                    : type === "creditNote"
+                      ? "Create Credit Note"
+                      : "Update invoice"}
                 </p>
               </div>
             </div>
@@ -1431,64 +1478,70 @@ export default function InvoiceForm({
         <div
           className={cn(
             "grid grid-cols-1 gap-6",
-            isRecurring ? "lg:grid-cols-2" : "lg:grid-cols-3"
+            isRecurring
+              ? "lg:grid-cols-2"
+              : type === "creditNote"
+                ? "lg:grid-cols-1"
+                : "lg:grid-cols-3"
           )}
         >
-          <div className="bg-card border rounded-lg p-6">
-            <h4 className="font-semibold mb-4">Discount</h4>
-            <div className="space-y-4">
-              <FormField
-                control={form.control}
-                name="discountType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Type</FormLabel>
-                    <Select
-                      onValueChange={(val) => {
-                        field.onChange(val);
-                        calculateTotals();
-                      }}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="AMOUNT">Fixed</SelectItem>
-                        <SelectItem value="PERCENTAGE">%</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
-              {form.watch("discountType") && (
+          {type !== "creditNote" && (
+            <div className="bg-card border rounded-lg p-6">
+              <h4 className="font-semibold mb-4">Discount</h4>
+              <div className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="discountAmount"
+                  name="discountType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Amount</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          {...field}
-                          onChange={(e) => {
-                            field.onChange(parseFloat(e.target.value));
-                            calculateTotals();
-                          }}
-                        />
-                      </FormControl>
+                      <FormLabel>Type</FormLabel>
+                      <Select
+                        onValueChange={(val) => {
+                          field.onChange(val);
+                          calculateTotals();
+                        }}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="AMOUNT">Fixed</SelectItem>
+                          <SelectItem value="PERCENTAGE">%</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </FormItem>
                   )}
                 />
-              )}
+                {form.watch("discountType") && (
+                  <FormField
+                    control={form.control}
+                    name="discountAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            {...field}
+                            onChange={(e) => {
+                              field.onChange(parseFloat(e.target.value));
+                              calculateTotals();
+                            }}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {!isRecurring && (
+          {!isRecurring && type !== "creditNote" && (
             <div className="bg-card border rounded-lg p-6">
               <h4 className="font-semibold mb-4">Deposit</h4>
               <div className="space-y-4">
@@ -1577,30 +1630,37 @@ export default function InvoiceForm({
                   {formatCurrency(calculations.subtotal)}
                 </span>
               </div>
-              {calculations.discountAmount > 0 && (
+              {calculations.discountAmount > 0 && type !== "creditNote" && (
                 <div className="flex justify-between text-sm text-red-600">
                   <span>Discount:</span>
                   <span>-{formatCurrency(calculations.discountAmount)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Taxable:</span>
-                <span>{formatCurrency(calculations.taxableAmount)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span>Tax:</span>
-                <span className="font-medium">
-                  {formatCurrency(calculations.totalTax)}
-                </span>
-              </div>
+              {type !== "creditNote" && (
+                <>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Taxable:</span>
+                    <span>{formatCurrency(calculations.taxableAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Tax:</span>
+                    <span className="font-medium">
+                      {formatCurrency(calculations.totalTax)}
+                    </span>
+                  </div>
+                </>
+              )}
+
               <div className="flex justify-between border-t pt-3 text-base font-semibold">
                 <span>Total:</span>
                 <span className="text-primary">
                   {formatCurrency(calculations.totalAmount)}
                 </span>
               </div>
+
               {form.watch("depositRequired") &&
-                calculations.depositAmount > 0 && (
+                calculations.depositAmount > 0 &&
+                type !== "creditNote" && (
                   <>
                     <div className="flex justify-between text-sm text-green-600 border-t pt-3">
                       <span>Deposit:</span>
@@ -1662,7 +1722,7 @@ export default function InvoiceForm({
             {isSubmitting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-              `${type === "create" ? "Create" : "Update"} Invoice`
+              `${type === "create" ? "Create" : type === "update" ? "Update Invoice" : "Create Credit Note"}`
             )}
           </Button>
         </div>

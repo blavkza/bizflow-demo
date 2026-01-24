@@ -21,6 +21,8 @@ import {
 import { UserPermission, UserRole } from "@prisma/client";
 import { Settings, Settings2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useCompanyInfo } from "@/hooks/use-company-info";
+import { cn } from "@/lib/utils";
 
 interface SidebarHeaderProps {
   role: string;
@@ -37,7 +39,9 @@ export default function SidebarHeaderComponent({
 }: SidebarHeaderProps) {
   const router = useRouter();
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isReloading, setIsReloading] = useState(false);
   const [showSettingsTooltip, setSettingsShowTooltip] = useState(false);
+  const companyInfo = useCompanyInfo();
 
   const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
 
@@ -46,7 +50,9 @@ export default function SidebarHeaderComponent({
   const canViewSettings = permissions?.includes(UserPermission.SETTINGS_VIEW);
 
   const handleReload = () => {
+    setIsReloading(true);
     window.location.reload();
+    setIsReloading(false);
   };
 
   useEffect(() => {
@@ -69,25 +75,48 @@ export default function SidebarHeaderComponent({
     <SidebarHeader>
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton size="lg" asChild>
+          <div className="m-2 w-full">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-100">
-                  <Link href="/">
-                    <Image
-                      src="/logo.png"
-                      alt="Logo"
-                      width={80}
-                      height={80}
-                      className="object-contain"
-                    />
-                  </Link>
+                  {companyInfo.companyInfo?.logo ? (
+                    <Link href="/">
+                      <Image
+                        src={companyInfo.companyInfo?.logo}
+                        alt="Logo"
+                        width={80}
+                        height={80}
+                        className="object-contain rounded-full bg-slate-100"
+                      />
+                    </Link>
+                  ) : (
+                    <Link href="/">
+                      <Image
+                        src="/logo.png"
+                        alt="Logo"
+                        width={80}
+                        height={80}
+                        className="object-contain"
+                      />
+                    </Link>
+                  )}
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight select-none">
-                  <span className="truncate font-semibold">BizFlow</span>
+                  {companyInfo.companyInfo?.logo ? (
+                    <>
+                      <span className=" line-clamp-none text-xs font-semibold">
+                        {companyInfo.companyInfo?.companyName}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        BizFlow
+                      </span>
+                    </>
+                  ) : (
+                    <span className="truncate font-semibold">BizFlow</span>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 bg-zinc-400  dark:bg-zinc-800 rounded-3xl p-0  shadow-sm">
                 {(hasFullAccess || canViewSettings) && (
                   <TooltipProvider>
                     <Tooltip open={showSettingsTooltip}>
@@ -98,9 +127,9 @@ export default function SidebarHeaderComponent({
                           onClick={() => router.push("/dashboard/settings")}
                           onMouseEnter={() => setSettingsShowTooltip(true)}
                           onMouseLeave={() => setSettingsShowTooltip(false)}
-                          className="relative"
+                          className="relative rounded-full hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80"
                         >
-                          <Settings className="h-6 w-6" />
+                          <Settings className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom">
@@ -119,9 +148,14 @@ export default function SidebarHeaderComponent({
                         onClick={handleReload}
                         onMouseEnter={() => setShowTooltip(true)}
                         onMouseLeave={() => setShowTooltip(false)}
-                        className="relative"
+                        className="relative rounded-full hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80"
                       >
-                        <IoReloadOutline className="h-6 w-6" />
+                        <IoReloadOutline
+                          className={cn(
+                            `h-4 w-4`,
+                            isReloading && `animate-spin`
+                          )}
+                        />
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
@@ -131,7 +165,7 @@ export default function SidebarHeaderComponent({
                 </TooltipProvider>
               </div>
             </div>
-          </SidebarMenuButton>
+          </div>
         </SidebarMenuItem>
         <SidebarMenuItem>
           <div className="py-1">

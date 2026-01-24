@@ -133,7 +133,13 @@ export function QuotationTable({
               const canDuplicate = canDuplicateQuotation(quotation);
 
               return (
-                <TableRow key={quotation.id}>
+                <TableRow
+                  key={quotation.id}
+                  className=" cursor-pointer"
+                  onClick={() =>
+                    router.push(`/dashboard/quotations/${quotation.id}`)
+                  }
+                >
                   <TableCell className="font-medium">
                     <Link
                       className="underline text-blue-500 hover:text-blue-700 transition-colors"
