@@ -160,7 +160,7 @@ export function SidebarItems({
               <div
                 className={clsx(
                   "text-md font-bold uppercase tracking-wider px-1",
-                  "text-gray-900 dark:text-gray-100" // Black in light mode, white in dark mode
+                  "text-gray-900 dark:text-gray-100"
                 )}
               >
                 {section.title}
@@ -199,7 +199,7 @@ export function SidebarItems({
               <div
                 className={clsx(
                   "text-xs font-bold uppercase tracking-wider px-1",
-                  "text-gray-900 dark:text-gray-100" // Black in light mode, white in dark mode
+                  "text-gray-900 dark:text-gray-100"
                 )}
               >
                 {section.title}

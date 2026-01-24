@@ -75,17 +75,17 @@ export default function SidebarHeaderComponent({
     <SidebarHeader>
       <SidebarMenu>
         <SidebarMenuItem>
-          <div className=" w-full">
+          <div className="w-full mb-1">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex aspect-square size-8 p-1 items-center justify-center rounded-full">
+              <div className="flex items-center gap-">
+                <div className="flex aspect-square size-9 p-1 items-center justify-center rounded-full">
                   {companyInfo.companyInfo?.logo ? (
                     <Link href="/">
                       <Image
                         src={companyInfo.companyInfo?.logo}
                         alt="Logo"
-                        width={80}
-                        height={80}
+                        width={60}
+                        height={60}
                         className="object-contain rounded-full"
                       />
                     </Link>
@@ -116,7 +116,7 @@ export default function SidebarHeaderComponent({
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 bg-zinc-200  dark:bg-zinc-800 rounded-3xl p-0  shadow-sm">
+              <div className="flex items-center gap-1 bg-zinc-200  dark:bg-zinc-800 rounded-3xl p-0 ml-2  shadow-sm">
                 <TooltipProvider>
                   <Tooltip open={showTooltip}>
                     <TooltipTrigger asChild>
