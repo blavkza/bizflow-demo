@@ -75,10 +75,10 @@ export default function SidebarHeaderComponent({
     <SidebarHeader>
       <SidebarMenu>
         <SidebarMenuItem>
-          <div className="m-2 w-full">
+          <div className=" w-full">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-100">
+                <div className="flex aspect-square size-8 p-1 items-center justify-center rounded-full">
                   {companyInfo.companyInfo?.logo ? (
                     <Link href="/">
                       <Image
@@ -86,7 +86,7 @@ export default function SidebarHeaderComponent({
                         alt="Logo"
                         width={80}
                         height={80}
-                        className="object-contain rounded-full bg-slate-100"
+                        className="object-contain rounded-full"
                       />
                     </Link>
                   ) : (
@@ -116,29 +116,7 @@ export default function SidebarHeaderComponent({
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-1 bg-zinc-400  dark:bg-zinc-800 rounded-3xl p-0  shadow-sm">
-                {(hasFullAccess || canViewSettings) && (
-                  <TooltipProvider>
-                    <Tooltip open={showSettingsTooltip}>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => router.push("/dashboard/settings")}
-                          onMouseEnter={() => setSettingsShowTooltip(true)}
-                          onMouseLeave={() => setSettingsShowTooltip(false)}
-                          className="relative rounded-full hover:bg-zinc-200/80 dark:hover:bg-zinc-700/80"
-                        >
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom">
-                        <span className="text-xs font-thin">Settings</span>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-
+              <div className="flex items-center gap-1 bg-zinc-200  dark:bg-zinc-800 rounded-3xl p-0  shadow-sm">
                 <TooltipProvider>
                   <Tooltip open={showTooltip}>
                     <TooltipTrigger asChild>
