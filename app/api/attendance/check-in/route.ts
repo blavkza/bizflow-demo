@@ -130,11 +130,6 @@ export async function POST(request: NextRequest) {
       today
     );
 
-    console.log(`=== CHECK-IN BYPASS DEBUG ===`);
-    console.log(`Person: ${personType} ${person.id}`);
-    console.log(`Today SAST: ${today.toISOString()}`);
-    console.log(`Bypass result:`, bypassResult);
-
     // ---------------------------------------------------------
     // 4. ATTENDANCE DATE (NO NIGHT SHIFT LOGIC)
     // ---------------------------------------------------------
@@ -263,11 +258,6 @@ export async function POST(request: NextRequest) {
     let bypassApplied = false;
     let checkInTimeToUse: Date = currentTimeUTC;
 
-    console.log(`=== STATUS CALCULATION DEBUG ===`);
-    console.log(`Current UTC Time: ${currentTimeUTC.toISOString()}`);
-    console.log(`Attendance Date: ${attendanceDate.toISOString()}`);
-    console.log(`Grace Period: ${gracePeriodMinutes} minutes`);
-
     // If bypass has a custom check-in time, check lateness relative to THAT time
     if (
       bypassResult.bypassCheckIn &&
@@ -280,8 +270,6 @@ export async function POST(request: NextRequest) {
         .split(":")
         .map(Number);
 
-      console.log(`Bypass Time (SAST): ${bypassHours}:${bypassMinutes}`);
-
       // Create bypass schedule time in UTC
       const bypassScheduleUTC = new Date(attendanceDate);
       bypassScheduleUTC.setUTCHours(bypassHours - 2, bypassMinutes, 0, 0);
@@ -289,15 +277,6 @@ export async function POST(request: NextRequest) {
       // Calculate late threshold
       const bypassLateThreshold = new Date(
         bypassScheduleUTC.getTime() + gracePeriodMinutes * 60000
-      );
-
-      console.log(`Bypass Schedule Calculation:`);
-      console.log(`  Bypass Time (SAST): ${bypassHours}:${bypassMinutes}`);
-      console.log(`  Bypass Schedule UTC: ${bypassScheduleUTC.toISOString()}`);
-      console.log(`  Current UTC Time: ${currentTimeUTC.toISOString()}`);
-      console.log(`  Late Threshold UTC: ${bypassLateThreshold.toISOString()}`);
-      console.log(
-        `  Is Late? ${currentTimeUTC > bypassLateThreshold} (${currentTimeUTC.toISOString()} > ${bypassLateThreshold.toISOString()})`
       );
 
       if (currentTimeUTC > bypassLateThreshold) {
@@ -340,17 +319,6 @@ export async function POST(request: NextRequest) {
 
       const lateThreshold = new Date(
         scheduledScheduleUTC.getTime() + gracePeriodMinutes * 60000
-      );
-
-      console.log(`Standard Schedule Calculation:`);
-      console.log(
-        `  Schedule Time (SAST): ${scheduledHours}:${scheduledMinutes}`
-      );
-      console.log(`  Schedule UTC: ${scheduledScheduleUTC.toISOString()}`);
-      console.log(`  Late Threshold: ${lateThreshold.toISOString()}`);
-      console.log(`  Current UTC: ${currentTimeUTC.toISOString()}`);
-      console.log(
-        `  Is Late? ${currentTimeUTC > lateThreshold} (${currentTimeUTC.toISOString()} > ${lateThreshold.toISOString()})`
       );
 
       if (currentTimeUTC > lateThreshold) {
@@ -551,17 +519,19 @@ async function checkAttendanceBypassSimple(
   try {
     // Convert date to YYYY-MM-DD format for comparison
     const dateStr = date.toISOString().split("T")[0];
-    const checkDate = new Date(dateStr + "T00:00:00.000Z");
 
-    console.log(`\n=== SIMPLE BYPASS CHECK ===`);
-    console.log(`Date: ${dateStr}, Check Date: ${checkDate.toISOString()}`);
-    console.log(`Assignee: ${assigneeType} ${assigneeId}`);
+    // Use the exact date for comparison
+    const checkDate = new Date(dateStr);
+    checkDate.setUTCHours(0, 0, 0, 0);
 
-    // Build query EXACTLY like the GET endpoint
+    // Create end of day for comparison (23:59:59.999)
+    const endOfDay = new Date(checkDate);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
     const where: any = {
       AND: [
-        { startDate: { lte: checkDate } },
-        { endDate: { gte: checkDate } },
+        { startDate: { lte: endOfDay } }, // Start date is before end of today
+        { endDate: { gte: checkDate } }, // End date is after start of today
         { bypassCheckIn: true },
       ],
     };
@@ -609,11 +579,13 @@ async function checkAttendanceBypassSimple(
     });
 
     if (bypassRule) {
-      console.log(`✓ Found bypass rule: ${bypassRule.id}`);
-      console.log(`  Start: ${bypassRule.startDate}`);
-      console.log(`  End: ${bypassRule.endDate}`);
-      console.log(`  Custom Time: ${bypassRule.customCheckInTime}`);
-      console.log(`  Employees: ${bypassRule.employees?.length || 0}`);
+      // DEBUG: Check if today is exactly the end date
+      const ruleEndDate = new Date(bypassRule.endDate);
+      const ruleStartDate = new Date(bypassRule.startDate);
+
+      // Check if this is the last day
+      const isLastDay =
+        checkDate.getTime() === ruleEndDate.setUTCHours(0, 0, 0, 0);
 
       return {
         hasBypass: true,
@@ -625,14 +597,12 @@ async function checkAttendanceBypassSimple(
       };
     }
 
-    console.log(`✗ No bypass rule found`);
     return {
       hasBypass: false,
       bypassCheckIn: false,
       bypassCheckOut: false,
     };
   } catch (error: any) {
-    console.error("Error in simple bypass check:", error.message);
     return {
       hasBypass: false,
       bypassCheckIn: false,
