@@ -73,6 +73,7 @@ export function PayrollFormFields({ form }: PayrollFormFieldsProps) {
                 <Select
                   onValueChange={field.onChange}
                   defaultValue={field.value}
+                  disabled={true}
                 >
                   <FormControl>
                     <SelectTrigger>

@@ -105,12 +105,12 @@ async function canProcessPayroll(
     }
 
     const twoDaysBeforePayday = new Date(payday);
-    twoDaysBeforePayday.setDate(payday.getDate() - 2);
+    twoDaysBeforePayday.setDate(payday.getDate() - 5);
 
     if (currentDate < twoDaysBeforePayday) {
       return {
         canProcess: false,
-        message: `Payroll can only be processed from ${twoDaysBeforePayday.toLocaleDateString()} (2 days before payday)`,
+        message: `Payroll can only be processed from ${twoDaysBeforePayday.toLocaleDateString()} (5 days before payday)`,
       };
     }
 
@@ -158,7 +158,7 @@ export async function POST(req: Request) {
     const requestedEmployeeIds = data.employees.map((e) => e.id);
     const existingPayments = await db.payment.findMany({
       where: {
-        payroll: { month: data.month },
+        Payroll: { month: data.month },
         OR: [
           { employeeId: { in: requestedEmployeeIds } },
           { freeLancerId: { in: requestedEmployeeIds } },

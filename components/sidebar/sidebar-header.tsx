@@ -78,14 +78,14 @@ export default function SidebarHeaderComponent({
           <div className="w-full mb-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex aspect-square size-10  items-center justify-center rounded-full">
+                <div className="flex aspect-square size-12 bg-zinc-100 dark:bg-zinc-200 items-center justify-center rounded-full">
                   {companyInfo.companyInfo?.logo ? (
                     <Link href="/">
                       <Image
                         src={companyInfo.companyInfo?.logo}
                         alt="Logo"
-                        width={80}
-                        height={80}
+                        width={100}
+                        height={100}
                         className="object-contain rounded-full"
                       />
                     </Link>

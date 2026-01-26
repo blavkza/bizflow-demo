@@ -72,8 +72,6 @@ export function ProductForm({
   );
   const [isloadingVender, setIsLoadingvender] = useState(false);
 
-  console.log(product);
-
   const [images, setImages] = useState<UploadedFile[]>(
     product?.images?.map((url) => ({
       url,
@@ -126,6 +124,7 @@ export function ProductForm({
       maxStock: product?.maxStock || 0,
       weight: product?.weight || 0,
       dimensions: product?.dimensions || "",
+      warranty: product?.warranty || "",
       color: product?.color || "",
       size: product?.size || "",
       brand: product?.brand || "",
@@ -232,10 +231,7 @@ export function ProductForm({
     }
   };
 
-  /**
-   * HANDLER: Cost Changed
-   * Strategy: Update Cost -> Recalculate Selling Price (keeping Profit Margin constant).
-   */
+
   const handleCostChange = (valStr: string) => {
     const newCost = parseFloat(valStr) || 0;
 
@@ -276,10 +272,7 @@ export function ProductForm({
     syncProfitDisplay(actualCost, actualPrice);
   };
 
-  /**
-   * HANDLER: Price Changed
-   * Strategy: Update Price -> Recalculate Profit Margin (Cost stays constant).
-   */
+ 
   const handleSellingPriceChange = (valStr: string) => {
     const newPrice = parseFloat(valStr) || 0;
 
@@ -293,10 +286,7 @@ export function ProductForm({
     syncProfitDisplay(actualCost, actualPrice);
   };
 
-  /**
-   * HANDLER: Profit Changed
-   * Strategy: Update Profit -> Recalculate Selling Price (Cost stays constant).
-   */
+
   const handleProfitChange = (valStr: string) => {
     const val = parseFloat(valStr) || 0;
     setProfitDisplayValue(val);
@@ -311,7 +301,6 @@ export function ProductForm({
       newActualPrice = round(actualCost + val);
     }
 
-    // Update the visible price field based on current mode
     if (priceInputMode === "AFTER_TAX") {
       form.setValue("price", newActualPrice, { shouldValidate: true });
       syncTaxFields(newActualPrice, "price", "AFTER_TAX");
@@ -322,10 +311,7 @@ export function ProductForm({
     }
   };
 
-  /**
-   * HANDLER: Toggle Profit Mode (% vs R)
-   * Behavior: Convert the current profit value to the new mode
-   */
+
   const toggleProfitMode = () => {
     const actualCost = getActualCost();
     const actualPrice = getActualPrice();
@@ -350,11 +336,7 @@ export function ProductForm({
     }
   };
 
-  /**
-   * HANDLER: Toggle Tax Mode
-   * Behavior: Keep the VISIBLE value the same, recalculate the other tax field
-   * Profit margin should NOT change when switching tax modes
-   */
+ 
   const handleInputModeChange = (checked: boolean) => {
     const newMode = checked ? "AFTER_TAX" : "BEFORE_TAX";
 
@@ -558,6 +540,7 @@ export function ProductForm({
         maxStock: Number(values.maxStock),
         weight: Number(values.weight),
         dimensions: values.dimensions,
+        warranty: values.warranty,
         color: values.color,
         size: values.size,
         brand: values.brand,
@@ -1235,21 +1218,36 @@ export function ProductForm({
               )}
             />
           </div>
-
-          {/* Dimensions */}
-          <FormField
-            control={form.control}
-            name="dimensions"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <FormLabel>Dimensions</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., 10x5x2 cm" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-2 gap-4">
+            {/* Dimensions */}
+            <FormField
+              control={form.control}
+              name="dimensions"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>Dimensions</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 10x5x2 cm" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* warranty */}
+            <FormField
+              control={form.control}
+              name="warranty"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>Warranty</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 4 weeks or 6 months" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           {/* Status and Featured */}
           <div className="grid grid-cols-2 gap-4">

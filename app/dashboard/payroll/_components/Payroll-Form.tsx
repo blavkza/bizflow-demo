@@ -189,7 +189,7 @@ export default function PayrollForm({
         overtimeAmount: acc.overtimeAmount + (curr.overtimeAmount || 0),
         bonusAmount: acc.bonusAmount + (curr.bonusAmount || 0),
         deductionAmount: acc.deductionAmount + (curr.deductionAmount || 0),
-        totalPayroll: acc.totalPayroll + (curr.amount || 0), // Gross
+        totalPayroll: acc.totalPayroll + (curr.amount || 0),
         netPayroll: acc.netPayroll + (curr.netAmount || curr.amount || 0),
         paidDays: acc.paidDays + (curr.paidDays || 0),
         regularHours: acc.regularHours + (curr.regularHours || 0),

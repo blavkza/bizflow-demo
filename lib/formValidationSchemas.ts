@@ -917,6 +917,7 @@ export const ShopProductSchema = z
       .default(0),
     dimensions: z.string().default(""),
     color: z.string().default(""),
+    warranty: z.string().default(""),
     size: z.string().default(""),
     brand: z.string().default(""),
 

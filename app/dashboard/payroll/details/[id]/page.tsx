@@ -139,22 +139,12 @@ export default function PayrollDetailsPage() {
         getStatusVariant={getStatusVariant}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <PayrollInformation
-          payroll={payroll}
-          getStatusVariant={getStatusVariant}
-          totalBaseAmount={totalBaseAmount}
-          totalOvertimeAmount={totalOvertimeAmount}
-          totalAmount={totalAmount}
-        />
-
-        <EmployeeBreakdown
-          payroll={payroll}
-          getPaymentAmount={getPaymentAmount}
-          formatCurrency={formatCurrency}
-          formatHours={formatHours}
-        />
-      </div>
+      <EmployeeBreakdown
+        payroll={payroll}
+        getPaymentAmount={getPaymentAmount}
+        formatCurrency={formatCurrency}
+        formatHours={formatHours}
+      />
 
       <TransactionDetails payroll={payroll} formatCurrency={formatCurrency} />
     </div>

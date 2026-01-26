@@ -28,6 +28,7 @@ export async function GET(
             currency: true,
           },
         },
+
         payments: {
           include: {
             employee: {
@@ -66,6 +67,7 @@ export async function GET(
             },
           },
         },
+
         _count: {
           select: {
             payments: true,

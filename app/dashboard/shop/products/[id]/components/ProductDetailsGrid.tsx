@@ -134,9 +134,9 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
                 R{formatPrice(priceAfterTax)}
               </span>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm ">
               Before VAT: R{formatPrice(priceBeforeTax)}
-              <span className="ml-2 text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+              <span className="ml-2 text-xs bg-gray-100  dark:bg-zinc-700 px-1.5 py-0.5 rounded">
                 15% VAT
               </span>
             </div>
@@ -147,18 +147,18 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
             <div className="space-y-2 pt-3 border-t">
               <div className="flex items-center justify-between">
                 <span className="font-medium">Cost Price</span>
-                <span className="text-lg font-semibold text-gray-700">
+                <span className="text-lg font-semibold ">
                   R{formatPrice(costAfterTax)}
                 </span>
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-muted-foreground">
                 Before VAT: R{formatPrice(costBeforeTax)}
               </div>
 
               {/* Profit Margin */}
               <div className="flex items-center justify-between pt-2">
                 <span className="font-medium">Profit Margin</span>
-                <Badge variant="outline" className="bg-blue-50">
+                <Badge variant="outline" className="">
                   <TrendingUp className="h-3 w-3 mr-1" />
                   {profitMargin.toFixed(1)}%
                 </Badge>
@@ -168,13 +168,20 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
 
           {/* Tax Info */}
           <div className="pt-3 border-t">
-            <div className="flex items-center text-sm text-gray-500">
+            <div className="flex items-center text-sm text-muted-foreground">
               <span className="mr-2">Tax mode:</span>
               <Badge variant="outline" className="text-xs">
                 {product.priceInputMode === "BEFORE_TAX"
                   ? "Entered before tax"
                   : "Entered after tax"}
               </Badge>
+            </div>
+          </div>
+          {/* warranty Info */}
+          <div className="pt-3 border-t">
+            <div className="flex items-center text-sm text-muted-foreground">
+              <span className="mr-2">Warranty:</span>
+              {product.warranty}
             </div>
           </div>
         </CardContent>

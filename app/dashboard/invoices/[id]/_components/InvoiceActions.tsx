@@ -96,14 +96,12 @@ export function InvoiceActions({
     supplierId: "",
   });
 
-  // Fetch vendors when component mounts or when dialog opens
   useEffect(() => {
     if (convertingTo === "PURCHASE_ORDER" || convertingTo === "SUPPLIER_LIST") {
       fetchVendors();
     }
   }, [convertingTo]);
 
-  // Initialize notes and terms from company settings when conversion dialog opens
   useEffect(() => {
     if (convertingTo && companyInfo) {
       const defaultNotesAndTerms = getDefaultNotesAndTerms(convertingTo);
@@ -131,7 +129,6 @@ export function InvoiceActions({
     }
   };
 
-  // Get default notes and terms based on document type
   const getDefaultNotesAndTerms = (documentType: string) => {
     if (!companyInfo) return { notes: "", terms: "" };
 

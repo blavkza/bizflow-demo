@@ -46,13 +46,13 @@ export async function GET(request: Request) {
     // --- 1. Date Restriction Check ---
     // Calculate 2 days before payday
     const twoDaysBeforePayday = new Date(payday);
-    twoDaysBeforePayday.setDate(payday.getDate() - 2);
+    twoDaysBeforePayday.setDate(payday.getDate() - 5);
 
     // Check current date against payday rules
     if (currentDate < twoDaysBeforePayday) {
       return NextResponse.json({
         canProcess: false,
-        message: `Payroll can only be processed from ${twoDaysBeforePayday.toLocaleDateString()} (2 days before payday on ${payday.toLocaleDateString()})`,
+        message: `Payroll can only be processed from ${twoDaysBeforePayday.toLocaleDateString()} (5 days before payday on ${payday.toLocaleDateString()})`,
       });
     }
 

@@ -104,7 +104,7 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
 
         {/* Bonuses Display */}
         {hasBonus && employee.bonuses && employee.bonuses.length > 0 && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="p-3 bg-green-50 dark:bg-zinc-800/20  border border-green-200 rounded-lg">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-sm font-medium text-green-800">Bonuses</p>
@@ -126,7 +126,7 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
         {hasDeduction &&
           employee.deductions &&
           employee.deductions.length > 0 && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-3 bg-red-50 dark:bg-zinc-800/20  border border-red-200 rounded-lg">
               <div className="flex justify-between items-center">
                 <div>
                   <p className="text-sm font-medium text-red-800">Deductions</p>
@@ -145,7 +145,7 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
           )}
 
         {/* Base Salary Calculation */}
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="p-3 bg-blue-50 dark:bg-zinc-800/20 border border-blue-200 rounded-lg">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-medium text-blue-800">
@@ -166,7 +166,7 @@ export function EmployeeCard({ employee }: EmployeeCardProps) {
         </div>
 
         {/* Net Amount Summary */}
-        <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+        <div className="p-3 bg-purple-50 dark:bg-zinc-800/20  border border-purple-200 rounded-lg">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-sm font-medium text-purple-800">

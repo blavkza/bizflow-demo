@@ -43,12 +43,12 @@ export default function SummaryCards({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <Calendar className="h-8 w-8 text-blue-600" />
+            <Calendar className="h-4 w-4 text-blue-600" />
             <div>
               <p className="text-sm font-medium text-muted-foreground">
                 Payroll Period
               </p>
-              <p className="text-lg font-bold">{formatMonth(payroll.month)}</p>
+              <p className=" font-bold">{formatMonth(payroll.month)}</p>
             </div>
           </div>
         </CardContent>
@@ -57,12 +57,12 @@ export default function SummaryCards({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <Users className="h-8 w-8 text-green-600" />
+            <Users className="h-4 w-4 text-green-600" />
             <div>
               <p className="text-sm font-medium text-muted-foreground">
                 Total Workers
               </p>
-              <p className="text-2xl font-bold">{payroll._count.payments}</p>
+              <p className="text-lg font-bold">{payroll._count.payments}</p>
               <div className="flex gap-1 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
                   <UserCheck className="h-3 w-3" />
@@ -82,12 +82,12 @@ export default function SummaryCards({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <DollarSign className="h-8 w-8 text-blue-600" />
+            <DollarSign className="h-4 w-4 text-blue-600" />
             <div>
               <p className="text-sm font-medium text-muted-foreground">
                 Total Amount
               </p>
-              <p className="text-2xl font-bold">
+              <p className="text-lg font-bold">
                 {formatCurrency(Number(payroll.totalAmount))}
               </p>
             </div>
@@ -98,15 +98,12 @@ export default function SummaryCards({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <FileText className="h-8 w-8 text-orange-600" />
+            <FileText className="h-4 w-4 text-orange-600" />
             <div>
               <p className="text-sm font-medium text-muted-foreground">
                 Status
               </p>
-              <Badge
-                variant={getStatusVariant(payroll.status)}
-                className="text-lg"
-              >
+              <Badge variant={getStatusVariant(payroll.status)}>
                 {payroll.status}
               </Badge>
             </div>
@@ -117,7 +114,7 @@ export default function SummaryCards({
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-3">
-            <Clock className="h-8 w-8 text-purple-600" />
+            <Clock className="h-4 w-4 text-purple-600" />
             <div>
               <p className="text-sm font-medium text-muted-foreground">
                 Processed By

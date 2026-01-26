@@ -171,20 +171,20 @@ export function StockManagement({
           {/* Current Stock Info */}
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-blue-50 rounded-lg border">
+              <div className="p-4 bg-blue-50 dark:bg-zinc-900 rounded-lg border">
                 <Label className="text-sm text-blue-600">Current Stock</Label>
                 <div className="text-2xl font-bold text-blue-700">
                   {product.stock}
                 </div>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg border">
+              <div className="p-4 bg-gray-50 dark:bg-zinc-900 rounded-lg border">
                 <Label className="text-sm text-gray-600">Minimum Stock</Label>
                 <div className="text-lg font-semibold">{product.minStock}</div>
               </div>
             </div>
 
             {product.stock <= product.minStock && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="p-3 bg-yellow-50 dark:bg-zinc-900 border border-yellow-200 rounded-lg">
                 <p className="text-sm text-yellow-800 flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" />
                   Stock is at or below minimum threshold
@@ -192,7 +192,7 @@ export function StockManagement({
               </div>
             )}
 
-            <div className="p-4 bg-gray-50 rounded-lg border">
+            <div className="p-4 bg-gray-50 dark:bg-zinc-900 rounded-lg border">
               <Label className="text-sm font-medium">Quick Actions</Label>
               <div className="flex gap-2 mt-2">
                 <Button

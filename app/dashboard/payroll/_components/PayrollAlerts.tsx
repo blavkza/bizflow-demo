@@ -23,7 +23,10 @@ export function PayrollAlerts({ payrollRestriction }: PayrollAlertsProps) {
 
   if (payrollRestriction.message) {
     return (
-      <Alert variant="default" className="bg-blue-50 border-blue-200">
+      <Alert
+        variant="default"
+        className="bg-blue-50 dark:bg-zinc-900/20 border-blue-200"
+      >
         <AlertCircle className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-800">
           {payrollRestriction.message}

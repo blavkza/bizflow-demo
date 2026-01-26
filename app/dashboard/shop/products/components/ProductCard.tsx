@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { Product } from "@/types/product";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface ProductCardProps {
   product: Product;
@@ -25,6 +26,7 @@ interface ProductCardProps {
 const TAX_RATE = 0.15; // 15% VAT for South Africa
 
 export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
+  const router = useRouter();
   const getStockStatus = (stock: number, minStock: number) => {
     if (stock === 0)
       return { status: "Out of Stock", color: "bg-red-100 text-red-800" };
@@ -97,7 +99,11 @@ export function ProductCard({ product, onEdit, onDelete }: ProductCardProps) {
     : 0;
 
   return (
-    <Card key={product.id} className="hover:shadow-md transition-shadow">
+    <Card
+      onClick={() => router.push(`/dashboard/shop/products/${product.id}`)}
+      key={product.id}
+      className="hover:shadow-md transition-shadow cursor-pointer"
+    >
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">

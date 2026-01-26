@@ -133,7 +133,7 @@ export function PayrollLoadingState() {
           </div>
 
           {/* Detailed Breakdown Skeleton */}
-          <div className="mt-6 p-4 bg-white rounded-lg border">
+          <div className="mt-6 p-4 rounded-lg border">
             <Skeleton className="h-5 w-32 mb-3" />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {Array.from({ length: 3 }).map((_, index) => (

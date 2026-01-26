@@ -883,14 +883,47 @@ model Payment {
   Payroll    Payroll?    @relation(fields: [payrollId], references: [id])
   payrollId  String?
 
-  // Relationships for detailed bonuses/deductions
-  paymentBonuses    PaymentBonus[] // Add this
-  paymentDeductions PaymentDeduction[] // Add this
+  paymentBonuses    PaymentBonus[]
+  paymentDeductions PaymentDeduction[]
 
   @@index([employeeId])
   @@index([freeLancerId])
   @@index([payDate])
   @@map("payments")
+}
+
+model PaymentDeduction {
+  id        String  @id @default(cuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  deductionType  String // e.g., "UIF", "PENSION", "MEDICAL_AID", "TAX", "LOAN_REPAYMENT"
+  amount         Decimal @db.Decimal(15, 2)
+  description    String?
+  isPercentage   Boolean @default(false)
+  percentageRate Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payment_deductions")
+}
+
+model PaymentBonus {
+  id        String  @id @default(cuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  bonusType      String // e.g., "ANNUAL_BONUS", "PERFORMANCE_BONUS", "THIRTEENTH_CHEQUE"
+  amount         Decimal @db.Decimal(15, 2)
+  description    String?
+  isPercentage   Boolean @default(false)
+  percentageRate Float? // If percentage-based
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payment_bonuses")
 }
 
 // Add new models for detailed tracking
@@ -911,23 +944,6 @@ model PayrollBonus {
   @@map("payroll_bonuses")
 }
 
-model PaymentBonus {
-  id        String  @id @default(cuid())
-  paymentId String
-  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-
-  bonusType      String // e.g., "ANNUAL_BONUS", "PERFORMANCE_BONUS", "THIRTEENTH_CHEQUE"
-  amount         Decimal @db.Decimal(15, 2)
-  description    String?
-  isPercentage   Boolean @default(false)
-  percentageRate Float? // If percentage-based
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("payment_bonuses")
-}
-
 model PayrollDeduction {
   id        String  @id @default(cuid())
   payrollId String
@@ -943,23 +959,6 @@ model PayrollDeduction {
   updatedAt DateTime @updatedAt
 
   @@map("payroll_deductions")
-}
-
-model PaymentDeduction {
-  id        String  @id @default(cuid())
-  paymentId String
-  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
-
-  deductionType  String // e.g., "UIF", "PENSION", "MEDICAL_AID", "TAX", "LOAN_REPAYMENT"
-  amount         Decimal @db.Decimal(15, 2)
-  description    String?
-  isPercentage   Boolean @default(false)
-  percentageRate Float?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@map("payment_deductions")
 }
 
 enum PayrollStatus {
@@ -2112,6 +2111,7 @@ model ShopProduct {
   // Product Details
   weight     Decimal? @db.Decimal(8, 3)
   dimensions String?
+  Warranty   String?
   color      String?
   size       String?
   brand      String?

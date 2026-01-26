@@ -233,11 +233,11 @@ export default function PayrollHistory({
                 <p className="text-sm font-medium text-muted-foreground">
                   Total Processed
                 </p>
-                <p className="text-2xl font-bold">
+                <p className="text-lg font-bold">
                   {formatCurrency(stats.totalAmount)}
                 </p>
               </div>
-              <DollarSign className="h-8 w-8 text-muted-foreground" />
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>
@@ -249,11 +249,11 @@ export default function PayrollHistory({
                 <p className="text-sm font-medium text-muted-foreground">
                   Base Amount
                 </p>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-lg font-bold text-blue-600">
                   {formatCurrency(stats.totalBaseAmount)}
                 </p>
               </div>
-              <Users className="h-8 w-8 text-blue-600" />
+              <Users className="h-4 w-4 text-blue-600" />
             </div>
           </CardContent>
         </Card>
@@ -265,11 +265,11 @@ export default function PayrollHistory({
                 <p className="text-sm font-medium text-muted-foreground">
                   Overtime
                 </p>
-                <p className="text-2xl font-bold text-orange-600">
+                <p className="text-lg font-bold text-orange-600">
                   {formatCurrency(stats.totalOvertimeAmount)}
                 </p>
               </div>
-              <Calendar className="h-8 w-8 text-orange-600" />
+              <Calendar className="h-4 w-4 text-orange-600" />
             </div>
           </CardContent>
         </Card>
@@ -281,12 +281,12 @@ export default function PayrollHistory({
                 <p className="text-sm font-medium text-muted-foreground">
                   Total Payrolls
                 </p>
-                <p className="text-2xl font-bold">{filteredPayrolls.length}</p>
+                <p className="text-lg font-bold">{filteredPayrolls.length}</p>
                 <p className="text-xs text-muted-foreground">
                   of {initialPayrolls.length} total
                 </p>
               </div>
-              <Filter className="h-8 w-8 text-muted-foreground" />
+              <Filter className="h-4 w-4 text-muted-foreground" />
             </div>
           </CardContent>
         </Card>

@@ -10,7 +10,7 @@ export interface Product {
   vender: Vendor | null;
   price: number;
   costPrice: number | null;
-
+  warranty: string | null;
   priceBeforeTax: number | null;
   costPriceBeforeTax: number | null;
   priceInputMode: "BEFORE_TAX" | "AFTER_TAX";
@@ -65,6 +65,7 @@ export interface ProductFormData {
   // Product Details
   weight: number;
   dimensions: string;
+  warranty: string;
   color: string;
   size: string;
   brand: string;
