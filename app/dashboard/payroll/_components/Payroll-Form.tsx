@@ -6,6 +6,7 @@ import { PaymentType } from "@prisma/client";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import axios from "axios";
 
 import { WorkerWithDetails, PayrollCalculationData } from "@/types/payroll";
 import { PayrollAlerts } from "./PayrollAlerts";
@@ -18,15 +19,22 @@ import { PayrollSummary } from "./PayrollSummary";
 import { PayrollActions } from "./PayrollActions";
 import { WorkerTypeFilter } from "./WorkerTypeFilter";
 import { PayrollReviewTable } from "./PayrollReviewTable";
+import { DepartmentFilter } from "./DepartmentFilter";
 
 const PayrollSchema = z.object({
   description: z.string().optional(),
   type: z.nativeEnum(PaymentType),
   month: z.string().regex(/^\d{4}-\d{2}$/, "Month must be in YYYY-MM format"),
   workerType: z.enum(["all", "employees", "freelancers"]).default("all"),
+  departments: z.array(z.string()).default([]),
 });
 
 type PayrollFormValues = z.infer<typeof PayrollSchema>;
+
+interface Department {
+  id: string;
+  name: string;
+}
 
 interface PayrollFormProps {
   employees: WorkerWithDetails[];
@@ -47,15 +55,20 @@ export default function PayrollForm({
   onSubmitSuccess,
 }: PayrollFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [payrollData, setPayrollData] = useState<PayrollCalculationData[]>([]);
+  const [allPayrollData, setAllPayrollData] = useState<
+    PayrollCalculationData[]
+  >([]); // All data from API
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
 
-  // NEW: Selection State
+  // Selection State
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(
     new Set()
   );
 
   const [selectedMonth, setSelectedMonth] = useState<string>("");
   const [selectedWorkerType, setSelectedWorkerType] = useState<string>("all");
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
   const [payrollRestriction, setPayrollRestriction] = useState<{
     canProcess: boolean;
     message?: string;
@@ -72,8 +85,30 @@ export default function PayrollForm({
       type: PaymentType.SALARY,
       month: currentMonth,
       workerType: "all",
+      departments: [],
     },
   });
+
+  // Fetch departments from API
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      setIsLoadingDepartments(true);
+      try {
+        const response = await axios.get("/api/departments");
+        const departmentsData: Department[] = response.data || [];
+        setDepartments(departmentsData);
+
+        console.log("Departments loaded:", departmentsData);
+      } catch (err) {
+        console.error("Error fetching departments:", err);
+        toast.error("Failed to load departments");
+      } finally {
+        setIsLoadingDepartments(false);
+      }
+    };
+
+    fetchDepartments();
+  }, []);
 
   useEffect(() => {
     const initializeData = async () => {
@@ -89,8 +124,9 @@ export default function PayrollForm({
 
       setSelectedMonth(currentMonth);
       setSelectedWorkerType("all");
+      setSelectedDepartments([]);
       checkPayrollRestrictions(currentMonth);
-      loadPayrollData(currentMonth, "all");
+      loadPayrollData(currentMonth); // Load ALL data without filters
     };
 
     initializeData();
@@ -99,17 +135,26 @@ export default function PayrollForm({
   useEffect(() => {
     const month = formMethods.watch("month");
     const workerType = formMethods.watch("workerType");
+    const departments = formMethods.watch("departments");
 
     if (
       month &&
-      (month !== selectedMonth || workerType !== selectedWorkerType)
+      (month !== selectedMonth ||
+        workerType !== selectedWorkerType ||
+        JSON.stringify(departments) !== JSON.stringify(selectedDepartments))
     ) {
+      console.log("Filters changed:", { month, workerType, departments });
       setSelectedMonth(month);
       setSelectedWorkerType(workerType);
+      setSelectedDepartments(departments);
       checkPayrollRestrictions(month);
-      loadPayrollData(month, workerType);
+      loadPayrollData(month); // Reload data when month changes
     }
-  }, [formMethods.watch("month"), formMethods.watch("workerType")]);
+  }, [
+    formMethods.watch("month"),
+    formMethods.watch("workerType"),
+    formMethods.watch("departments"),
+  ]);
 
   const checkPayrollRestrictions = async (month: string) => {
     try {
@@ -123,44 +168,103 @@ export default function PayrollForm({
     }
   };
 
-  const loadPayrollData = async (month: string, workerType: string) => {
+  const loadPayrollData = async (month: string) => {
     setIsLoading(true);
     try {
-      console.log(
-        `Loading payroll data for month: ${month}, workerType: ${workerType}`
-      );
-      const response = await fetch(
-        `/api/payroll/calculate?month=${month}&workerType=${workerType}`
-      );
+      console.log(`Loading payroll data for month: ${month}`);
+
+      // Fetch ALL data without any filters
+      const params = new URLSearchParams();
+      params.append("month", month);
+
+      const url = `/api/payroll/calculate?${params.toString()}`;
+      console.log("API URL:", url);
+
+      const response = await fetch(url);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to load payroll data");
       }
 
       const data: PayrollCalculationData[] = await response.json();
-      console.log("Payroll data loaded:", data);
-      setPayrollData(data);
+      console.log("All payroll data loaded:", data.length, "records");
 
-      // Default: Select all employees when data loads
-      setSelectedEmployeeIds(new Set(data.map((emp) => emp.id)));
+      setAllPayrollData(data);
+
+      // Default: Select all filtered employees when data loads
+      const filteredData = applyFilters(
+        data,
+        selectedWorkerType,
+        selectedDepartments
+      );
+      setSelectedEmployeeIds(new Set(filteredData.map((emp) => emp.id)));
     } catch (error) {
       console.error("Error loading payroll data:", error);
       toast.error("Failed to load payroll data");
-      setPayrollData([]);
+      setAllPayrollData([]);
       setSelectedEmployeeIds(new Set());
     } finally {
       setIsLoading(false);
     }
   };
 
-  // NEW: Handler for updating a single employee from the Edit Dialog
+  // Apply filters on the frontend
+  const applyFilters = (
+    data: PayrollCalculationData[],
+    workerType: string,
+    departments: string[]
+  ): PayrollCalculationData[] => {
+    let filtered = [...data];
+
+    // Filter by worker type
+    if (workerType !== "all") {
+      filtered = filtered.filter((emp) => {
+        if (workerType === "employees") {
+          return !emp.isFreelancer;
+        } else if (workerType === "freelancers") {
+          return emp.isFreelancer;
+        }
+        return true;
+      });
+    }
+
+    // Filter by departments
+    if (departments && departments.length > 0) {
+      filtered = filtered.filter((emp) => {
+        // If employee has no department, include them? You can change this logic
+        if (!emp.department?.id) return false;
+
+        return departments.includes(emp.department.id);
+      });
+    }
+
+    console.log("Frontend filtering results:", {
+      total: data.length,
+      filtered: filtered.length,
+      workerType,
+      departments,
+    });
+
+    return filtered;
+  };
+
+  // Apply filters to get display data
+  const filteredPayrollData = useMemo(() => {
+    return applyFilters(
+      allPayrollData,
+      selectedWorkerType,
+      selectedDepartments
+    );
+  }, [allPayrollData, selectedWorkerType, selectedDepartments]);
+
+  // Handler for updating a single employee from the Edit Dialog
   const handleUpdateEmployee = (updatedEmp: PayrollCalculationData) => {
-    setPayrollData((prev) =>
+    setAllPayrollData((prev) =>
       prev.map((emp) => (emp.id === updatedEmp.id ? updatedEmp : emp))
     );
   };
 
-  // NEW: Toggle handlers
+  // Toggle handlers
   const handleToggleSelection = (id: string, checked: boolean) => {
     const next = new Set(selectedEmployeeIds);
     if (checked) next.add(id);
@@ -170,7 +274,7 @@ export default function PayrollForm({
 
   const handleToggleAll = (checked: boolean) => {
     if (checked) {
-      setSelectedEmployeeIds(new Set(payrollData.map((d) => d.id)));
+      setSelectedEmployeeIds(new Set(filteredPayrollData.map((d) => d.id)));
     } else {
       setSelectedEmployeeIds(new Set());
     }
@@ -178,8 +282,8 @@ export default function PayrollForm({
 
   // Filter data for summary calculations based on selection
   const selectedPayrollData = useMemo(() => {
-    return payrollData.filter((emp) => selectedEmployeeIds.has(emp.id));
-  }, [payrollData, selectedEmployeeIds]);
+    return filteredPayrollData.filter((emp) => selectedEmployeeIds.has(emp.id));
+  }, [filteredPayrollData, selectedEmployeeIds]);
 
   // Calculate totals dynamically based on selected/edited data
   const totals = useMemo(() => {
@@ -210,7 +314,6 @@ export default function PayrollForm({
   }, [selectedPayrollData]);
 
   const onSubmit = async (values: PayrollFormValues) => {
-    // 1. Validation: Must have selected employees
     if (selectedPayrollData.length === 0) {
       toast.error("Please select at least one employee to process.");
       return;
@@ -224,10 +327,9 @@ export default function PayrollForm({
 
     setIsLoading(true);
     try {
-      // 2. Prepare submission data using ONLY selected and updated data
       const submissionData: any[] = selectedPayrollData.map((emp) => ({
         id: emp.id,
-        amount: emp.amount || 0, // Gross
+        amount: emp.amount || 0,
         netAmount: emp.netAmount || emp.amount || 0,
         baseAmount: emp.baseAmount || 0,
         overtimeAmount: emp.overtimeAmount || 0,
@@ -284,6 +386,18 @@ export default function PayrollForm({
       payrollRestriction?.canProcess
   );
 
+  // Update selected employees when filtered data changes
+  useEffect(() => {
+    // Keep only valid selections (employees that are still in filtered data)
+    const validIds = new Set(filteredPayrollData.map((emp) => emp.id));
+    const currentIds = Array.from(selectedEmployeeIds);
+    const newSelectedIds = currentIds.filter((id) => validIds.has(id));
+
+    if (newSelectedIds.length !== selectedEmployeeIds.size) {
+      setSelectedEmployeeIds(new Set(newSelectedIds));
+    }
+  }, [filteredPayrollData]);
+
   return (
     <FormProvider {...formMethods}>
       <div className="space-y-6">
@@ -297,46 +411,86 @@ export default function PayrollForm({
 
           <WorkerTypeFilter form={formMethods} />
 
+          {/* Department Filter Component */}
+          {departments.length > 0 && (
+            <DepartmentFilter
+              form={formMethods}
+              departments={departments}
+              isLoading={isLoadingDepartments}
+            />
+          )}
+
           <PayrollFormFields form={formMethods} />
 
           {isLoading && <PayrollLoadingState />}
 
-          {!isLoading && selectedMonth && payrollData.length === 0 && (
+          {!isLoading && selectedMonth && filteredPayrollData.length === 0 && (
             <PayrollNoDataState
               selectedMonth={selectedMonth}
               workerType={selectedWorkerType}
+              selectedDepartments={selectedDepartments}
             />
           )}
 
-          {!isLoading && selectedMonth && payrollData.length > 0 && (
+          {!isLoading && selectedMonth && filteredPayrollData.length > 0 && (
             <>
-              {/* NEW: Review Table Section */}
+              {/* Review Table Section */}
               <div className="space-y-2">
-                <h3 className="text-lg font-medium">
-                  Review & Select Employees
-                </h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium">
+                    Review & Select Employees
+                  </h3>
+                  <div className="text-sm text-muted-foreground">
+                    Showing {filteredPayrollData.length} of{" "}
+                    {allPayrollData.length} employees
+                    {selectedDepartments.length > 0 && (
+                      <span className="ml-2 text-primary font-medium">
+                        (Filtered by {selectedDepartments.length} department
+                        {selectedDepartments.length > 1 ? "s" : ""})
+                      </span>
+                    )}
+                    {selectedWorkerType !== "all" && (
+                      <span className="ml-2 text-primary font-medium">
+                        ({selectedWorkerType} only)
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <p className="text-sm text-muted-foreground mb-4">
                   Select employees to include in this run. Click the edit icon
                   to toggle specific bonuses or deductions.
                 </p>
 
                 <PayrollReviewTable
-                  employees={payrollData}
+                  employees={filteredPayrollData}
                   selectedIds={selectedEmployeeIds}
                   onToggleSelection={handleToggleSelection}
                   onToggleAll={handleToggleAll}
                   onUpdateEmployee={handleUpdateEmployee}
                 />
 
-                <div className="flex justify-end p-2 bg-muted/30 rounded-md">
+                <div className="flex justify-between items-center p-2 bg-muted/30 rounded-md">
                   <span className="text-sm font-medium">
-                    Selected: {selectedEmployeeIds.size} / {payrollData.length}{" "}
-                    employees
+                    Selected: {selectedEmployeeIds.size} /{" "}
+                    {filteredPayrollData.length} employees
                   </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleToggleAll(
+                        selectedEmployeeIds.size !== filteredPayrollData.length
+                      )
+                    }
+                    className="text-sm text-primary hover:underline"
+                  >
+                    {selectedEmployeeIds.size === filteredPayrollData.length
+                      ? "Deselect All"
+                      : "Select All"}
+                  </button>
                 </div>
               </div>
 
-              {/* Summary Section (Now uses dynamic totals based on selection) */}
+              {/* Summary Section */}
               <PayrollSummary
                 payrollData={selectedPayrollData}
                 totalBaseAmount={totals.baseAmount}
@@ -377,10 +531,11 @@ export default function PayrollForm({
           <PayrollActions
             onCancel={() => {
               formMethods.reset();
-              setPayrollData([]);
+              setAllPayrollData([]);
               setSelectedEmployeeIds(new Set());
               setSelectedMonth("");
               setSelectedWorkerType("all");
+              setSelectedDepartments([]);
               onCancel?.();
             }}
             isSubmitting={formMethods.formState.isSubmitting}
