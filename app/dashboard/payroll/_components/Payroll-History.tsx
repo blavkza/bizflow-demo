@@ -391,7 +391,11 @@ export default function PayrollHistory({
             </TableHeader>
             <TableBody>
               {paginatedPayrolls.map((payroll) => (
-                <TableRow key={payroll.id}>
+                <TableRow
+                  onClick={() => handleViewPayroll(payroll.id)}
+                  key={payroll.id}
+                  className=" cursor-pointer"
+                >
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       {formatMonth(payroll.month)}
@@ -432,14 +436,6 @@ export default function PayrollHistory({
                         <Eye className="h-4 w-4 mr-1" />
                         View
                       </Button>
-                      {/* <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDownloadReport(payroll.id)}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Report
-                      </Button> */}
                     </div>
                   </TableCell>
                 </TableRow>

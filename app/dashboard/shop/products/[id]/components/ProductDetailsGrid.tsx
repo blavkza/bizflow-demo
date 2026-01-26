@@ -178,12 +178,14 @@ export function ProductDetailsGrid({ product }: ProductDetailsGridProps) {
             </div>
           </div>
           {/* warranty Info */}
-          <div className="pt-3 border-t">
-            <div className="flex items-center text-sm text-muted-foreground">
-              <span className="mr-2">Warranty:</span>
-              {product.warranty}
+          {product.warranty && (
+            <div className="pt-3 border-t">
+              <div className="flex items-center text-sm text-muted-foreground">
+                <span className="mr-2">Warranty:</span>
+                <Badge variant="outline">{product.warranty}</Badge>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 

@@ -130,7 +130,6 @@ export async function PUT(
       }
     }
 
-    // Update product
     const product = await db.shopProduct.update({
       where: { id: params.id },
       data: {
@@ -154,7 +153,7 @@ export async function PUT(
         // Product Details
         weight: body.weight ? parseFloat(body.weight) : null,
         dimensions: body.dimensions,
-        Warranty: body.Warranty,
+        warranty: body.warranty,
         color: body.color,
         size: body.size,
         brand: body.brand,
@@ -186,9 +185,6 @@ export async function PUT(
       });
     }
 
-    console.log(
-      `Update completed. Product now has ${product.productDocuments.length} document(s)`
-    );
     return NextResponse.json(product);
   } catch (error) {
     console.error("Failed to update product:", error);

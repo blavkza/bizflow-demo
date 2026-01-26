@@ -110,7 +110,10 @@ export default function EmployeeBreakdown({
                   return (
                     <TableRow
                       key={payment.id}
-                      className="group hover:bg-muted/50"
+                      onClick={() =>
+                        router.push(`/dashboard/payments/${payment.id}`)
+                      }
+                      className="group hover:bg-muted/50 cursor-pointer"
                     >
                       {/* Worker Column */}
                       <TableCell>
@@ -237,7 +240,7 @@ export default function EmployeeBreakdown({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="h-8 w-8 "
                             >
                               <MoreVertical className="h-4 w-4" />
                             </Button>
@@ -252,10 +255,10 @@ export default function EmployeeBreakdown({
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer">
+                            {/* <DropdownMenuItem className="cursor-pointer">
                               <Download className="h-4 w-4 mr-2" />
                               Download Payslip
-                            </DropdownMenuItem>
+                            </DropdownMenuItem> */}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>

@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
         // Product Details
         weight: body.weight ? parseFloat(body.weight) : null,
         dimensions: body.dimensions,
-        Warranty: body.Warranty,
+        warranty: body.warranty,
         color: body.color,
         size: body.size,
         brand: body.brand,

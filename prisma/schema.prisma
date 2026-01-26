@@ -817,7 +817,7 @@ model Payroll {
   description String?
   type        PaymentType
   totalAmount Float
-  netAmount   Float // Add this for after deductions/bonuses
+  netAmount   Float
   currency    String        @default("ZAR")
   status      PayrollStatus @default(PROCESSED)
 
@@ -825,7 +825,6 @@ model Payroll {
   baseAmount     Float
   overtimeAmount Float
 
-  // New fields for totals
   totalBonuses    Float @default(0)
   totalDeductions Float @default(0)
 
@@ -834,8 +833,8 @@ model Payroll {
   transactionId String      @unique
 
   payments          Payment[]
-  payrollBonuses    PayrollBonus[] // Add this relationship
-  payrollDeductions PayrollDeduction[] // Add this relationship
+  payrollBonuses    PayrollBonus[]
+  payrollDeductions PayrollDeduction[]
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -845,13 +844,12 @@ model Payroll {
   @@map("payrolls")
 }
 
-// Update the Payment model
 model Payment {
   id           String        @id @default(cuid())
   employeeId   String?
   freeLancerId String?
   amount       Decimal       @db.Decimal(15, 2)
-  netAmount    Decimal       @db.Decimal(15, 2) // Add this for after deductions/bonuses
+  netAmount    Decimal       @db.Decimal(15, 2)
   currency     String        @default("ZAR")
   type         PaymentType
   description  String?
@@ -866,8 +864,8 @@ model Payment {
   bonusAmount     Decimal @default(0) @db.Decimal(15, 2)
   deductionAmount Decimal @default(0) @db.Decimal(15, 2)
 
-  overtimeHours Decimal? @db.Decimal(4, 2)
-  regularHours  Decimal? @db.Decimal(4, 2)
+  overtimeHours Decimal? @db.Decimal(15, 2)
+  regularHours  Decimal? @db.Decimal(15, 2)
   daysWorked    Int
 
   createdBy String
@@ -897,7 +895,7 @@ model PaymentDeduction {
   paymentId String
   payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
-  deductionType  String // e.g., "UIF", "PENSION", "MEDICAL_AID", "TAX", "LOAN_REPAYMENT"
+  deductionType  String
   amount         Decimal @db.Decimal(15, 2)
   description    String?
   isPercentage   Boolean @default(false)
@@ -914,11 +912,11 @@ model PaymentBonus {
   paymentId String
   payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
 
-  bonusType      String // e.g., "ANNUAL_BONUS", "PERFORMANCE_BONUS", "THIRTEENTH_CHEQUE"
+  bonusType      String 
   amount         Decimal @db.Decimal(15, 2)
   description    String?
   isPercentage   Boolean @default(false)
-  percentageRate Float? // If percentage-based
+  percentageRate Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -926,17 +924,16 @@ model PaymentBonus {
   @@map("payment_bonuses")
 }
 
-// Add new models for detailed tracking
 model PayrollBonus {
   id        String  @id @default(cuid())
   payrollId String
   payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
 
   bonusType      String
-  amount         Float
+  amount         Decimal @db.Decimal(15, 2)
   description    String?
   isPercentage   Boolean @default(false)
-  percentageRate Float? // If percentage-based
+  percentageRate Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -949,8 +946,8 @@ model PayrollDeduction {
   payrollId String
   payroll   Payroll @relation(fields: [payrollId], references: [id], onDelete: Cascade)
 
-  deductionType  String // e.g., "UIF", "PENSION", "MEDICAL_AID", "TAX", "LOAN_REPAYMENT"
-  amount         Float
+  deductionType  String
+  amount         Decimal @db.Decimal(15, 2)
   description    String?
   isPercentage   Boolean @default(false)
   percentageRate Float?
@@ -2111,7 +2108,7 @@ model ShopProduct {
   // Product Details
   weight     Decimal? @db.Decimal(8, 3)
   dimensions String?
-  Warranty   String?
+  warranty   String?
   color      String?
   size       String?
   brand      String?

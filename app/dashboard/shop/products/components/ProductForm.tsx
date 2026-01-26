@@ -231,7 +231,6 @@ export function ProductForm({
     }
   };
 
-
   const handleCostChange = (valStr: string) => {
     const newCost = parseFloat(valStr) || 0;
 
@@ -272,7 +271,6 @@ export function ProductForm({
     syncProfitDisplay(actualCost, actualPrice);
   };
 
- 
   const handleSellingPriceChange = (valStr: string) => {
     const newPrice = parseFloat(valStr) || 0;
 
@@ -285,7 +283,6 @@ export function ProductForm({
       priceInputMode === "AFTER_TAX" ? newPrice : addVat(newPrice);
     syncProfitDisplay(actualCost, actualPrice);
   };
-
 
   const handleProfitChange = (valStr: string) => {
     const val = parseFloat(valStr) || 0;
@@ -311,7 +308,6 @@ export function ProductForm({
     }
   };
 
-
   const toggleProfitMode = () => {
     const actualCost = getActualCost();
     const actualPrice = getActualPrice();
@@ -336,7 +332,6 @@ export function ProductForm({
     }
   };
 
- 
   const handleInputModeChange = (checked: boolean) => {
     const newMode = checked ? "AFTER_TAX" : "BEFORE_TAX";
 
