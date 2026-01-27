@@ -116,11 +116,6 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     const { utcDate: currentTimeUTC, sastDate: today } = getCurrentSASTAsUTC();
 
-    console.log(`=== TIME CONVERSION DEBUG ===`);
-    console.log(`Server Time: ${new Date().toISOString()}`);
-    console.log(`Current UTC (from SAST): ${currentTimeUTC.toISOString()}`);
-    console.log(`Today SAST (as UTC): ${today.toISOString()}`);
-
     // ---------------------------------------------------------
     // 3. CHECK FOR ATTENDANCE BYPASS RULES
     // ---------------------------------------------------------
@@ -524,14 +519,14 @@ async function checkAttendanceBypassSimple(
     const checkDate = new Date(dateStr);
     checkDate.setUTCHours(0, 0, 0, 0);
 
-    // Create end of day for comparison (23:59:59.999)
     const endOfDay = new Date(checkDate);
     endOfDay.setUTCHours(23, 59, 59, 999);
 
+    // Build query that properly includes the last day
     const where: any = {
       AND: [
-        { startDate: { lte: endOfDay } }, // Start date is before end of today
-        { endDate: { gte: checkDate } }, // End date is after start of today
+        { startDate: { lte: endOfDay } },
+        { endDate: { gte: checkDate } },
         { bypassCheckIn: true },
       ],
     };
@@ -579,13 +574,26 @@ async function checkAttendanceBypassSimple(
     });
 
     if (bypassRule) {
+      console.log(`✓ Found bypass rule: ${bypassRule.id}`);
+      console.log(`  Start: ${bypassRule.startDate}`);
+      console.log(`  End: ${bypassRule.endDate}`);
+      console.log(`  Custom Time: ${bypassRule.customCheckInTime}`);
+
       // DEBUG: Check if today is exactly the end date
       const ruleEndDate = new Date(bypassRule.endDate);
       const ruleStartDate = new Date(bypassRule.startDate);
 
+      console.log(`  Rule Start Date: ${ruleStartDate.toISOString()}`);
+      console.log(`  Rule End Date: ${ruleEndDate.toISOString()}`);
+      console.log(`  Check Date: ${checkDate.toISOString()}`);
+      console.log(
+        `  Is within range? ${checkDate >= ruleStartDate && checkDate <= ruleEndDate}`
+      );
+
       // Check if this is the last day
       const isLastDay =
         checkDate.getTime() === ruleEndDate.setUTCHours(0, 0, 0, 0);
+      console.log(`  Is last day of bypass? ${isLastDay}`);
 
       return {
         hasBypass: true,
@@ -597,12 +605,14 @@ async function checkAttendanceBypassSimple(
       };
     }
 
+    console.log(`✗ No bypass rule found`);
     return {
       hasBypass: false,
       bypassCheckIn: false,
       bypassCheckOut: false,
     };
   } catch (error: any) {
+    console.error("Error in simple bypass check:", error.message);
     return {
       hasBypass: false,
       bypassCheckIn: false,
