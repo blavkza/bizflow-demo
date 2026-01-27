@@ -67,7 +67,9 @@ export async function POST(req: Request) {
         lastName,
         position,
         phone,
-        email: email || `${employeeNumber}@${campany?.companyName}.com`,
+        email:
+          email ||
+          `${employeeNumber}@${campany?.companyName?.replace(/\s+/g, "")}.com`,
         departmentId,
         salaryType,
         dailySalary: dailySalary || 0,
