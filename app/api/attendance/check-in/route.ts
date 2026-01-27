@@ -116,6 +116,11 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     const { utcDate: currentTimeUTC, sastDate: today } = getCurrentSASTAsUTC();
 
+    console.log(`=== TIME CONVERSION DEBUG ===`);
+    console.log(`Server Time: ${new Date().toISOString()}`);
+    console.log(`Current UTC (from SAST): ${currentTimeUTC.toISOString()}`);
+    console.log(`Today SAST (as UTC): ${today.toISOString()}`);
+
     // ---------------------------------------------------------
     // 3. CHECK FOR ATTENDANCE BYPASS RULES
     // ---------------------------------------------------------
@@ -512,21 +517,31 @@ async function checkAttendanceBypassSimple(
   rule?: any;
 }> {
   try {
+    console.log(`\n=== BYPASS CHECK WITH FLEXIBLE DATE RANGE ===`);
+
     // Convert date to YYYY-MM-DD format for comparison
     const dateStr = date.toISOString().split("T")[0];
-
-    // Use the exact date for comparison
     const checkDate = new Date(dateStr);
     checkDate.setUTCHours(0, 0, 0, 0);
 
-    const endOfDay = new Date(checkDate);
-    endOfDay.setUTCHours(23, 59, 59, 999);
+    // Create a wider range to account for timezone issues
+    const threeDaysAgo = new Date(checkDate);
+    threeDaysAgo.setUTCDate(threeDaysAgo.getUTCDate() - 3);
 
-    // Build query that properly includes the last day
+    const threeDaysLater = new Date(checkDate);
+    threeDaysLater.setUTCDate(threeDaysLater.getUTCDate() + 3);
+    threeDaysLater.setUTCHours(23, 59, 59, 999);
+
+    console.log(`Check Date: ${checkDate.toISOString()}`);
+    console.log(
+      `Search Range: ${threeDaysAgo.toISOString()} to ${threeDaysLater.toISOString()}`
+    );
+
+    // Build query with wider range
     const where: any = {
       AND: [
-        { startDate: { lte: endOfDay } },
-        { endDate: { gte: checkDate } },
+        { startDate: { lte: threeDaysLater } }, // Rule starts before 3 days after today
+        { endDate: { gte: threeDaysAgo } }, // Rule ends after 3 days before today
         { bypassCheckIn: true },
       ],
     };
@@ -574,26 +589,31 @@ async function checkAttendanceBypassSimple(
     });
 
     if (bypassRule) {
-      console.log(`✓ Found bypass rule: ${bypassRule.id}`);
-      console.log(`  Start: ${bypassRule.startDate}`);
-      console.log(`  End: ${bypassRule.endDate}`);
-      console.log(`  Custom Time: ${bypassRule.customCheckInTime}`);
+      console.log(`\n✓ FOUND BYPASS RULE!`);
+      console.log(`Start: ${bypassRule.startDate}`);
+      console.log(`End: ${bypassRule.endDate}`);
+      console.log(`Custom Time: ${bypassRule.customCheckInTime}`);
 
-      // DEBUG: Check if today is exactly the end date
-      const ruleEndDate = new Date(bypassRule.endDate);
-      const ruleStartDate = new Date(bypassRule.startDate);
+      // Check if this rule actually applies to today
+      const ruleStart = new Date(bypassRule.startDate);
+      const ruleEnd = new Date(bypassRule.endDate);
 
-      console.log(`  Rule Start Date: ${ruleStartDate.toISOString()}`);
-      console.log(`  Rule End Date: ${ruleEndDate.toISOString()}`);
-      console.log(`  Check Date: ${checkDate.toISOString()}`);
-      console.log(
-        `  Is within range? ${checkDate >= ruleStartDate && checkDate <= ruleEndDate}`
-      );
+      // Check if today is within the rule's actual range
+      const today = new Date(date);
+      const isWithinRule = today >= ruleStart && today <= ruleEnd;
 
-      // Check if this is the last day
-      const isLastDay =
-        checkDate.getTime() === ruleEndDate.setUTCHours(0, 0, 0, 0);
-      console.log(`  Is last day of bypass? ${isLastDay}`);
+      console.log(`Today: ${today.toISOString()}`);
+      console.log(`Is within actual rule range? ${isWithinRule}`);
+
+      if (!isWithinRule) {
+        console.log(`⚠️ Rule found but doesn't actually apply to today!`);
+        console.log(`Returning no bypass...`);
+        return {
+          hasBypass: false,
+          bypassCheckIn: false,
+          bypassCheckOut: false,
+        };
+      }
 
       return {
         hasBypass: true,
@@ -605,7 +625,7 @@ async function checkAttendanceBypassSimple(
       };
     }
 
-    console.log(`✗ No bypass rule found`);
+    console.log(`\n✗ No bypass rule found in database`);
     return {
       hasBypass: false,
       bypassCheckIn: false,

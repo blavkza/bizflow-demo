@@ -128,20 +128,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // At least one assignee must be selected
-    if (
-      (!data.employeeIds || data.employeeIds.length === 0) &&
-      (!data.freelancerIds || data.freelancerIds.length === 0)
-    ) {
-      return NextResponse.json(
-        { error: "At least one employee or freelancer must be selected" },
-        { status: 400 }
-      );
+    // Parse dates
+    const startDate = new Date(data.startDate);
+    let endDate = new Date(data.endDate);
+
+    // FIX: Set end date to end of day (23:59:59.999)
+    if (startDate.toDateString() === endDate.toDateString()) {
+      // For single-day rules, set end date to end of day
+      endDate.setHours(23, 59, 59, 999);
+    } else {
+      // For multi-day rules, set the end date to end of that day
+      endDate.setHours(23, 59, 59, 999);
     }
 
-    // Validate dates
-    const startDate = new Date(data.startDate);
-    const endDate = new Date(data.endDate);
+    console.log(`Start Date: ${startDate.toISOString()}`);
+    console.log(`End Date (adjusted): ${endDate.toISOString()}`);
 
     if (startDate > endDate) {
       return NextResponse.json(
@@ -259,7 +260,7 @@ export async function POST(request: NextRequest) {
     const bypassRule = await db.attendanceBypassRule.create({
       data: {
         startDate,
-        endDate,
+        endDate, // Now includes 23:59:59.999
         bypassCheckIn: data.bypassCheckIn || false,
         bypassCheckOut: data.bypassCheckOut || false,
         customCheckInTime: data.customCheckInTime || null,
@@ -301,6 +302,12 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    console.log(`Bypass rule created:`);
+    console.log(`  ID: ${bypassRule.id}`);
+    console.log(`  Start: ${bypassRule.startDate}`);
+    console.log(`  End: ${bypassRule.endDate}`);
+    console.log(`  Custom Time: ${bypassRule.customCheckInTime}`);
 
     // Send BYPASS_CREATED notifications
     await sendBypassNotifications({
