@@ -22,6 +22,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const campany = await db.generalSetting.findFirst();
+
     const body = await req.json();
     const {
       firstName,
@@ -36,7 +38,6 @@ export async function POST(req: Request) {
       monthlySalary,
       status,
       hireDate,
-      // Address fields
       address,
       city,
       province,
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
         lastName,
         position,
         phone,
-        email,
+        email: email || `${employeeNumber}@${campany?.companyName}.com`,
         departmentId,
         salaryType,
         dailySalary: dailySalary || 0,
