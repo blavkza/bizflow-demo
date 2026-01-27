@@ -532,11 +532,6 @@ async function checkAttendanceBypassSimple(
     threeDaysLater.setUTCDate(threeDaysLater.getUTCDate() + 3);
     threeDaysLater.setUTCHours(23, 59, 59, 999);
 
-    console.log(`Check Date: ${checkDate.toISOString()}`);
-    console.log(
-      `Search Range: ${threeDaysAgo.toISOString()} to ${threeDaysLater.toISOString()}`
-    );
-
     // Build query with wider range
     const where: any = {
       AND: [
@@ -589,11 +584,6 @@ async function checkAttendanceBypassSimple(
     });
 
     if (bypassRule) {
-      console.log(`\n✓ FOUND BYPASS RULE!`);
-      console.log(`Start: ${bypassRule.startDate}`);
-      console.log(`End: ${bypassRule.endDate}`);
-      console.log(`Custom Time: ${bypassRule.customCheckInTime}`);
-
       // Check if this rule actually applies to today
       const ruleStart = new Date(bypassRule.startDate);
       const ruleEnd = new Date(bypassRule.endDate);
@@ -601,9 +591,6 @@ async function checkAttendanceBypassSimple(
       // Check if today is within the rule's actual range
       const today = new Date(date);
       const isWithinRule = today >= ruleStart && today <= ruleEnd;
-
-      console.log(`Today: ${today.toISOString()}`);
-      console.log(`Is within actual rule range? ${isWithinRule}`);
 
       if (!isWithinRule) {
         console.log(`⚠️ Rule found but doesn't actually apply to today!`);
