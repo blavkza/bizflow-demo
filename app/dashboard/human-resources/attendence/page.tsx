@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
@@ -13,14 +13,18 @@ import {
   fetchAttendanceRecords,
   fetchCheckInHistory,
   fetchDepartments,
+  fetchCallOutHistory,
   hasRole,
 } from "./api";
+import { EmergencyCallOut } from "./types";
 import {
   AttendanceHeader,
   AttendanceTabs,
   BarcodeCheckInDialog,
   ManualCheckInDialog,
+  BulkPastAttendanceDialog,
   SummaryCards,
+  EmergencyCallOutDialog,
 } from "./components";
 
 export default function AttendancePage() {
@@ -30,11 +34,11 @@ export default function AttendancePage() {
   const [selectedDepartment, setSelectedDepartment] =
     useState("All Departments");
   const [selectedStatus, setSelectedStatus] = useState("All Status");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [selectedDate, setSelectedDate] = useState("");
   const [isManualCheckInOpen, setIsManualCheckInOpen] = useState(false);
   const [isBarcodeCheckInOpen, setIsBarcodeCheckInOpen] = useState(false);
+  const [isBulkPastOpen, setIsBulkPastOpen] = useState(false);
+  const [isEmergencyCallOutOpen, setIsEmergencyCallOutOpen] = useState(false);
   const [checkInType, setCheckInType] = useState<"in" | "out">("in");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -47,6 +51,11 @@ export default function AttendancePage() {
     enabled: !!userId,
   });
 
+  useEffect(() => {
+    setSelectedDate(new Date().toISOString().split("T")[0]);
+  }, []);
+
+  const employeeId = userData?.employee?.id;
   // Fetch departments
   const { data: departments = [] } = useQuery({
     queryKey: ["departments"],
@@ -77,6 +86,13 @@ export default function AttendancePage() {
     enabled: !userLoading,
   });
 
+  // Fetch call-out history
+  const { data: calloutHistory, isLoading: calloutsLoading } = useQuery({
+    queryKey: ["callout-history"],
+    queryFn: fetchCallOutHistory,
+    enabled: !userLoading,
+  });
+
   // NEW: Fetch Bypass Rules
   const { data: bypassRules = [] } = useQuery({
     queryKey: ["bypass-rules"],
@@ -91,6 +107,7 @@ export default function AttendancePage() {
 
   const attendanceRecords: AttendanceRecord[] = attendanceData?.records || [];
   const gpsCheckIns: CheckInRecord[] = checkInHistory?.checkins || [];
+  const callouts: EmergencyCallOut[] = Array.isArray(calloutHistory) ? calloutHistory : [];
 
   const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
   const hasFullAccess = userData?.role
@@ -125,6 +142,8 @@ export default function AttendancePage() {
       <AttendanceHeader
         onManualCheckIn={() => setIsManualCheckInOpen(true)}
         onBarcodeCheckIn={() => setIsBarcodeCheckInOpen(true)}
+        onBulkPastAttendance={() => setIsBulkPastOpen(true)}
+        onEmergencyCallOut={() => setIsEmergencyCallOutOpen(true)}
         canCreateAttendance={canCreateAttendance}
         hasFullAccess={hasFullAccess}
       />
@@ -143,12 +162,8 @@ export default function AttendancePage() {
         departmentOptions={departmentOptions}
         attendanceRecords={attendanceRecords}
         filteredAttendance={attendanceRecords.filter((record) => {
-          const personName = record.employee
-            ? `${record.employee.firstName} ${record.employee.lastName}`
-            : record.freeLancer
-              ? `${record.freeLancer.firstName} ${record.freeLancer.lastName}`
-              : "";
-
+          const person = record.employee || record.freeLancer;
+          const personName = `${person?.firstName || ""} ${person?.lastName || ""}`;
           const personId = record.employee
             ? record.employee.employeeNumber
             : record.freeLancer?.freeLancerNumber || "";
@@ -159,9 +174,19 @@ export default function AttendancePage() {
           return matchesSearch;
         })}
         gpsCheckIns={gpsCheckIns}
+        callouts={callouts}
         recordsLoading={recordsLoading}
         checkinsLoading={checkinsLoading}
-        bypassRules={bypassRules} // Passed down
+        calloutsLoading={calloutsLoading}
+        bypassRules={bypassRules}
+      />
+
+      <BulkPastAttendanceDialog
+        open={isBulkPastOpen}
+        onOpenChange={setIsBulkPastOpen}
+        onSuccess={() => {
+          refetchRecords();
+        }}
       />
 
       <ManualCheckInDialog
@@ -294,6 +319,11 @@ export default function AttendancePage() {
             });
           }
         }}
+      />
+
+      <EmergencyCallOutDialog
+        open={isEmergencyCallOutOpen}
+        onOpenChange={setIsEmergencyCallOutOpen}
       />
     </div>
   );

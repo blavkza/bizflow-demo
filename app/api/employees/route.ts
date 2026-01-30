@@ -114,8 +114,32 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await db.user.findUnique({
+      where: { userId },
+      include: { employee: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const hasFullAccess =
+      user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+      user.role === "ADMIN_MANAGER";
+
+    const employeeWhere: any = {};
+    if (!hasFullAccess && user.employee?.departmentId) {
+      employeeWhere.departmentId = user.employee.departmentId;
+    }
+
     const [employees, departments] = await Promise.all([
       db.employee.findMany({
+        where: employeeWhere,
         include: {
           department: {
             select: {

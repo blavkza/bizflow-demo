@@ -59,6 +59,7 @@ export interface AttendanceRecord {
   notes: string | null;
   breakStart: Date | null;
   breakEnd: Date | null;
+  breaks: any[];
   createdAt: Date;
   updatedAt: Date;
   displayStatus?: string;
@@ -117,4 +118,56 @@ export function isLeaveStatus(
   status: AttendanceStatus
 ): status is Extract<AttendanceStatus, LeaveStatus> {
   return ["SICK_LEAVE", "ANNUAL_LEAVE", "UNPAID_LEAVE"].includes(status);
+}
+export type CallOutStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "COMPLETED";
+
+export interface EmergencyCallOut {
+  id: string;
+  employeeId: string | null;
+  freeLancerId: string | null;
+  employee?: {
+    id: string;
+    employeeNumber: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string | null;
+    position: string;
+    department?: {
+      name: string;
+    } | null;
+  } | null;
+  freeLancer?: {
+    id: string;
+    freeLancerNumber: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string | null;
+    position: string;
+    department?: {
+      name: string;
+    } | null;
+  } | null;
+  title: string;
+  message: string | null;
+  startTime: string;
+  status: CallOutStatus;
+  requestedBy: string;
+  requestedUser?: {
+    name: string;
+  };
+  requestedAt: string;
+  acceptedAt: string | null;
+  declinedAt: string | null;
+  declinedReason: string | null;
+  completedAt: string | null;
+  checkIn: string | null;
+  checkInLat: number | null;
+  checkInLng: number | null;
+  checkInAddress: string | null;
+  checkOut: string | null;
+  checkOutLat: number | null;
+  checkOutLng: number | null;
+  checkOutAddress: string | null;
+  duration: number | null;
+  notes: string | null;
 }

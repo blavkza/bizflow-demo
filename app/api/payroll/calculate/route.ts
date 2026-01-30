@@ -40,13 +40,35 @@ export async function GET(request: Request) {
     // Calculate working days in month
     const workingDaysInMonth = getWorkingDaysInMonth(year, monthNum);
 
+    const user = await db.user.findUnique({
+      where: { userId },
+      include: { employee: true },
+    });
+
+    if (!user) {
+      return new NextResponse("User not found", { status: 404 });
+    }
+
+    const hasFullAccess =
+      user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+      user.role === "ADMIN_MANAGER";
+
     // --- STEP 1: Identify workers who are ALREADY PAID for this month ---
-    const existingPayments = await db.payment.findMany({
-      where: {
-        Payroll: {
-          month: month,
-        },
+    const paymentWhere: any = {
+      Payroll: {
+        month: month,
       },
+    };
+
+    if (!hasFullAccess && user.employee?.departmentId) {
+      paymentWhere.OR = [
+        { employee: { departmentId: user.employee.departmentId } },
+        { freeLancer: { departmentId: user.employee.departmentId } },
+      ];
+    }
+
+    const existingPayments = await db.payment.findMany({
+      where: paymentWhere,
       select: {
         employeeId: true,
         freeLancerId: true,
@@ -63,15 +85,28 @@ export async function GET(request: Request) {
     let employees: any[] = [];
     let freelancers: any[] = [];
 
+    const employeeWhere: any = {
+      status: "ACTIVE",
+      hireDate: {
+        lte: endDate,
+      },
+    };
+
+    const freelancerWhere: any = {
+      status: "ACTIVE",
+      hireDate: {
+        lte: endDate,
+      },
+    };
+
+    if (!hasFullAccess && user.employee?.departmentId) {
+      employeeWhere.departmentId = user.employee.departmentId;
+      freelancerWhere.departmentId = user.employee.departmentId;
+    }
+
     if (workerType === "all" || workerType === "employees") {
       const allEmployees = await db.employee.findMany({
-        where: {
-          status: "ACTIVE",
-          // Ensure hire date is before or during this month
-          hireDate: {
-            lte: endDate,
-          },
-        },
+        where: employeeWhere,
         include: {
           department: {
             include: {
@@ -108,13 +143,7 @@ export async function GET(request: Request) {
 
     if (workerType === "all" || workerType === "freelancers") {
       const allFreelancers = await db.freeLancer.findMany({
-        where: {
-          status: "ACTIVE",
-          // Ensure hire date is before or during this month
-          hireDate: {
-            lte: endDate,
-          },
-        },
+        where: freelancerWhere,
         include: {
           department: {
             include: {
@@ -160,7 +189,9 @@ export async function GET(request: Request) {
           employee,
           false,
           workingDaysInMonth,
-          hrSettings
+          hrSettings,
+          startDate,
+          endDate
         );
       })
     );
@@ -172,7 +203,9 @@ export async function GET(request: Request) {
           freelancer,
           true,
           workingDaysInMonth,
-          hrSettings
+          hrSettings,
+          startDate,
+          endDate
         );
       })
     );
@@ -196,7 +229,9 @@ async function calculateWorkerPayroll(
   worker: any,
   isFreelancer: boolean,
   workingDaysInMonth: number,
-  hrSettings: any
+  hrSettings: any,
+  startDate: Date,
+  endDate: Date
 ) {
   const attendanceRecords = isFreelancer
     ? worker.attendanceRecords
@@ -228,10 +263,44 @@ async function calculateWorkerPayroll(
     }
   }
 
-  // Count attendance records and calculate overtime
+  // PROACTIVE: Fetch all approved overtime requests for this worker in the date range
+  const approvedOvertimeRequests = await db.overtimeRequest.findMany({
+    where: {
+      OR: [
+        { employeeId: worker.id },
+        { freeLancerId: worker.id }
+      ],
+      status: "APPROVED",
+      // date filter is handled by matching records, but we could add it here too
+    },
+    select: { date: true }
+  });
+
+  const approvedDates = new Set(
+    approvedOvertimeRequests.map(req => req.date.toISOString().split('T')[0])
+  );
+
+  // Fetch completed Emergency Call Outs for this worker in the date range
+  const completedCallOuts = await db.emergencyCallOut.findMany({
+    where: {
+      OR: [
+        { employeeId: worker.id },
+        { freeLancerId: worker.id }
+      ],
+      status: "COMPLETED",
+      checkIn: {
+        gte: startDate,
+        lte: endDate,
+      },
+      duration: { not: null }
+    }
+  });
+
+  const callOutHours = completedCallOuts.reduce((acc, curr) => acc + (curr.duration || 0), 0);
+
   let totalRegularHours = 0;
-  let totalOvertimeHours = 0;
-  let totalOvertimeAmount = 0;
+  let totalOvertimeHours = callOutHours;
+  let totalOvertimeAmount = callOutHours * overtimeHourRate;
 
   const paidDays = attendanceRecords.filter((record: any) => {
     const isPaidDay =
@@ -239,12 +308,19 @@ async function calculateWorkerPayroll(
       record.status !== AttendanceStatus.UNPAID_LEAVE;
 
     if (isPaidDay && record.overtimeHours) {
-      const overtimeHours = Number(record.overtimeHours);
-      totalOvertimeHours += overtimeHours;
+      const recordDateStr = new Date(record.date).toISOString().split('T')[0];
+      
+      // Only count overtime if it was approved for this date
+      if (approvedDates.has(recordDateStr)) {
+        const overtimeHours = Number(record.overtimeHours);
+        totalOvertimeHours += overtimeHours;
 
-      // Calculate overtime amount at individual rate
-      const overtimeAmount = overtimeHours * overtimeHourRate;
-      totalOvertimeAmount += overtimeAmount;
+        // Calculate overtime amount at individual rate
+        const overtimeAmount = overtimeHours * overtimeHourRate;
+        totalOvertimeAmount += overtimeAmount;
+      } else {
+        console.log(`Overtime for ${worker.firstName} on ${recordDateStr} ignored because not approved.`);
+      }
     }
 
     if (isPaidDay && record.regularHours) {

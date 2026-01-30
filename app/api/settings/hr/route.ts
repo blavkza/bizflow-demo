@@ -136,6 +136,17 @@ export async function POST(request: Request) {
           disciplinaryEnabled: updates.disciplinaryEnabled ?? true,
           disciplinaryMaxPercentage: updates.disciplinaryMaxPercentage ?? 50,
           courtOrderEnabled: updates.courtOrderEnabled ?? true,
+          maxBreaksPerDay: updates.maxBreaksPerDay || 2,
+          totalBreakDurationMinutes: updates.totalBreakDurationMinutes || 60,
+          breakReminderMinutes: updates.breakReminderMinutes || 5,
+          break1WindowStart: updates.break1WindowStart || "11:00",
+          break1WindowEnd: updates.break1WindowEnd || "13:00",
+          break2WindowStart: updates.break2WindowStart || "14:00",
+          break2WindowEnd: updates.break2WindowEnd || "16:00",
+          break3WindowStart: updates.break3WindowStart || "17:00",
+          break3WindowEnd: updates.break3WindowEnd || "18:00",
+          break4WindowStart: updates.break4WindowStart || "19:00",
+          break4WindowEnd: updates.break4WindowEnd || "20:00",
 
           updatedBy: creator.name,
         },
@@ -274,6 +285,29 @@ export async function POST(request: Request) {
           currentSettings.disciplinaryMaxPercentage,
         courtOrderEnabled:
           updates.courtOrderEnabled ?? currentSettings.courtOrderEnabled,
+        maxBreaksPerDay:
+          updates.maxBreaksPerDay ?? currentSettings.maxBreaksPerDay,
+        totalBreakDurationMinutes:
+          updates.totalBreakDurationMinutes ??
+          currentSettings.totalBreakDurationMinutes,
+        breakReminderMinutes:
+          updates.breakReminderMinutes ?? currentSettings.breakReminderMinutes,
+        break1WindowStart:
+          updates.break1WindowStart ?? currentSettings.break1WindowStart,
+        break1WindowEnd:
+          updates.break1WindowEnd ?? currentSettings.break1WindowEnd,
+        break2WindowStart:
+          updates.break2WindowStart ?? currentSettings.break2WindowStart,
+        break2WindowEnd:
+          updates.break2WindowEnd ?? currentSettings.break2WindowEnd,
+        break3WindowStart:
+          updates.break3WindowStart ?? currentSettings.break3WindowStart,
+        break3WindowEnd:
+          updates.break3WindowEnd ?? currentSettings.break3WindowEnd,
+        break4WindowStart:
+          updates.break4WindowStart ?? currentSettings.break4WindowStart,
+        break4WindowEnd:
+          updates.break4WindowEnd ?? currentSettings.break4WindowEnd,
 
         updatedBy: creator.name,
       },

@@ -145,6 +145,8 @@ export function getStatusColor(
       return "bg-purple-100 text-purple-800";
     case AttendanceStatus.HALF_DAY:
       return "bg-orange-100 text-orange-800";
+    case AttendanceStatus.ON_BREAK as any:
+      return "bg-orange-50 text-orange-600 border-orange-200";
     default:
       return "bg-gray-100 text-gray-800";
   }
@@ -168,6 +170,8 @@ export function getStatusIconName(status: AttendanceStatus): string {
       return "Calendar";
     case AttendanceStatus.HALF_DAY:
       return "Clock";
+    case AttendanceStatus.ON_BREAK as any:
+      return "Coffee";
     default:
       return "Clock";
   }
@@ -195,6 +199,8 @@ export function getStatusDisplayName(status: AttendanceStatus): string {
       return "Study Leave";
     case AttendanceStatus.HALF_DAY:
       return "Half Day";
+    case AttendanceStatus.ON_BREAK as any:
+      return "On Break";
     default:
       return status;
   }
@@ -236,6 +242,7 @@ export const statusOptions = [
   "Sick Leave",
   "Unpaid Leave",
   "Half Day",
+  "On Break",
 ];
 export function getDisplayStatus(record: AttendanceRecord): string {
   if (record.displayStatus) {

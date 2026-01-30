@@ -57,6 +57,19 @@ const HRSettingsSchema = z.object({
   overtimeThreshold: z.number().min(1),
   WeekendovertimeThreshold: z.number().min(1),
 
+  // Break Settings
+  maxBreaksPerDay: z.number().min(0).max(10),
+  totalBreakDurationMinutes: z.number().min(0).max(480),
+  breakReminderMinutes: z.number().min(0).max(60),
+  break1WindowStart: z.string().optional(),
+  break1WindowEnd: z.string().optional(),
+  break2WindowStart: z.string().optional(),
+  break2WindowEnd: z.string().optional(),
+  break3WindowStart: z.string().optional(),
+  break3WindowEnd: z.string().optional(),
+  break4WindowStart: z.string().optional(),
+  break4WindowEnd: z.string().optional(),
+
   // Leave Settings
   annualLeaveDays: z.number().min(0),
   sickLeaveDays: z.number().min(0),
@@ -161,6 +174,17 @@ interface HRSettings {
   halfDayThreshold: number;
   overtimeThreshold: number;
   WeekendovertimeThreshold: number;
+  maxBreaksPerDay: number;
+  totalBreakDurationMinutes: number;
+  breakReminderMinutes: number;
+  break1WindowStart?: string;
+  break1WindowEnd?: string;
+  break2WindowStart?: string;
+  break2WindowEnd?: string;
+  break3WindowStart?: string;
+  break3WindowEnd?: string;
+  break4WindowStart?: string;
+  break4WindowEnd?: string;
   annualLeaveDays: number;
   sickLeaveDays: number;
   studyLeaveDays: number;
@@ -253,6 +277,17 @@ export default function HRSettingsForm({
       overtimeThreshold: 8,
       WeekendovertimeThreshold: 4,
       overtimeHourRate: 50,
+      maxBreaksPerDay: 2,
+      totalBreakDurationMinutes: 60,
+      breakReminderMinutes: 5,
+      break1WindowStart: "11:00",
+      break1WindowEnd: "13:00",
+      break2WindowStart: "14:00",
+      break2WindowEnd: "16:00",
+      break3WindowStart: "17:00",
+      break3WindowEnd: "18:00",
+      break4WindowStart: "19:00",
+      break4WindowEnd: "20:00",
       annualLeaveDays: 21,
       sickLeaveDays: 30,
       studyLeaveDays: 5,
@@ -313,10 +348,12 @@ export default function HRSettingsForm({
       savingsEnabled: true,
       savingsMaxPercentage: 15,
       disciplinaryEnabled: true,
-      disciplinaryMaxPercentage: 50,
+      disciplinaryMaxPercentage: 25,
       courtOrderEnabled: true,
     },
   });
+
+  const maxBreaks = form.watch("maxBreaksPerDay");
 
   const { isSubmitting } = form.formState;
 
@@ -355,6 +392,18 @@ export default function HRSettingsForm({
             overtimeThreshold: settings.overtimeThreshold,
             WeekendovertimeThreshold: settings.WeekendovertimeThreshold,
             overtimeHourRate: settings.overtimeHourRate,
+            maxBreaksPerDay: settings.maxBreaksPerDay ?? 2,
+            totalBreakDurationMinutes:
+              settings.totalBreakDurationMinutes ?? 60,
+            breakReminderMinutes: settings.breakReminderMinutes ?? 5,
+            break1WindowStart: settings.break1WindowStart ?? "11:00",
+            break1WindowEnd: settings.break1WindowEnd ?? "13:00",
+            break2WindowStart: settings.break2WindowStart ?? "14:00",
+            break2WindowEnd: settings.break2WindowEnd ?? "16:00",
+            break3WindowStart: settings.break3WindowStart ?? "17:00",
+            break3WindowEnd: settings.break3WindowEnd ?? "18:00",
+            break4WindowStart: settings.break4WindowStart ?? "19:00",
+            break4WindowEnd: settings.break4WindowEnd ?? "20:00",
             annualLeaveDays: settings.annualLeaveDays,
             sickLeaveDays: settings.sickLeaveDays,
             studyLeaveDays: settings.studyLeaveDays,
@@ -863,6 +912,306 @@ export default function HRSettingsForm({
                     </FormItem>
                   )}
                 />
+              </div>
+
+              {/* Break Settings Section */}
+              <div className="space-y-4 pt-4 border-t">
+                <h4 className="font-semibold text-sm">Break Settings</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="maxBreaksPerDay"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <div className="flex items-center">
+                          <FormLabel>Max Breaks Per Day</FormLabel>
+                          <ExplanationPopover
+                            title="Max Breaks Per Day"
+                            content="The maximum number of separate breaks an employee can take in a single shift."
+                          />
+                        </div>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="10"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(parseInt(e.target.value))
+                            }
+                            className="w-full"
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="totalBreakDurationMinutes"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <div className="flex items-center">
+                          <FormLabel>Total Break Duration (min)</FormLabel>
+                          <ExplanationPopover
+                            title="Total Break Duration"
+                            content="The total allowed break time per day in minutes. This can be split across multiple breaks."
+                          />
+                        </div>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="480"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(parseInt(e.target.value))
+                            }
+                            className="w-full"
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="breakReminderMinutes"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <div className="flex items-center">
+                          <FormLabel>Reminder Before End (min)</FormLabel>
+                          <ExplanationPopover
+                            title="Break Reminder"
+                            content="The system will notify the employee this many minutes before their total break time is exhausted."
+                          />
+                        </div>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="0"
+                            max="60"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(parseInt(e.target.value))
+                            }
+                            className="w-full"
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="break1WindowStart"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <div className="flex items-center">
+                          <FormLabel>Break 1 Window Start</FormLabel>
+                          <ExplanationPopover
+                            title="Break 1 Window Start"
+                            content="The earliest time employees can start their first break."
+                          />
+                        </div>
+                        <FormControl>
+                          <Input
+                            type="time"
+                            {...field}
+                            className="w-full"
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="break1WindowEnd"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <div className="flex items-center">
+                          <FormLabel>Break 1 Window End</FormLabel>
+                          <ExplanationPopover
+                            title="Break 1 Window End"
+                            content="The latest time employees can be on their first break."
+                          />
+                        </div>
+                        <FormControl>
+                          <Input
+                            type="time"
+                            {...field}
+                            className="w-full"
+                            disabled={!hasFullAccess && !canManageSettings}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                {maxBreaks >= 2 && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="break2WindowStart"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <div className="flex items-center">
+                            <FormLabel>Break 2 Window Start</FormLabel>
+                            <ExplanationPopover
+                              title="Break 2 Window Start"
+                              content="The earliest time employees can start their second break."
+                            />
+                          </div>
+                          <FormControl>
+                            <Input
+                              type="time"
+                              {...field}
+                              className="w-full"
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="break2WindowEnd"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <div className="flex items-center">
+                            <FormLabel>Break 2 Window End</FormLabel>
+                            <ExplanationPopover
+                              title="Break 2 Window End"
+                              content="The latest time employees can be on their second break."
+                            />
+                          </div>
+                          <FormControl>
+                            <Input
+                              type="time"
+                              {...field}
+                              className="w-full"
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+                {maxBreaks >= 3 && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="break3WindowStart"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <div className="flex items-center">
+                            <FormLabel>Break 3 Window Start</FormLabel>
+                            <ExplanationPopover
+                              title="Break 3 Window Start"
+                              content="The earliest time employees can start their third break."
+                            />
+                          </div>
+                          <FormControl>
+                            <Input
+                              type="time"
+                              {...field}
+                              className="w-full"
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="break3WindowEnd"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <div className="flex items-center">
+                            <FormLabel>Break 3 Window End</FormLabel>
+                            <ExplanationPopover
+                              title="Break 3 Window End"
+                              content="The latest time employees can be on their third break."
+                            />
+                          </div>
+                          <FormControl>
+                            <Input
+                              type="time"
+                              {...field}
+                              className="w-full"
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+                {maxBreaks >= 4 && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="break4WindowStart"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <div className="flex items-center">
+                            <FormLabel>Break 4 Window Start</FormLabel>
+                            <ExplanationPopover
+                              title="Break 4 Window Start"
+                              content="The earliest time employees can start their fourth break."
+                            />
+                          </div>
+                          <FormControl>
+                            <Input
+                              type="time"
+                              {...field}
+                              className="w-full"
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="break4WindowEnd"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <div className="flex items-center">
+                            <FormLabel>Break 4 Window End</FormLabel>
+                            <ExplanationPopover
+                              title="Break 4 Window End"
+                              content="The latest time employees can be on their fourth break."
+                            />
+                          </div>
+                          <FormControl>
+                            <Input
+                              type="time"
+                              {...field}
+                              className="w-full"
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

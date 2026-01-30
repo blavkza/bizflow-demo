@@ -19,6 +19,7 @@ import ProjectSummary from "./_components/project-summary";
 import TaskSummary from "./_components/task-summary";
 import EmployeeSummary from "./_components/employee-summary";
 import FreelancerSummary from "./_components/freelancer-summary";
+import { BreakControl } from "./_components/break-control";
 
 const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
   return requiredRoles.includes(role as UserRole);
@@ -168,6 +169,9 @@ export default function DashboardPage() {
             <div className="md:col-span-2 space-y-4">
               {canViewFinances && (
                 <CashFlowCard isLoading={isLoading} data={data} />
+              )}
+              {data?.currentUser?.employeeId && (
+                <BreakControl employeeId={data.currentUser.employeeId} />
               )}
               <QuickActions isLoading={isLoading} data={data} />
             </div>

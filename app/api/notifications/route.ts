@@ -22,3 +22,31 @@ export async function GET(req: Request) {
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const body = await req.json();
+    const { title, message, type, priority, actionUrl } = body;
+
+    const notification = await db.notification.create({
+      data: {
+        userId,
+        title,
+        message,
+        type: type || "SYSTEM",
+        priority: priority || "MEDIUM",
+        actionUrl,
+      },
+    });
+
+    return NextResponse.json(notification);
+  } catch (error) {
+    console.error("[NOTIFICATIONS_POST]", error);
+    return new NextResponse("Internal Server Error", { status: 500 });
+  }
+}

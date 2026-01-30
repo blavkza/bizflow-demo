@@ -64,6 +64,7 @@ model User {
   workLogs            WorkLog[]
   timeEntries         TimeEntry[]
   invoiceDocuments    InvoiceDocument[]
+  emergencyCallOuts   EmergencyCallOut[]
 
   @@map("users")
 }
@@ -205,6 +206,19 @@ model HRSettings {
   disciplinaryEnabled       Boolean @default(true)
   disciplinaryMaxPercentage Float   @default(50)
   courtOrderEnabled         Boolean @default(true)
+
+  // Break Settings
+  maxBreaksPerDay           Int @default(2)
+  totalBreakDurationMinutes Int @default(60)
+  breakReminderMinutes      Int @default(5)
+  break1WindowStart         String? @default("11:00")
+  break1WindowEnd           String? @default("13:00")
+  break2WindowStart         String? @default("14:00")
+  break2WindowEnd           String? @default("16:00")
+  break3WindowStart         String? @default("17:00")
+  break3WindowEnd           String? @default("18:00")
+  break4WindowStart         String? @default("19:00")
+  break4WindowEnd           String? @default("20:00")
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -432,8 +446,6 @@ model Employee {
   riskLevel         String?
   additionalInfo    String?
 
-  //
-
   // Relations
   department           Department?            @relation("DepartmentEmployees", fields: [departmentId], references: [id])
   assignedTasks        Task[]                 @relation(name: "TaskAssignments")
@@ -448,11 +460,14 @@ model Employee {
   user                 User?
   employeeNotification EmployeeNotification[]
   bypassRules          AttendanceBypassRule[] @relation("BypassRuleEmployees")
+  overtimeRequests     OvertimeRequest[]
+  emergencyCallOuts    EmergencyCallOut[]
 
   @@index([departmentId])
   @@index([status])
   @@map("employees")
 }
+
 
 model FreeLancer {
   id               String  @id @default(cuid())
@@ -542,6 +557,8 @@ model FreeLancer {
   attendanceRecords AttendanceRecord[]
   warnings          Warning[]
   bypassRules       AttendanceBypassRule[] @relation("BypassRuleFreelancers")
+  overtimeRequests  OvertimeRequest[]
+  emergencyCallOuts EmergencyCallOut[]
 
   @@index([departmentId])
   @@index([status])
@@ -605,6 +622,7 @@ model AttendanceRecord {
   breakStart    DateTime?
   breakEnd      DateTime?
   breakDuration Int?
+  breaks        BreakRecord[]
 
   scheduledKnockIn  String?
   scheduledKnockOut String?
@@ -619,6 +637,9 @@ model AttendanceRecord {
   bypassApplied     Boolean   @default(false)
   customCheckInTime DateTime?
   bypassRuleId      String?
+  
+  overtimeRequestId String?
+  overtimeRequest   OvertimeRequest? @relation(fields: [overtimeRequestId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -626,6 +647,21 @@ model AttendanceRecord {
   @@unique([employeeId, date])
   @@unique([freeLancerId, date])
   @@map("attendance_records")
+}
+
+model BreakRecord {
+  id                 String           @id @default(cuid())
+  attendanceRecordId String
+  attendanceRecord   AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+  
+  startTime DateTime
+  endTime   DateTime?
+  duration  Int? // in minutes
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("break_records")
 }
 
 model Warning {
@@ -3017,6 +3053,34 @@ model Notification {
   @@map("notifications")
 }
 
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model OvertimeRequest {
+  id           String         @id @default(cuid())
+  employeeId   String?
+  employee     Employee?      @relation(fields: [employeeId], references: [id])
+  freeLancerId String?
+  freeLancer   FreeLancer?    @relation(fields: [freeLancerId], references: [id])
+  date         DateTime       @db.Date
+  startTime    DateTime
+  endTime      DateTime?
+  duration     Float?
+  reason       String?
+  status       OvertimeStatus @default(PENDING)
+  requestedAt  DateTime       @default(now())
+  approvedAt   DateTime?
+  approvedBy   String?
+
+  attendanceRecords AttendanceRecord[]
+
+  @@map("overtime_requests")
+}
+
 model EmployeeNotification {
   id        String               @id @default(cuid())
   title     String
@@ -3056,6 +3120,49 @@ model NotificationTemplate {
   updatedAt DateTime @updatedAt
 
   @@map("notification_templates")
+}
+
+enum CallOutStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  COMPLETED
+}
+
+model EmergencyCallOut {
+  id           String        @id @default(cuid())
+  employeeId   String?
+  employee     Employee?      @relation(fields: [employeeId], references: [id])
+  freeLancerId String?
+  freeLancer   FreeLancer?    @relation(fields: [freeLancerId], references: [id])
+  title        String
+  message      String?
+  startTime    DateTime
+  status       CallOutStatus @default(PENDING)
+  requestedBy  String
+  requestedUser User          @relation(fields: [requestedBy], references: [id])
+  requestedAt  DateTime      @default(now())
+  acceptedAt   DateTime?
+  declinedAt   DateTime?
+  declinedReason String?
+  completedAt  DateTime?
+
+  // Attendance fields for the call out
+  checkIn      DateTime?
+  checkInLat   Float?
+  checkInLng   Float?
+  checkInAddress String?
+  
+  checkOut     DateTime?
+  checkOutLat  Float?
+  checkOutLng  Float?
+  checkOutAddress String?
+  
+  duration     Float? // in hours
+  notes        String?
+
+  @@map("emergency_call_outs")
 }
 
 // ============================================================================
@@ -3397,6 +3504,7 @@ enum AttendanceStatus {
   MATERNITY_LEAVE
   PATERNITY_LEAVE
   STUDY_LEAVE
+  ON_BREAK
 }
 
 enum CheckInMethod {
@@ -3737,6 +3845,7 @@ enum NotificationType {
   PROJECT
   SERVICE
   Task
+  EMERGENCY
 }
 
 enum NotificationPriority {

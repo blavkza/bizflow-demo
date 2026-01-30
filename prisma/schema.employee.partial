@@ -1,0 +1,102 @@
+model Employee {
+  id               String      @id @default(cuid())
+  employeeNumber   String      @unique
+  firstName        String
+  lastName         String
+  email            String?
+  phone            String?
+  avatar           String?
+  position         String
+  departmentId     String?
+  salaryType       SalaryType? @default(MONTHLY)
+  dailySalary      Decimal     @db.Decimal(15, 2)
+  monthlySalary    Decimal     @db.Decimal(15, 2)
+  overtimeHourRate Float       @default(50.00)
+
+  currency        String         @default("ZAR")
+  hireDate        DateTime
+  terminationDate DateTime?
+  status          EmployeeStatus @default(ACTIVE)
+
+  expoPushToken String?
+
+  canCheckByGPS Boolean @default(false)
+
+  // Personal Information
+  idNumber      String?
+  taxNumber     String?
+  nationality   String?
+  maritalStatus MaritalStatus?
+
+  // Address Information
+  address    String?
+  city       String?
+  province   String?
+  postalCode String?
+  country    String  @default("South Africa")
+
+  // Emergency Contact
+  emergencyName     String?
+  emergencyPhone    String?
+  emergencyRelation String?
+  emergencyAddress  String?
+
+  // Banking Information
+  bankName      String?
+  accountNumber String?
+  branchCode    String?
+  accountType   String?
+
+  // Employment Details
+  contractType ContractType?
+  workSchedule String?
+  probationEnd DateTime?
+
+  scheduledKnockIn         String?
+  scheduledKnockOut        String?
+  scheduledWeekendKnockIn  String?
+  scheduledWeekendKnockOut String?
+  workingDays              String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy String?
+
+  // Leave Allocations
+  annualLeaveDays    Int @default(21)
+  sickLeaveDays      Int @default(30)
+  studyLeaveDays     Int @default(5)
+  maternityLeaveDays Int @default(120)
+  paternityLeaveDays Int @default(10)
+  unpaidLeaveDays    Int @default(0)
+  dayOff             Int @default(0)
+
+  medicalCondition  String?
+  allergies         String?
+  emergencyContacts Json?
+  restrictions      String?
+  firstAidNeeds     String?
+  riskLevel         String?
+  additionalInfo    String?
+
+  // Relations
+  department           Department?            @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  assignedTasks        Task[]                 @relation(name: "TaskAssignments")
+  payments             Payment[]
+  documents            Document[]
+  targets              Target[]
+  kpiResults           KpiResult[]
+  leaveRequests        LeaveRequest[]
+  Note                 Note[]
+  AttendanceRecord     AttendanceRecord[]
+  Warning              Warning[]
+  user                 User?
+  employeeNotification EmployeeNotification[]
+  bypassRules          AttendanceBypassRule[] @relation("BypassRuleEmployees")
+  overtimeRequests     OvertimeRequest[]
+
+  @@index([departmentId])
+  @@index([status])
+  @@map("employees")
+}

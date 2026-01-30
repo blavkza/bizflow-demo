@@ -49,6 +49,14 @@ export async function fetchDepartments(): Promise<Department[]> {
   return response.json();
 }
 
+export async function fetchCallOutHistory() {
+  const response = await fetch("/api/attendance/callout");
+  if (!response.ok) {
+    throw new Error("Failed to fetch call out history");
+  }
+  return response.json();
+}
+
 export const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
   return requiredRoles.includes(role as UserRole);
 };

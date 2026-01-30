@@ -176,44 +176,54 @@ export function SettingsDialog({
         response.data.bypassRules &&
         Array.isArray(response.data.bypassRules)
       ) {
-        const rulesWithDates = response.data.bypassRules.map((rule: any) => {
-          return {
-            ...rule,
-            startDate: new Date(rule.startDate),
-            endDate: new Date(rule.endDate),
-            createdAt: new Date(rule.createdAt),
-            updatedAt: new Date(rule.updatedAt),
-            employees: Array.isArray(rule.employees)
-              ? rule.employees.map((emp: any) => ({
-                  id: emp.id,
-                  employeeNumber: emp.employeeNumber || emp.employeeId || "N/A",
-                  name:
-                    emp.name ||
-                    `${emp.firstName || ""} ${emp.lastName || ""}`.trim() ||
-                    "Unknown",
-                  position: emp.position || "Not specified",
-                  department: emp.department || "Not specified",
-                  status: emp.status || "ACTIVE",
-                  ...emp,
-                }))
-              : [],
-            freelancers: Array.isArray(rule.freelancers)
-              ? rule.freelancers.map((freelancer: any) => ({
-                  id: freelancer.id,
-                  freeLancerNumber:
-                    freelancer.freeLancerNumber ||
-                    freelancer.freeLancerId ||
-                    "N/A",
-                  firstName: freelancer.firstName || "",
-                  lastName: freelancer.lastName || "",
-                  position: freelancer.position || "Not specified",
-                  department: freelancer.department || "Not specified",
-                  status: freelancer.status || "ACTIVE",
-                  ...freelancer,
-                }))
-              : [],
-          };
-        });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const rulesWithDates = response.data.bypassRules
+          .map((rule: any) => {
+            return {
+              ...rule,
+              startDate: new Date(rule.startDate),
+              endDate: new Date(rule.endDate),
+              createdAt: new Date(rule.createdAt),
+              updatedAt: new Date(rule.updatedAt),
+              employees: Array.isArray(rule.employees)
+                ? rule.employees.map((emp: any) => ({
+                    id: emp.id,
+                    employeeNumber: emp.employeeNumber || emp.employeeId || "N/A",
+                    name:
+                      emp.name ||
+                      `${emp.firstName || ""} ${emp.lastName || ""}`.trim() ||
+                      "Unknown",
+                    position: emp.position || "Not specified",
+                    department: emp.department || "Not specified",
+                    status: emp.status || "ACTIVE",
+                    ...emp,
+                  }))
+                : [],
+              freelancers: Array.isArray(rule.freelancers)
+                ? rule.freelancers.map((freelancer: any) => ({
+                    id: freelancer.id,
+                    freeLancerNumber:
+                      freelancer.freeLancerNumber ||
+                      freelancer.freeLancerId ||
+                      "N/A",
+                    firstName: freelancer.firstName || "",
+                    lastName: freelancer.lastName || "",
+                    position: freelancer.position || "Not specified",
+                    department: freelancer.department || "Not specified",
+                    status: freelancer.status || "ACTIVE",
+                    ...freelancer,
+                  }))
+                : [],
+            };
+          })
+          .filter((rule: BypassRule) => {
+            const ruleEndDate = new Date(rule.endDate);
+            ruleEndDate.setHours(0, 0, 0, 0);
+            return ruleEndDate >= today;
+          });
+
         setRules(rulesWithDates);
       } else {
         setRules([]);

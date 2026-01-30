@@ -11,6 +11,7 @@ import { Providers } from "./providers";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import { NotificationProvider } from "@/contexts/notification-context";
 import FinancialCalculator from "@/components/FinancialCalculator";
+import { OvertimeChecker } from "@/components/attendance/overtime-checker";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -43,6 +44,7 @@ export default function RootLayout({
               <ClientWrapper>
                 <Providers>
                   <NotificationProvider>
+                    <OvertimeChecker />
                     {children}
                     <FinancialCalculator />
                   </NotificationProvider>

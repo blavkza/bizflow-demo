@@ -10,16 +10,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const user = await db.user.findUnique({
+      where: { userId },
+      include: { employee: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    const where: any = {
+    const hasFullAccess =
+      user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+      user.role === "ADMIN_MANAGER";
+
+    let dateFilter: any = {
       OR: [{ checkIn: { not: null } }, { checkOut: { not: null } }],
     };
 
     if (startDate && endDate) {
-      where.OR = [
+      dateFilter.OR = [
         {
           checkIn: {
             gte: new Date(startDate),
@@ -33,6 +46,19 @@ export async function GET(request: NextRequest) {
           },
         },
       ];
+    }
+
+    const where: any = {
+      AND: [dateFilter],
+    };
+
+    if (!hasFullAccess && user.employee?.departmentId) {
+      where.AND.push({
+        OR: [
+          { employee: { departmentId: user.employee.departmentId } },
+          { freeLancer: { departmentId: user.employee.departmentId } },
+        ],
+      });
     }
 
     const records = await db.attendanceRecord.findMany({

@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,17 @@ export function AttendanceList({
   onClearFilters,
 }: AttendanceListProps) {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    setNow(new Date());
+    
+    // Optional: update now every minute if needed for live overdue timers
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const isValidScheduledTime = (time: string | null | undefined): boolean => {
     if (!time) return false;
@@ -261,11 +273,11 @@ export function AttendanceList({
   };
 
   const shouldShowNotCheckedIn = (record: AttendanceRecord) => {
+    if (!mounted || !now) return false;
     if (record.checkIn) return false;
     if (isLeaveStatus(record.status)) return false;
     if (record.displayStatus === "Day Off") return false;
 
-    const now = new Date();
     const person = record.employee || record.freeLancer;
     const recordDate = new Date(record.date);
 
@@ -319,7 +331,7 @@ export function AttendanceList({
             0,
             0
           );
-          const now = new Date();
+          if (!now) return "Not Checked In";
           if (now < todayScheduled) return "Not Checked In";
           else return "Not Checked In - Late";
         } catch (error) {}
@@ -382,7 +394,7 @@ export function AttendanceList({
 
         if (!person) return null;
 
-        const personName = `${person.firstName} ${person.lastName}`;
+        const personName = `${person.firstName || ""} ${person.lastName || ""}`.trim() || "Unknown";
         const regularHours = safeDecimalToNumber(record.regularHours);
         const overtimeHours = safeDecimalToNumber(record.overtimeHours);
         const overtimePay = calculateOvertimePay(record);

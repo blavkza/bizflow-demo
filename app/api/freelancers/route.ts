@@ -105,8 +105,32 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const user = await db.user.findUnique({
+      where: { userId },
+      include: { employee: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const hasFullAccess =
+      user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+      user.role === "ADMIN_MANAGER";
+
+    const freelancerWhere: any = {};
+    if (!hasFullAccess && user.employee?.departmentId) {
+      freelancerWhere.departmentId = user.employee.departmentId;
+    }
+
     const [freelancers, departments] = await Promise.all([
       db.freeLancer.findMany({
+        where: freelancerWhere,
         include: {
           department: {
             select: {

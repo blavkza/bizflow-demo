@@ -5,6 +5,7 @@ import {
   AttendanceStatus,
   EmployeeStatus,
   FreeLancerStatus,
+  UserRole,
 } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
@@ -54,6 +55,20 @@ export async function GET(request: NextRequest) {
       }
     };
 
+    const user = await db.user.findUnique({
+      where: { userId },
+      include: { employee: true },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Determine if user has full access
+    const hasFullAccess =
+      user.role === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+      user.role === UserRole.ADMIN_MANAGER;
+
     // Build where clause for active employees and freelancers
     const activeEmployeesWhere: any = {
       status: EmployeeStatus.ACTIVE,
@@ -63,6 +78,13 @@ export async function GET(request: NextRequest) {
       status: FreeLancerStatus.ACTIVE,
     };
 
+    // Apply department filter if not full access
+    if (!hasFullAccess && user.employee?.departmentId) {
+      activeEmployeesWhere.departmentId = user.employee.departmentId;
+      activeFreelancersWhere.departmentId = user.employee.departmentId;
+    }
+
+    // Further filter by requested department if specified and allowed
     if (department && department !== "All Departments") {
       activeEmployeesWhere.department = { name: department };
       activeFreelancersWhere.department = { name: department };

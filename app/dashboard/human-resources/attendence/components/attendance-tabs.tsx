@@ -1,10 +1,12 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { AttendanceRecord, CheckInRecord } from "../types";
+import { AttendanceRecord, CheckInRecord, EmergencyCallOut } from "../types";
 import { FiltersSection } from "./filters-section";
 import { AttendanceList } from "./attendance-list";
 import { CheckInsList } from "./checkins-list";
 import { ReportsSection } from "./reports-section";
+import { OvertimeRequestsList } from "./overtime-requests-list";
+import { CallOutList } from "./callout-list";
 
 interface AttendanceTabsProps {
   searchTerm: string;
@@ -19,9 +21,11 @@ interface AttendanceTabsProps {
   attendanceRecords: AttendanceRecord[];
   filteredAttendance: AttendanceRecord[];
   gpsCheckIns: CheckInRecord[];
+  callouts: EmergencyCallOut[];
   recordsLoading: boolean;
   checkinsLoading: boolean;
-  bypassRules: any[]; // NEW PROP
+  calloutsLoading: boolean;
+  bypassRules: any[];
 }
 
 export function AttendanceTabs({
@@ -37,15 +41,30 @@ export function AttendanceTabs({
   attendanceRecords,
   filteredAttendance,
   gpsCheckIns,
+  callouts,
   recordsLoading,
   checkinsLoading,
-  bypassRules, // NEW PROP
+  calloutsLoading,
+  bypassRules,
 }: AttendanceTabsProps) {
+  const filteredCallouts = callouts.filter((c) => {
+    const person = c.employee || c.freeLancer;
+    const name = person ? `${person.firstName || ""} ${person.lastName || ""}`.trim().toLowerCase() : "";
+    const id = (c.employee?.employeeNumber || c.freeLancer?.freeLancerNumber || "").toLowerCase();
+    const title = (c.title || "").toLowerCase();
+    
+    return name.includes(searchTerm.toLowerCase()) || 
+           id.includes(searchTerm.toLowerCase()) ||
+           title.includes(searchTerm.toLowerCase());
+  });
+
   return (
     <Tabs defaultValue="attendance" className="space-y-4">
       <TabsList>
         <TabsTrigger value="attendance">Daily Attendance</TabsTrigger>
         <TabsTrigger value="checkins">All Check-ins</TabsTrigger>
+        <TabsTrigger value="callouts">Emergency Call Outs</TabsTrigger>
+        <TabsTrigger value="overtime">Overtime Requests</TabsTrigger>
         <TabsTrigger value="reports">Reports</TabsTrigger>
       </TabsList>
       <FiltersSection
@@ -76,8 +95,22 @@ export function AttendanceTabs({
         <CheckInsList checkins={gpsCheckIns} loading={checkinsLoading} />
       </TabsContent>
 
+      <TabsContent value="callouts" className="space-y-4">
+        <CallOutList records={filteredCallouts} loading={calloutsLoading} />
+      </TabsContent>
+
       <TabsContent value="reports" className="space-y-4">
         <ReportsSection attendanceRecords={attendanceRecords} />
+      </TabsContent>
+
+      <TabsContent value="overtime" className="space-y-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Employee Overtime Requests</h3>
+            <p className="text-sm text-muted-foreground">Manage and approve extra working hours</p>
+          </div>
+          <OvertimeRequestsList />
+        </div>
       </TabsContent>
     </Tabs>
   );
