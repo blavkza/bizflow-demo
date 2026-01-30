@@ -78,10 +78,29 @@ export function EmergencyCallOutDialog({
 
     try {
       setIsSubmitting(true);
+      
+      // Fix timezone issue:
+      // datetime-local gives "2026-01-30T09:00" (no timezone)
+      // We need to tell the server this is in the user's local timezone
+      // Get user's timezone offset and append it
+      const timezoneOffset = -new Date().getTimezoneOffset(); // in minutes, already negated for proper sign
+      const offsetHours = Math.floor(Math.abs(timezoneOffset) / 60);
+      const offsetMinutes = Math.abs(timezoneOffset) % 60;
+      const offsetSign = timezoneOffset >= 0 ? '+' : '-';
+      const offsetString = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
+      
+      // Append timezone: "2026-01-30T09:00" becomes "2026-01-30T09:00+02:00"
+      const startTimeWithTZ = `${formData.startTime}:00${offsetString}`;
+      
+      const payload = {
+        ...formData,
+        startTime: startTimeWithTZ,
+      };
+      
       const res = await fetch("/api/attendance/callout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {

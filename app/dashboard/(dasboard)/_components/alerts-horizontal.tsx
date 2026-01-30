@@ -1,3 +1,5 @@
+"use client";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import {
   Clock,
 } from "lucide-react";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 
 interface Alert {
   id: string;
@@ -34,6 +37,37 @@ export default function AlertsHorizontal({
   data,
 }: AlertsHorizontalProps) {
   const alerts: Alert[] = data?.alerts || [];
+  const router = useRouter();
+
+  // Function to handle alert navigation
+  const handleAlertClick = (alert: Alert) => {
+    // Extract the actual ID from the alert ID (format: "type-id")
+    const idParts = alert.id.split("-");
+    const actualId = idParts.slice(1).join("-"); // In case ID contains hyphens
+
+    switch (alert.type) {
+      case "invoice":
+        router.push(`/dashboard/invoices/${actualId}`);
+        break;
+      case "expense":
+        router.push(`/dashboard/expenses/${actualId}`);
+        break;
+      case "quotation":
+        router.push(`/dashboard/quotations/${actualId}`);
+        break;
+      case "project":
+        router.push(`/dashboard/projects/${actualId}`);
+        break;
+      case "task":
+        router.push(`/dashboard/projects?taskId=${actualId}`); // Navigate to projects with task ID as query param
+        break;
+      case "payroll":
+        router.push(`/dashboard/payroll`);
+        break;
+      default:
+        break;
+    }
+  };
 
   if (isLoading || alerts.length === 0) {
     return null;
@@ -89,46 +123,55 @@ export default function AlertsHorizontal({
             {alerts.map((alert) => (
               <div
                 key={alert.id}
-                className="flex items-center gap-3 p-3 border rounded-lg min-w-[280px] bg-background"
+                onClick={() => handleAlertClick(alert)}
+                className="flex flex-col gap-2 p-3 border rounded-lg w-[320px] h-[90px] bg-background cursor-pointer hover:bg-accent/50 hover:border-primary/50 transition-all duration-200"
               >
-                <div
-                  className={`w-2 h-2 rounded-full ${getPriorityColor(alert.priority)}`}
-                />
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {getAlertIcon(alert.type)}
+                {/* Header Row */}
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full flex-shrink-0 ${getPriorityColor(alert.priority)}`}
+                  />
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {getAlertIcon(alert.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{alert.title}</p>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <Badge
+                      variant={
+                        alert.daysRemaining < 0
+                          ? "destructive"
+                          : alert.daysRemaining === 0
+                            ? "default"
+                            : "secondary"
+                      }
+                      className="text-xs"
+                    >
+                      {alert.daysRemaining < 0
+                        ? "Overdue"
+                        : alert.daysRemaining === 0
+                          ? "Today"
+                          : `${alert.daysRemaining}d`}
+                    </Badge>
+                  </div>
                 </div>
 
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{alert.title}</p>
-                  <p className="text-xs text-muted-foreground truncate">
+                {/* Description */}
+                <div className="flex-1 min-h-0">
+                  <p className="text-xs text-muted-foreground line-clamp-2">
                     {alert.description}
                   </p>
-                  {alert.dueDate && (
-                    <p className="text-xs text-muted-foreground">
-                      Due: {format(new Date(alert.dueDate), "MMM d")}
-                    </p>
-                  )}
                 </div>
 
-                <div className="flex-shrink-0">
-                  <Badge
-                    variant={
-                      alert.daysRemaining < 0
-                        ? "destructive"
-                        : alert.daysRemaining === 0
-                          ? "default"
-                          : "secondary"
-                    }
-                    className="text-xs"
-                  >
-                    {alert.daysRemaining < 0
-                      ? "Overdue"
-                      : alert.daysRemaining === 0
-                        ? "Today"
-                        : `${alert.daysRemaining}d`}
-                  </Badge>
-                </div>
+                {/* Footer */}
+                {alert.dueDate && (
+                  <div className="flex items-center gap-1">
+                    <p className="text-xs text-muted-foreground">
+                      Due: {format(new Date(alert.dueDate), "MMM d, yyyy")}
+                    </p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
