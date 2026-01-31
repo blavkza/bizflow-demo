@@ -842,14 +842,14 @@ export default function AddExpenseDialog({
                           value={field.value === 0 ? "" : field.value}
                           onChange={(e) => {
                             const value = e.target.value;
-                            field.onChange(value === "" ? "0" : value);
+                            field.onChange(value === "" ? 0 : value);
                           }}
                           onBlur={(e) => {
                             const value = e.target.value;
                             const numValue =
                               value === "" ? 0 : parseFloat(value);
                             field.onChange(
-                              isNaN(numValue) ? "0" : numValue.toString()
+                              isNaN(numValue) || numValue === 0 ? 0 : numValue
                             );
                           }}
                         />
@@ -873,14 +873,14 @@ export default function AddExpenseDialog({
                             value={field.value === 0 ? "" : field.value}
                             onChange={(e) => {
                               const value = e.target.value;
-                              field.onChange(value === "" ? "0" : value);
+                              field.onChange(value === "" ? 0 : value);
                             }}
                             onBlur={(e) => {
                               const value = e.target.value;
                               const numValue =
                                 value === "" ? 0 : parseFloat(value);
                               field.onChange(
-                                isNaN(numValue) ? "0" : numValue.toString()
+                                isNaN(numValue) || numValue === 0 ? 0 : numValue
                               );
                             }}
                           />

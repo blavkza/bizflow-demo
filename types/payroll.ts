@@ -207,6 +207,7 @@ export type PayrollCalculationData = {
   attendanceBreakdown?: AttendanceBreakdown;
   dailyRate?: number;
   overtimeFixedRate?: number;
+  performanceScore?: number;
 
   // Updated to use the new interfaces
   bonuses?: BonusCalculation[];

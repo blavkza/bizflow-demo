@@ -1046,6 +1046,11 @@ model Category {
   // Relations
   parent       Category?          @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children     Category[]         @relation("CategoryHierarchy")
+  
+  // Many-to-many self-referential relationship for linking categories
+  relatedCategories Category[] @relation("CategoryLinks")
+  relatedBy         Category[] @relation("CategoryLinks")
+  
   transactions Transaction[]
   budgets      BudgetItem[]
   splits       TransactionSplit[]

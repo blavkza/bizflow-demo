@@ -23,13 +23,14 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, description, type } = body;
+    const { name, description, type, parentId } = body;
 
     const category = await db.categoryCeo.create({
       data: {
         name,
         description,
         type,
+        parentId: parentId || null,
         createdBy: creater?.name,
       },
     });
@@ -51,6 +52,7 @@ export async function GET() {
         status: true,
         createdAt: true,
         type: true,
+        parentId: true,
       },
     });
 

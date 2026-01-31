@@ -6,8 +6,11 @@ export interface Category {
   type: CategoryType;
   status: CategoryStatus;
   description: string | null;
-  color: string | null;
-  icon: string | null;
+  // Hierarchical relationships
+  parentId: string | null;
+  parent?: Category | null;
+  children?: Category[];
+  
   transactions: {
     id: string;
     amount: number | { toNumber(): number };

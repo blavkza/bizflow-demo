@@ -17,7 +17,9 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
+  Search,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
   CategoryCeo,
@@ -54,6 +56,7 @@ const CategoryManager = ({
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set()
   );
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchCategories = async () => {
     try {
@@ -132,14 +135,19 @@ const CategoryManager = ({
     }
   };
 
+  // Search and filter categories
+  const filteredCategories = categories.filter((cat) =>
+    cat.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   // Filter categories by type
-  const expenseCategories = categories.filter(
+  const expenseCategories = filteredCategories.filter(
     (cat) => cat.type === CategoryType.EXPENSE
   );
-  const incomeCategories = categories.filter(
+  const incomeCategories = filteredCategories.filter(
     (cat) => cat.type === CategoryType.INCOME
   );
-  const bothCategories = categories.filter(
+  const bothCategories = filteredCategories.filter(
     (cat) => cat.type === CategoryType.BOTH
   );
 
@@ -308,19 +316,29 @@ const CategoryManager = ({
             Organize your transactions with custom categories
           </p>
         </div>
-        <Dialog
-          open={isDialogOpen}
-          onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) setEditingCategory(null);
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button variant={"outline"}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Category
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-4">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search categories..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) setEditingCategory(null);
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button variant={"outline"}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Category
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>
@@ -347,6 +365,7 @@ const CategoryManager = ({
             />
           </DialogContent>
         </Dialog>
+      </div>
       </div>
 
       <div className="space-y-6">

@@ -14,7 +14,7 @@ export async function PUT(
     const { id } = await params;
 
     const body = await req.json();
-    const { name, description, type, status } = body;
+    const { name, description, type, status, parentId, color, icon, taxDeductible, taxCategory } = body;
 
     const { userId } = await auth();
 
@@ -41,6 +41,11 @@ export async function PUT(
         description,
         type,
         status,
+        parentId: parentId || null,
+        color,
+        icon,
+        taxDeductible: !!taxDeductible,
+        taxCategory,
       },
     });
 
@@ -56,9 +61,9 @@ export async function PUT(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await params;
 
   try {
     await db.categoryCeo.delete({

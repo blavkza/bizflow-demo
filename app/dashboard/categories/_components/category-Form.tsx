@@ -4,6 +4,7 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
 import { useForm } from "react-hook-form";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -20,6 +21,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   CategorySchema,
@@ -29,6 +31,8 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { CategoryStatus, CategoryType } from "@prisma/client";
+import { Category } from "@/types/category";
+import { Combobox } from "@/components/ui/combobox";
 
 interface CategoryFormProps {
   type: "create" | "update";
@@ -38,6 +42,8 @@ interface CategoryFormProps {
     status?: CategoryStatus;
     description?: string | null;
     type?: CategoryType;
+    parentId?: string | null;
+    relatedCategories?: Category[];
   };
   onCancel?: () => void;
   onSubmitSuccess?: () => void;
@@ -50,6 +56,28 @@ export default function CategoryForm({
   onSubmitSuccess,
 }: CategoryFormProps) {
   const router = useRouter();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+
+  // Fetch all categories for parent and related category selection
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await axios.get("/api/category/all-category");
+        // Filter out current category if editing
+        const availableCategories = data?.id
+          ? response.data.filter((cat: Category) => cat.id !== data.id)
+          : response.data;
+        setCategories(availableCategories);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+        toast.error("Failed to load categories");
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, [data?.id]);
 
   const form = useForm<categorySchemaType>({
     resolver: zodResolver(CategorySchema),
@@ -58,6 +86,7 @@ export default function CategoryForm({
       description: data?.description || "",
       type: data?.type || CategoryType.EXPENSE,
       status: data?.status || CategoryStatus.ACTIVE,
+      parentId: data?.parentId || null,
     },
   });
 
@@ -161,36 +190,64 @@ export default function CategoryForm({
           )}
         />
 
-        {type === "update" && (
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem className="space-y-2">
-                <FormLabel>Status</FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  defaultValue={field.value}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {Object.values(CategoryStatus).map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {formatLabel(status)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
+        <FormField
+          control={form.control}
+          name="parentId"
+          render={({ field }) => (
+            <FormItem className="space-y-2">
+              <FormLabel>Parent Category (Optional)</FormLabel>
+              <FormControl>
+                <Combobox
+                  options={[
+                    { label: "No Parent (Main Category)", value: "none" },
+                    ...categories.map((cat) => ({
+                      label: cat.name,
+                      value: cat.id,
+                    })),
+                  ]}
+                  value={field.value || "none"}
+                  onChange={(value) => field.onChange(value === "none" ? null : value)}
+                  isLoading={isLoadingCategories}
+                  placeholder="Search parent category..."
+                />
+              </FormControl>
+              <FormDescription>
+                Select a category to make this a sub-category
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem className="space-y-2">
+              <FormLabel>Status</FormLabel>
+              <Select
+                onValueChange={field.onChange}
+                value={field.value}
+                defaultValue={field.value}
+                disabled={type === "create"}
+              >
+                <FormControl>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a status" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {Object.values(CategoryStatus).map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {formatLabel(status)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <div className="flex justify-end gap-4 pt-6">
           <Button

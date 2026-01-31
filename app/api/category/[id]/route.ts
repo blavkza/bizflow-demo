@@ -14,7 +14,7 @@ export async function PUT(
     const { id } = await params;
 
     const body = await req.json();
-    const { name, description, type, status } = body;
+    const { name, description, type, status, parentId } = body;
 
     const { userId } = await auth();
 
@@ -34,6 +34,16 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // First, get the existing category to know current related categories
+    const existingCategory = await db.category.findUnique({
+      where: { id },
+      include: { relatedCategories: { select: { id: true } } },
+    });
+
+    if (!existingCategory) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
+
     const updatedCategory = await db.category.update({
       where: { id },
       data: {
@@ -41,6 +51,7 @@ export async function PUT(
         description,
         type,
         status,
+        parentId: parentId || null,
       },
     });
 

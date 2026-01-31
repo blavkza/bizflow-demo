@@ -40,6 +40,7 @@ interface PayrollFormProps {
   employees: WorkerWithDetails[];
   onCancel?: () => void;
   onSubmitSuccess?: () => void;
+  initialPayroll?: any; // Add this
 }
 
 const getCurrentMonth = () => {
@@ -53,6 +54,7 @@ export default function PayrollForm({
   employees,
   onCancel,
   onSubmitSuccess,
+  initialPayroll,
 }: PayrollFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [allPayrollData, setAllPayrollData] = useState<
@@ -60,6 +62,8 @@ export default function PayrollForm({
   >([]); // All data from API
   const [departments, setDepartments] = useState<Department[]>([]);
   const [isLoadingDepartments, setIsLoadingDepartments] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [loadedDraftId, setLoadedDraftId] = useState<string | null>(initialPayroll?.id || null);
 
   // Selection State
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<Set<string>>(
@@ -81,11 +85,11 @@ export default function PayrollForm({
   const formMethods = useForm<PayrollFormValues>({
     resolver: zodResolver(PayrollSchema),
     defaultValues: {
-      description: "",
-      type: PaymentType.SALARY,
-      month: currentMonth,
-      workerType: "all",
-      departments: [],
+      description: initialPayroll?.description || "",
+      type: initialPayroll?.type || PaymentType.SALARY,
+      month: initialPayroll?.month || currentMonth,
+      workerType: initialPayroll?.workerType || "all",
+      departments: initialPayroll?.departments || [],
     },
   });
 
@@ -126,11 +130,11 @@ export default function PayrollForm({
       setSelectedWorkerType("all");
       setSelectedDepartments([]);
       checkPayrollRestrictions(currentMonth);
-      loadPayrollData(currentMonth); // Load ALL data without filters
+      loadPayrollData(currentMonth, "all", []); // Load ALL data without filters
     };
 
     initializeData();
-  }, [currentMonth]);
+  }, [currentMonth, initialPayroll]);
 
   useEffect(() => {
     const month = formMethods.watch("month");
@@ -148,7 +152,7 @@ export default function PayrollForm({
       setSelectedWorkerType(workerType);
       setSelectedDepartments(departments);
       checkPayrollRestrictions(month);
-      loadPayrollData(month); // Reload data when month changes
+      loadPayrollData(month, workerType, departments); // Pass watched values directly
     }
   }, [
     formMethods.watch("month"),
@@ -168,36 +172,100 @@ export default function PayrollForm({
     }
   };
 
-  const loadPayrollData = async (month: string) => {
+  const loadPayrollData = async (
+    month: string,
+    workerType: string,
+    selectedDepts: string[]
+  ) => {
     setIsLoading(true);
     try {
-      console.log(`Loading payroll data for month: ${month}`);
+      // 1. Check if there's an existing draft for this month
+      // Start fresh for this month
+      let currentDraft = null;
 
-      // Fetch ALL data without any filters
-      const params = new URLSearchParams();
-      params.append("month", month);
+      if (initialPayroll && initialPayroll.month === month) {
+        currentDraft = initialPayroll;
+      } else {
+        const draftRes = await fetch(`/api/payroll/draft?month=${month}`);
+        if (draftRes.ok) {
+          const draftData = await draftRes.json();
+          if (draftData) {
+            currentDraft = draftData;
+            setLoadedDraftId(draftData.id);
+            // Update form fields with draft data
+            formMethods.setValue("description", draftData.description || "");
+            formMethods.setValue("type", draftData.type);
+            toast.info(`Loaded saved draft for ${month}`);
+          } else {
+            setLoadedDraftId(null);
+          }
+        }
+      }
 
-      const url = `/api/payroll/calculate?${params.toString()}`;
-      console.log("API URL:", url);
-
-      const response = await fetch(url);
+      // 2. Fetch calculations
+      const response = await fetch(
+        `/api/payroll/calculate?month=${month}&workerType=${workerType}`
+      );
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to load payroll data");
+        throw new Error("Failed to fetch payroll calculations");
       }
 
       const data: PayrollCalculationData[] = await response.json();
       console.log("All payroll data loaded:", data.length, "records");
 
-      setAllPayrollData(data);
+      // Merge with draft if available
+      let finalData = data;
+      if (currentDraft?.payments) {
+        finalData = data.map(emp => {
+          const draftPayment = currentDraft.payments.find((p: any) => 
+            (p.employeeId === emp.id) || (p.freeLancerId === emp.id)
+          );
+          
+          if (draftPayment) {
+            return {
+              ...emp,
+              amount: Number(draftPayment.amount),
+              netAmount: Number(draftPayment.netAmount),
+              baseAmount: Number(draftPayment.baseAmount),
+              overtimeAmount: Number(draftPayment.overtimeAmount),
+              bonusAmount: Number(draftPayment.bonusAmount),
+              deductionAmount: Number(draftPayment.deductionAmount),
+              paidDays: draftPayment.daysWorked,
+              overtimeHours: Number(draftPayment.overtimeHours),
+              regularHours: Number(draftPayment.regularHours),
+              bonuses: draftPayment.paymentBonuses?.map((b: any) => ({
+                type: b.bonusType,
+                amount: Number(b.amount),
+                description: b.description
+              })) || [],
+              deductions: draftPayment.paymentDeductions?.map((d: any) => ({
+                type: d.deductionType,
+                amount: Number(d.amount),
+                description: d.description
+              })) || []
+            };
+          }
+          return emp;
+        });
+      }
+
+      setAllPayrollData(finalData);
 
       // Default: Select all filtered employees when data loads
       const filteredData = applyFilters(
-        data,
+        finalData,
         selectedWorkerType,
         selectedDepartments
       );
-      setSelectedEmployeeIds(new Set(filteredData.map((emp) => emp.id)));
+      
+      // If draft, only select those who were in the draft
+      if (currentDraft?.payments) {
+        const draftIds = new Set(currentDraft.payments.map((p: any) => p.employeeId || p.freeLancerId));
+        setSelectedEmployeeIds(new Set(filteredData.filter(emp => draftIds.has(emp.id)).map(emp => emp.id)));
+      } else {
+        setSelectedEmployeeIds(new Set(filteredData.map((emp) => emp.id)));
+      }
     } catch (error) {
       console.error("Error loading payroll data:", error);
       toast.error("Failed to load payroll data");
@@ -313,48 +381,63 @@ export default function PayrollForm({
     );
   }, [selectedPayrollData]);
 
-  const onSubmit = async (values: PayrollFormValues) => {
+  const handlePayrollSubmission = async (values: PayrollFormValues, status: string = "PROCESSED") => {
     if (selectedPayrollData.length === 0) {
       toast.error("Please select at least one employee to process.");
       return;
     }
 
-    const canProcess = payrollRestriction?.canProcess;
+    const isDraft = status === "DRAFT";
+    const canProcess = isDraft ? true : payrollRestriction?.canProcess;
+    
     if (!canProcess) {
       toast.error("Cannot process payroll at this time (Restriction active).");
       return;
     }
 
-    setIsLoading(true);
+    if (isDraft) {
+      setIsSavingDraft(true);
+    } else {
+      setIsLoading(true);
+    }
     try {
       const submissionData: any[] = selectedPayrollData.map((emp) => ({
         id: emp.id,
-        amount: emp.amount || 0,
-        netAmount: emp.netAmount || emp.amount || 0,
-        baseAmount: emp.baseAmount || 0,
-        overtimeAmount: emp.overtimeAmount || 0,
-        bonusAmount: emp.bonusAmount || 0,
-        deductionAmount: emp.deductionAmount || 0,
-        daysWorked: emp.paidDays || 0,
-        overtimeHours: emp.overtimeHours || 0,
-        regularHours: emp.regularHours || 0,
-        description: `Salary for ${values.month} - ${emp.paidDays} days worked`,
-        departmentId: emp.department?.id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        email: emp.email,
+        salaryType: emp.salaryType,
+        monthlySalary: emp.monthlySalary,
+        dailySalary: emp.dailySalary,
+        overtimeHourRate: emp.overtimeHourRate,
+        department: emp.department,
+        paidDays: emp.paidDays,
+        baseAmount: emp.baseAmount,
+        overtimeHours: emp.overtimeHours,
+        overtimeAmount: emp.overtimeAmount,
+        bonusAmount: emp.bonusAmount,
+        deductionAmount: emp.deductionAmount,
+        amount: emp.amount,
+        netAmount: emp.netAmount,
+        regularHours: emp.regularHours,
         isFreelancer: emp.isFreelancer,
-        bonuses: emp.bonuses || [],
-        deductions: emp.deductions || [],
+        bonuses: emp.bonuses,
+        deductions: emp.deductions,
+        performanceScore: emp.performanceScore,
       }));
 
       const payrollDataToSubmit: any = {
         ...values,
         employees: submissionData,
+        status,
+        payrollId: loadedDraftId || initialPayroll?.id,
         totalAmount: parseFloat(totals.totalPayroll.toFixed(2)),
         netAmount: parseFloat(totals.netPayroll.toFixed(2)),
         totalBonuses: parseFloat(totals.bonusAmount.toFixed(2)),
         totalDeductions: parseFloat(totals.deductionAmount.toFixed(2)),
       };
 
-      console.log("Submitting payroll:", payrollDataToSubmit);
+      console.log("Submitting payroll data:", payrollDataToSubmit);
 
       const response = await fetch("/api/payroll", {
         method: "POST",
@@ -366,17 +449,27 @@ export default function PayrollForm({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to process payroll");
+        throw new Error(errorData.error || `Failed to ${isDraft ? "save draft" : "process payroll"}`);
       }
 
-      toast.success("Payroll processed successfully!");
+      toast.success(isDraft ? "Payroll draft saved!" : "Payroll processed successfully!");
       onSubmitSuccess?.();
     } catch (error: any) {
-      toast.error(error.message || "Failed to process payroll");
+      toast.error(error.message || `Failed to ${isDraft ? "save draft" : "process payroll"}`);
       console.error("Payroll submission error:", error);
     } finally {
       setIsLoading(false);
+      setIsSavingDraft(false);
     }
+  };
+
+  const onSubmit = async (values: PayrollFormValues) => {
+    await handlePayrollSubmission(values, "PROCESSED");
+  };
+
+  const handleSaveDraft = async () => {
+    const values = formMethods.getValues();
+    await handlePayrollSubmission(values, "DRAFT");
   };
 
   const canProcessPayroll = Boolean(
@@ -540,6 +633,8 @@ export default function PayrollForm({
             }}
             isSubmitting={formMethods.formState.isSubmitting}
             canProcess={canProcessPayroll}
+            onSaveDraft={handleSaveDraft}
+            isSavingDraft={isSavingDraft}
           />
         </form>
       </div>

@@ -439,6 +439,7 @@ export const CategorySchema = z.object({
   description: z.string().optional(),
   status: z.nativeEnum(CategoryStatus),
   type: z.nativeEnum(CategoryType),
+  parentId: z.string().optional().nullable(),
 });
 
 export type categorySchemaType = z.infer<typeof CategorySchema>;

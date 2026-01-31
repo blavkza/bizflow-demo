@@ -5,6 +5,18 @@ export async function GET() {
   try {
     const categories = await db.category.findMany({
       include: {
+        parent: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        children: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         transactions: {
           select: {
             id: true,

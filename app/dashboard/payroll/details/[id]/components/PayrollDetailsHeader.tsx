@@ -11,6 +11,7 @@ import {
   CompanyInfo,
 } from "@/types/payroll-report";
 import { PayrollReportGenerator } from "@/lib/generatePayrollReport";
+import { useRouter } from "next/navigation";
 
 interface PayrollDetailsHeaderProps {
   payroll: any; // Using any here to accommodate extended properties from Prisma
@@ -28,6 +29,7 @@ export default function PayrollDetailsHeader({
   getPaymentAmount,
 }: PayrollDetailsHeaderProps) {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const router = useRouter();
 
   const handlePrintPayrollReport = async () => {
     if (!payroll) return;
@@ -154,6 +156,29 @@ export default function PayrollDetailsHeader({
     }
   };
 
+  const handleDiscardDraft = async () => {
+    if (!window.confirm("Are you sure you want to discard this draft? This cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/payroll/${payroll.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to discard draft");
+      }
+
+      toast.success("Payroll draft discarded");
+      router.push("/dashboard/payroll");
+      router.refresh();
+    } catch (error) {
+      console.error("Error discarding draft:", error);
+      toast.error("Failed to discard draft");
+    }
+  };
+
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-4">
@@ -173,14 +198,34 @@ export default function PayrollDetailsHeader({
           </p>
         </div>
       </div>
-      <Button
-        onClick={handlePrintPayrollReport}
-        className="flex items-center gap-2"
-        disabled={isGeneratingReport}
-      >
-        <Printer className="h-4 w-4" />
-        {isGeneratingReport ? "Generating..." : "Print Report"}
-      </Button>
+      <div className="flex items-center gap-2">
+        {payroll.status === "DRAFT" && (
+          <>
+            <Button
+              onClick={handleDiscardDraft}
+              variant="destructive"
+              className="flex items-center gap-2"
+            >
+              Discard Draft
+            </Button>
+            <Button
+              onClick={() => router.push(`/dashboard/payroll/edit/${payroll.id}`)}
+              variant="secondary"
+              className="flex items-center gap-2"
+            >
+              Edit Draft
+            </Button>
+          </>
+        )}
+        <Button
+          onClick={handlePrintPayrollReport}
+          className="flex items-center gap-2"
+          disabled={isGeneratingReport}
+        >
+          <Printer className="h-4 w-4" />
+          {isGeneratingReport ? "Generating..." : "Print Report"}
+        </Button>
+      </div>
     </div>
   );
 }

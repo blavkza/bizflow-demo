@@ -57,6 +57,7 @@ export async function GET(request: Request) {
     const paymentWhere: any = {
       Payroll: {
         month: month,
+        status: { in: ["PROCESSED", "PAID"] }, // Only filter out finalized payrolls
       },
     };
 
