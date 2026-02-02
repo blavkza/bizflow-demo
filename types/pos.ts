@@ -58,6 +58,7 @@ export interface SaleData {
   tax: number;
   deliveryAmount: number;
   total: number;
+  couponId?: string;
   paymentMethod: string;
   amountReceived?: number;
   change?: number;
@@ -101,4 +102,17 @@ export interface CompanyInfo {
   phone2: string;
   phone3: string;
   email: string;
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  type: "PERCENTAGE" | "FIXED_AMOUNT" | "AMOUNT";
+  value: number;
+  minOrderAmount: number | null;
+  startDate: string;
+  endDate: string | null;
+  usageLimit: number | null;
+  isActive: boolean;
+  products?: { id: string; name: string }[];
 }

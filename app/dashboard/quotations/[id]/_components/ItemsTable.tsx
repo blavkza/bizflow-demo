@@ -51,10 +51,13 @@ type CombinedServiceItem = {
 export const ItemsTable = ({
   quotation,
   combineServices,
+  hideItemPrices,
 }: {
   quotation: QuotationWithRelations;
   combineServices: boolean;
+  hideItemPrices: boolean;
 }) => {
+
   const [activeTab, setActiveTab] = useState<string>("all");
 
   const formatCurrency = (amount: number) => {
@@ -299,12 +302,16 @@ export const ItemsTable = ({
     <Table>
       <TableHeader className="bg-muted/50">
         <TableRow>
-          <TableHead className="w-[40%]">Description</TableHead>
+          <TableHead className={hideItemPrices ? "w-[70%]" : "w-[40%]"}>Description</TableHead>
           <TableHead className="text-center">Qty</TableHead>
-          <TableHead className="text-right">Unit Price</TableHead>
-          <TableHead className="text-right">Discount</TableHead>
-          <TableHead className="text-center">Tax</TableHead>
-          <TableHead className="text-right">Line Total</TableHead>
+          {!hideItemPrices && (
+            <>
+              <TableHead className="text-right">Unit Price</TableHead>
+              <TableHead className="text-right">Discount</TableHead>
+              <TableHead className="text-center">Tax</TableHead>
+              <TableHead className="text-right">Line Total</TableHead>
+            </>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -362,42 +369,46 @@ export const ItemsTable = ({
               <TableCell className="text-center">
                 {Number(item.quantity).toLocaleString("en-ZA")}
               </TableCell>
-              <TableCell className="text-right">
-                {isCombinedService ? (
-                  <span className="text-muted-foreground italic">-</span>
-                ) : (
-                  formatCurrency(Number(item.unitPrice))
-                )}
-              </TableCell>
-              <TableCell className="text-right text-red-600">
-                {"itemDiscountVal" in item && item.itemDiscountVal > 0 ? (
-                  <>
-                    -{formatCurrency(item.itemDiscountVal)}
-                    {"itemDiscountType" in item &&
-                      item.itemDiscountType === "PERCENTAGE" && (
-                        <span className="text-xs ml-1 text-muted-foreground">
-                          ({item.discountInputVal}%)
-                        </span>
-                      )}
-                    {"itemDiscountType" in item &&
-                      item.itemDiscountType === "COMBINED" && (
-                        <span className="text-xs ml-1 text-muted-foreground">
-                          (Combined)
-                        </span>
-                      )}
-                  </>
-                ) : (
-                  "-"
-                )}
-              </TableCell>
-              <TableCell className="text-center">
-                {isCombinedService
-                  ? `${Number((item as CombinedServiceItem).weightedTaxRate).toFixed(1)}%`
-                  : `${Number(item.taxRate) || 0}%`}
-              </TableCell>
-              <TableCell className="text-right font-medium">
-                {formatCurrency(item.itemTotal)}
-              </TableCell>
+              {!hideItemPrices && (
+                <>
+                  <TableCell className="text-right">
+                    {isCombinedService ? (
+                      <span className="text-muted-foreground italic">-</span>
+                    ) : (
+                      formatCurrency(Number(item.unitPrice))
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right text-red-600">
+                    {"itemDiscountVal" in item && item.itemDiscountVal > 0 ? (
+                      <>
+                        -{formatCurrency(item.itemDiscountVal)}
+                        {"itemDiscountType" in item &&
+                          item.itemDiscountType === "PERCENTAGE" && (
+                            <span className="text-xs ml-1 text-muted-foreground">
+                              ({item.discountInputVal}%)
+                            </span>
+                          )}
+                        {"itemDiscountType" in item &&
+                          item.itemDiscountType === "COMBINED" && (
+                            <span className="text-xs ml-1 text-muted-foreground">
+                              (Combined)
+                            </span>
+                          )}
+                      </>
+                    ) : (
+                      "-"
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {isCombinedService
+                      ? `${Number((item as CombinedServiceItem).weightedTaxRate).toFixed(1)}%`
+                      : `${Number(item.taxRate) || 0}%`}
+                  </TableCell>
+                  <TableCell className="text-right font-medium">
+                    {formatCurrency(item.itemTotal)}
+                  </TableCell>
+                </>
+              )}
             </TableRow>
           );
         })}
@@ -591,89 +602,89 @@ export const ItemsTable = ({
       <div className="px-4 py-4">
         <div className="flex justify-end">
           <div className="w-80 space-y-3">
-            {/* 1. Gross Subtotal */}
-            <div className="flex justify-between text-sm">
-              <span className="">Subtotal (Gross)</span>
-              <span className="font-medium">
-                {formatCurrency(subtotalGross)}
-              </span>
-            </div>
-
-            {/* 2. Item Discounts */}
-            {totalItemDiscountMoney > 0 && (
+              {/* 1. Gross Subtotal */}
               <div className="flex justify-between text-sm">
-                <span className="">Item Discounts</span>
-                <span className="text-red-600 font-medium">
-                  -{formatCurrency(totalItemDiscountMoney)}
+                <span className="">Subtotal (Gross)</span>
+                <span className="font-medium">
+                  {formatCurrency(subtotalGross)}
                 </span>
               </div>
-            )}
 
-            {/* 3. Global Discount */}
-            {globalDiscountMoney > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="">
-                  Global Discount
-                  {quotation.discountType === "PERCENTAGE" && (
-                    <span className="text-xs ml-1">
-                      ({globalDiscountInputVal}%)
-                    </span>
-                  )}
-                </span>
-                <span className="text-red-600 font-medium">
-                  -{formatCurrency(globalDiscountMoney)}
-                </span>
-              </div>
-            )}
+              {/* 2. Item Discounts */}
+              {totalItemDiscountMoney > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="">Item Discounts</span>
+                  <span className="text-red-600 font-medium">
+                    -{formatCurrency(totalItemDiscountMoney)}
+                  </span>
+                </div>
+              )}
 
-            {/* 4. Taxable Amount */}
-            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-              <span className=" text-xs uppercase tracking-wide">
-                Taxable Amount
-              </span>
-              <span className="">{formatCurrency(taxableAmount)}</span>
-            </div>
-
-            {/* 5. Tax */}
-            <div className="flex justify-between text-sm">
-              <span className="">Tax</span>
-              <span className="">{formatCurrency(totalTax)}</span>
-            </div>
-
-            {/* 6. Grand Total */}
-            <div className="flex justify-between items-center pt-2 border-t border-gray-300">
-              <span className="font-bold ">Total</span>
-              <span className="font-bold text-xl text-primary">
-                {formatCurrency(totalAmount)}
-              </span>
-            </div>
-
-            {/* 7. Deposit & Amount Due */}
-            {quotation.depositRequired && depositMoney > 0 && (
-              <>
-                <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                  <span className="text-green-600 font-medium">
-                    Deposit Required
-                    {quotation.depositType === "PERCENTAGE" && (
+              {/* 3. Global Discount */}
+              {globalDiscountMoney > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="">
+                    Global Discount
+                    {quotation.discountType === "PERCENTAGE" && (
                       <span className="text-xs ml-1">
-                        ({Number(quotation.depositRate)}%)
+                        ({globalDiscountInputVal}%)
                       </span>
                     )}
                   </span>
-                  <span className="text-green-600 font-medium">
-                    -{formatCurrency(depositMoney)}
+                  <span className="text-red-600 font-medium">
+                    -{formatCurrency(globalDiscountMoney)}
                   </span>
                 </div>
+              )}
 
-                <div className="flex justify-between items-center bg-muted/30 px-2 py-2 rounded">
-                  <span className="font-bold">Amount Due</span>
-                  <span className="font-bold text-blue-600">
-                    {formatCurrency(amountDue)}
-                  </span>
-                </div>
-              </>
-            )}
-          </div>
+              {/* 4. Taxable Amount */}
+              <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                <span className=" text-xs uppercase tracking-wide">
+                  Taxable Amount
+                </span>
+                <span className="">{formatCurrency(taxableAmount)}</span>
+              </div>
+
+              {/* 5. Tax */}
+              <div className="flex justify-between text-sm">
+                <span className="">Tax</span>
+                <span className="">{formatCurrency(totalTax)}</span>
+              </div>
+
+              {/* 6. Grand Total */}
+              <div className="flex justify-between items-center pt-2 border-t border-gray-300">
+                <span className="font-bold ">Total</span>
+                <span className="font-bold text-xl text-primary">
+                  {formatCurrency(totalAmount)}
+                </span>
+              </div>
+
+              {/* 7. Deposit & Amount Due */}
+              {quotation.depositRequired && depositMoney > 0 && (
+                <>
+                  <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                    <span className="text-green-600 font-medium">
+                      Deposit Required
+                      {quotation.depositType === "PERCENTAGE" && (
+                        <span className="text-xs ml-1">
+                          ({Number(quotation.depositRate)}%)
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-green-600 font-medium">
+                      -{formatCurrency(depositMoney)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center bg-muted/30 px-2 py-2 rounded">
+                    <span className="font-bold">Amount Due</span>
+                    <span className="font-bold text-blue-600">
+                      {formatCurrency(amountDue)}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
         </div>
       </div>
     </div>

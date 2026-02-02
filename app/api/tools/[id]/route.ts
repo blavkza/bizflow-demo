@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -13,8 +13,10 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    const { id } = await params;
+
     const tool = await db.tool.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         rentals: {
           orderBy: { createdAt: "desc" },
@@ -48,14 +50,14 @@ export async function GET(
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch tool" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -71,10 +73,12 @@ export async function PUT(
       return new NextResponse("User Not Found", { status: 401 });
     }
 
+    const { id } = await params;
+
     const body = await request.json();
 
     const tool = await db.tool.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: body.name,
         description: body.description,
@@ -96,7 +100,7 @@ export async function PUT(
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to update tool" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

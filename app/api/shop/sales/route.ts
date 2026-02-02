@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
       isDelivery,
       deliveryAddress,
       deliveryInstructions,
+      couponId,
     } = body;
 
     const lastSale = await db.sale.findFirst({
@@ -228,6 +229,14 @@ export async function POST(request: NextRequest) {
           );
         }
 
+        // Update Coupon Usage if couponId is provided
+        if (couponId) {
+             await tx.coupon.update({
+                 where: { id: couponId },
+                 data: { usedCount: { increment: 1 } }
+             });
+        }
+
         // Determine sale status based on stock availability
         const hasNegativeStock = stockAwaits.length > 0;
         const saleStatus = hasNegativeStock ? "AWAITING_STOCK" : "COMPLETED";
@@ -271,6 +280,13 @@ export async function POST(request: NextRequest) {
         if (customer) {
           saleData.customer = {
             connect: { id: customer.id },
+          };
+        }
+
+        // Add coupon relation if couponId exists
+        if (couponId) {
+          saleData.coupon = {
+            connect: { id: couponId },
           };
         }
 

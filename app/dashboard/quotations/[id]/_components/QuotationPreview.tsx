@@ -10,11 +10,13 @@ import { Loader2 } from "lucide-react";
 interface QuotationPreviewProps {
   quotation: QuotationWithRelations;
   combineServices: boolean; 
+  hideItemPrices: boolean; // New prop
 }
 
 export const QuotationPreview = ({
   quotation,
   combineServices,
+  hideItemPrices,
 }: QuotationPreviewProps) => {
   const { companyInfo, loading } = useCompanyInfo();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -25,11 +27,11 @@ export const QuotationPreview = ({
       const html = QuotationReportGenerator.generateQuotationReportHTML(
         quotation,
         companyInfo,
-        combineServices 
+        { combineServices, hideItemPrices } 
       );
       setHtmlContent(html);
     }
-  }, [quotation, companyInfo, loading, combineServices]); 
+  }, [quotation, companyInfo, loading, combineServices, hideItemPrices]); 
 
   useEffect(() => {
     if (iframeRef.current && htmlContent) {

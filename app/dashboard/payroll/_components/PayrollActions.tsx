@@ -7,6 +7,7 @@ interface PayrollActionsProps {
   canProcess: boolean;
   onSaveDraft?: () => void;
   isSavingDraft?: boolean;
+  isDraft?: boolean;
 }
 
 export function PayrollActions({
@@ -15,6 +16,7 @@ export function PayrollActions({
   canProcess,
   onSaveDraft,
   isSavingDraft,
+  isDraft,
 }: PayrollActionsProps) {
   return (
     <div className="flex justify-end gap-4 pt-6 border-t">
@@ -62,7 +64,7 @@ export function PayrollActions({
         ) : (
           <>
             <CreditCard className="mr-2 h-4 w-4" />
-            Process Payroll
+            {isDraft ? "Process Draft" : "Process Payroll"}
           </>
         )}
       </Button>

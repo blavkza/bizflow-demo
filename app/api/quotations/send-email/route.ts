@@ -33,7 +33,11 @@ export async function POST(request: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { quotation, toEmail } = (await request.json()) as EmailRequest;
+    const { quotation, toEmail, combineServices, hideItemPrices } =
+      (await request.json()) as EmailRequest & {
+        combineServices?: boolean;
+        hideItemPrices?: boolean;
+      };
 
     // Validate email input
     if (!toEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(toEmail)) {
@@ -54,7 +58,11 @@ export async function POST(request: Request) {
     try {
       const pdfBuffer = await QuotationPDFService.generateQuotationPDF(
         quotation,
-        companyInfo
+        companyInfo,
+        {
+          combineServices: combineServices ?? true,
+          hideItemPrices: hideItemPrices ?? false,
+        }
       );
       attachment = {
         filename: `quotation_${quotation.quotationNumber}.pdf`,
@@ -68,7 +76,11 @@ export async function POST(request: Request) {
       try {
         const pdfBuffer = await QuotationPDFService.generateQuotationPDF(
           quotation,
-          companyInfo
+          companyInfo,
+          {
+            combineServices: combineServices ?? true,
+            hideItemPrices: hideItemPrices ?? false,
+          }
         );
         attachment = {
           filename: `quotation_${quotation.quotationNumber}.pdf`,
@@ -107,7 +119,11 @@ export async function POST(request: Request) {
         const htmlContent =
           QuotationReportGenerator.generateQuotationReportHTML(
             quotation,
-            mappedCompanyInfo
+            mappedCompanyInfo,
+            {
+              combineServices: combineServices ?? true,
+              hideItemPrices: hideItemPrices ?? false,
+            }
           );
 
         attachment = {
@@ -121,7 +137,9 @@ export async function POST(request: Request) {
     }
 
     // Create email HTML
-    const emailHtml = await render(QuotationEmail({ quotation }));
+    const emailHtml = await render(
+      QuotationEmail({ quotation, hideItemPrices: hideItemPrices ?? false })
+    );
 
     // Create secure transporter
     const transporter = nodemailer.createTransport({

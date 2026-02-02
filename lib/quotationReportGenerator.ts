@@ -91,8 +91,20 @@ export class QuotationReportGenerator {
   static generateQuotationReportHTML(
     quotation: QuotationWithRelations,
     companyInfo?: CompanyInfo | null,
-    combineServices: boolean = true
+    optionsOrCombineServices:
+      | boolean
+      | { combineServices?: boolean; hideItemPrices?: boolean } = true
   ): string {
+    let combineServices = true;
+    let hideItemPrices = false;
+
+    if (typeof optionsOrCombineServices === "boolean") {
+      combineServices = optionsOrCombineServices;
+    } else {
+      combineServices = optionsOrCombineServices.combineServices ?? true;
+      hideItemPrices = optionsOrCombineServices.hideItemPrices ?? false;
+    }
+
     // --- COLORS ---
     const colorRed = "#A00000";
     const colorGold = "#C5A005";
@@ -355,10 +367,18 @@ export class QuotationReportGenerator {
             ${detailsHtml}
           </td>
           <td class="col-qty">${item.qty}</td>
+          ${
+            !hideItemPrices
+              ? `
           <td class="col-price">${this.formatMoney(item.price)}</td>
-          <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
+          <td class="col-disc">${
+            item.discountInput === "0.00" ? "-" : item.discountInput
+          }</td>
           <td class="col-vat">${this.formatMoney(item.vat)}</td>
           <td class="col-total">${this.formatMoney(item.total)}</td>
+          `
+              : ""
+          }
         </tr>
       `);
     });
@@ -373,10 +393,18 @@ export class QuotationReportGenerator {
             ${detailsHtml}
           </td>
           <td class="col-qty">${item.qty}</td>
+          ${
+            !hideItemPrices
+              ? `
           <td class="col-price">${this.formatMoney(item.price)}</td>
-          <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
+          <td class="col-disc">${
+            item.discountInput === "0.00" ? "-" : item.discountInput
+          }</td>
           <td class="col-vat">${this.formatMoney(item.vat)}</td>
           <td class="col-total">${this.formatMoney(item.total)}</td>
+          `
+              : ""
+          }
         </tr>
       `);
     });
@@ -399,10 +427,22 @@ export class QuotationReportGenerator {
             </div>
           </td>
           <td class="col-qty">${combinedServiceData.quantity}</td>
+          ${
+            !hideItemPrices
+              ? `
           <td class="col-price">-</td>
-          <td class="col-disc">${combinedServiceData.discountInput === "0.00" ? "-" : combinedServiceData.discountInput}</td>
+          <td class="col-disc">${
+            combinedServiceData.discountInput === "0.00"
+              ? "-"
+              : combinedServiceData.discountInput
+          }</td>
           <td class="col-vat">${this.formatMoney(combinedServiceData.vat)}</td>
-          <td class="col-total"><strong>${this.formatMoney(combinedServiceData.total)}</strong></td>
+          <td class="col-total"><strong>${this.formatMoney(
+            combinedServiceData.total
+          )}</strong></td>
+          `
+              : ""
+          }
         </tr>
       `);
     } else if (serviceItems.length > 0) {
@@ -411,16 +451,23 @@ export class QuotationReportGenerator {
         const detailsHtml = renderDetailsForIndividualItem(item.details);
         tableRows.push(`
           <tr>
-            <td class="col-code">SVC</td>
             <td class="col-desc">
               <strong>${item.description}</strong>
               ${detailsHtml}
             </td>
             <td class="col-qty">${item.qty}</td>
+            ${
+              !hideItemPrices
+                ? `
             <td class="col-price">${this.formatMoney(item.price)}</td>
-            <td class="col-disc">${item.discountInput === "0.00" ? "-" : item.discountInput}</td>
+            <td class="col-disc">${
+              item.discountInput === "0.00" ? "-" : item.discountInput
+            }</td>
             <td class="col-vat">${this.formatMoney(item.vat)}</td>
             <td class="col-total">${this.formatMoney(item.total)}</td>
+            `
+                : ""
+            }
           </tr>
         `);
       });
@@ -521,7 +568,7 @@ export class QuotationReportGenerator {
             
             /* Column Widths */
             .col-code { width: 8%; text-align: center; }
-            .col-desc { width: 35%; text-align: left; }
+            .col-desc { width: ${hideItemPrices ? "80%" : "35%"}; text-align: left; }
             .col-qty { width: 10%; text-align: center; }
             .col-price { width: 12%; text-align: right; }
             .col-disc { width: 10%; text-align: center; }
@@ -650,10 +697,16 @@ export class QuotationReportGenerator {
               <tr>
                 <th class="col-desc">DESCRIPTION</th>
                 <th class="col-qty">QUANTITY</th>
+                ${
+                  !hideItemPrices
+                    ? `
                 <th class="col-price">UNIT PRICE (R)</th>
                 <th class="col-disc">DISCOUNT %</th>
                 <th class="col-vat">VAT (R)</th>
                 <th class="col-total">AMOUNT (R)</th>
+                `
+                    : ""
+                }
               </tr>
             </thead>
             <tbody>
@@ -668,7 +721,9 @@ export class QuotationReportGenerator {
                   ? `
               <tr>
                 <td class="label-cell">DISCOUNT:</td>
-                <td class="text-right">R${this.formatMoney(totalDiscountDisplay)}</td>
+                <td class="text-right">R${this.formatMoney(
+                  totalDiscountDisplay
+                )}</td>
               </tr>`
                   : ""
               }
@@ -685,7 +740,9 @@ export class QuotationReportGenerator {
               
               <tr style="border-top: 2px solid ${headerGreenText}; color: ${headerGreenText};">
                 <td class="label-cell" style="font-size: 12px;">TOTAL (ZAR):</td>
-                <td class="text-right" style="font-size: 12px;">R${this.formatMoney(finalTotal)}</td>
+                <td class="text-right" style="font-size: 12px;">R${this.formatMoney(
+                  finalTotal
+                )}</td>
               </tr>
 
               ${
@@ -693,7 +750,9 @@ export class QuotationReportGenerator {
                   ? `
               <tr>
                 <td class="label-cell" style="color: ${colorRed}">DEPOSIT REQ:</td>
-                <td class="text-right" style="color: ${colorRed}">R${this.formatMoney(this.decimalToNumber(quotation.depositAmount))}</td>
+                <td class="text-right" style="color: ${colorRed}">R${this.formatMoney(
+                      this.decimalToNumber(quotation.depositAmount)
+                    )}</td>
               </tr>`
                   : ""
               }

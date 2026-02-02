@@ -36,9 +36,13 @@ export default function EmployeesPageWrapper({
 
   const filteredEmployees = initialEmployees.filter((employee) => {
     const matchesSearch =
-      employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      employee.position.toLowerCase().includes(searchTerm.toLowerCase());
+      (employee.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (employee.email?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      ) ||
+      (employee.position?.toLowerCase() || "").includes(
+        searchTerm.toLowerCase(),
+      );
 
     const matchesDepartment =
       selectedDepartment === "All Departments" ||

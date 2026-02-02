@@ -43,7 +43,8 @@ export default function QuotationDetailPage({
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [combineServices, setCombineServices] = useState(true); // NEW STATE
+  const [combineServices, setCombineServices] = useState(true); 
+  const [hideItemPrices, setHideItemPrices] = useState(false);
 
   const router = useRouter();
   const { userId } = useAuth();
@@ -142,6 +143,8 @@ export default function QuotationDetailPage({
         refresh={fetchQuotation}
         combineServices={combineServices}
         onToggleCombineServices={() => setCombineServices(!combineServices)}
+        hideItemPrices={hideItemPrices}
+        onToggleHideItemPrices={() => setHideItemPrices(!hideItemPrices)}
       />
 
       <KeyMetrics quotation={quotation} />
@@ -157,7 +160,11 @@ export default function QuotationDetailPage({
         </TabsList>
 
         <TabsContent value="items" className="space-y-4">
-          <ItemsTable quotation={quotation} combineServices={combineServices} />
+          <ItemsTable
+            quotation={quotation}
+            combineServices={combineServices}
+            hideItemPrices={hideItemPrices}
+          />
         </TabsContent>
 
         <TabsContent value="details" className="space-y-4">
@@ -175,6 +182,7 @@ export default function QuotationDetailPage({
           <QuotationPreview
             quotation={quotation}
             combineServices={combineServices}
+            hideItemPrices={hideItemPrices}
           />
         </TabsContent>
 

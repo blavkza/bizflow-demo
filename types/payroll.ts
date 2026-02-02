@@ -92,8 +92,8 @@ export interface Payroll {
   updatedAt: Date;
   createdBy?: string;
   createdByName?: string;
-  transaction: Transaction;
-  transactionId: string;
+  transaction?: Transaction;
+  transactionId?: string;
   payments: Payment[];
 
   payrollBonuses?: PayrollBonus[];

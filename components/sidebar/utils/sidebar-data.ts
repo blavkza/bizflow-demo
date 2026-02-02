@@ -29,6 +29,12 @@ import {
   Settings,
   Truck,
   NotepadTextIcon,
+  TicketPercent,
+  Landmark,
+  Hammer,
+  ClipboardList,
+  RefreshCcw,
+  Bolt,
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
 import { CgArrowsExchange } from "react-icons/cg";
@@ -41,7 +47,7 @@ import { FaFileInvoice } from "react-icons/fa";
 
 const hasPermission = (
   permissions: UserPermission[],
-  requiredPermission: UserPermission
+  requiredPermission: UserPermission,
 ): boolean => {
   return permissions.includes(requiredPermission);
 };
@@ -53,14 +59,18 @@ const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
 export const getSidebarData = (
   role: string,
   unreadCount: number = 0,
-  permissions: UserPermission[]
+  permissions: UserPermission[],
 ): SidebarData => {
-  const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
+  const fullAccessRoles = [
+    UserRole.CHIEF_EXECUTIVE_OFFICER,
+    UserRole.ADMIN_MANAGER,
+    UserRole.GENERAL_MANAGER,
+  ];
   const hasFullAccess = hasRole(role, fullAccessRoles);
 
   // Helper function to filter items and check if section should be included
   const getSectionItems = (
-    sectionItems: Array<any | null>
+    sectionItems: Array<any | null>,
   ): { hasItems: boolean; items: any[] } => {
     const filteredItems = sectionItems.filter((item) => item !== null);
     return {
@@ -191,6 +201,23 @@ export const getSidebarData = (
           },
         ]
       : []),
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.TRANSACTIONS_VIEW)
+      ? [
+          {
+            title: "Business Loans",
+            url: "/dashboard/loans",
+            icon: Landmark,
+            color: "text-blue-500",
+          },
+          {
+            title: "Loan Lenders",
+            url: "/dashboard/loans/lenders",
+            icon: Building2,
+            color: "text-cyan-500",
+          },
+        ]
+      : []),
     ...(hasFullAccess || hasPermission(permissions, UserPermission.Service_VIEW)
       ? [
           {
@@ -297,6 +324,16 @@ export const getSidebarData = (
           },
         ]
       : []),
+    ...(hasFullAccess || hasPermission(permissions, UserPermission.Sale_VIEW)
+      ? [
+          {
+            title: "Coupons",
+            url: "/dashboard/shop/coupons",
+            icon: TicketPercent,
+            color: "text-green-500",
+          },
+        ]
+      : []),
     ...(hasFullAccess || hasPermission(permissions, UserPermission.Vender_VIEW)
       ? [
           {
@@ -365,6 +402,45 @@ export const getSidebarData = (
             url: "/dashboard/rentals",
             icon: GiTakeMyMoney,
             color: "text-green-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.WORKER_TOOLS_VIEW)
+      ? [
+          {
+            title: "Worker Tools",
+            url: "/dashboard/tools/worker-tools",
+            icon: Hammer,
+            color: "text-orange-500",
+          },
+          {
+            title: "Tool Returns",
+            url: "/dashboard/tools/worker-tools/return",
+            icon: RefreshCcw,
+            color: "text-emerald-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.TOOL_REQUESTS_VIEW)
+      ? [
+          {
+            title: "Tool Requests",
+            url: "/dashboard/tools/tool-request",
+            icon: ClipboardList,
+            color: "text-blue-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.TOOL_MAINTENANCE_VIEW)
+      ? [
+          {
+            title: "Tool Maintenance",
+            url: "/dashboard/tools/tool-maintenance",
+            icon: Bolt,
+            color: "text-gray-500",
           },
         ]
       : []),

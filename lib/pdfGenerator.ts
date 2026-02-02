@@ -40,6 +40,7 @@ interface CompanyInfo {
 
 interface PDFGeneratorOptions {
   combineServices: boolean;
+  hideItemPrices?: boolean; // New optional property
   type?: "quotation" | "invoice" | "delivery-note" | "price-sheet";
 }
 
@@ -196,7 +197,10 @@ export class PDFGenerator {
       const htmlContent = QuotationReportGenerator.generateQuotationReportHTML(
         quotation,
         companyInfo || undefined,
-        options.combineServices
+        {
+          combineServices: options.combineServices,
+          hideItemPrices: options.hideItemPrices,
+        }
       );
 
       return await this.generatePDFFromHTML(
@@ -370,53 +374,42 @@ export class PDFGenerator {
       // Create blob URL
       const url = window.URL.createObjectURL(pdfBlob);
 
-      // Create iframe for printing
+      // Create hidden iframe
       const iframe = window.document.createElement("iframe");
-      iframe.style.position = "absolute";
-      iframe.style.top = "-9999px";
-      iframe.style.left = "-9999px";
-      iframe.style.width = "0";
-      iframe.style.height = "0";
-      iframe.style.border = "none";
-      iframe.style.visibility = "hidden";
+      iframe.style.position = "fixed";
+      iframe.style.top = "0";
+      iframe.style.left = "0";
+      iframe.style.width = "1px";
+      iframe.style.height = "1px";
+      iframe.style.opacity = "0";
+      iframe.style.pointerEvents = "none";
+      
+      // Set source to PDF blob
+      iframe.src = url;
 
       window.document.body.appendChild(iframe);
 
       // Wait for iframe to load
       iframe.onload = () => {
-        const iframeDoc =
-          iframe.contentDocument || iframe.contentWindow?.document;
-        if (iframeDoc) {
-          // Create object element for PDF
-          const object = iframeDoc.createElement("object");
-          object.data = url;
-          object.type = "application/pdf";
-          object.style.width = "100%";
-          object.style.height = "100%";
-
-          iframeDoc.body.appendChild(object);
-
-          // Auto-print when PDF is loaded
-          object.onload = () => {
-            try {
-              if (iframe.contentWindow) {
-                iframe.contentWindow.focus();
-                iframe.contentWindow.print();
-              }
-            } catch (printError) {
-              console.error("Error printing PDF:", printError);
+        setTimeout(() => {
+          try {
+            if (iframe.contentWindow) {
+              iframe.contentWindow.focus();
+              iframe.contentWindow.print();
             }
+          } catch (printError) {
+            console.error("Error triggering print:", printError);
+          }
 
-            // Cleanup after printing
-            setTimeout(() => {
+          // Cleanup after a delay (enough time for print dialog to initialize)
+          setTimeout(() => {
+            if (window.document.body.contains(iframe)) {
               window.document.body.removeChild(iframe);
-              window.URL.revokeObjectURL(url);
-            }, 1000);
-          };
-        }
+            }
+            window.URL.revokeObjectURL(url);
+          }, 3000);
+        }, 500); // 500ms delay to ensure PDF rendering
       };
-
-      iframe.src = "about:blank";
     } catch (error) {
       console.error("Error printing PDF:", error);
       throw error;
@@ -428,12 +421,7 @@ export class PDFGenerator {
     companyInfo: CompanyInfo | null,
     options: PDFGeneratorOptions
   ): Promise<void> {
-    try {
-      await this.printPDF(invoice, companyInfo, options);
-    } catch (error) {
-      console.error("Error printing invoice PDF:", error);
-      throw error;
-    }
+    await this.printPDF(invoice, companyInfo, options);
   }
 
   static async printQuotationPDF(
@@ -441,11 +429,6 @@ export class PDFGenerator {
     companyInfo: CompanyInfo | null,
     options: PDFGeneratorOptions
   ): Promise<void> {
-    try {
-      await this.printPDF(quotation, companyInfo, options);
-    } catch (error) {
-      console.error("Error printing quotation PDF:", error);
-      throw error;
-    }
+    await this.printPDF(quotation, companyInfo, options);
   }
 }

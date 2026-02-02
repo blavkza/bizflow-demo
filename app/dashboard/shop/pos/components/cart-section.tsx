@@ -18,9 +18,10 @@ import {
   Check,
   Tag,
   Percent,
+  Loader2,
 } from "lucide-react";
 import Image from "next/image";
-import { CartItem, POSSettings } from "@/types/pos";
+import { CartItem, POSSettings, Coupon } from "@/types/pos";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState, useEffect } from "react";
 import {
@@ -50,6 +51,10 @@ interface CartSectionProps {
   handleCheckout: () => void;
   onCreateQuotation: () => void;
   products?: any[];
+  appliedCoupon: Coupon | null;
+  onApplyCoupon: (code: string) => Promise<{ success: boolean; message?: string }>;
+  onRemoveCoupon: () => void;
+  couponLoading?: boolean;
 }
 
 export function CartSection({
@@ -71,6 +76,10 @@ export function CartSection({
   handleCheckout,
   onCreateQuotation,
   products = [],
+  appliedCoupon,
+  onApplyCoupon,
+  onRemoveCoupon,
+  couponLoading = false,
 }: CartSectionProps) {
   const [discountInput, setDiscountInput] = useState("");
   const [discountError, setDiscountError] = useState("");
@@ -79,6 +88,21 @@ export function CartSection({
   );
   const [priceInput, setPriceInput] = useState("");
   const [priceError, setPriceError] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [couponError, setCouponError] = useState("");
+
+  const handleApplyCouponClick = async () => {
+    if (!couponCode.trim()) return;
+    setCouponError(""); // Clear previous error
+    const result = await onApplyCoupon(couponCode);
+    if (result.success) {
+      setCouponCode("");
+      setCouponError("");
+    } else {
+        setCouponError(result.message || "Failed to apply coupon");
+    }
+  };
+
 
   useEffect(() => {
     if (discount === 0) {
@@ -163,6 +187,7 @@ export function CartSection({
       return;
     }
 
+    // Check for negative or zero price
     if (numValue < 0) {
       setPriceError("Price cannot be negative");
       return;
@@ -170,13 +195,6 @@ export function CartSection({
 
     if (numValue === 0) {
       setPriceError("Price cannot be zero");
-      return;
-    }
-
-    // Find the original product to get the original price
-    const item = cart.find((cartItem) => cartItem.id === itemId);
-    if (item && numValue > item.originalPrice) {
-      setPriceError("New price cannot be higher than original price");
       return;
     }
 
@@ -302,6 +320,20 @@ export function CartSection({
                 const showTooltip = isTextTooLong(item.name, 30);
                 const itemDiscount = getItemDiscount(item);
                 const isEditing = editingPriceForId === item.id;
+                
+                // Check if coupon applies to this item
+                const isCouponApplied = appliedCoupon && (
+                  !appliedCoupon.products || 
+                  appliedCoupon.products.length === 0 || 
+                  appliedCoupon.products.some((p: any) => p.id === item.id)
+                );
+
+                // Calculate Coupon Effect for Display Only
+                let couponDiscountPerItem = 0;
+                if (isCouponApplied && appliedCoupon?.type === "PERCENTAGE") {
+                   couponDiscountPerItem = (itemPrice * appliedCoupon.value) / 100;
+                }
+                const finalDisplayPrice = itemPrice - couponDiscountPerItem;
 
                 return (
                   <div
@@ -310,11 +342,11 @@ export function CartSection({
                       exceedsStock
                         ? "border-amber-200 bg-amber-50 dark:bg-zinc-900"
                         : ""
-                    } ${itemDiscount ? "border-green-200 bg-green-50 dark:bg-green-900/20" : ""}`}
+                    } ${itemDiscount || isCouponApplied ? "border-green-200" : ""}`}
                   >
                     <div className="flex-1 min-w-0">
                       {/* Name and SKU at the top */}
-                      <div className="font-medium text-sm truncate mb-1">
+                      <div className="font-medium text-sm truncate mb-1 flex items-center gap-2">
                         {showTooltip ? (
                           <TooltipProvider>
                             <Tooltip>
@@ -336,6 +368,11 @@ export function CartSection({
                           </TooltipProvider>
                         ) : (
                           item.name
+                        )}
+                        {isCouponApplied && (
+                          <span className="inline-flex items-center rounded-md border border-purple-200 bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-700">
+                             Coupon
+                          </span>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mb-2">
@@ -404,7 +441,18 @@ export function CartSection({
                             <div className="space-y-1">
                               <div className="flex items-center gap-2">
                                 <p className="text-sm">
-                                  {itemDiscount ? (
+                                  {isCouponApplied && couponDiscountPerItem > 0 ? (
+                                     <span className="flex flex-col gap-0.5">
+                                        {/* Show Pre-Coupon Base Price Strikethrough */}
+                                        <span className="text-gray-400 line-through text-xs">
+                                           R{itemPrice.toFixed(2)}
+                                        </span>
+                                        {/* Show Final Price with Coupon */}
+                                        <span className="text-purple-600 font-bold">
+                                          R{finalDisplayPrice.toFixed(2)}
+                                        </span>
+                                     </span>
+                                  ) : itemDiscount ? (
                                     <span className="flex flex-col gap-0.5">
                                       <span className="text-gray-400 line-through text-xs">
                                         R{originalPrice.toFixed(2)}
@@ -427,12 +475,20 @@ export function CartSection({
                                 </Button>
                               </div>
 
-                              {itemDiscount && (
+                              {itemDiscount && !isCouponApplied && (
                                 <Badge
                                   variant="outline"
                                   className="bg-green-50 text-green-700 border-green-200 text-xs"
                                 >
                                   {itemDiscount.display}
+                                </Badge>
+                              )}
+                              {isCouponApplied && couponDiscountPerItem > 0 && (
+                                 <Badge
+                                  variant="outline"
+                                  className="bg-purple-50 text-purple-700 border-purple-200 text-xs"
+                                >
+                                  -{appliedCoupon.value}% Coupon
                                 </Badge>
                               )}
                             </div>
@@ -441,11 +497,17 @@ export function CartSection({
 
                         <p className="text-sm font-semibold">
                           Total ({item.quantity}): R
-                          {(itemPrice * item.quantity).toFixed(2)}
+                          {(finalDisplayPrice * item.quantity).toFixed(2)}
                           {itemDiscount && (
                             <span className="block text-xs text-green-600">
-                              Saved: R
+                              Manual Save: R
                               {(itemDiscount.amount * item.quantity).toFixed(2)}
+                            </span>
+                          )}
+                          {isCouponApplied && couponDiscountPerItem > 0 && (
+                             <span className="block text-xs text-purple-600">
+                              Coupon Save: R
+                              {(couponDiscountPerItem * item.quantity).toFixed(2)}
                             </span>
                           )}
                         </p>
@@ -495,6 +557,63 @@ export function CartSection({
 
           {cart.length > 0 && (
             <>
+              <Separator />
+
+              {/* Coupon Section */}
+               <div className="space-y-2">
+                 <Label>Coupon Code</Label>
+                 {appliedCoupon ? (
+                    <div className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-md">
+                        <div className="flex items-center gap-2">
+                            <Tag className="h-4 w-4 text-green-600" />
+                            <div>
+                                <p className="font-medium text-green-700">{appliedCoupon.code}</p>
+                                <p className="text-xs text-green-600">
+                                    {appliedCoupon.type === "PERCENTAGE" 
+                                        ? `${appliedCoupon.value}% off` 
+                                        : `R${Number(appliedCoupon.value).toFixed(2)} off`}
+                                </p>
+                            </div>
+                        </div>
+                         <Button variant="ghost" size="sm" onClick={onRemoveCoupon} className="h-8 w-8 p-0">
+                            <X className="h-4 w-4 text-green-700" />
+                        </Button>
+                    </div>
+                 ) : (
+                    <div className="flex gap-2">
+                        <Input 
+                            placeholder="Enter code" 
+                            value={couponCode}
+                            onChange={(e) => {
+                                setCouponCode(e.target.value);
+                                setCouponError("");
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") handleApplyCouponClick();
+                            }}
+                            disabled={couponLoading}
+                        />
+                        <Button 
+                            variant="secondary" 
+                            onClick={handleApplyCouponClick}
+                            disabled={!couponCode.trim() || couponLoading}
+                        >
+                            {couponLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                "Apply"
+                            )}
+                        </Button>
+                    </div>
+                  )}
+                 {couponError && (
+                    <div className="text-red-500 text-xs mt-1 flex items-center">
+                      <AlertCircle className="h-3 w-3 mr-1" />
+                      {couponError}
+                    </div>
+                  )}
+               </div>
+              
               <Separator />
 
               {/* Global Discount */}
@@ -548,7 +667,9 @@ export function CartSection({
 
                 {discount > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
-                    <span>Global Discount ({discount.toFixed(2)}%):</span>
+                    <span>
+                        {appliedCoupon ? `Coupon (${appliedCoupon.code})` : `Global Discount (${discount.toFixed(2)}%)`}:
+                    </span>
                     <span>-R{discountAmount.toFixed(2)}</span>
                   </div>
                 )}
@@ -604,20 +725,22 @@ export function CartSection({
 
               {/* Action Buttons */}
               <div className="grid grid-cols-2 gap-2">
-                <Button onClick={handleCheckout} className="w-full" size="lg">
+                <Button onClick={handleCheckout} className={appliedCoupon ? "w-full col-span-2" : "w-full"} size="lg">
                   <CreditCard className="mr-2 h-4 w-4" />
                   Checkout
                 </Button>
 
-                <Button
-                  onClick={onCreateQuotation}
-                  variant="outline"
-                  className="w-full"
-                  size="lg"
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Create Quote
-                </Button>
+                {!appliedCoupon && (
+                  <Button
+                    onClick={onCreateQuotation}
+                    variant="outline"
+                    className="w-full"
+                    size="lg"
+                  >
+                    <FileText className="mr-2 h-4 w-4" />
+                    Create Quote
+                  </Button>
+                )}
               </div>
             </>
           )}

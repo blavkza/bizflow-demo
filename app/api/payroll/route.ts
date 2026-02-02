@@ -35,13 +35,18 @@ const payrollSchema = z.object({
       deductionAmount: z
         .union([z.number(), z.string()])
         .transform((val) => Number(val)),
-      daysWorked: z.number(),
+      daysWorked: z
+        .union([z.number(), z.string()])
+        .transform((val) => Number(val))
+        .optional()
+        .default(0),
       overtimeHours: z
         .union([z.number(), z.string()])
         .transform((val) => Number(val)),
       regularHours: z
         .union([z.number(), z.string()])
         .transform((val) => Number(val)),
+      performanceScore: z.number().optional(),
       description: z.string().optional(),
       departmentId: z.string().optional(),
       isFreelancer: z.boolean().optional(),
@@ -170,7 +175,8 @@ export async function POST(req: Request) {
       where: {
         Payroll: { 
           month: data.month,
-          status: { not: PayrollStatus.CANCELLED } // Ignore cancelled ones
+          status: { not: PayrollStatus.CANCELLED }, // Ignore cancelled ones
+          ...(data.payrollId ? { NOT: { id: data.payrollId } } : {})
         },
         OR: [
           { employeeId: { in: requestedEmployeeIds } },
@@ -270,128 +276,122 @@ export async function POST(req: Request) {
     // 5. PROCESS TRANSACTION (The "Big Write")
     const result = await db.$transaction(
       async (prisma) => {
-        let transaction;
+        let transactionId: string | null = null;
         let payroll;
+
+        // 1. Transaction Logic (Only if NOT a draft)
+        if (!isDraft) {
+          if (data.payrollId) {
+            // Processing an existing draft or updating a processed one
+            const existingPayroll = await prisma.payroll.findUnique({
+              where: { id: data.payrollId },
+              include: { transaction: true }
+            });
+
+            if (existingPayroll?.transactionId) {
+              // Update existing transaction
+              const updatedTrx = await prisma.transaction.update({
+                where: { id: existingPayroll.transactionId },
+                data: {
+                  amount: batchTotals.net,
+                  status: TransactionStatus.COMPLETED,
+                  description: data.description || `Payroll for ${data.month} (${data.workerType})`,
+                }
+              });
+              transactionId = updatedTrx.id;
+            } else {
+              // Create new transaction for previously draft payroll
+              const newTrx = await prisma.transaction.create({
+                data: {
+                  amount: batchTotals.net,
+                  currency: "ZAR",
+                  type: TransactionType.EXPENSE,
+                  status: TransactionStatus.COMPLETED,
+                  description: data.description || `Payroll for ${data.month} (${data.workerType})`,
+                  date: payDate,
+                  createdBy: creater.id,
+                  categoryId: paymentCategory!.id,
+                  reference: `PAYROLL-${Date.now()}`,
+                }
+              });
+              transactionId = newTrx.id;
+            }
+          } else {
+            // Brand new processed payroll
+            const newTrx = await prisma.transaction.create({
+              data: {
+                amount: batchTotals.net,
+                currency: "ZAR",
+                type: TransactionType.EXPENSE,
+                status: TransactionStatus.COMPLETED,
+                description: data.description || `Payroll for ${data.month} (${data.workerType})`,
+                date: payDate,
+                createdBy: creater.id,
+                categoryId: paymentCategory!.id,
+                reference: `PAYROLL-${Date.now()}`,
+              }
+            });
+            transactionId = newTrx.id;
+          }
+        }
+
+        // 2. Payroll Logic
+        const basePayrollData: any = {
+          description: data.description || `${isDraft ? "[DRAFT] " : ""}Payroll for ${data.month} (${data.workerType})`,
+          type: data.type,
+          totalAmount: batchTotals.total,
+          netAmount: batchTotals.net,
+          baseAmount: batchTotals.base,
+          overtimeAmount: batchTotals.overtime,
+          totalBonuses: batchTotals.bonus,
+          totalDeductions: batchTotals.deduction,
+          status: data.status as PayrollStatus,
+          // RE-CREATE AGGREGATED SUMMARIES
+          payrollBonuses: {
+            create: Object.entries(aggregatedBonuses).map(([type, bdata]: [string, any]) => ({
+              bonusType: type,
+              amount: bdata.amount,
+              description: `Total ${type.replace(/_/g, " ")}`,
+              isPercentage: false,
+            })),
+          },
+          payrollDeductions: {
+            create: Object.entries(aggregatedDeductions).map(
+              ([type, ddata]: [string, any]) => ({
+                deductionType: type,
+                amount: ddata.amount,
+                description: `Total ${type.replace(/_/g, " ")}`,
+                isPercentage: false,
+              })
+            ),
+          },
+        };
+
+        if (transactionId) {
+          basePayrollData.transaction = { connect: { id: transactionId } };
+        }
 
         if (data.payrollId) {
           // UPDATE EXISTING
-          const existingPayroll = await prisma.payroll.findUnique({
-            where: { id: data.payrollId },
-            include: { transaction: true }
-          });
-
-          if (!existingPayroll) {
-            throw new Error("Draft payroll not found");
-          }
-
-          // A. Update Transaction
-          transaction = await prisma.transaction.update({
-            where: { id: existingPayroll.transactionId },
-            data: {
-              amount: batchTotals.net,
-              status: isDraft ? TransactionStatus.PENDING : TransactionStatus.COMPLETED,
-              description: data.description || `${isDraft ? "[DRAFT] " : ""}Payroll for ${data.month} (${data.workerType})`,
-              reference: existingPayroll.transaction.reference, // Keep same reference
-            }
-          });
-
-          // B. Delete old relations to start fresh for this run
+          // Delete old relations to start fresh for this run
           await prisma.payment.deleteMany({ where: { payrollId: data.payrollId } });
           await prisma.payrollBonus.deleteMany({ where: { payrollId: data.payrollId } });
           await prisma.payrollDeduction.deleteMany({ where: { payrollId: data.payrollId } });
 
-          // C. Update Payroll Header
+          // Update Payroll Header
           payroll = await prisma.payroll.update({
             where: { id: data.payrollId },
-            data: {
-              description: data.description || `${isDraft ? "[DRAFT] " : ""}Payroll for ${data.month} (${data.workerType})`,
-              type: data.type,
-              totalAmount: batchTotals.total,
-              netAmount: batchTotals.net,
-              baseAmount: batchTotals.base,
-              overtimeAmount: batchTotals.overtime,
-              totalBonuses: batchTotals.bonus,
-              totalDeductions: batchTotals.deduction,
-              status: data.status as PayrollStatus,
-              
-              // RE-CREATE AGGREGATED SUMMARIES
-              payrollBonuses: {
-                create: Object.entries(aggregatedBonuses).map(([type, data]) => ({
-                  bonusType: type,
-                  amount: data.amount,
-                  description: `Total ${type.replace(/_/g, " ")}`,
-                  isPercentage: false,
-                })),
-              },
-              payrollDeductions: {
-                create: Object.entries(aggregatedDeductions).map(
-                  ([type, data]) => ({
-                    deductionType: type,
-                    amount: data.amount,
-                    description: `Total ${type.replace(/_/g, " ")}`,
-                    isPercentage: false,
-                  })
-                ),
-              },
-            }
+            data: basePayrollData
           });
         } else {
           // CREATE NEW
-          // A. Create the Financial Transaction Record
-          transaction = await prisma.transaction.create({
-            data: {
-              amount: batchTotals.net, // Actual cash flow out
-              currency: "ZAR",
-              type: TransactionType.EXPENSE,
-              status: isDraft ? TransactionStatus.PENDING : TransactionStatus.COMPLETED,
-              description:
-                data.description ||
-                `${isDraft ? "[DRAFT] " : ""}Payroll for ${data.month} (${data.workerType})`,
-              date: payDate,
-              createdBy: creater.id,
-              categoryId: paymentCategory!.id,
-              reference: `PAYROLL-${Date.now()}${isDraft ? "-DRAFT" : ""}`,
-            },
-          });
-
-          // B. Create the Payroll Header Record with Nested Summaries
+          // Create the Payroll Header Record with Nested Summaries
           payroll = await prisma.payroll.create({
             data: {
+              ...basePayrollData,
               month: data.month,
-              description:
-                data.description ||
-                `${isDraft ? "[DRAFT] " : ""}Payroll for ${data.month} (${data.workerType})`,
-              type: data.type,
-              totalAmount: batchTotals.total,
-              netAmount: batchTotals.net,
-              baseAmount: batchTotals.base,
-              overtimeAmount: batchTotals.overtime,
-              totalBonuses: batchTotals.bonus,
-              totalDeductions: batchTotals.deduction,
               currency: "ZAR",
-              status: data.status as PayrollStatus,
-              transactionId: transaction.id,
               createdBy: creater.id,
-
-              // CREATE AGGREGATED SUMMARIES (Payroll Level)
-              payrollBonuses: {
-                create: Object.entries(aggregatedBonuses).map(([type, data]) => ({
-                  bonusType: type,
-                  amount: data.amount,
-                  description: `Total ${type.replace(/_/g, " ")}`,
-                  isPercentage: false,
-                })),
-              },
-              payrollDeductions: {
-                create: Object.entries(aggregatedDeductions).map(
-                  ([type, data]) => ({
-                    deductionType: type,
-                    amount: data.amount,
-                    description: `Total ${type.replace(/_/g, " ")}`,
-                    isPercentage: false,
-                  })
-                ),
-              },
             },
           });
         }
@@ -414,9 +414,10 @@ export async function POST(req: Request) {
               daysWorked: employee.daysWorked,
               overtimeHours: employee.overtimeHours || 0,
               regularHours: employee.regularHours || 0,
-              createdBy: userId,
-              transactionId: transaction.id,
-              payrollId: payroll.id,
+              performanceScore: employee.performanceScore,
+              createdBy: creater.id,
+              transaction: transactionId ? { connect: { id: transactionId } } : undefined,
+              Payroll: { connect: { id: payroll.id } },
 
               // --- KEY STEP: CREATE INDIVIDUAL LINE ITEMS ---
               // This ensures each employee has their own list of bonuses/deductions saved
@@ -439,9 +440,9 @@ export async function POST(req: Request) {
 
             // Link to correct worker type
             if (employee.isFreelancer) {
-              paymentData.freeLancerId = employee.id;
+              paymentData.freeLancer = { connect: { id: employee.id } };
             } else {
-              paymentData.employeeId = employee.id;
+              paymentData.employee = { connect: { id: employee.id } };
             }
 
             return prisma.payment.create({
@@ -450,7 +451,7 @@ export async function POST(req: Request) {
           })
         );
 
-        return { payroll, transaction, payments };
+        return { payroll, payments };
       },
       {
         timeout: 30000,

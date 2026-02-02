@@ -126,11 +126,18 @@ export default function PayrollForm({
         console.error("Failed to load HR settings:", error);
       }
 
-      setSelectedMonth(currentMonth);
+      const startMonth = initialPayroll?.month || currentMonth;
+      setSelectedMonth(startMonth);
       setSelectedWorkerType("all");
       setSelectedDepartments([]);
-      checkPayrollRestrictions(currentMonth);
-      loadPayrollData(currentMonth, "all", []); // Load ALL data without filters
+
+      let pid = undefined;
+      if (initialPayroll?.id && initialPayroll.month === startMonth) {
+        pid = initialPayroll.id;
+      }
+      
+      checkPayrollRestrictions(startMonth, pid);
+      loadPayrollData(startMonth, "all", []); // Load ALL data without filters
     };
 
     initializeData();
@@ -151,7 +158,11 @@ export default function PayrollForm({
       setSelectedMonth(month);
       setSelectedWorkerType(workerType);
       setSelectedDepartments(departments);
-      checkPayrollRestrictions(month);
+      let pid = undefined;
+      if (initialPayroll?.id && initialPayroll.month === month) {
+        pid = initialPayroll.id;
+      }
+      checkPayrollRestrictions(month, pid);
       loadPayrollData(month, workerType, departments); // Pass watched values directly
     }
   }, [
@@ -160,9 +171,13 @@ export default function PayrollForm({
     formMethods.watch("departments"),
   ]);
 
-  const checkPayrollRestrictions = async (month: string) => {
+  const checkPayrollRestrictions = async (month: string, payrollId?: string) => {
     try {
-      const response = await fetch(`/api/payroll/check?month=${month}`);
+      let url = `/api/payroll/check?month=${month}`;
+      if (payrollId) {
+        url += `&payrollId=${payrollId}`;
+      }
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setPayrollRestriction(data);
@@ -195,7 +210,6 @@ export default function PayrollForm({
             // Update form fields with draft data
             formMethods.setValue("description", draftData.description || "");
             formMethods.setValue("type", draftData.type);
-            toast.info(`Loaded saved draft for ${month}`);
           } else {
             setLoadedDraftId(null);
           }
@@ -203,9 +217,14 @@ export default function PayrollForm({
       }
 
       // 2. Fetch calculations
-      const response = await fetch(
-        `/api/payroll/calculate?month=${month}&workerType=${workerType}`
-      );
+      let calcUrl = `/api/payroll/calculate?month=${month}&workerType=${workerType}`;
+      if (currentDraft?.id) {
+        calcUrl += `&payrollId=${currentDraft.id}`;
+      } else if (initialPayroll?.id && initialPayroll.month === month) {
+         calcUrl += `&payrollId=${initialPayroll.id}`;
+      }
+
+      const response = await fetch(calcUrl);
       
       if (!response.ok) {
         throw new Error("Failed to fetch payroll calculations");
@@ -411,7 +430,7 @@ export default function PayrollForm({
         dailySalary: emp.dailySalary,
         overtimeHourRate: emp.overtimeHourRate,
         department: emp.department,
-        paidDays: emp.paidDays,
+        daysWorked: emp.paidDays,
         baseAmount: emp.baseAmount,
         overtimeHours: emp.overtimeHours,
         overtimeAmount: emp.overtimeAmount,
@@ -633,8 +652,16 @@ export default function PayrollForm({
             }}
             isSubmitting={formMethods.formState.isSubmitting}
             canProcess={canProcessPayroll}
-            onSaveDraft={handleSaveDraft}
+            onSaveDraft={
+              initialPayroll?.status && initialPayroll.status !== "DRAFT"
+                ? undefined
+                : handleSaveDraft
+            }
             isSavingDraft={isSavingDraft}
+            isDraft={
+              !!loadedDraftId &&
+              (!initialPayroll || initialPayroll.status === "DRAFT")
+            }
           />
         </form>
       </div>

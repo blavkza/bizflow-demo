@@ -4,13 +4,13 @@ import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useCompanyInfo } from "@/hooks/use-company-info";
 import { usePOSSettings } from "@/hooks/use-pos-settings";
-import { Product, CartItem, SaleData } from "@/types/pos";
+import { PaymentMethod } from "@prisma/client";
+import { Product, CartItem, SaleData, Coupon } from "@/types/pos";
 import { productApi, saleApi } from "./api";
 import { POSHeader } from "./components/pos-header";
 import { ProductGrid } from "./components/product-grid";
 import { CartSection } from "./components/cart-section";
 import { ReceiptDialog } from "./components/receipt-dialog";
-import { PaymentMethod } from "@prisma/client";
 import { CheckoutDialog } from "./components/checkout-dialog";
 import { QuotationDialog } from "./components/quotation-dialog";
 import { SearchQuotationDialog } from "./components/search-quotation-dialog";
@@ -74,6 +74,9 @@ export default function POSPage() {
   >("thermal");
   const [quotationReceiptEmail, setQuotationReceiptEmail] = useState("");
 
+  const [activeCoupon, setActiveCoupon] = useState<Coupon | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+
   const categories = [
     "All",
     ...Array.from(new Set(products.map((p) => p.category))),
@@ -107,6 +110,21 @@ export default function POSPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const showScanNotice = (
+    message: string,
+    type: "error" | "warning" | "info"
+  ) => {
+    setScanNotice({
+      message,
+      type,
+      visible: true,
+    });
+
+    setTimeout(() => {
+      setScanNotice((prev) => ({ ...prev, visible: false }));
+    }, 3000);
   };
 
   const addToCart = (product: Product) => {
@@ -226,35 +244,135 @@ export default function POSPage() {
     setPaymentMethod(PaymentMethod.CASH);
     setAmountReceived("");
     setActiveQuotation(null);
+    setActiveCoupon(null);
   };
 
-  const showScanNotice = (
-    message: string,
-    type: "error" | "warning" | "info"
-  ) => {
-    setScanNotice({
-      message,
-      type,
-      visible: true,
-    });
+  const handleApplyCoupon = async (code: string): Promise<{ success: boolean; message?: string }> => {
+      setCouponLoading(true);
+      try {
+          const res = await fetch(`/api/coupons?code=${code}`);
+          if (!res.ok) throw new Error("Failed to fetch coupon");
+          const fetchedCoupons: Coupon[] = await res.json();
+          // The API returns an array since we used findMany
+          // We need to find the exact match case-insensitive
+          const coupon = fetchedCoupons.find(c => c.code.toLowerCase() === code.toLowerCase());
 
-    setTimeout(() => {
-      setScanNotice((prev) => ({ ...prev, visible: false }));
-    }, 3000);
+          if (!coupon) {
+               toast({ title: "Invalid Coupon", description: "Coupon code not found", variant: "destructive" });
+               return { success: false, message: "Coupon code not found" };
+          }
+
+          if (!coupon.isActive) {
+               toast({ title: "Invalid Coupon", description: "This coupon is inactive", variant: "destructive" });
+               return { success: false, message: "Coupon is inactive" };
+          }
+
+          const now = new Date();
+          if (new Date(coupon.startDate) > now) {
+               toast({ title: "Invalid Coupon", description: "This coupon is not yet active", variant: "destructive" });
+               return { success: false, message: "Coupon is not yet active" };
+          }
+
+          if (coupon.endDate && new Date(coupon.endDate) < now) {
+               toast({ title: "Invalid Coupon", description: "This coupon has expired", variant: "destructive" });
+               return { success: false, message: "Coupon has expired" };
+          }
+
+          if (coupon.minOrderAmount && subtotal < coupon.minOrderAmount) {
+               toast({ title: "Requirements Not Met", description: `Minimum order amount of R${coupon.minOrderAmount} required`, variant: "destructive" });
+               return { success: false, message: `Minimum order of R${coupon.minOrderAmount} required` };
+          }
+          
+           // Usage limit check (simple check, backend should double check on checkout)
+           if (coupon.usageLimit && (coupon as any).usedCount >= coupon.usageLimit) {
+               toast({ title: "Limit Reached", description: "This coupon has reached its usage limit", variant: "destructive" });
+               return { success: false, message: "Coupon usage limit reached" };
+           }
+
+          setActiveCoupon(coupon);
+          setDiscount(0); // Clear manual discount
+          toast({ title: "Coupon Applied", description: `${coupon.code} applied successfully` });
+          return { success: true };
+      } catch (error) {
+          console.error(error);
+          toast({ title: "Error", description: "Failed to apply coupon", variant: "destructive" });
+          return { success: false, message: "An unexpected error occurred" };
+      } finally {
+          setCouponLoading(false);
+      }
   };
+
+  const handleRemoveCoupon = () => {
+      setActiveCoupon(null);
+      toast({ title: "Coupon Removed" });
+  };
+
 
   // Calculate totals with VAT and delivery
+  // Subtotal based on ORIGINAL prices
   const subtotal = cart.reduce(
-    (sum, item) => sum + (Number(item.price) || 0) * item.quantity,
+    (sum, item) => sum + (Number(item.originalPrice) || Number(item.price) || 0) * item.quantity,
     0
   );
 
+  // Calculate item-level discounts (difference between original and current price)
+  const itemLevelDiscount = cart.reduce((sum, item) => {
+    const original = Number(item.originalPrice) || Number(item.price) || 0;
+    const current = Number(item.price) || 0;
+    if (current < original) {
+      return sum + (original - current) * item.quantity;
+    }
+    return sum;
+  }, 0);
+
+  // The value of the cart after item-level discounts, before global discounts
+  const cartValueAfterItemDiscounts = subtotal - itemLevelDiscount;
+
   // Apply discount limits from POS settings
   const maxDiscount = posSettings?.maxDiscountRate || 100;
-  const actualDiscount = Math.min(discount, maxDiscount);
-  const discountAmount = (subtotal * actualDiscount) / 100;
+  
+  let globalDiscountAmount = 0;
+  let actualDiscount = 0;
+  
+  if (activeCoupon) {
+      if (activeCoupon.type === "PERCENTAGE") {
+          // If coupon applies to specific products only
+          if (activeCoupon.products && activeCoupon.products.length > 0) {
+             // Calculate discount only on specific items
+             const applicableItemIds = activeCoupon.products.map(p => p.id);
+             const applicableSubtotal = cart.reduce((sum, item) => {
+                 if (applicableItemIds.includes(item.id)) {
+                     // Use current price (already potentially discounted at item level) for base
+                     return sum + (Number(item.price) || 0) * item.quantity;
+                 }
+                 return sum;
+             }, 0);
+             globalDiscountAmount = (applicableSubtotal * activeCoupon.value) / 100;
+             // Calculate effective global percentage for display based on original subtotal
+             actualDiscount = subtotal > 0 ? (globalDiscountAmount / subtotal) * 100 : 0;
+          } else {
+             // Apply to whole cart (after item discounts)
+             globalDiscountAmount = (cartValueAfterItemDiscounts * activeCoupon.value) / 100;
+             actualDiscount = activeCoupon.value;
+          }
+      } else {
+          // Fixed Amount
+          globalDiscountAmount = Number(activeCoupon.value);
+          actualDiscount = subtotal > 0 ? (globalDiscountAmount / subtotal) * 100 : 0;
+      }
+  } else {
+      // Manual Discount
+      actualDiscount = Math.min(discount, maxDiscount);
+      globalDiscountAmount = (cartValueAfterItemDiscounts * actualDiscount) / 100;
+  }
+  
+  // Total discount is item-level + global
+  let discountAmount = itemLevelDiscount + globalDiscountAmount;
 
-  // Calculate VAT if enabled
+  // Ensure discount doesn't exceed subtotal
+  discountAmount = Math.min(discountAmount, subtotal);
+
+  // Calculate VAT if enabled (Taxable amount is final price items are sold for)
   const vatRate = posSettings?.vatEnabled ? posSettings?.vatRate || 0.15 : 0;
   const taxableAmount = subtotal - discountAmount;
   const tax = taxableAmount * vatRate;
@@ -262,9 +380,14 @@ export default function POSPage() {
   // Calculate delivery fee
   const freeDeliveryThreshold = posSettings?.freeDeliveryAbove || 500;
   const baseDeliveryFee = posSettings?.deliveryFee || 50;
+  
+  // Check against the final cart value (after all discounts) for free delivery eligibility?
+  // Usually free delivery is based on spending amount.
+  const spendAmount = taxableAmount; 
+
   const deliveryAmount =
     isDelivery && posSettings?.deliveryEnabled
-      ? subtotal >= freeDeliveryThreshold
+      ? spendAmount >= freeDeliveryThreshold
         ? 0
         : baseDeliveryFee
       : 0;
@@ -522,6 +645,7 @@ export default function POSPage() {
               isDelivery,
               deliveryAddress: customerAddress,
               deliveryInstructions,
+              couponId: activeCoupon?.id, // Add couponId to request
             }),
           }
         );
@@ -640,6 +764,7 @@ export default function POSPage() {
           isDelivery,
           deliveryAddress: isDelivery ? customerAddress : undefined,
           deliveryInstructions: isDelivery ? deliveryInstructions : undefined,
+          couponId: activeCoupon?.id,
         };
 
         console.log("Submitting sale data:", JSON.stringify(saleData, null, 2));
@@ -820,6 +945,10 @@ export default function POSPage() {
           handleCheckout={handleCheckout}
           onCreateQuotation={openQuotationDialog}
           products={products}
+          appliedCoupon={activeCoupon}
+          onApplyCoupon={handleApplyCoupon}
+          onRemoveCoupon={handleRemoveCoupon}
+          couponLoading={couponLoading}
         />
       </div>
 

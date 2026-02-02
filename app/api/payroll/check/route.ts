@@ -56,6 +56,19 @@ export async function GET(request: Request) {
       });
     }
 
+    const payrollId = searchParams.get("payrollId");
+
+    // ... (Date check logic remains)
+
+    // If we are editing a specific payroll (payrollId provided), we bypass the "already processed" check
+    // because we are likely updating existing records, not looking for missed workers.
+    if (payrollId) {
+       return NextResponse.json({
+        canProcess: true,
+        message: `Editing Mode: Payroll updates allowed.`,
+      });
+    }
+
     // --- 2. Unpaid Worker Check (Smart Filtering) ---
 
     const existingPayments = await db.payment.findMany({

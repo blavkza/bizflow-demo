@@ -122,6 +122,7 @@ export async function GET(
           : 0,
         regularHours: payment.regularHours ? Number(payment.regularHours) : 0,
         daysWorked: payment.daysWorked || 0,
+        performanceScore: payment.performanceScore,
         worker: worker
           ? {
               ...worker,

@@ -13,6 +13,8 @@ import {
   UserCog,
   Briefcase,
   Building,
+  Hammer,
+  RefreshCcw,
 } from "lucide-react";
 
 export const useNavItems = (role: string) => {
@@ -81,6 +83,29 @@ export const useNavItems = (role: string) => {
           url: "/dashboard/inventory",
           icon: Store,
           color: "text-green-500",
+        },
+      ],
+    },
+    {
+      title: "Tools & Assets",
+      items: [
+        {
+          title: "Tool Requests",
+          url: "/dashboard/tools/tool-request",
+          icon: FileText,
+          color: "text-blue-500",
+        },
+        {
+          title: "Tool Inventory",
+          url: "/dashboard/tools/worker-tools",
+          icon: Hammer,
+          color: "text-amber-500",
+        },
+        {
+          title: "Tool Returns",
+          url: "/dashboard/tools/worker-tools/return",
+          icon: RefreshCcw,
+          color: "text-emerald-500",
         },
       ],
     },

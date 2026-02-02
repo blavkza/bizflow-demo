@@ -36,7 +36,8 @@ import { toast } from "sonner";
 import { useCompanyInfo } from "@/hooks/use-company-info";
 import { QuotationReportGenerator } from "@/lib/quotationReportGenerator";
 import { QuotationDeliveryNoteGenerator } from "@/lib/QuotationDeliveryNoteGenerator";
-import { PDFGenerator } from "@/lib/pdfGenerator"; 
+import { PDFGenerator } from "@/lib/pdfGenerator";
+import { quotationReceiptGenerator } from "@/lib/quotation-receipt-generator";
 import axios from "axios";
 import {
   DropdownMenu,
@@ -80,6 +81,8 @@ interface QuotationHeaderProps {
   refresh: () => void;
   combineServices: boolean;
   onToggleCombineServices: () => void;
+  hideItemPrices: boolean;
+  onToggleHideItemPrices: () => void;
 }
 
 export const QuotationHeader = ({
@@ -92,6 +95,8 @@ export const QuotationHeader = ({
   canCreateQuotations,
   combineServices,
   onToggleCombineServices,
+  hideItemPrices,
+  onToggleHideItemPrices,
 }: QuotationHeaderProps) => {
   const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -162,6 +167,7 @@ export const QuotationHeader = ({
 
       await PDFGenerator.downloadQuotationPDF(quotation, companyInfo, {
         combineServices,
+        hideItemPrices,
       });
       toast.success("Quotation PDF downloaded successfully");
     } catch (error) {
@@ -178,12 +184,28 @@ export const QuotationHeader = ({
     try {
       await PDFGenerator.printQuotationPDF(quotation, companyInfo, {
         combineServices,
+        hideItemPrices,
       });
     } catch (error) {
       console.error("Error printing PDF:", error);
       toast.error("Failed to print PDF");
     } finally {
       setIsPrintingPDF(false);
+    }
+  };
+
+  const handlePrintThermalReceipt = async () => {
+    try {
+      if (companyInfo) {
+        quotationReceiptGenerator.setCompanyInfo(companyInfo);
+      }
+      await quotationReceiptGenerator.printReceipt(quotation, "quotation", {
+        combineServices,
+        hideItemPrices,
+      });
+    } catch (error) {
+      console.error("Error printing thermal receipt:", error);
+      toast.error("Failed to print thermal receipt");
     }
   };
 
@@ -195,7 +217,7 @@ export const QuotationHeader = ({
         QuotationReportGenerator.generateQuotationReportHTML(
           quotation,
           companyInfo,
-          combineServices
+          { combineServices, hideItemPrices }
         );
 
       const printWindow = window.open("", "_blank");
@@ -260,6 +282,28 @@ export const QuotationHeader = ({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {/* Hide Item Prices Switch */}
+          <div className="flex items-center gap-3 border-r pr-4 mr-2">
+            {hideItemPrices ? (
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            )}
+
+            <Switch
+              checked={hideItemPrices}
+              onCheckedChange={onToggleHideItemPrices}
+              id="hide-item-prices"
+            />
+
+            <Label
+              htmlFor="hide-item-prices"
+              className="hidden md:inline cursor-pointer"
+            >
+              {hideItemPrices ? "Prices Hidden" : "Hide Prices"}
+            </Label>
+          </div>
+
           <div className="flex items-center gap-3">
             {combineServices ? (
               <Layers className="h-4 w-4 text-muted-foreground" />
@@ -365,6 +409,11 @@ export const QuotationHeader = ({
                   )}
                   {isDownloadingPDF ? "Downloading..." : "Download (PDF)"}
                 </DropdownMenuItem>
+
+                <DropdownMenuItem onClick={handlePrintThermalReceipt}>
+                  <Printer className="mr-2 h-4 w-4" />
+                  Print Thermal Receipt
+                </DropdownMenuItem>
               </DropdownMenuGroup>
 
               <DropdownMenuSeparator />
@@ -451,6 +500,8 @@ export const QuotationHeader = ({
         open={sendDialogOpen}
         onOpenChange={setSendDialogOpen}
         quotation={quotation}
+        combineServices={combineServices}
+        hideItemPrices={hideItemPrices}
       />
 
       <CancelQuotationDialog

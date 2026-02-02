@@ -50,7 +50,10 @@ export async function POST(request: Request) {
       | "employee"
       | "transaction"
       | "task"
-      | "freeLancer";
+      | "freeLancer"
+      | "loan"
+      | "loanPayment"
+      | "lender";
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
     if (!documentType || !entityId || !entityType) {
       return NextResponse.json(
         { error: "Document type, Entity ID and Entity Type are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
           console.log("Folder not found:", entityId);
           return NextResponse.json(
             { error: "Folder not found" },
-            { status: 404 }
+            { status: 404 },
           );
         }
         break;
@@ -91,7 +94,7 @@ export async function POST(request: Request) {
           console.log("Project not found:", entityId);
           return NextResponse.json(
             { error: "Project not found" },
-            { status: 404 }
+            { status: 404 },
           );
         }
         break;
@@ -101,7 +104,7 @@ export async function POST(request: Request) {
           console.log("Vendor not found:", entityId);
           return NextResponse.json(
             { error: "Vendor not found" },
-            { status: 404 }
+            { status: 404 },
           );
         }
         break;
@@ -111,7 +114,7 @@ export async function POST(request: Request) {
           console.log("Client not found:", entityId);
           return NextResponse.json(
             { error: "Client not found" },
-            { status: 404 }
+            { status: 404 },
           );
         }
         break;
@@ -123,7 +126,7 @@ export async function POST(request: Request) {
           console.log("Employee not found:", entityId);
           return NextResponse.json(
             { error: "Employee not found" },
-            { status: 404 }
+            { status: 404 },
           );
         }
         break;
@@ -135,7 +138,7 @@ export async function POST(request: Request) {
           console.log("Transaction not found:", entityId);
           return NextResponse.json(
             { error: "Transaction not found" },
-            { status: 404 }
+            { status: 404 },
           );
         }
         break;
@@ -145,7 +148,7 @@ export async function POST(request: Request) {
           console.log("Task not found:", entityId);
           return NextResponse.json(
             { error: "Task not found" },
-            { status: 404 }
+            { status: 404 },
           );
         }
         break;
@@ -157,7 +160,39 @@ export async function POST(request: Request) {
           console.log("FreeLancer not found:", entityId);
           return NextResponse.json(
             { error: "FreeLancer not found" },
-            { status: 404 }
+            { status: 404 },
+          );
+        }
+        break;
+      case "loan":
+        const loan = await db.loan.findUnique({ where: { id: entityId } });
+        if (!loan) {
+          console.log("Loan not found:", entityId);
+          return NextResponse.json(
+            { error: "Loan not found" },
+            { status: 404 },
+          );
+        }
+        break;
+      case "loanPayment":
+        const loanPayment = await db.loanPayment.findUnique({
+          where: { id: entityId },
+        });
+        if (!loanPayment) {
+          console.log("LoanPayment not found:", entityId);
+          return NextResponse.json(
+            { error: "LoanPayment not found" },
+            { status: 404 },
+          );
+        }
+        break;
+      case "lender":
+        const lender = await db.lender.findUnique({ where: { id: entityId } });
+        if (!lender) {
+          console.log("Lender not found:", entityId);
+          return NextResponse.json(
+            { error: "Lender not found" },
+            { status: 404 },
           );
         }
         break;
@@ -165,9 +200,9 @@ export async function POST(request: Request) {
         console.log("Invalid entity type:", entityType);
         return NextResponse.json(
           {
-            error: `Invalid entity type: ${entityType}. Must be one of: folder, project, vender, client, employee, transaction, task, freeLancer`,
+            error: `Invalid entity type: ${entityType}. Must be one of: folder, project, vender, client, employee, transaction, task, freeLancer, loan, loanPayment, lender`,
           },
-          { status: 400 }
+          { status: 400 },
         );
     }
 
@@ -188,7 +223,7 @@ export async function POST(request: Request) {
             fileConfig.maxSize / 1024 / 1024
           }MB`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -199,7 +234,7 @@ export async function POST(request: Request) {
     if (!process.env.CLOUDINARY_CLOUD_NAME || !uploadPreset) {
       return NextResponse.json(
         { error: "Cloudinary configuration missing" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -212,7 +247,7 @@ export async function POST(request: Request) {
     // Determine resource type for Cloudinary
     const isPDF = file.type === "application/pdf";
     const isDocument = ALLOWED_FILE_TYPES.document.mimeTypes.includes(
-      file.type
+      file.type,
     );
     const isImage = file.type.startsWith("image/");
 
@@ -232,7 +267,7 @@ export async function POST(request: Request) {
     } else {
       cloudinaryFormData.append(
         "file",
-        `data:${file.type};base64,${buffer.toString("base64")}`
+        `data:${file.type};base64,${buffer.toString("base64")}`,
       );
     }
 
@@ -244,18 +279,18 @@ export async function POST(request: Request) {
     if (resourceType === "raw") {
       cloudinaryFormData.append(
         "public_id",
-        `${entityType}_${entityId}_${safeFileName}_${timestamp}.${fileExtension}`
+        `${entityType}_${entityId}_${safeFileName}_${timestamp}.${fileExtension}`,
       );
     } else {
       cloudinaryFormData.append(
         "public_id",
-        `${entityType}_${entityId}_${safeFileName}_${timestamp}`
+        `${entityType}_${entityId}_${safeFileName}_${timestamp}`,
       );
     }
 
     cloudinaryFormData.append(
       "context",
-      `${entityType}_id=${entityId}|uploaded|document_type=${documentType}|resource_type=${resourceType}`
+      `${entityType}_id=${entityId}|uploaded|document_type=${documentType}|resource_type=${resourceType}`,
     );
 
     console.log("Uploading to Cloudinary...");
@@ -272,7 +307,7 @@ export async function POST(request: Request) {
           error: "Cloudinary upload failed",
           details: errorData.error?.message,
         },
-        { status: cloudinaryResponse.status }
+        { status: cloudinaryResponse.status },
       );
     }
 
@@ -283,7 +318,9 @@ export async function POST(request: Request) {
     const baseDocumentData = {
       name: file.name,
       originalName: file.name,
-      type: documentType,
+      type: Object.values(DocumentType).includes(documentType)
+        ? documentType
+        : "OTHER",
       url: cloudinaryData.secure_url,
       size: file.size,
       mimeType: file.type,
@@ -319,6 +356,15 @@ export async function POST(request: Request) {
         break;
       case "freeLancer":
         documentData.freeLancerId = entityId;
+        break;
+      case "loan":
+        documentData.loanId = entityId;
+        break;
+      case "loanPayment":
+        documentData.loanPaymentId = entityId;
+        break;
+      case "lender":
+        documentData.lenderId = entityId;
         break;
     }
 
@@ -359,31 +405,94 @@ export async function POST(request: Request) {
             code: prismaError.code,
             meta: prismaError.meta,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
 
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Upload failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
-// Also add a GET endpoint to check if the API is working
+// Also add a GET endpoint to fetch documents for a specific entity
 export async function GET(request: Request) {
-  return NextResponse.json({
-    message: "Documents API is working",
-    supportedEntityTypes: [
-      "folder",
-      "project",
-      "vender",
-      "client",
-      "employee",
-      "transaction",
-      "task",
-      "freeLancer",
-    ],
-  });
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const entityId = searchParams.get("entityId");
+    const entityType = searchParams.get("entityType");
+
+    if (!entityId || !entityType) {
+      return NextResponse.json({
+        message: "Documents API is working",
+        supportedEntityTypes: [
+          "folder",
+          "project",
+          "vender",
+          "client",
+          "employee",
+          "transaction",
+          "task",
+          "freeLancer",
+          "loan",
+          "loanPayment",
+          "lender",
+        ],
+      });
+    }
+
+    const query: any = {};
+    switch (entityType) {
+      case "folder":
+        query.folderId = entityId;
+        break;
+      case "project":
+        query.projectId = entityId;
+        break;
+      case "vender":
+        query.venderId = entityId;
+        break;
+      case "client":
+        query.clientId = entityId;
+        break;
+      case "employee":
+        query.employeeId = entityId;
+        break;
+      case "transaction":
+        query.transactionId = entityId;
+        break;
+      case "task":
+        query.taskId = entityId;
+        break;
+      case "freeLancer":
+        query.freeLancerId = entityId;
+        break;
+      case "loan":
+        query.loanId = entityId;
+        break;
+      case "loanPayment":
+        query.loanPaymentId = entityId;
+        break;
+      case "lender":
+        query.lenderId = entityId;
+        break;
+    }
+
+    const documents = await db.document.findMany({
+      where: query,
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json(documents);
+  } catch (error) {
+    console.error("[DOCUMENTS_GET]", error);
+    return new NextResponse("Internal Error", { status: 500 });
+  }
 }

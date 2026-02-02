@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
           "employee",
           scheduledKnockIn,
           scheduledKnockOut,
-          isWeekend
+          isWeekend,
         );
         status = calculatedStatus.status;
         displayStatus = calculatedStatus.displayStatus;
@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
           "freelancer",
           scheduledKnockIn,
           scheduledKnockOut,
-          isWeekend
+          isWeekend,
         );
         status = calculatedStatus.status;
         displayStatus = calculatedStatus.displayStatus;
@@ -280,7 +280,7 @@ export async function GET(request: NextRequest) {
       const targetStatus = statusMap[status];
       if (targetStatus) {
         filteredRecords = allRecords.filter(
-          (record) => record.status === targetStatus
+          (record) => record.status === targetStatus,
         );
       }
     }
@@ -290,7 +290,7 @@ export async function GET(request: NextRequest) {
     console.error("Fetch attendance records error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -302,7 +302,7 @@ function calculateAttendanceStatus(
   personType: "employee" | "freelancer",
   scheduledKnockIn: string | null,
   scheduledKnockOut: string | null,
-  isWeekend: boolean
+  isWeekend: boolean,
 ) {
   const today = new Date().toDateString();
   const targetDay = targetDate.toDateString();
@@ -310,14 +310,14 @@ function calculateAttendanceStatus(
 
   // Check if today is a working day for this person
   const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
-  const todayDay = dayNames[currentTime.getDay()];
+  const targetDateDay = dayNames[targetDate.getDay()];
   const workingDays = Array.isArray(person.workingDays)
     ? person.workingDays
     : person.workingDays
       ? JSON.parse(person.workingDays)
       : [];
 
-  const isWorkingDay = workingDays.includes(todayDay);
+  const isWorkingDay = workingDays.includes(targetDateDay);
 
   if (!isWorkingDay) {
     return {
@@ -352,7 +352,7 @@ function calculateAttendanceStatus(
     scheduledTimeIn.getHours(),
     scheduledTimeIn.getMinutes(),
     0,
-    0
+    0,
   );
 
   const scheduledOutToday = new Date(currentTime);
@@ -360,7 +360,7 @@ function calculateAttendanceStatus(
     scheduledTimeOut.getHours(),
     scheduledTimeOut.getMinutes(),
     0,
-    0
+    0,
   );
 
   const lateThreshold = new Date(scheduledInToday.getTime() + 30 * 60000); // 30 minutes grace period

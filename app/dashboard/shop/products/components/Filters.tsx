@@ -24,6 +24,7 @@ interface FiltersProps {
   categories: Category[];
   debounceTime?: number;
   onFilterChange?: () => void;
+  hideCategoryFilter?: boolean;
 }
 
 export function Filters({
@@ -36,6 +37,7 @@ export function Filters({
   categories = [],
   debounceTime = 300,
   onFilterChange,
+  hideCategoryFilter = false,
 }: FiltersProps) {
   const [localSearch, setLocalSearch] = useState(searchTerm);
 
@@ -45,7 +47,7 @@ export function Filters({
       onSearchChange(value);
       if (onFilterChange) onFilterChange();
     }, debounceTime),
-    [onSearchChange, debounceTime, onFilterChange]
+    [onSearchChange, debounceTime, onFilterChange],
   );
 
   // Update local search when prop changes
@@ -123,19 +125,21 @@ export function Filters({
             )}
           </div>
         </div>
-        <Select value={selectedCategory} onValueChange={handleCategoryChange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="All Categories">All Categories</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.id} value={category.name}>
-                {category.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {!hideCategoryFilter && (
+          <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="All Categories">All Categories</SelectItem>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.name}>
+                  {category.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <Select value={selectedStatus} onValueChange={handleStatusChange}>
           <SelectTrigger className="w-[140px]">
             <SelectValue placeholder="Status" />

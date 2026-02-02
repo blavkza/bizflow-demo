@@ -101,7 +101,9 @@ export const handleDownloadPDF = async (
     );
 
     // Save PDF
-    pdf.save(`payslip-${payment.id.slice(-8)}.pdf`);
+    const workerNumber = payment.worker?.employeeNumber || payment.worker?.freeLancerNumber || payment.id.slice(-8);
+    const dateStr = new Date(payment.payDate).toISOString().split("T")[0];
+    pdf.save(`payslip-${workerNumber}-${dateStr}.pdf`);
 
     toast.success("Payslip PDF downloaded successfully");
 
@@ -203,7 +205,9 @@ export const handleDownloadExcel = async (payment: PaymentDetail) => {
     const url = URL.createObjectURL(blob);
 
     link.setAttribute("href", url);
-    link.setAttribute("download", `payslip-${payment.id.slice(-8)}.csv`);
+    const workerNumber = payment.worker?.employeeNumber || payment.worker?.freeLancerNumber || payment.id.slice(-8);
+    const dateStr = new Date(payment.payDate).toISOString().split("T")[0];
+    link.setAttribute("download", `payslip-${workerNumber}-${dateStr}.csv`);
     link.style.visibility = "hidden";
 
     document.body.appendChild(link);

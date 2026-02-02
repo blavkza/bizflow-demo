@@ -200,22 +200,22 @@ export default function PayrollDetailsHeader({
       </div>
       <div className="flex items-center gap-2">
         {payroll.status === "DRAFT" && (
-          <>
-            <Button
-              onClick={handleDiscardDraft}
-              variant="destructive"
-              className="flex items-center gap-2"
-            >
-              Discard Draft
-            </Button>
-            <Button
-              onClick={() => router.push(`/dashboard/payroll/edit/${payroll.id}`)}
-              variant="secondary"
-              className="flex items-center gap-2"
-            >
-              Edit Draft
-            </Button>
-          </>
+          <Button
+            onClick={handleDiscardDraft}
+            variant="destructive"
+            className="flex items-center gap-2"
+          >
+            Discard Draft
+          </Button>
+        )}
+        {payroll.status !== "CANCELLED" && (
+          <Button
+            onClick={() => router.push(`/dashboard/payroll/edit/${payroll.id}`)}
+            variant="secondary"
+            className="flex items-center gap-2"
+          >
+            {payroll.status === "DRAFT" ? "Edit Draft" : "Edit Payroll"}
+          </Button>
         )}
         <Button
           onClick={handlePrintPayrollReport}

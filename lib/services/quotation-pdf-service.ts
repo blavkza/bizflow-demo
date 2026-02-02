@@ -5,7 +5,8 @@ import { QuotationReportGenerator } from "../quotationReportGenerator";
 export class QuotationPDFService {
   static async generateQuotationPDF(
     quotation: QuotationWithRelations,
-    companyInfo?: any
+    companyInfo?: any,
+    options: { combineServices?: boolean; hideItemPrices?: boolean } = {}
   ): Promise<Buffer> {
     let browser;
     let retryCount = 0;
@@ -42,7 +43,8 @@ export class QuotationPDFService {
         const htmlContent =
           QuotationReportGenerator.generateQuotationReportHTML(
             quotation,
-            companyInfo
+            companyInfo,
+            options // Pass the full options object
           );
 
         // Validate HTML content

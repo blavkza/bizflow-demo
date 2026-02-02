@@ -71,8 +71,8 @@ export default function PayrollHistory({
       // Search filter
       const matchesSearch =
         payroll.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        payroll.transaction.reference
-          .toLowerCase()
+        payroll.transaction?.reference
+          ?.toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
         payroll.month.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -317,7 +317,6 @@ export default function PayrollHistory({
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="PROCESSED">Processed</SelectItem>
                 <SelectItem value="PAID">Paid</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
                 <SelectItem value="CANCELLED">Cancelled</SelectItem>
               </SelectContent>
             </Select>
@@ -424,7 +423,7 @@ export default function PayrollHistory({
                     {new Date(payroll.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="font-mono text-sm">
-                    {payroll.transaction.reference}
+                    {payroll.transaction?.reference || "N/A"}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

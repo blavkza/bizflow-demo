@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import HRSettingsForm from "./_components/hr-settings-form";
 import POSSettingsForm from "./_components/pos-settings-form";
+import FinancialSettingsForm from "./_components/financial-settings-form";
 
 async function fetchUserData(userId: string) {
   const response = await fetch(`/api/users/userId/${userId}`);
@@ -152,12 +153,13 @@ export default function SettingsPage() {
       </header>
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
         <Tabs defaultValue="company" className="w-full">
-          <TabsList className="grid w-90 grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             {" "}
             {/* Updated width and columns */}
             <TabsTrigger value="company">Company</TabsTrigger>
             <TabsTrigger value="hr">HR</TabsTrigger>
-            <TabsTrigger value="pos">POS</TabsTrigger> {/* Added POS tab */}
+            <TabsTrigger value="pos">POS</TabsTrigger>
+            <TabsTrigger value="finance">Finance</TabsTrigger>
           </TabsList>
 
           <TabsContent value="company" className="space-y-4">
@@ -176,6 +178,12 @@ export default function SettingsPage() {
             {" "}
             {/* Added POS tab content */}
             <POSSettingsForm
+              canManageSettings={canManageSettings}
+              hasFullAccess={hasFullAccess}
+            />
+          </TabsContent>
+          <TabsContent value="finance" className="space-y-4">
+            <FinancialSettingsForm
               canManageSettings={canManageSettings}
               hasFullAccess={hasFullAccess}
             />

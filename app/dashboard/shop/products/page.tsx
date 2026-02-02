@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { Plus, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Product, ProductFormData, Category } from "@/types/product";
 import { ProductModal } from "./components/ProductModal";
 import { CategoryModal } from "./components/CategoryModal";
@@ -51,14 +52,20 @@ const queryClient = new QueryClient({
 export default function ShopPageWrapper() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ShopPage />
+      <Suspense fallback={<div>Loading...</div>}>
+        <ShopPage />
+      </Suspense>
     </QueryClientProvider>
   );
 }
 
 function ShopPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialCategory = searchParams.get("category") || "All Categories";
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [selectedCategory, setSelectedCategory] = useState(initialCategory);
   const [selectedStatus, setSelectedStatus] = useState("All Status");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
@@ -68,6 +75,14 @@ function ShopPage() {
 
   const queryClient = useQueryClient();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Sync state with URL params
+  useEffect(() => {
+    const category = searchParams.get("category");
+    if (category) {
+      setSelectedCategory(category);
+    }
+  }, [searchParams]);
 
   // Reset page to 1 when filters change
   const handleFilterChange = () => {
@@ -296,19 +311,25 @@ function ShopPage() {
   const saveLoading =
     createProductMutation.isPending || updateProductMutation.isPending;
 
+  const isFiltered = selectedCategory !== "All Categories";
+
   return (
     <div ref={containerRef} className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight">Inventory</h2>
+        <h2 className="text-3xl font-bold tracking-tight">
+          {isFiltered ? selectedCategory : "Inventory"}
+        </h2>
         <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsCategoryDialogOpen(true)}
-            disabled={addCategoryMutation.isPending}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add Category
-          </Button>
+          {!isFiltered && (
+            <Button
+              variant="outline"
+              onClick={() => setIsCategoryDialogOpen(true)}
+              disabled={addCategoryMutation.isPending}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Category
+            </Button>
+          )}
           <Button
             onClick={() => setIsCreateDialogOpen(true)}
             disabled={createProductMutation.isPending}
@@ -316,12 +337,14 @@ function ShopPage() {
             <Plus className="mr-2 h-4 w-4" />
             Add Product
           </Button>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/shop/sales">
-              <ShoppingCart className="mr-2 h-4 w-4" />
-              Sales
-            </Link>
-          </Button>
+          {!isFiltered && (
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/shop/sales">
+                <ShoppingCart className="mr-2 h-4 w-4" />
+                Sales
+              </Link>
+            </Button>
+          )}
           <ExportProductsButton
             searchTerm={searchTerm}
             categoryFilter={selectedCategory}
@@ -330,7 +353,7 @@ function ShopPage() {
         </div>
       </div>
 
-      <SummaryCards />
+      <SummaryCards selectedCategory={selectedCategory} />
 
       <Filters
         searchTerm={searchTerm}
@@ -341,6 +364,7 @@ function ShopPage() {
         onStatusChange={handleStatusChange}
         categories={categories}
         onFilterChange={handleFilterChange}
+        hideCategoryFilter={!!searchParams.get("category")}
       />
 
       {/* Error message */}
@@ -410,6 +434,7 @@ function ShopPage() {
                 setSelectedCategory("All Categories");
                 setSelectedStatus("All Status");
                 setPage(1);
+                router.push("/dashboard/shop/products");
               }}
             >
               Clear Filters

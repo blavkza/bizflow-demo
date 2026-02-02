@@ -14,11 +14,14 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { QuotationWithRelations } from "@/types/quotation";
 
+
 interface SendQuotationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   quotation: QuotationWithRelations;
   refresh?: () => void;
+  combineServices: boolean;
+  hideItemPrices: boolean;
 }
 
 export const SendQuotationDialog = ({
@@ -26,6 +29,8 @@ export const SendQuotationDialog = ({
   onOpenChange,
   quotation,
   refresh,
+  combineServices,
+  hideItemPrices,
 }: SendQuotationDialogProps) => {
   const [email, setEmail] = useState(quotation.client.email || "");
   const [isSending, setIsSending] = useState(false);
@@ -46,6 +51,8 @@ export const SendQuotationDialog = ({
         body: JSON.stringify({
           quotation,
           toEmail: email,
+          combineServices,
+          hideItemPrices,
         }),
       });
 

@@ -32,9 +32,9 @@ export default function EditPayrollDraftPage() {
         const payrollData = await payrollRes.json();
         const workersData = await workersRes.json();
 
-        if (payrollData.status !== "DRAFT") {
-          throw new Error("Only draft payrolls can be edited");
-        }
+        // if (payrollData.status !== "DRAFT") {
+        //   throw new Error("Only draft payrolls can be edited");
+        // }
 
         setPayroll(payrollData);
         setWorkers(workersData);
@@ -74,9 +74,13 @@ export default function EditPayrollDraftPage() {
           Back
         </Button>
         <div>
-          <h1 className="text-2xl font-bold">Edit Payroll Draft</h1>
+          <h1 className="text-2xl font-bold">
+            {payroll.status === "DRAFT" ? "Edit Payroll Draft" : "Edit Payroll"}
+          </h1>
           <p className="text-muted-foreground">
-            Adjust payments for {payroll.month} before final processing.
+            {payroll.status === "DRAFT" 
+              ? `Adjust payments for ${payroll.month} before final processing.`
+              : `Update payroll records for ${payroll.month}.`}
           </p>
         </div>
       </div>

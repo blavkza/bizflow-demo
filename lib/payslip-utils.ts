@@ -218,9 +218,11 @@ export class PayslipUtils {
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
+      const workerNumber = worker?.employeeNumber || worker?.freeLancerNumber || payment.id.slice(-8);
+      const dateStr = new Date(payment.payDate).toISOString().split("T")[0];
       link.setAttribute(
         "download",
-        `payslip-${payment.worker?.firstName}-${payment.worker?.lastName}-${new Date(payment.payDate).toISOString().split("T")[0]}.csv`
+        `payslip-${workerNumber}-${dateStr}.csv`
       );
 
       document.body.appendChild(link);

@@ -53,6 +53,8 @@ export async function GET(request: Request) {
       user.role === "CHIEF_EXECUTIVE_OFFICER" ||
       user.role === "ADMIN_MANAGER";
 
+    const payrollId = searchParams.get("payrollId");
+
     // --- STEP 1: Identify workers who are ALREADY PAID for this month ---
     const paymentWhere: any = {
       Payroll: {
@@ -60,6 +62,11 @@ export async function GET(request: Request) {
         status: { in: ["PROCESSED", "PAID"] }, // Only filter out finalized payrolls
       },
     };
+
+    // If a payrollId is provided (editing mode), ensure we DON'T count that payroll's payments as "already paid"
+    if (payrollId) {
+      paymentWhere.Payroll.id = { not: payrollId };
+    }
 
     if (!hasFullAccess && user.employee?.departmentId) {
       paymentWhere.OR = [

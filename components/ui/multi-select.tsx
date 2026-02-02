@@ -38,7 +38,8 @@ export function MultiSelect({
   placeholder = "Select...",
   disabled = false,
   loading = false,
-}: MultiSelectProps) {
+  maxCount = 3,
+}: MultiSelectProps & { maxCount?: number }) {
   const [open, setOpen] = React.useState(false);
 
   const handleSelect = (value: string) => {
@@ -49,6 +50,20 @@ export function MultiSelect({
     }
   };
 
+  const toggleSelectAll = () => {
+    if (selected.length === options.length) {
+      onChange([]);
+    } else {
+      onChange(options.map((opt) => opt.value));
+    }
+  };
+
+  const selectedOptions = React.useMemo(() => 
+    options.filter((option) => selected.includes(option.value)), 
+  [options, selected]);
+
+  const isAllSelected = options.length > 0 && selected.length === options.length;
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -56,20 +71,31 @@ export function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="w-full justify-between h-auto min-h-10"
           disabled={disabled || loading}
         >
-          <div className="flex gap-1 flex-wrap">
+          <div className="flex gap-1 flex-wrap items-center">
             {loading ? (
               <span className="text-muted-foreground">Loading...</span>
             ) : selected.length > 0 ? (
-              options
-                .filter((option) => selected.includes(option.value))
-                .map((option) => (
-                  <Badge key={option.value} variant="secondary">
-                    {option.label}
-                  </Badge>
-                ))
+              <>
+                {isAllSelected ? (
+                   <Badge variant="secondary">All {selected.length} Selected</Badge>
+                ) : (
+                  <>
+                    {selectedOptions.slice(0, maxCount).map((option) => (
+                      <Badge key={option.value} variant="secondary" className="max-w-[calc(100%-8px)]">
+                        <span className="truncate max-w-[150px] block">{option.label}</span>
+                      </Badge>
+                    ))}
+                    {selected.length > maxCount && (
+                      <Badge variant="secondary" className="bg-muted-foreground/20 hover:bg-muted-foreground/30">
+                        +{selected.length - maxCount} more
+                      </Badge>
+                    )}
+                  </>
+                )}
+              </>
             ) : (
               <span className="text-muted-foreground">{placeholder}</span>
             )}
@@ -81,7 +107,7 @@ export function MultiSelect({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
+      <PopoverContent className="w-full p-0" align="start" style={{ width: "var(--radix-popover-trigger-width)" }}>
         <Command>
           <CommandInput placeholder="Search..." />
           {loading ? (
@@ -93,6 +119,20 @@ export function MultiSelect({
             <>
               <CommandEmpty>No item found.</CommandEmpty>
               <CommandGroup className="max-h-64 overflow-auto">
+                <CommandItem
+                  onSelect={toggleSelectAll}
+                  className="font-semibold border-b"
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      selected.length === options.length
+                        ? "opacity-100"
+                        : "opacity-0"
+                    )}
+                  />
+                  Select All
+                </CommandItem>
                 {options.map((option) => (
                   <CommandItem
                     key={option.value}
@@ -106,7 +146,7 @@ export function MultiSelect({
                           : "opacity-0"
                       )}
                     />
-                    {option.label}
+                    <span className="truncate" title={option.label}>{option.label}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

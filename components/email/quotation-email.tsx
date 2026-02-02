@@ -15,9 +15,13 @@ import { QuotationWithRelations } from "@/types/quotation";
 
 interface QuotationEmailProps {
   quotation: QuotationWithRelations;
+  hideItemPrices?: boolean;
 }
 
-export function QuotationEmail({ quotation }: QuotationEmailProps) {
+export function QuotationEmail({
+  quotation,
+  hideItemPrices,
+}: QuotationEmailProps) {
   // --- BRAND COLORS ---
   const colorRed = "#990000";
   const colorGold = "#C5A005";
@@ -197,10 +201,14 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
         <td style={{ textAlign: "center" }}></td>
         <td>{item.description}</td>
         <td style={{ textAlign: "center" }}>{item.qty}</td>
-        <td style={{ textAlign: "right" }}>R{formatMoney(item.price)}</td>
-        <td style={{ textAlign: "center" }}>{item.discountInput}</td>
-        <td style={{ textAlign: "right" }}>R{formatMoney(item.vat)}</td>
-        <td style={{ textAlign: "right" }}>R{formatMoney(item.total)}</td>
+        {!hideItemPrices && (
+          <>
+            <td style={{ textAlign: "right" }}>R{formatMoney(item.price)}</td>
+            <td style={{ textAlign: "center" }}>{item.discountInput}</td>
+            <td style={{ textAlign: "right" }}>R{formatMoney(item.vat)}</td>
+            <td style={{ textAlign: "right" }}>R{formatMoney(item.total)}</td>
+          </>
+        )}
       </tr>
     );
   });
@@ -241,16 +249,20 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
           </div>
         </td>
         <td style={{ textAlign: "center" }}>{combinedServicesData.quantity}</td>
-        <td style={{ textAlign: "right", fontStyle: "italic" }}>-</td>
-        <td style={{ textAlign: "center" }}>
-          {combinedServicesData.discountInput}
-        </td>
-        <td style={{ textAlign: "right" }}>
-          R{formatMoney(combinedServicesData.vat)}
-        </td>
-        <td style={{ textAlign: "right", fontWeight: "bold" }}>
-          R{formatMoney(combinedServicesData.total)}
-        </td>
+        {!hideItemPrices && (
+          <>
+            <td style={{ textAlign: "right", fontStyle: "italic" }}>-</td>
+            <td style={{ textAlign: "center" }}>
+              {combinedServicesData.discountInput}
+            </td>
+            <td style={{ textAlign: "right" }}>
+              R{formatMoney(combinedServicesData.vat)}
+            </td>
+            <td style={{ textAlign: "right", fontWeight: "bold" }}>
+              R{formatMoney(combinedServicesData.total)}
+            </td>
+          </>
+        )}
       </tr>
     );
   } else if (serviceItems.length > 0) {
@@ -261,10 +273,14 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
           <td style={{ textAlign: "center", fontWeight: "bold" }}>SVC</td>
           <td>{item.description}</td>
           <td style={{ textAlign: "center" }}>{item.qty}</td>
-          <td style={{ textAlign: "right" }}>R{formatMoney(item.price)}</td>
-          <td style={{ textAlign: "center" }}>{item.discountInput}</td>
-          <td style={{ textAlign: "right" }}>R{formatMoney(item.vat)}</td>
-          <td style={{ textAlign: "right" }}>R{formatMoney(item.total)}</td>
+          {!hideItemPrices && (
+            <>
+              <td style={{ textAlign: "right" }}>R{formatMoney(item.price)}</td>
+              <td style={{ textAlign: "center" }}>{item.discountInput}</td>
+              <td style={{ textAlign: "right" }}>R{formatMoney(item.vat)}</td>
+              <td style={{ textAlign: "right" }}>R{formatMoney(item.total)}</td>
+            </>
+          )}
         </tr>
       );
     });
@@ -486,14 +502,22 @@ export function QuotationEmail({ quotation }: QuotationEmailProps) {
               <thead>
                 <tr>
                   <th style={{ width: "10%" }}>CODE</th>
-                  <th style={{ width: "35%", textAlign: "left" }}>
+                  <th style={{ width: hideItemPrices ? "80%" : "35%", textAlign: "left" }}>
                     DESCRIPTION
                   </th>
                   <th style={{ width: "10%" }}>QTY</th>
-                  <th style={{ width: "15%", textAlign: "right" }}>PRICE</th>
-                  <th style={{ width: "10%" }}>DISC</th>
-                  <th style={{ width: "10%", textAlign: "right" }}>VAT</th>
-                  <th style={{ width: "10%", textAlign: "right" }}>TOTAL</th>
+                  {!hideItemPrices && (
+                    <>
+                      <th style={{ width: "15%", textAlign: "right" }}>
+                        PRICE
+                      </th>
+                      <th style={{ width: "10%" }}>DISC</th>
+                      <th style={{ width: "10%", textAlign: "right" }}>VAT</th>
+                      <th style={{ width: "10%", textAlign: "right" }}>
+                        TOTAL
+                      </th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>{tableRows}</tbody>

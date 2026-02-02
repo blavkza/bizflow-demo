@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Edit,
@@ -13,12 +14,11 @@ import {
   Image as ImageIcon,
   RefreshCw,
   Package,
-  ChevronDown,
-  ChevronRight,
-  Box,
   Layers,
+  Box,
   TrendingUp,
   BarChart3,
+  MoreVertical,
 } from "lucide-react";
 
 // Shadcn components
@@ -32,13 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -56,14 +50,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 // Local components
 import CategoryForm from "./CategoryForm";
 import CategoryDetailModal from "./CategoryDetailModal";
 import { PaginationControls } from "@/components/PaginationControls";
 import CategoriesLoading from "./loading";
-import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 
 interface ProductCategory {
   id: string;
@@ -73,12 +67,12 @@ interface ProductCategory {
   createdAt: string;
   updatedAt: string;
   _count?: {
-    // Make _count optional
     products: number;
   };
 }
 
 export default function CategoriesPage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [filteredCategories, setFilteredCategories] = useState<
     ProductCategory[]
@@ -95,7 +89,7 @@ export default function CategoriesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
 
   // Pagination state
@@ -113,8 +107,8 @@ export default function CategoriesPage() {
       (category) =>
         category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (category.description?.toLowerCase() || "").includes(
-          searchTerm.toLowerCase()
-        )
+          searchTerm.toLowerCase(),
+        ),
     );
     setFilteredCategories(filtered);
 
@@ -178,7 +172,7 @@ export default function CategoriesPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(categoryData),
-        }
+        },
       );
 
       if (response.ok) {
@@ -202,12 +196,11 @@ export default function CategoriesPage() {
         `/api/shop/categories/${categoryToDelete.id}`,
         {
           method: "DELETE",
-        }
+        },
       );
 
       if (response.ok) {
         await loadCategories();
-        // Don't close dialog here yet - wait for the final state
       } else {
         const error = await response.json();
         alert(`Failed to delete category: ${error.error}`);
@@ -216,7 +209,6 @@ export default function CategoriesPage() {
       alert("Failed to delete category");
     } finally {
       setDeleteLoading(false);
-      // Only close dialog and clear state after everything is done
       setCategoryToDelete(null);
       setDeleteDialogOpen(false);
     }
@@ -237,37 +229,30 @@ export default function CategoriesPage() {
     setDeleteDialogOpen(true);
   };
 
-  // Get product count safely
   const getProductCount = (category: ProductCategory) => {
     return category._count?.products || 0;
   };
 
-  // Pagination handlers
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
   const handleItemsPerPageChange = (perPage: string) => {
     setItemsPerPage(Number(perPage));
-    setCurrentPage(1); // Reset to first page when items per page changes
+    setCurrentPage(1);
   };
 
-  // Calculate statistics safely
   const totalCategories = filteredCategories.length;
   const totalProducts = filteredCategories.reduce(
     (sum, cat) => sum + getProductCount(cat),
-    0
+    0,
   );
   const categoriesWithProducts = filteredCategories.filter(
-    (cat) => getProductCount(cat) > 0
-  ).length;
-  const categoriesWithImages = filteredCategories.filter(
-    (cat) => cat.images
+    (cat) => getProductCount(cat) > 0,
   ).length;
   const avgProductsPerCategory =
     totalCategories > 0 ? (totalProducts / totalCategories).toFixed(1) : "0";
 
-  // Calculate current page items
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const currentCategories = filteredCategories.slice(startIndex, endIndex);
@@ -285,7 +270,6 @@ export default function CategoriesPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-2">
-          {" "}
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <div>
@@ -306,7 +290,6 @@ export default function CategoriesPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Categories Card */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -328,7 +311,6 @@ export default function CategoriesPage() {
           </CardContent>
         </Card>
 
-        {/* Total Products Card */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -348,7 +330,6 @@ export default function CategoriesPage() {
           </CardContent>
         </Card>
 
-        {/* Categories with Products Card */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -375,7 +356,6 @@ export default function CategoriesPage() {
           </CardContent>
         </Card>
 
-        {/* Average Products Card */}
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -486,9 +466,14 @@ export default function CategoriesPage() {
                       return (
                         <TableRow
                           key={category.id}
-                          className="hover:bg-muted/50"
+                          className="hover:bg-muted/50 cursor-pointer"
+                          onClick={() =>
+                            router.push(
+                              `/dashboard/shop/products?category=${encodeURIComponent(category.name)}`,
+                            )
+                          }
                         >
-                          {/* Image Column - First */}
+                          {/* Image Column */}
                           <TableCell>
                             {category.images ? (
                               <div className="relative w-12 h-12 rounded-md overflow-hidden border">
@@ -513,9 +498,10 @@ export default function CategoriesPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={() =>
-                                  toggleCategoryExpand(category.id)
-                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCategoryExpand(category.id);
+                                }}
                                 className="h-6 w-6"
                               ></Button>
                               <span className="font-semibold">
@@ -553,51 +539,62 @@ export default function CategoriesPage() {
                           <TableCell>
                             <span className="text-sm text-muted-foreground">
                               {new Date(
-                                category.createdAt
+                                category.createdAt,
                               ).toLocaleDateString()}
                             </span>
                           </TableCell>
 
                           {/* Actions */}
                           <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setViewingCategory(category)}
-                                className="h-8 px-2"
-                                title="View details"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingCategory(category)}
-                                className="h-8 px-2"
-                                title="Edit category"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => openDeleteDialog(category)}
-                                disabled={productCount > 0}
-                                className={`h-8 px-2 ${
-                                  productCount > 0
-                                    ? "text-gray-400 cursor-not-allowed"
-                                    : "text-destructive hover:text-destructive/80"
-                                }`}
-                                title={
-                                  productCount > 0
-                                    ? "Cannot delete category with products"
-                                    : "Delete category"
-                                }
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  className="h-8 w-8 p-0"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setViewingCategory(category);
+                                  }}
+                                >
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingCategory(category);
+                                  }}
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (productCount === 0) {
+                                      openDeleteDialog(category);
+                                    }
+                                  }}
+                                  disabled={productCount > 0}
+                                  className={
+                                    productCount > 0
+                                      ? "text-muted-foreground"
+                                      : "text-destructive"
+                                  }
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           </TableCell>
                         </TableRow>
                       );
@@ -669,7 +666,6 @@ export default function CategoriesPage() {
       <AlertDialog
         open={deleteDialogOpen}
         onOpenChange={(open) => {
-          // Only allow closing if not loading and user clicks cancel
           if (!open && !deleteLoading) {
             setDeleteDialogOpen(false);
             setCategoryToDelete(null);

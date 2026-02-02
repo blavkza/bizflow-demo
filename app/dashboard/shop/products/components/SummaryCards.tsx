@@ -15,15 +15,26 @@ interface ProductStats {
   categories: string[];
 }
 
-export function SummaryCards() {
+interface SummaryCardsProps {
+  selectedCategory?: string;
+}
+
+export function SummaryCards({ selectedCategory }: SummaryCardsProps) {
   const {
     data: stats,
     isLoading,
     error,
   } = useQuery<ProductStats, Error>({
-    queryKey: ["productStats"],
+    queryKey: ["productStats", selectedCategory],
     queryFn: async () => {
-      const response = await fetch("/api/shop/products/stats");
+      const params = new URLSearchParams();
+      if (selectedCategory && selectedCategory !== "All Categories") {
+        params.append("category", selectedCategory);
+      }
+
+      const response = await fetch(
+        `/api/shop/products/stats?${params.toString()}`,
+      );
       if (!response.ok) {
         throw new Error("Failed to load statistics");
       }

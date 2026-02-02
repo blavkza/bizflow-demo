@@ -231,6 +231,15 @@ export const PERMISSION_GROUPS = [
     name: "POS",
     permissions: [UserPermission.POS_VIEW],
   },
+  {
+    name: "Coupons",
+    permissions: [
+      UserPermission.Coupon_CREATE,
+      UserPermission.Coupon_EDIT,
+      UserPermission.Coupon_DELETE,
+      UserPermission.Coupon_VIEW,
+    ],
+  },
 ];
 
 export interface User {

@@ -21,6 +21,7 @@ import Link from "next/link";
 import { DeleteDialog } from "./DeleteDialog";
 import { InvoiceProps } from "@/types/invoice";
 import { useState, useEffect } from "react";
+import { quotationReceiptGenerator } from "@/lib/quotation-receipt-generator";
 import {
   Dialog,
   DialogContent,
@@ -277,6 +278,20 @@ export function InvoiceActions({
     }));
   };
 
+  const handlePrintThermal = async () => {
+    try {
+      if (companyInfo) {
+        quotationReceiptGenerator.setCompanyInfo(companyInfo);
+      }
+      await quotationReceiptGenerator.printReceipt(invoice, "invoice", {
+        combineServices,
+      });
+    } catch (error) {
+      console.error("Error printing thermal receipt:", error);
+      toast.error("Failed to print thermal receipt");
+    }
+  };
+
   return (
     <div className="flex items-center space-x-2">
       {/* Send Invoice Dialog */}
@@ -410,6 +425,10 @@ export function InvoiceActions({
             {/* Fixed: removed arrow function */}
             <Printer className="mr-2 h-4 w-4" />
             Print PDF
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handlePrintThermal}>
+            <Printer className="mr-2 h-4 w-4" />
+            Print Thermal Receipt
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

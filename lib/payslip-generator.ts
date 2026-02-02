@@ -1,5 +1,21 @@
 import { format } from "date-fns";
 
+export interface CompanyInfo {
+  companyName: string;
+  address: string;
+  address2?: string;
+  phone?: string;
+  phone2?: string;
+  email?: string;
+  taxId?: string;
+  registrationNumber?: string;
+  bankName?: string;
+  bankAccount?: string;
+  bankName2?: string;
+  bankAccount2?: string;
+  logo?: string;
+}
+
 export interface PayslipData {
   id: string;
   employeeId: string | null;
@@ -39,21 +55,7 @@ export interface PayslipData {
     } | null;
   };
 
-  company?: {
-    companyName: string;
-    address: string;
-    address2?: string;
-    phone?: string;
-    phone2?: string;
-    email?: string;
-    taxId?: string;
-    registrationNumber?: string;
-    bankName?: string;
-    bankAccount?: string;
-    bankName2?: string;
-    bankAccount2?: string;
-    logo?: string;
-  };
+  company?: CompanyInfo;
 
   paymentBonuses: Array<{
     id: string;

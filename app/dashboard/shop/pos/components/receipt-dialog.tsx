@@ -231,7 +231,7 @@ export function ReceiptDialog({
         await receiptGenerator.generateReceiptForEmail(completedSale);
 
       // Use the API route to send email
-      const response = await fetch("/api/sales/send-receipt", {
+      const response = await fetch("/api/shop/sales/send-receipt", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

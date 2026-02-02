@@ -11,6 +11,11 @@ export async function GET(request: Request) {
     }
 
     const payrolls = await db.payroll.findMany({
+      where: {
+        status: {
+          not: "DRAFT"
+        }
+      },
       include: {
         transaction: {
           select: {

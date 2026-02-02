@@ -28,6 +28,8 @@ export async function GET() {
           },
         },
         Account: true,
+        loan: true,
+        loanPayment: true,
       },
     });
 
@@ -63,7 +65,7 @@ export async function POST(req: Request) {
     if (!body.amount || !body.type || !body.description || !body.date) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -136,7 +138,7 @@ export async function POST(req: Request) {
     console.error("[TRANSACTIONS_POST]", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
