@@ -2,122 +2,116 @@ import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import { AttendanceStatus } from "@prisma/client";
 
-// SIMPLIFIED TIMEZONE FUNCTION
-function getCurrentSASTAsUTC() {
+// ROBUST TIME HANDLING (SAST = UTC+2)
+function getSASTContext(hrSettings?: any) {
   const now = new Date();
 
-  // Get SAST date components (Africa/Johannesburg is UTC+2)
-  const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
+  // Use Intl.DateTimeFormat to get components in the correct timezone (Africa/Johannesburg)
+  // This is safe even if the server is in a different timezone or UTC.
+  const formatter = new Intl.DateTimeFormat("en-ZA", {
     timeZone: "Africa/Johannesburg",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
     hour12: false,
   });
 
-  const sastParts = sastFormatter.formatToParts(now);
+  const parts = formatter.formatToParts(now);
   const getPart = (type: string) =>
-    sastParts.find((p) => p.type === type)?.value || "00";
+    parts.find((p) => p.type === type)?.value || "00";
 
+  const hourStr = getPart("hour");
+  const minuteStr = getPart("minute");
   const year = parseInt(getPart("year"));
   const month = parseInt(getPart("month")) - 1; // 0-indexed
   const day = parseInt(getPart("day"));
-  const hour = parseInt(getPart("hour"));
-  const minute = parseInt(getPart("minute"));
-  const second = parseInt(getPart("second"));
 
-  // SAST is UTC+2, so subtract 2 hours to get UTC
-  const utcDate = new Date(
-    Date.UTC(year, month, day, hour - 2, minute, second)
-  );
+  const timeStr = `${hourStr}:${minuteStr}`;
+  const today = new Date(Date.UTC(year, month, day)); // SAST date at midnight UTC
 
-  return {
-    utcDate,
-    sastDate: new Date(Date.UTC(year, month, day)), // SAST date at midnight UTC
-  };
+  let currentWindow = 0;
+  if (hrSettings) {
+    const windows = [
+      {
+        start: hrSettings?.break1WindowStart || "11:00",
+        end: hrSettings?.break1WindowEnd || "13:00",
+      },
+      {
+        start: hrSettings?.break2WindowStart || "14:00",
+        end: hrSettings?.break2WindowEnd || "16:00",
+      },
+      {
+        start: hrSettings?.break3WindowStart || "17:00",
+        end: hrSettings?.break3WindowEnd || "18:00",
+      },
+      {
+        start: hrSettings?.break4WindowStart || "19:00",
+        end: hrSettings?.break4WindowEnd || "20:00",
+      },
+    ];
+
+    for (let i = 0; i < windows.length; i++) {
+      if (timeStr >= windows[i].start && timeStr <= windows[i].end) {
+        currentWindow = i + 1;
+        break;
+      }
+    }
+  }
+
+  return { now, timeStr, today, currentWindow };
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { employeeId, freelancerId, action } = body; // action: "start" | "end"
+    const { employeeId, freelancerId, action, breakWindow } = body;
 
     if (!employeeId && !freelancerId) {
       return NextResponse.json(
         { error: "Employee ID or Freelancer ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const hrSettings = await db.hRSettings.findFirst() as any;
-    const maxBreaks = hrSettings?.maxBreaksPerDay || 2;
+    const hrSettings = (await db.hRSettings.findFirst({
+      orderBy: { updatedAt: "desc" },
+    })) as any;
+
+    const context = getSASTContext(hrSettings);
+    const {
+      now: currentTime,
+      today,
+      currentWindow: detectedWindow,
+      timeStr: currentSASTTimeString,
+    } = context;
+
     const totalBreakTimeAllowed = hrSettings?.totalBreakDurationMinutes || 60;
-    const break1WindowStart = hrSettings?.break1WindowStart || "11:00";
-    const break1WindowEnd = hrSettings?.break1WindowEnd || "13:00";
-    const break2WindowStart = hrSettings?.break2WindowStart || "14:00";
-    const break2WindowEnd = hrSettings?.break2WindowEnd || "16:00";
-    const break3WindowStart = hrSettings?.break3WindowStart || "17:00";
-    const break3WindowEnd = hrSettings?.break3WindowEnd || "18:00";
-    const break4WindowStart = hrSettings?.break4WindowStart || "19:00";
-    const break4WindowEnd = hrSettings?.break4WindowEnd || "20:00";
+    const maxBreaks = hrSettings?.maxBreaksPerDay || 2;
 
-    const { utcDate: currentTime, sastDate: today } = getCurrentSASTAsUTC();
-
-    // Check break window (SAST time)
-    const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
-      timeZone: "Africa/Johannesburg",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-    const currentSASTTimeString = sastFormatter.format(new Date()); // HH:mm
-    
-    if (action === "start") {
-      // Find person and record first to know break count
-      let tempPerson: any = null;
-      if (employeeId) {
-        tempPerson = await db.employee.findUnique({ where: { employeeNumber: employeeId } });
-      } else {
-        tempPerson = await db.freeLancer.findUnique({ where: { freeLancerNumber: freelancerId } });
-      }
-      
-      const tempRecord = tempPerson ? await db.attendanceRecord.findFirst({
-        where: {
-          AND: [
-            employeeId ? { employeeId: tempPerson.id } : { freeLancerId: tempPerson.id },
-            { date: today },
-            { checkIn: { not: null } },
-            { checkOut: null },
-          ],
-        },
-        include: { breaks: true } as any
-      }) : null;
-
-      const breakCount = tempRecord?.breaks?.filter((b: any) => b.endTime).length || 0;
-      let windowStart = break1WindowStart;
-      let windowEnd = break1WindowEnd;
-
-      if (breakCount === 1) {
-        windowStart = break2WindowStart;
-        windowEnd = break2WindowEnd;
-      } else if (breakCount === 2) {
-        windowStart = break3WindowStart;
-        windowEnd = break3WindowEnd;
-      } else if (breakCount >= 3) {
-        windowStart = break4WindowStart;
-        windowEnd = break4WindowEnd;
-      }
-
-      if (currentSASTTimeString < windowStart || currentSASTTimeString > windowEnd) {
-        return NextResponse.json(
-          { error: `Break ${breakCount + 1} is only allowed between ${windowStart} and ${windowEnd}.` },
-          { status: 400 }
-        );
-      }
-    }
+    const breakWindows = [
+      {
+        start: hrSettings?.break1WindowStart || "11:00",
+        end: hrSettings?.break1WindowEnd || "13:00",
+        label: 1,
+      },
+      {
+        start: hrSettings?.break2WindowStart || "14:00",
+        end: hrSettings?.break2WindowEnd || "16:00",
+        label: 2,
+      },
+      {
+        start: hrSettings?.break3WindowStart || "17:00",
+        end: hrSettings?.break3WindowEnd || "18:00",
+        label: 3,
+      },
+      {
+        start: hrSettings?.break4WindowStart || "19:00",
+        end: hrSettings?.break4WindowEnd || "20:00",
+        label: 4,
+      },
+    ];
 
     // Find the person
     let person: any = null;
@@ -139,53 +133,153 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Person not found" }, { status: 404 });
     }
 
-    // Find today's attendance record
-    const attendanceRecord = await db.attendanceRecord.findFirst({
+    // ---------------------------------------------------------
+    // 3. GET ATTENDANCE RECORD
+    // ---------------------------------------------------------
+    const attendanceRecord = (await db.attendanceRecord.findFirst({
       where: {
         AND: [
-          personType === "employee" ? { employeeId: person.id } : { freeLancerId: person.id },
-          { date: today },
+          personType === "employee"
+            ? { employeeId: person.id }
+            : { freeLancerId: person.id },
           { checkIn: { not: null } },
           { checkOut: null },
         ],
       },
+      orderBy: { date: "desc" },
       include: {
         breaks: true,
       } as any,
-    }) as any;
+    })) as any;
 
     if (!attendanceRecord) {
       return NextResponse.json(
-        { error: "Active attendance record not found for today. Please check in first." },
-        { status: 400 }
+        {
+          error: "Active attendance record not found. Please check in first.",
+        },
+        { status: 400 },
       );
     }
 
+    const currentBreaks = (attendanceRecord.breaks as any[]) || [];
+
+    // ---------------------------------------------------------
+    // 4. PERFORM ACTION
+    // ---------------------------------------------------------
     if (action === "start") {
-      // Check if already on break
-      const activeBreak = (attendanceRecord.breaks as any[]).find((b: any) => !b.endTime);
+      // A. Check if already on break
+      const activeBreak = currentBreaks.find((b: any) => !b.endTime);
       if (activeBreak) {
-        return NextResponse.json({ error: "You are already on a break." }, { status: 400 });
-      }
-
-      // Check if max breaks reached
-      if ((attendanceRecord.breaks as any[]).length >= maxBreaks) {
         return NextResponse.json(
-          { error: `You have already taken the maximum of ${maxBreaks} breaks today.` },
-          { status: 400 }
+          { error: "You are already on a break." },
+          { status: 400 },
         );
       }
 
-      // Check if total break time already exhausted
-      const totalDuration = (attendanceRecord.breaks as any[]).reduce((acc: number, b: any) => acc + (b.duration || 0), 0);
-      if (totalDuration >= totalBreakTimeAllowed) {
+      // Logic to determine which window we are targeting
+      let targetWindow = breakWindow || detectedWindow;
+
+      if (!targetWindow || targetWindow === 0) {
+        // Find next available window for error message
+        let nextWindow = null;
+        for (const window of breakWindows) {
+          if (currentSASTTimeString < window.end) {
+            nextWindow = window;
+            break;
+          }
+        }
+
         return NextResponse.json(
-          { error: `You have already used your total break time of ${totalBreakTimeAllowed} minutes.` },
-          { status: 400 }
+          {
+            error: nextWindow
+              ? `Break ${nextWindow.label} is available from ${nextWindow.start} to ${nextWindow.end}. Current time (SAST): ${currentSASTTimeString}`
+              : `No more break windows available today. Current time (SAST): ${currentSASTTimeString}`,
+          },
+          { status: 400 },
         );
       }
 
-      // Start the break
+      // Validate targeted window
+      const targetWindowInfo = breakWindows.find(
+        (w) => w.label === targetWindow,
+      );
+      if (targetWindowInfo) {
+        if (currentSASTTimeString < targetWindowInfo.start) {
+          return NextResponse.json(
+            {
+              error: `Break ${targetWindow} is only available from ${targetWindowInfo.start} to ${targetWindowInfo.end}. Current time: ${currentSASTTimeString}`,
+            },
+            { status: 400 },
+          );
+        }
+
+        if (currentSASTTimeString > targetWindowInfo.end) {
+          // Find next available window
+          let nextWindow = null;
+          for (const window of breakWindows) {
+            if (currentSASTTimeString < window.end) {
+              nextWindow = window;
+              break;
+            }
+          }
+
+          return NextResponse.json(
+            {
+              error: nextWindow
+                ? `Break ${targetWindow} window has passed. Next available: Break ${nextWindow.label} from ${nextWindow.start} to ${nextWindow.end}`
+                : `Break ${targetWindow} window has passed. No more breaks available today.`,
+            },
+            { status: 400 },
+          );
+        }
+      }
+
+      // C. Check if this specific window has already been used
+      const windowTaken = currentBreaks.some((breakRecord: any) => {
+        const bStart = new Date(breakRecord.startTime);
+        const bastSAST = new Date(bStart.getTime() + 2 * 60 * 60 * 1000);
+        const bHour = bastSAST.getUTCHours();
+        const bMinute = bastSAST.getUTCMinutes();
+        const bTimeStr = `${bHour.toString().padStart(2, "0")}:${bMinute.toString().padStart(2, "0")}`;
+
+        for (const w of breakWindows) {
+          if (bTimeStr >= w.start && bTimeStr <= w.end) {
+            return w.label === targetWindow;
+          }
+        }
+        return false;
+      });
+
+      if (windowTaken) {
+        return NextResponse.json(
+          { error: `You have already taken break ${targetWindow} today.` },
+          { status: 400 },
+        );
+      }
+
+      // D. Check Max Breaks
+      if (currentBreaks.length >= maxBreaks) {
+        return NextResponse.json(
+          { error: `Maximum of ${maxBreaks} breaks reached for today.` },
+          { status: 400 },
+        );
+      }
+
+      // E. Check Total Duration
+      const totalUsed = currentBreaks.reduce(
+        (acc, b) => acc + (b.duration || 0),
+        0,
+      );
+      if (totalUsed >= totalBreakTimeAllowed) {
+        return NextResponse.json(
+          {
+            error: `Total break time of ${totalBreakTimeAllowed} minutes reached.`,
+          },
+          { status: 400 },
+        );
+      }
+
+      // F. Create Break
       const newBreak = await (db as any).breakRecord.create({
         data: {
           attendanceRecordId: attendanceRecord.id,
@@ -193,30 +287,34 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Update attendance status
       await db.attendanceRecord.update({
         where: { id: attendanceRecord.id },
-        data: {
-          status: AttendanceStatus.ON_BREAK as any,
-        },
+        data: { status: "ON_BREAK" as any },
       });
+
+      const allowedDuration =
+        currentBreaks.length === 0
+          ? Math.floor(totalBreakTimeAllowed / 2)
+          : Math.max(0, totalBreakTimeAllowed - totalUsed);
 
       return NextResponse.json({
         message: "Break started successfully",
         break: newBreak,
-        remainingTotalMinutes: totalBreakTimeAllowed - totalDuration,
+        currentBreakAllowance: allowedDuration,
       });
-
     } else if (action === "end") {
-      // Find active break
-      const activeBreak = (attendanceRecord.breaks as any[]).find((b: any) => !b.endTime);
+      const activeBreak = currentBreaks.find((b: any) => !b.endTime);
       if (!activeBreak) {
-        return NextResponse.json({ error: "You are not currently on a break." }, { status: 400 });
+        return NextResponse.json(
+          { error: "You are not currently on a break." },
+          { status: 400 },
+        );
       }
 
-      // End the break
       const startTime = new Date(activeBreak.startTime);
-      const duration = Math.round((currentTime.getTime() - startTime.getTime()) / 60000);
+      const duration = Math.round(
+        (currentTime.getTime() - startTime.getTime()) / 60000,
+      );
 
       const updatedBreak = await (db as any).breakRecord.update({
         where: { id: activeBreak.id },
@@ -226,14 +324,19 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Update attendance record total duration and status
-      const allBreaks = [...(attendanceRecord.breaks as any[]).filter((b: any) => b.id !== activeBreak.id), updatedBreak];
-      const newTotalDuration = allBreaks.reduce((acc: number, b: any) => acc + (b.duration || 0), 0);
+      const allBreaks = [
+        ...currentBreaks.filter((b) => b.id !== activeBreak.id),
+        updatedBreak,
+      ];
+      const newTotalDuration = allBreaks.reduce(
+        (acc, b) => acc + (b.duration || 0),
+        0,
+      );
 
       await db.attendanceRecord.update({
         where: { id: attendanceRecord.id },
         data: {
-          status: AttendanceStatus.PRESENT,
+          status: "PRESENT" as any,
           breakDuration: newTotalDuration,
         },
       });
@@ -242,18 +345,15 @@ export async function POST(request: NextRequest) {
         message: "Break ended successfully",
         break: updatedBreak,
         totalBreakDuration: newTotalDuration,
-        remainingTotalMinutes: Math.max(0, totalBreakTimeAllowed - newTotalDuration),
       });
-
     } else {
       return NextResponse.json({ error: "Invalid action" }, { status: 400 });
     }
-
   } catch (error: any) {
     console.error("Break tracking error:", error);
     return NextResponse.json(
       { error: "Internal server error", message: error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -268,49 +368,81 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 });
     }
 
-    const { sastDate: today } = getCurrentSASTAsUTC();
+    const hrSettings = (await db.hRSettings.findFirst({
+      orderBy: { updatedAt: "desc" },
+    })) as any;
 
-    const hrSettings = await db.hRSettings.findFirst() as any;
+    const context = getSASTContext(hrSettings);
+    const { today, currentWindow, timeStr } = context;
+
     const totalBreakTimeAllowed = hrSettings?.totalBreakDurationMinutes || 60;
 
     let personId: string;
     let personType: "employee" | "freelancer";
 
     if (employeeId) {
-      const p = await db.employee.findUnique({ where: { employeeNumber: employeeId } });
+      const p = await db.employee.findUnique({
+        where: { employeeNumber: employeeId },
+      });
       if (!p) return NextResponse.json({ error: "NotFound" }, { status: 404 });
       personId = p.id;
       personType = "employee";
     } else {
-      const p = await db.freeLancer.findUnique({ where: { freeLancerNumber: freelancerId! } });
+      const p = await db.freeLancer.findUnique({
+        where: { freeLancerNumber: freelancerId! },
+      });
       if (!p) return NextResponse.json({ error: "NotFound" }, { status: 404 });
       personId = p.id;
       personType = "freelancer";
     }
 
-    const attendanceRecord = await db.attendanceRecord.findFirst({
+    const attendanceRecord = (await db.attendanceRecord.findFirst({
       where: {
         AND: [
-          personType === "employee" ? { employeeId: personId } : { freeLancerId: personId },
-          { date: today },
+          personType === "employee"
+            ? { employeeId: personId }
+            : { freeLancerId: personId },
+          { checkIn: { not: null } },
+          { checkOut: null },
         ],
       },
+      orderBy: { date: "desc" },
       include: {
         breaks: true,
       } as any,
-    }) as any;
+    })) as any;
 
     if (!attendanceRecord) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         checkedIn: false,
         totalBreakDuration: 0,
         remainingTotalMinutes: totalBreakTimeAllowed,
-        breaks: []
+        breaks: [],
       });
     }
 
-    const totalDuration = (attendanceRecord.breaks as any[]).reduce((acc: number, b: any) => acc + (b.duration || 0), 0);
-    const activeBreak = (attendanceRecord.breaks as any[]).find((b: any) => !b.endTime);
+    const totalDuration = (attendanceRecord.breaks as any[]).reduce(
+      (acc: number, b: any) => acc + (b.duration || 0),
+      0,
+    );
+    const activeBreak = (attendanceRecord.breaks as any[]).find(
+      (b: any) => !b.endTime,
+    );
+
+    // Calculate allowance for the current/next break
+    const breakCount = (attendanceRecord.breaks as any[]).length;
+    let currentBreakAllowance = 0;
+
+    if (breakCount === 0) {
+      // First break: Max 50% of total
+      currentBreakAllowance = Math.floor(totalBreakTimeAllowed / 2);
+    } else {
+      // Subsequent breaks: Remaining time
+      currentBreakAllowance = Math.max(
+        0,
+        totalBreakTimeAllowed - totalDuration,
+      );
+    }
 
     return NextResponse.json({
       checkedIn: true,
@@ -319,6 +451,7 @@ export async function GET(request: NextRequest) {
       totalBreakDuration: totalDuration,
       remainingTotalMinutes: Math.max(0, totalBreakTimeAllowed - totalDuration),
       breaks: attendanceRecord.breaks,
+      currentBreakAllowance,
       maxBreaks: hrSettings?.maxBreaksPerDay || 2,
       breakReminderMinutes: hrSettings?.breakReminderMinutes || 5,
       break1WindowStart: hrSettings?.break1WindowStart || "11:00",
@@ -329,8 +462,10 @@ export async function GET(request: NextRequest) {
       break3WindowEnd: hrSettings?.break3WindowEnd || "18:00",
       break4WindowStart: hrSettings?.break4WindowStart || "19:00",
       break4WindowEnd: hrSettings?.break4WindowEnd || "20:00",
+      currentBreakWindow: currentWindow,
+      serverTime: context.now.toISOString(),
+      sastTime: context.timeStr,
     });
-
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

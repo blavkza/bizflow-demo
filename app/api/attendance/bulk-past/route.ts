@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
-import { AttendanceStatus, CheckInMethod, OvertimeStatus } from "@prisma/client";
+import {
+  AttendanceStatus,
+  CheckInMethod,
+  OvertimeStatus,
+} from "@prisma/client";
 import { auth } from "@clerk/nextjs/server";
 
 export async function POST(request: NextRequest) {
@@ -23,20 +27,33 @@ export async function POST(request: NextRequest) {
     // Process each freelancer entry
     for (const entry of entries) {
       const { freelancerId, checkIn, checkOut } = entry;
-      
+
       const freelancer = await db.freeLancer.findUnique({
         where: { id: freelancerId },
       });
 
       if (!freelancer) {
-        results.push({ freelancerId, status: "error", message: "Freelancer not found" });
+        results.push({
+          freelancerId,
+          status: "error",
+          message: "Freelancer not found",
+        });
         continue;
       }
 
-      const checkInDate = new Date(checkIn);
-      const checkOutDate = new Date(checkOut);
+      // Parse strings manually to avoid timezone ambiguity
+      const parseSASTStr = (sastStr: string) => {
+        const [dPart, tPart] = sastStr.split("T");
+        const [y, m, d] = dPart.split("-").map(Number);
+        const [hh, mm] = tPart.split(":").map(Number);
+        // SAST is UTC+2, so subtract 2 from hours for UTC
+        return new Date(Date.UTC(y, m - 1, d, hh - 2, mm, 0));
+      };
+
+      const checkInDate = parseSASTStr(checkIn);
+      const checkOutDate = parseSASTStr(checkOut);
       const recordDate = new Date(date);
-      recordDate.setHours(0, 0, 0, 0);
+      recordDate.setUTCHours(0, 0, 0, 0);
 
       // Reuse calculation logic (simplified for this context)
       const calculation = await calculateHoursAndStatus(
@@ -45,7 +62,7 @@ export async function POST(request: NextRequest) {
         checkOutDate,
         AttendanceStatus.PRESENT,
         false, // assuming no night shift for manual bulk for now
-        hrSettings
+        hrSettings,
       );
 
       // Upsert Attendance Record
@@ -111,7 +128,7 @@ export async function POST(request: NextRequest) {
         if (record.overtimeRequestId !== otRequest.id) {
           await db.attendanceRecord.update({
             where: { id: record.id },
-            data: { overtimeRequestId: otRequest.id }
+            data: { overtimeRequestId: otRequest.id },
           });
         }
       }
@@ -122,7 +139,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, results });
   } catch (error) {
     console.error("Bulk manual attendance error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -133,15 +153,17 @@ async function calculateHoursAndStatus(
   checkOutTime: Date,
   currentStatus: AttendanceStatus,
   isNightShift: boolean = false,
-  hrSettings?: any
+  hrSettings?: any,
 ) {
   const overtimeThreshold = hrSettings?.overtimeThreshold || 8.0;
   const halfDayThreshold = hrSettings?.halfDayThreshold || 4.0;
   const workingHoursWeekend = hrSettings?.workingHoursWeekend || 4;
   const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
-  const weekendOvertimeThreshold = hrSettings?.WeekendovertimeThreshold || workingHoursWeekend;
+  const weekendOvertimeThreshold =
+    hrSettings?.WeekendovertimeThreshold || workingHoursWeekend;
 
-  const actualHoursWorked = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+  const actualHoursWorked =
+    (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
   const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
     timeZone: "Africa/Johannesburg",
@@ -150,8 +172,12 @@ async function calculateHoursAndStatus(
   const checkInDay = sastFormatter.format(checkInTime).toUpperCase();
   const isWeekend = checkInDay === "SAT" || checkInDay === "SUN";
 
-  const workingHoursForDay = isWeekend ? workingHoursWeekend : workingHoursPerDay;
-  const effectiveOvertimeThreshold = isWeekend ? weekendOvertimeThreshold : overtimeThreshold;
+  const workingHoursForDay = isWeekend
+    ? workingHoursWeekend
+    : workingHoursPerDay;
+  const effectiveOvertimeThreshold = isWeekend
+    ? weekendOvertimeThreshold
+    : overtimeThreshold;
 
   let regularHours = 0;
   let overtimeHours = 0;
@@ -166,13 +192,16 @@ async function calculateHoursAndStatus(
     regularHours = actualHoursWorked;
     overtimeHours = 0;
     workedPercentage = (actualHoursWorked / workingHoursForDay) * 100;
-    newStatus = actualHoursWorked >= halfDayThreshold ? currentStatus : AttendanceStatus.ABSENT;
+    newStatus =
+      actualHoursWorked >= halfDayThreshold
+        ? currentStatus
+        : AttendanceStatus.ABSENT;
   }
 
   return {
     regularHours: Math.round(regularHours * 10) / 10,
     overtimeHours: Math.round(overtimeHours * 10) / 10,
     newStatus,
-    workedPercentage: Math.round(workedPercentage)
+    workedPercentage: Math.round(workedPercentage),
   };
 }
