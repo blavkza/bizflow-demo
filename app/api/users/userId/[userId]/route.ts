@@ -177,6 +177,17 @@ export async function GET(
               take: 1,
               orderBy: { createdAt: "desc" },
             },
+
+            // Employee Tools
+            tools: {
+              include: {
+                parentTool: true,
+                subTools: true,
+              },
+              orderBy: {
+                assignedDate: "desc",
+              },
+            },
           },
         },
 
