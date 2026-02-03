@@ -11,7 +11,7 @@ export function ToolsSummary({ tools }: ToolsSummaryProps) {
   const totalTools = tools.length;
   const availableTools = tools.filter((t) => t.status === "AVAILABLE").length;
   const toolsInMaintenance = tools.filter(
-    (t) => t.status === "MAINTENANCE"
+    (t) => t.status === "MAINTENANCE",
   ).length;
   const toolsRented = tools.filter((t) => t.status === "RENTED").length;
   const rentableTools = tools.filter(canToolBeRented).length;

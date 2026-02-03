@@ -141,7 +141,7 @@ export function ToolStats({
             <span className="font-medium">
               {tool.maintenanceLogs && tool.maintenanceLogs.length > 0
                 ? new Date(
-                    tool.maintenanceLogs[0].maintenanceDate
+                    tool.maintenanceLogs[0].maintenanceDate,
                   ).toLocaleDateString()
                 : "Never"}
             </span>

@@ -69,7 +69,7 @@ export function ToolForm({
       type: "IMAGE" as const,
       size: 0,
       mimeType: "image/jpeg",
-    })) || []
+    })) || [],
   );
 
   const form = useForm<ToolFormData>({
@@ -112,7 +112,7 @@ export function ToolForm({
     const currentImages = form.getValues("images") || [];
     form.setValue(
       "images",
-      currentImages.filter((img) => img !== url)
+      currentImages.filter((img) => img !== url),
     );
 
     // Update primary image if it was removed
@@ -132,7 +132,7 @@ export function ToolForm({
 
       await onSubmit(values);
       toast.success(
-        tool ? "Tool updated successfully" : "Tool created successfully"
+        tool ? "Tool updated successfully" : "Tool created successfully",
       );
     } catch (error) {
       toast.error("Failed to save tool");

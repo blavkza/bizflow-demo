@@ -50,35 +50,27 @@ export async function POST(req: Request) {
 
     // Start Transaction
     const result = await db.$transaction(async (tx) => {
-      // 1. Update the assigned tool record
+      // 1. Update the assigned tool record status to show it's awaiting return approval
       const updatedAssignedTool = await tx.employeeTool.update({
         where: { id: toolId },
         data: {
-          quantity: assignedTool.quantity - quantity,
-          status:
-            assignedTool.quantity - quantity === 0 ? "AVAILABLE" : "ASSIGNED",
-          returnDate:
-            assignedTool.quantity - quantity === 0 ? new Date() : undefined,
-          condition: condition || assignedTool.condition,
-          damageDescription:
-            damageDescription || assignedTool.damageDescription,
-          damageCost: damageCost ? Number(damageCost) : assignedTool.damageCost,
+          status: "PENDING_RETURN" as WorkerToolStatus,
         },
       });
 
-      // 2. Create the return log
-      await tx.toolReturn.create({
+      // 2. Create the pending return log
+      const toolReturn = await tx.toolReturn.create({
         data: {
-          toolId: toolId,
+          toolId,
           employeeId: assignedTool.employeeId,
           freelancerId: assignedTool.freelancerId,
-          quantity: quantity,
-          status: status || "AVAILABLE",
-          condition: condition || "GOOD",
-          damageDescription: damageDescription,
-          damageCost: damageCost ? Number(damageCost) : 0,
-          processedById: user?.id,
-        },
+          quantity,
+          status: "PENDING_RETURN" as WorkerToolStatus,
+          condition: condition || ("GOOD" as ToolCondition),
+          damageDescription,
+          isApproved: false,
+          processedById: null,
+        } as any,
       });
 
       // 3. Create Employee Notification
@@ -86,74 +78,17 @@ export async function POST(req: Request) {
         await tx.employeeNotification.create({
           data: {
             employeeId: assignedTool.employeeId,
-            title: "Tool Return Processed",
-            message: `Returned: ${quantity}x ${assignedTool.name}. Condition: ${condition || "GOOD"}.`,
+            title: "Tool Return Initiated",
+            message: `Return request sent for: ${quantity}x ${assignedTool.name}. Awaiting admin approval.`,
             type: "TOOLS",
-            priority: "MEDIUM",
-            channels: ["PUSH", "IN_APP"],
+            priority: "LOW",
+            channels: ["IN_APP"],
           },
         });
       }
 
-      // 4. If it has a parent tool, return the quantity to it
-      if (assignedTool.parentToolId) {
-        await tx.employeeTool.update({
-          where: { id: assignedTool.parentToolId },
-          data: {
-            quantity: {
-              increment: quantity,
-            },
-          },
-        });
-      } else {
-        // If no parent tool, maybe this tool was assigned directly from "AVAILABLE" status
-        if (assignedTool.quantity - quantity === 0) {
-          await tx.employeeTool.update({
-            where: { id: toolId },
-            data: {
-              status: status || "AVAILABLE",
-              employeeId: null,
-              freelancerId: null,
-              assignedDate: null,
-            },
-          });
-        }
-      }
-
-      // 5. Create Maintenance Record if status is MAINTENANCE
-      if (status === "MAINTENANCE") {
-        const reporterName = assignedTool.employee
-          ? `${assignedTool.employee.firstName} ${assignedTool.employee.lastName}`
-          : assignedTool.freelancer
-            ? `${assignedTool.freelancer.firstName} ${assignedTool.freelancer.lastName}`
-            : "Unknown Worker";
-
-        await tx.toolMaintenance.create({
-          data: {
-            toolId: toolId,
-            toolName: assignedTool.name,
-            serialNumber: assignedTool.serialNumber,
-            quantity: quantity,
-            issueDescription:
-              damageDescription || "Return maintenance check required",
-            status: "PENDING",
-            priority: damageDescription ? "HIGH" : "MEDIUM",
-            reportedBy: reporterName,
-          },
-        });
-      }
-
-      return updatedAssignedTool;
+      return toolReturn;
     });
-
-    // Send Push Notification if employee
-    if (assignedTool.employeeId) {
-      await sendPushNotification({
-        employeeId: assignedTool.employeeId,
-        title: "Tool Returned",
-        body: `You have successfully returned ${quantity}x ${assignedTool.name}.`,
-      });
-    }
 
     return NextResponse.json(result);
   } catch (error: any) {

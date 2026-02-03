@@ -35,7 +35,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to fetch tools" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: "Failed to create tool" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

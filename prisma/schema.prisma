@@ -2808,6 +2808,8 @@ model ToolReturn {
   damageCost        Decimal?         @default(0) @db.Decimal(10, 2)
   returnedDate      DateTime         @default(now())
   processedById     String?
+  isApproved        Boolean          @default(false)
+  adminNotes        String?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   employee          Employee?        @relation(fields: [employeeId], references: [id])
@@ -3603,6 +3605,7 @@ enum ToolCondition {
   GOOD
   FAIR
   POOR
+  DAMAGED
 }
 
 enum RentalStatus {
@@ -3699,4 +3702,6 @@ enum WorkerToolStatus {
   LOST
   MAINTENANCE
   RETIRED
+  RETURNED
+  PENDING_RETURN
 }
