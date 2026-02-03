@@ -50,7 +50,7 @@ export default function ActiveReturnsFilterTable({
   };
 
   const filteredData = useMemo(() => {
-    let result = [...data];
+    let result = data.filter((item) => item.status !== "PENDING_RETURN");
 
     if (workerTypeFilter !== "all") {
       result = result.filter((item) => item.workerType === workerTypeFilter);

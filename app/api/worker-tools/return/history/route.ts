@@ -59,6 +59,8 @@ export async function GET(req: Request) {
       damageCost: r.damageCost ? parseFloat(r.damageCost.toString()) : 0,
       returnedDate: r.returnedDate,
       processedBy: r.processedBy?.name || "System",
+      isApproved: (r as any).isApproved,
+      adminNotes: (r as any).adminNotes,
     }));
 
     return NextResponse.json(formatted);

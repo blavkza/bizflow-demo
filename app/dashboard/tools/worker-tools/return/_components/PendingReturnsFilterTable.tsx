@@ -11,41 +11,39 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Search,
-  History,
+  Clock,
   User,
   Calendar,
   AlertCircle,
   ShieldCheck,
   ShieldAlert,
-  CircleDollarSign,
+  CheckCircle2,
 } from "lucide-react";
 import { PaginationControls } from "@/components/PaginationControls";
 import { format } from "date-fns";
 import Image from "next/image";
+import { ApproveReturnDialog } from "./ApproveReturnDialog";
 
-interface HistoryReturnsFilterTableProps {
+interface PendingReturnsFilterTableProps {
   data: any[];
   isLoading: boolean;
+  onRefresh: () => void;
 }
 
-export default function HistoryReturnsFilterTable({
+export default function PendingReturnsFilterTable({
   data,
   isLoading,
-}: HistoryReturnsFilterTableProps) {
+  onRefresh,
+}: PendingReturnsFilterTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
-  const [conditionFilter, setConditionFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
+  const [isApproveOpen, setIsApproveOpen] = useState(false);
 
   const getConditionIcon = (condition: string) => {
     switch (condition) {
@@ -62,19 +60,8 @@ export default function HistoryReturnsFilterTable({
     }
   };
 
-  const getConditionStyles = (condition: string) => {
-    switch (condition) {
-      default:
-        return "bg-secondary text-secondary-foreground border-transparent";
-    }
-  };
-
   const filteredData = useMemo(() => {
-    let result = data.filter((item) => item.isApproved);
-
-    if (conditionFilter !== "all") {
-      result = result.filter((item) => item.condition === conditionFilter);
-    }
+    let result = data.filter((item) => !item.isApproved);
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
@@ -87,7 +74,7 @@ export default function HistoryReturnsFilterTable({
     }
 
     return result;
-  }, [data, searchTerm, conditionFilter]);
+  }, [data, searchTerm]);
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const paginatedData = useMemo(() => {
@@ -95,40 +82,32 @@ export default function HistoryReturnsFilterTable({
     return filteredData.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredData, currentPage, itemsPerPage]);
 
+  const handleAction = (record: any) => {
+    setSelectedRecord(record);
+    setIsApproveOpen(true);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-1 flex-wrap gap-2">
-          <div className="relative w-[250px]">
+          <div className="relative w-[300px]">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search history..."
+              placeholder="Search pending requests..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-8"
             />
           </div>
-          <Select value={conditionFilter} onValueChange={setConditionFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Condition" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Conditions</SelectItem>
-              <SelectItem value="EXCELLENT">Excellent</SelectItem>
-              <SelectItem value="GOOD">Good</SelectItem>
-              <SelectItem value="FAIR">Fair</SelectItem>
-              <SelectItem value="POOR">Poor</SelectItem>
-              <SelectItem value="DAMAGED">Damaged</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
-      <Card className="border shadow-sm bg-background/50 overflow-hidden">
-        <CardHeader className="bg-muted/30 pb-4">
-          <CardTitle className="text-lg font-bold flex items-center gap-2">
-            <History className="h-5 w-5 text-muted-foreground" />
-            Return Audit History
+      <Card className="border-orange-200 shadow-sm bg-background/50 overflow-hidden">
+        <CardHeader className="bg-orange-50/50 pb-4 border-b border-orange-100">
+          <CardTitle className="text-lg font-bold flex items-center gap-2 text-orange-700">
+            <Clock className="h-5 w-5" />
+            Pending Return Approvals
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -142,16 +121,16 @@ export default function HistoryReturnsFilterTable({
                   Worker & ID
                 </TableHead>
                 <TableHead className="text-[11px] uppercase font-bold tracking-wider">
-                  Return Details
+                  Details
                 </TableHead>
                 <TableHead className="text-[11px] uppercase font-bold tracking-wider">
-                  Condition
+                  Reported Cond.
                 </TableHead>
                 <TableHead className="text-[11px] uppercase font-bold tracking-wider">
-                  Status
+                  Requested On
                 </TableHead>
                 <TableHead className="text-[11px] uppercase font-bold tracking-wider text-right pr-6">
-                  Processed On
+                  Actions
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -161,7 +140,7 @@ export default function HistoryReturnsFilterTable({
                   <TableCell colSpan={6} className="h-24 text-center">
                     <div className="flex items-center justify-center gap-2 text-muted-foreground">
                       <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                      Loading history...
+                      Loading pending returns...
                     </div>
                   </TableCell>
                 </TableRow>
@@ -169,8 +148,8 @@ export default function HistoryReturnsFilterTable({
                 <TableRow>
                   <TableCell colSpan={6} className="h-40 text-center py-12">
                     <div className="flex flex-col items-center justify-center opacity-40">
-                      <History className="h-10 w-10 mb-2" />
-                      <p>No return records found.</p>
+                      <CheckCircle2 className="h-10 w-10 mb-2 text-green-600" />
+                      <p>All returns processed! No pending requests.</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -211,22 +190,14 @@ export default function HistoryReturnsFilterTable({
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="secondary"
-                            className="text-[10px] px-1 font-bold h-4"
-                          >
-                            QTY: {record.quantity}
-                          </Badge>
-                          {record.damageCost > 0 && (
-                            <Badge className="bg-muted text-foreground border-transparent text-[9px] px-1 h-4 flex gap-1 items-center">
-                              <CircleDollarSign className="h-2 w-2" />R
-                              {record.damageCost}
-                            </Badge>
-                          )}
-                        </div>
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] px-1 font-bold h-4 w-fit"
+                        >
+                          QTY: {record.quantity}
+                        </Badge>
                         {record.damageDescription && (
-                          <span className="text-[10px] text-muted-foreground line-clamp-1 italic max-w-[200px]">
+                          <span className="text-[10px] text-destructive line-clamp-1 italic max-w-[200px] font-medium">
                             "{record.damageDescription}"
                           </span>
                         )}
@@ -237,33 +208,26 @@ export default function HistoryReturnsFilterTable({
                         {getConditionIcon(record.condition)}
                         <Badge
                           variant="outline"
-                          className={`text-[9px] font-bold px-1.5 h-4 ${getConditionStyles(record.condition)}`}
+                          className="text-[9px] font-bold px-1.5 h-4 bg-secondary"
                         >
                           {record.condition}
                         </Badge>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className="text-[9px] font-bold px-1.5 h-4 w-fit uppercase"
-                      >
-                        {record.status}
-                      </Badge>
+                      <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        {format(new Date(record.returnedDate), "PPp")}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right pr-6">
-                      <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
-                          <Calendar className="h-3 w-3" />
-                          {format(new Date(record.returnedDate), "PP")}
-                        </div>
-                        <div className="text-[9px] text-muted-foreground/60 mt-0.5">
-                          By:{" "}
-                          <span className="font-bold">
-                            {record.processedBy}
-                          </span>
-                        </div>
-                      </div>
+                      <Button
+                        size="sm"
+                        className="h-8 bg-orange-600 hover:bg-orange-700 text-xs font-bold"
+                        onClick={() => handleAction(record)}
+                      >
+                        Process Request
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -285,6 +249,13 @@ export default function HistoryReturnsFilterTable({
           onPageChange={setCurrentPage}
         />
       )}
+
+      <ApproveReturnDialog
+        record={selectedRecord}
+        isOpen={isApproveOpen}
+        onClose={() => setIsApproveOpen(false)}
+        onSuccess={onRefresh}
+      />
     </div>
   );
 }

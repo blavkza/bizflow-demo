@@ -11,6 +11,7 @@ import { ReturnToolDialog } from "../../allocation/[type]/[workerId]/_components
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ActiveReturnsFilterTable from "./ActiveReturnsFilterTable";
 import HistoryReturnsFilterTable from "./HistoryReturnsFilterTable";
+import PendingReturnsFilterTable from "./PendingReturnsFilterTable";
 
 export function ToolReturnClient() {
   const [selectedTool, setSelectedTool] = useState<any>(null);
@@ -28,7 +29,11 @@ export function ToolReturnClient() {
     },
   });
 
-  const { data: returnHistory = [], isLoading: historyLoading } = useQuery({
+  const {
+    data: returnHistory = [],
+    isLoading: historyLoading,
+    refetch: refreshHistory,
+  } = useQuery({
     queryKey: ["tool-return-history"],
     queryFn: async () => {
       const { data } = await axios.get("/api/worker-tools/return/history");
@@ -90,22 +95,19 @@ export function ToolReturnClient() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm">
+          <Card className="shadow-sm border-orange-200 bg-orange-50/10">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Fair / Poor</CardTitle>
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-orange-700">
+                Pending Returns
+              </CardTitle>
+              <AlertCircle className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {
-                  assignedTools.filter(
-                    (t: any) =>
-                      t.condition === "FAIR" || t.condition === "POOR",
-                  ).length
-                }
+              <div className="text-2xl font-bold text-orange-700">
+                {returnHistory.filter((r: any) => !r.isApproved).length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Needs review on return
+                Awaiting admin approval
               </p>
             </CardContent>
           </Card>
@@ -147,8 +149,16 @@ export function ToolReturnClient() {
           </Card>
         </div>
 
-        <Tabs defaultValue="active" className="space-y-4">
+        <Tabs defaultValue="pending" className="space-y-4">
           <TabsList className="bg-background/50 border shadow-sm">
+            <TabsTrigger value="pending" className="transition-all relative">
+              Pending Requests
+              {returnHistory.filter((r: any) => !r.isApproved).length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-600 text-[10px] text-white font-bold">
+                  {returnHistory.filter((r: any) => !r.isApproved).length}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="active" className="transition-all">
               Active Allocations
             </TabsTrigger>
@@ -156,6 +166,17 @@ export function ToolReturnClient() {
               Return History
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="pending" className="space-y-4">
+            <PendingReturnsFilterTable
+              data={returnHistory}
+              isLoading={historyLoading}
+              onRefresh={() => {
+                refreshHistory();
+                refetch();
+              }}
+            />
+          </TabsContent>
 
           <TabsContent value="active" className="space-y-4">
             <ActiveReturnsFilterTable

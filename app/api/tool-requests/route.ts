@@ -3,9 +3,17 @@ import { db } from "@/lib/db";
 import { sendPushNotification } from "@/lib/expo";
 import { UserRole } from "@prisma/client";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const employeeId = searchParams.get("employeeId");
+    const freelancerId = searchParams.get("freelancerId");
+
     const requests = await db.toolRequest.findMany({
+      where: {
+        ...(employeeId ? { employeeId } : {}),
+        ...(freelancerId ? { freelancerId } : {}),
+      },
       include: {
         employee: {
           select: {

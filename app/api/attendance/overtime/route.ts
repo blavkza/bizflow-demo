@@ -25,13 +25,12 @@ export async function GET(request: NextRequest) {
     const all = searchParams.get("all");
 
     const hasFullAccess =
-      user.role === "CHIEF_EXECUTIVE_OFFICER" ||
-      user.role === "ADMIN_MANAGER";
+      user.role === "CHIEF_EXECUTIVE_OFFICER" || user.role === "ADMIN_MANAGER";
 
     if (all === "true") {
       // Build where clause
       const where: any = {};
-      
+
       if (!hasFullAccess && user.employee?.departmentId) {
         where.OR = [
           { employee: { departmentId: user.employee.departmentId } },
@@ -44,13 +43,13 @@ export async function GET(request: NextRequest) {
         where,
         include: {
           employee: {
-            include: { department: true }
+            include: { department: true },
           },
           freeLancer: {
-            include: { department: true }
-          }
+            include: { department: true },
+          },
         },
-        orderBy: { requestedAt: "desc" }
+        orderBy: { requestedAt: "desc" },
       });
       return NextResponse.json({ requests });
     }
@@ -74,7 +73,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ requests: [] });
   } catch (error) {
     console.error("Fetch overtime error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -86,7 +88,46 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { employeeId, freelancerId, startTime, hours, reason } = body;
+    const {
+      employeeId: inputEmployeeId,
+      freelancerId: inputFreelancerId,
+      startTime,
+      hours,
+      reason,
+    } = body;
+
+    let employeeId = null;
+    let freelancerId = null;
+
+    if (inputEmployeeId) {
+      const employee = await db.employee.findFirst({
+        where: {
+          OR: [{ id: inputEmployeeId }, { employeeNumber: inputEmployeeId }],
+        },
+      });
+      if (employee) {
+        employeeId = employee.id;
+      }
+    } else if (inputFreelancerId) {
+      const freelancer = await db.freeLancer.findFirst({
+        where: {
+          OR: [
+            { id: inputFreelancerId },
+            { freeLancerNumber: inputFreelancerId },
+          ],
+        },
+      });
+      if (freelancer) {
+        freelancerId = freelancer.id;
+      }
+    }
+
+    if (!employeeId && !freelancerId) {
+      return NextResponse.json(
+        { error: "Employee or Freelancer not found" },
+        { status: 404 },
+      );
+    }
 
     const date = new Date();
     date.setHours(0, 0, 0, 0);
@@ -95,8 +136,8 @@ export async function POST(request: NextRequest) {
     const existing = await db.overtimeRequest.findFirst({
       where: {
         OR: [
-          { employeeId: employeeId, date: date },
-          { freeLancerId: freelancerId, date: date },
+          ...(employeeId ? [{ employeeId, date }] : []),
+          ...(freelancerId ? [{ freeLancerId: freelancerId, date }] : []),
         ],
       },
     });
@@ -120,7 +161,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(overtimeRequest);
   } catch (error) {
     console.error("Overtime request error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -143,8 +187,8 @@ export async function PATCH(request: NextRequest) {
       },
       include: {
         employee: true,
-        freeLancer: true
-      }
+        freeLancer: true,
+      },
     });
 
     if (status === OvertimeStatus.APPROVED) {
@@ -154,13 +198,13 @@ export async function PATCH(request: NextRequest) {
           employeeId: updated.employeeId || undefined,
           freeLancerId: updated.freeLancerId || undefined,
           date: updated.date,
-        }
+        },
       });
 
       if (record) {
         await db.attendanceRecord.update({
           where: { id: record.id },
-          data: { overtimeRequestId: updated.id }
+          data: { overtimeRequestId: updated.id },
         });
       }
     }
@@ -168,6 +212,9 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(updated);
   } catch (error) {
     console.error("Update overtime error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
