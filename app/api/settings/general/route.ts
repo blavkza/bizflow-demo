@@ -186,21 +186,6 @@ export async function POST(req: Request) {
 
 export async function GET() {
   try {
-    const { userId } = await auth();
-
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const user = await db.user.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const settings = await db.generalSetting.findFirst({
       select: {
         id: true,
