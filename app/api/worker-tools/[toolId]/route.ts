@@ -104,17 +104,17 @@ export async function PATCH(
 
     // Determine status change
     let status = existingTool.status;
-    let assignedDate = existingTool.assignedDate;
+    let allocatedDate = existingTool.allocatedDate;
 
     const isAssigned = employeeId || freelancerId;
     const wasAssigned = existingTool.employeeId || existingTool.freelancerId;
 
     if (isAssigned && !wasAssigned) {
-      status = "ASSIGNED";
-      assignedDate = new Date();
+      status = "ALLOCATED";
+      allocatedDate = new Date();
     } else if (!isAssigned && wasAssigned) {
       status = "AVAILABLE";
-      assignedDate = null;
+      allocatedDate = null;
     }
 
     const updatedTool = await db.$transaction(async (tx) => {
@@ -144,7 +144,7 @@ export async function PATCH(
               condition: condition || existingTool.condition,
               images: images || existingTool.images,
               status: "AVAILABLE",
-              assignedDate: null,
+              allocatedDate: null,
               returnDate: new Date(),
             },
           });
@@ -188,7 +188,7 @@ export async function PATCH(
           condition,
           images,
           status,
-          assignedDate,
+          allocatedDate,
         },
       });
     });

@@ -44,10 +44,10 @@ export async function PATCH(
 
     const result = await db.$transaction(async (tx) => {
       if (reject) {
-        // Restore tool status to ASSIGNED if rejected
+        // Restore tool status to ALLOCATED if rejected
         await tx.employeeTool.update({
           where: { id: toolReturn.toolId },
-          data: { status: "ASSIGNED" },
+          data: { status: "ALLOCATED" },
         });
 
         return await tx.toolReturn.update({

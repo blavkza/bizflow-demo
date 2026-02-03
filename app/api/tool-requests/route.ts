@@ -86,6 +86,7 @@ export async function POST(req: Request) {
       type,
       priority,
       description,
+      quantity,
       employeeId,
       freelancerId,
       notes,
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
         type,
         priority, // Assuming frontend sends valid enum or string that matches
         description,
+        quantity: quantity || 1,
         employeeId,
         freelancerId,
         notes,

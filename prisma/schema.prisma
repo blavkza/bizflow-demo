@@ -2750,7 +2750,7 @@ model EmployeeTool {
   quantity          Int               @default(1)
   employeeId        String?
   freelancerId      String?
-  assignedDate      DateTime?
+  allocatedDate     DateTime?
   returnDate        DateTime?
   condition         ToolCondition     @default(GOOD)
   status            WorkerToolStatus  @default(AVAILABLE)
@@ -3697,7 +3697,7 @@ enum InterestType {
 
 enum WorkerToolStatus {
   AVAILABLE
-  ASSIGNED
+  ALLOCATED
   DAMAGED
   LOST
   MAINTENANCE

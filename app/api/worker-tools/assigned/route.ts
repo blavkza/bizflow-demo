@@ -10,11 +10,11 @@ export async function GET(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Fetch all tools that are currently ASSIGNED to someone
+    // Fetch all tools that are currently ALLOCATED to someone
     const assignedTools = await db.employeeTool.findMany({
       where: {
         OR: [{ NOT: { employeeId: null } }, { NOT: { freelancerId: null } }],
-        status: "ASSIGNED",
+        status: "ALLOCATED",
         quantity: { gt: 0 },
       },
       include: {
@@ -36,7 +36,7 @@ export async function GET(req: Request) {
         },
       },
       orderBy: {
-        assignedDate: "desc",
+        allocatedDate: "desc",
       },
     });
 
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
       name: t.name,
       quantity: t.quantity,
       serialNumber: t.serialNumber,
-      assignedDate: t.assignedDate,
+      allocatedDate: t.allocatedDate,
       condition: t.condition,
       images: t.images,
       workerName: t.employee
@@ -61,7 +61,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(formatted);
   } catch (error) {
-    console.log("[ALL_ASSIGNED_TOOLS_GET]", error);
+    console.log("[ALL_ALLOCATED_TOOLS_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

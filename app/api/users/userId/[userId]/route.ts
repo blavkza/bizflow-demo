@@ -34,10 +34,20 @@ export async function GET(
 
             // Attendance records (Raw list)
             AttendanceRecord: {
+              include: {
+                overtimeRequest: true,
+              },
               orderBy: {
                 date: "desc",
               },
               take: 60,
+            },
+
+            overtimeRequests: {
+              orderBy: {
+                requestedAt: "desc",
+              },
+              take: 10,
             },
 
             employeeNotification: {
@@ -185,7 +195,7 @@ export async function GET(
                 subTools: true,
               },
               orderBy: {
-                assignedDate: "desc",
+                allocatedDate: "desc",
               },
             },
           },

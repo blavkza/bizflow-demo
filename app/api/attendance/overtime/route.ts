@@ -3,6 +3,33 @@ import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
 import { OvertimeStatus } from "@prisma/client";
 
+// SIMPLIFIED TIMEZONE FUNCTION (Matching check-in/route.ts)
+function getCurrentSASTAsUTC() {
+  const now = new Date();
+  const sastFormatter = new Intl.DateTimeFormat("en-ZA", {
+    timeZone: "Africa/Johannesburg",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+
+  const sastParts = sastFormatter.formatToParts(now);
+  const getPart = (type: string) =>
+    sastParts.find((p) => p.type === type)?.value || "00";
+
+  const year = parseInt(getPart("year"));
+  const month = parseInt(getPart("month")) - 1; // 0-indexed
+  const day = parseInt(getPart("day"));
+
+  return {
+    sastDate: new Date(Date.UTC(year, month, day)), // SAST date at midnight UTC
+  };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth();
@@ -124,11 +151,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const date = new Date();
-    date.setHours(0, 0, 0, 0);
+    const { sastDate: date } = getCurrentSASTAsUTC();
 
-    // Check if one already exists
-    const existing = await db.overtimeRequest.findFirst({
+    let overtimeRequest = await db.overtimeRequest.findFirst({
       where: {
         OR: [
           ...(employeeId ? [{ employeeId, date }] : []),
@@ -137,21 +162,43 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (existing) {
-      return NextResponse.json(existing);
+    if (!overtimeRequest) {
+      overtimeRequest = await db.overtimeRequest.create({
+        data: {
+          employeeId,
+          freeLancerId: freelancerId,
+          date: date,
+          startTime: startTime ? new Date(startTime) : new Date(),
+          duration: hours ? parseFloat(hours) : null,
+          reason: reason || "Accepting overtime offer",
+          status: OvertimeStatus.PENDING,
+        },
+      });
     }
 
-    const overtimeRequest = await db.overtimeRequest.create({
-      data: {
-        employeeId,
-        freeLancerId: freelancerId,
-        date: date,
-        startTime: startTime ? new Date(startTime) : new Date(),
-        duration: hours ? parseFloat(hours) : null,
-        reason: reason || "Accepting overtime offer",
-        status: OvertimeStatus.PENDING,
-      },
-    });
+    // Link this overtime request to the today's attendance record
+    try {
+      const attendanceRecord = await db.attendanceRecord.findFirst({
+        where: {
+          AND: [
+            { date: date },
+            employeeId ? { employeeId } : { freeLancerId: freelancerId },
+          ],
+        },
+      });
+
+      if (attendanceRecord && !attendanceRecord.overtimeRequestId) {
+        await db.attendanceRecord.update({
+          where: { id: attendanceRecord.id },
+          data: { overtimeRequestId: overtimeRequest.id },
+        });
+        console.log(
+          `Linked overtime request ${overtimeRequest.id} to attendance record ${attendanceRecord.id}`,
+        );
+      }
+    } catch (linkError) {
+      console.error("Error linking overtime to attendance:", linkError);
+    }
 
     return NextResponse.json(overtimeRequest);
   } catch (error) {

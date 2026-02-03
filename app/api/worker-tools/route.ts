@@ -47,9 +47,9 @@ export async function POST(req: Request) {
         freelancerId,
         condition,
         images,
-        // Automatically set status based on assignment
-        status: employeeId || freelancerId ? "ASSIGNED" : "AVAILABLE",
-        assignedDate: employeeId || freelancerId ? new Date() : null,
+        // Automatically set status based on allocation
+        status: employeeId || freelancerId ? "ALLOCATED" : "AVAILABLE",
+        allocatedDate: employeeId || freelancerId ? new Date() : null,
         createdBy: user.id,
       },
     });
@@ -93,12 +93,12 @@ export async function GET(req: Request) {
       purchasePrice: parseFloat(tool.purchasePrice.toString()),
       quantity: tool.quantity,
       images: tool.images,
-      assignedDate: tool.assignedDate,
-      assignedTo: tool.employee
+      allocatedDate: tool.allocatedDate,
+      allocatedTo: tool.employee
         ? `${tool.employee.firstName} ${tool.employee.lastName}`
         : tool.freelancer
           ? `${tool.freelancer.firstName} ${tool.freelancer.lastName}`
-          : "Unassigned",
+          : "Unallocated",
       employeeId: tool.employeeId,
       freelancerId: tool.freelancerId,
     }));

@@ -130,6 +130,53 @@ export async function PATCH(
           { status: 400 },
         );
       }
+
+      // Perform Allocation
+      let remainingToAssign = currentRequest.quantity;
+      for (const toolRecord of availableTools) {
+        if (remainingToAssign <= 0) break;
+
+        const recordQty = toolRecord.quantity || 1;
+
+        if (recordQty > remainingToAssign) {
+          // Split the record: keep some available, allocate some
+          await db.employeeTool.update({
+            where: { id: toolRecord.id },
+            data: { quantity: recordQty - remainingToAssign },
+          });
+
+          await db.employeeTool.create({
+            data: {
+              name: toolRecord.name,
+              description: toolRecord.description,
+              serialNumber: toolRecord.serialNumber,
+              code: toolRecord.code,
+              category: toolRecord.category,
+              purchasePrice: toolRecord.purchasePrice,
+              purchaseDate: toolRecord.purchaseDate,
+              quantity: remainingToAssign,
+              status: "ALLOCATED",
+              employeeId: currentRequest.employeeId,
+              freelancerId: currentRequest.freelancerId,
+              allocatedDate: new Date(),
+              createdBy: dbUserId,
+            },
+          });
+          remainingToAssign = 0;
+        } else {
+          // Allocate the whole record
+          await db.employeeTool.update({
+            where: { id: toolRecord.id },
+            data: {
+              status: "ALLOCATED",
+              employeeId: currentRequest.employeeId,
+              freelancerId: currentRequest.freelancerId,
+              allocatedDate: new Date(),
+            },
+          });
+          remainingToAssign -= recordQty;
+        }
+      }
     }
 
     const updatedRequest = await db.toolRequest.update({
