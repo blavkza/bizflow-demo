@@ -1,11 +1,10 @@
-// app/api/payments/[id]/route.ts
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -86,7 +85,7 @@ export async function GET(
     console.error("Failed to fetch payment:", error);
     return NextResponse.json(
       { error: "Failed to fetch payment" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
-  { params }: { params: { userId: string } }
+  { params }: { params: { userId: string } },
 ) {
   try {
     const { userId } = await params;
@@ -11,7 +11,7 @@ export async function GET(
     if (!userId) {
       return NextResponse.json(
         { error: "userId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -143,6 +143,8 @@ export async function GET(
                     category: true,
                   },
                 },
+                paymentBonuses: true,
+                paymentDeductions: true,
               },
               orderBy: {
                 createdAt: "desc",
@@ -341,7 +343,7 @@ export async function GET(
     console.error("Error fetching user:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
