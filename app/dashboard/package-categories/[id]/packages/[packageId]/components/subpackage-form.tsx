@@ -160,6 +160,7 @@ interface SearchableItemInputProps {
   index: number;
   searchTerm: string;
   searchableItems: SearchableItem[];
+  selectedItems: SelectedItem[];
   showDropdown: number | null;
   onSearchChange: (index: number, value: string) => void;
   onFocus: (index: number) => void;
@@ -172,6 +173,7 @@ const SearchableItemInput = ({
   index,
   searchTerm,
   searchableItems,
+  selectedItems,
   showDropdown,
   onSearchChange,
   onFocus,
@@ -184,6 +186,14 @@ const SearchableItemInput = ({
 
   const filteredItems = useMemo(() => {
     return searchableItems.filter((item) => {
+      // Check if this item is already in selectedItems (excluding current index)
+      const isAlreadySelected = selectedItems.some(
+        (selected, i) =>
+          i !== index && selected.id === item.id && selected.type === item.type
+      );
+
+      if (isAlreadySelected) return false;
+
       const searchLower = searchTerm.toLowerCase();
       const matchesName = item.name.toLowerCase().includes(searchLower);
       const matchesSku = item.sku?.toLowerCase().includes(searchLower) || false;
@@ -196,7 +206,7 @@ const SearchableItemInput = ({
 
       return matchesName || matchesSku || matchesCategory || matchesDescription;
     });
-  }, [searchableItems, searchTerm]);
+  }, [searchableItems, searchTerm, selectedItems, index]);
 
   // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -354,6 +364,36 @@ const SearchableItemInput = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {showDropdown === index && filteredItems.length === 0 && searchTerm && (
+        <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md p-4">
+          <div className="text-center text-sm text-muted-foreground">
+            {searchableItems.some(
+              (item) =>
+                selectedItems.some(
+                  (selected, i) =>
+                    i !== index &&
+                    selected.id === item.id &&
+                    selected.type === item.type
+                ) &&
+                (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  item.category
+                    ?.toLowerCase()
+                    .includes(searchTerm.toLowerCase()))
+            ) ? (
+              <div>
+                <p className="font-medium">Item already added</p>
+                <p className="text-xs mt-1">
+                  This item is already in the subpackage
+                </p>
+              </div>
+            ) : (
+              <p>No matching items found</p>
+            )}
           </div>
         </div>
       )}
@@ -957,8 +997,23 @@ export function SubpackageForm({
     }
   };
 
-  // Handle item selection
+  // Handle item selection with duplicate check
   const handleItemSelect = (index: number, item: SearchableItem) => {
+    // Check if item is already selected (excluding current index)
+    const isDuplicate = selectedItems.some(
+      (selectedItem, i) =>
+        i !== index &&
+        selectedItem.id === item.id &&
+        selectedItem.type === item.type
+    );
+
+    if (isDuplicate) {
+      toast.error("This item is already added to the subpackage", {
+        description: "Each product/service can only be added once.",
+      });
+      return;
+    }
+
     setSearchInputs((prev) => ({ ...prev, [index]: item.name }));
 
     const selectedItem: SelectedItem = {
@@ -1161,6 +1216,24 @@ export function SubpackageForm({
         return;
       }
 
+      // Check for duplicates (in case somehow they got through)
+      const itemIds = new Set();
+      const duplicates = validItems.filter((item) => {
+        const key = `${item.type}-${item.id}`;
+        if (itemIds.has(key)) {
+          return true;
+        }
+        itemIds.add(key);
+        return false;
+      });
+
+      if (duplicates.length > 0) {
+        toast.error("Duplicate items found", {
+          description: "Please remove duplicate items before submitting.",
+        });
+        return;
+      }
+
       let discountData = {};
       if (values.discountType === "percentage") {
         discountData = { discount: values.discountPercentage };
@@ -1356,6 +1429,9 @@ export function SubpackageForm({
                     Search for products or services, or type custom descriptions
                   </p>
                 </div>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                  {selectedItems.filter((item) => item.name).length} items
+                </Badge>
               </div>
 
               {/* Items Header */}
@@ -1383,6 +1459,7 @@ export function SubpackageForm({
                           index={index}
                           searchTerm={searchInputs[index] || ""}
                           searchableItems={searchableItems}
+                          selectedItems={selectedItems}
                           showDropdown={showDropdown}
                           onSearchChange={handleSearchInputChange}
                           onFocus={handleSearchFocus}
