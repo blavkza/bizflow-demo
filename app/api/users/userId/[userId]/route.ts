@@ -331,6 +331,9 @@ export async function GET(
 
         // Dashboard settings
         dashboardSettings: true,
+
+        // General settings linked to the user
+        GeneralSetting: true,
       },
     });
 
