@@ -3,20 +3,22 @@ import { db } from "@/lib/db";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { employeeId: string } }
+  { params }: { params: { employeeId: string } },
 ) {
   try {
     const { employeeId } = params;
 
     // Find employee by employeeId
     const employee = await db.employee.findFirst({
-      where: { employeeNumber: employeeId },
+      where: {
+        OR: [{ id: employeeId }, { employeeNumber: employeeId }],
+      },
     });
 
     if (!employee) {
       return NextResponse.json(
         { error: "Employee not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -119,7 +121,7 @@ export async function GET(
     console.error("Error fetching employee leave usage:", error);
     return NextResponse.json(
       { error: "Failed to fetch employee leave usage" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

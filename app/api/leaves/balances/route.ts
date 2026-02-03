@@ -25,7 +25,9 @@ export async function GET(request: NextRequest) {
     // Get ALL leave requests (both APPROVED and PENDING)
     const leaveRequests = await db.leaveRequest.findMany({
       where: {
-        employee: { employeeNumber: employeeId },
+        employee: {
+          OR: [{ id: employeeId }, { employeeNumber: employeeId }],
+        },
         status: {
           in: ["APPROVED", "PENDING"], // Include both statuses
         },
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
         balances[type].used += request.days;
         balances[type].remaining = Math.max(
           0,
-          balances[type].total - balances[type].used
+          balances[type].total - balances[type].used,
         );
       }
     });
@@ -59,7 +61,7 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching leave balances:", error);
     return NextResponse.json(
       { error: "Failed to fetch leave balances" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

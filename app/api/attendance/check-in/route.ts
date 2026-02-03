@@ -32,7 +32,7 @@ function getCurrentSASTAsUTC() {
 
   // SAST is UTC+2, so subtract 2 hours to get UTC
   const utcDate = new Date(
-    Date.UTC(year, month, day, hour - 2, minute, second)
+    Date.UTC(year, month, day, hour - 2, minute, second),
   );
 
   return {
@@ -60,6 +60,8 @@ export async function POST(request: NextRequest) {
       address,
     } = body;
 
+    console.log("Check-in Request Body:", JSON.stringify(body, null, 2));
+
     // ---------------------------------------------------------
     // 1. GET HR SETTINGS
     // ---------------------------------------------------------
@@ -72,7 +74,7 @@ export async function POST(request: NextRequest) {
     if (!employeeId && !freelancerId) {
       return NextResponse.json(
         { error: "Employee ID or Freelancer ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -80,8 +82,10 @@ export async function POST(request: NextRequest) {
     let personType: "employee" | "freelancer" = "employee";
 
     if (employeeId) {
-      person = await db.employee.findUnique({
-        where: { employeeNumber: employeeId },
+      person = await db.employee.findFirst({
+        where: {
+          OR: [{ id: employeeId }, { employeeNumber: employeeId }],
+        },
         include: {
           department: true,
           leaveRequests: {
@@ -93,8 +97,10 @@ export async function POST(request: NextRequest) {
       });
       personType = "employee";
     } else {
-      person = await db.freeLancer.findUnique({
-        where: { freeLancerNumber: freelancerId },
+      person = await db.freeLancer.findFirst({
+        where: {
+          OR: [{ id: freelancerId }, { freeLancerNumber: freelancerId }],
+        },
         include: {
           department: true,
         },
@@ -107,7 +113,7 @@ export async function POST(request: NextRequest) {
         {
           error: `${personType === "employee" ? "Employee" : "Freelancer"} not found`,
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -127,7 +133,7 @@ export async function POST(request: NextRequest) {
     const bypassResult = await checkAttendanceBypassSimple(
       person.id,
       personType,
-      today
+      today,
     );
 
     // ---------------------------------------------------------
@@ -160,7 +166,7 @@ export async function POST(request: NextRequest) {
             leaveType: isOnLeave.leaveType,
             reason: isOnLeave.reason,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -179,29 +185,27 @@ export async function POST(request: NextRequest) {
           {
             error: "Not a scheduled working day for this shift",
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       console.log(
-        `Bypass allowed check-in on non-working day (${attendanceDay})`
+        `Bypass allowed check-in on non-working day (${attendanceDay})`,
       );
     }
 
-    // Check if already checked in
+    // Check if a record already exists for this date (one record per day per person)
     const existingRecord =
       personType === "employee"
         ? await db.attendanceRecord.findFirst({
             where: {
               employeeId: person.id,
               date: attendanceDate,
-              checkIn: { not: null },
             },
           })
         : await db.attendanceRecord.findFirst({
             where: {
               freeLancerId: person.id,
               date: attendanceDate,
-              checkIn: { not: null },
             },
           });
 
@@ -211,7 +215,7 @@ export async function POST(request: NextRequest) {
           error: `${personType === "employee" ? "Employee" : "Freelancer"} already checked in for this shift`,
           existingRecordId: existingRecord.id,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -234,7 +238,7 @@ export async function POST(request: NextRequest) {
         : person.scheduledKnockOut;
 
       console.log(
-        `Schedule Override: Using Bypass Time ${scheduledKnockInTime} as Knock-In Schedule`
+        `Schedule Override: Using Bypass Time ${scheduledKnockInTime} as Knock-In Schedule`,
       );
     }
     // B. PRIORITY 2: STANDARD SCHEDULE
@@ -276,20 +280,20 @@ export async function POST(request: NextRequest) {
 
       // Calculate late threshold
       const bypassLateThreshold = new Date(
-        bypassScheduleUTC.getTime() + gracePeriodMinutes * 60000
+        bypassScheduleUTC.getTime() + gracePeriodMinutes * 60000,
       );
 
       if (currentTimeUTC > bypassLateThreshold) {
         status = AttendanceStatus.LATE;
         isLate = true;
         console.log(
-          `✓ MARKED AS LATE for bypass schedule ${bypassResult.customCheckInTime}`
+          `✓ MARKED AS LATE for bypass schedule ${bypassResult.customCheckInTime}`,
         );
       } else {
         status = AttendanceStatus.PRESENT;
         isLate = false;
         console.log(
-          `✓ On time for bypass schedule ${bypassResult.customCheckInTime}`
+          `✓ On time for bypass schedule ${bypassResult.customCheckInTime}`,
         );
       }
     }
@@ -314,18 +318,18 @@ export async function POST(request: NextRequest) {
         scheduledHours - 2,
         scheduledMinutes,
         0,
-        0
+        0,
       );
 
       const lateThreshold = new Date(
-        scheduledScheduleUTC.getTime() + gracePeriodMinutes * 60000
+        scheduledScheduleUTC.getTime() + gracePeriodMinutes * 60000,
       );
 
       if (currentTimeUTC > lateThreshold) {
         status = AttendanceStatus.LATE;
         isLate = true;
         console.log(
-          `✓ MARKED AS LATE for standard schedule ${scheduledKnockInTime}`
+          `✓ MARKED AS LATE for standard schedule ${scheduledKnockInTime}`,
         );
       } else {
         status = AttendanceStatus.PRESENT;
@@ -342,7 +346,7 @@ export async function POST(request: NextRequest) {
     if (isLate && personType === "employee") {
       warningCreated = await checkAndCreateLateWarning(
         person.id,
-        currentTimeUTC
+        currentTimeUTC,
       );
     }
 
@@ -353,8 +357,16 @@ export async function POST(request: NextRequest) {
       checkIn: checkInTimeToUse,
       checkInMethod: method as CheckInMethod,
       checkInAddress: location || address,
-      checkInLat: lat ? parseFloat(lat) : null,
-      checkInLng: lng ? parseFloat(lng) : null,
+      checkInLat: (() => {
+        if (lat === undefined || lat === null) return null;
+        const p = parseFloat(lat.toString());
+        return isNaN(p) ? null : p;
+      })(),
+      checkInLng: (() => {
+        if (lng === undefined || lng === null) return null;
+        const p = parseFloat(lng.toString());
+        return isNaN(p) ? null : p;
+      })(),
       status: status,
       notes: notes || null,
       scheduledKnockIn: scheduledKnockInTime,
@@ -363,6 +375,13 @@ export async function POST(request: NextRequest) {
       bypassApplied: bypassApplied,
       bypassRuleId: bypassResult.rule?.id || null,
     };
+
+    console.log("Parsed Coordinates:", {
+      lat,
+      lng,
+      parsedLat: attendanceData.checkInLat,
+      parsedLng: attendanceData.checkInLng,
+    });
 
     // Add note about bypass schedule change
     if (
@@ -396,26 +415,62 @@ export async function POST(request: NextRequest) {
 
     try {
       if (!existingRecord) {
-        attendanceRecord = await db.attendanceRecord.create({
-          data: {
-            ...attendanceData,
-            date: attendanceDateUTC,
-          },
-          include: {
-            employee:
-              personType === "employee"
-                ? {
-                    include: { department: true },
-                  }
-                : false,
-            freeLancer:
-              personType === "freelancer"
-                ? {
-                    include: { department: true },
-                  }
-                : false,
-          },
-        });
+        try {
+          attendanceRecord = await db.attendanceRecord.create({
+            data: {
+              ...attendanceData,
+              date: attendanceDateUTC,
+            },
+            include: {
+              employee:
+                personType === "employee"
+                  ? {
+                      include: { department: true },
+                    }
+                  : false,
+              freeLancer:
+                personType === "freelancer"
+                  ? {
+                      include: { department: true },
+                    }
+                  : false,
+            },
+          });
+        } catch (createError: any) {
+          // Handle race condition: if another request created the record between our check and create
+          if (createError.code === "P2002") {
+            console.log(
+              "Race condition detected: Record was created by another request. Updating instead.",
+            );
+            const raceRecord = await db.attendanceRecord.findFirst({
+              where:
+                personType === "employee"
+                  ? { employeeId: person.id, date: attendanceDateUTC }
+                  : { freeLancerId: person.id, date: attendanceDateUTC },
+            });
+
+            if (raceRecord) {
+              attendanceRecord = await db.attendanceRecord.update({
+                where: { id: raceRecord.id },
+                data: attendanceData,
+                include: {
+                  employee:
+                    personType === "employee"
+                      ? { include: { department: true } }
+                      : false,
+                  freeLancer:
+                    personType === "freelancer"
+                      ? { include: { department: true } }
+                      : false,
+                },
+              });
+            } else {
+              throw createError;
+            }
+          } else {
+            throw createError;
+          }
+        }
       } else {
         attendanceRecord = await db.attendanceRecord.update({
           where: { id: existingRecord.id },
@@ -486,7 +541,7 @@ export async function POST(request: NextRequest) {
           error: "Failed to create attendance record",
           details: dbError.message,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
   } catch (error: any) {
@@ -496,7 +551,7 @@ export async function POST(request: NextRequest) {
         error: "Internal server error",
         message: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -507,7 +562,7 @@ export async function POST(request: NextRequest) {
 async function checkAttendanceBypassSimple(
   assigneeId: string,
   assigneeType: "employee" | "freelancer",
-  date: Date
+  date: Date,
 ): Promise<{
   hasBypass: boolean;
   bypassCheckIn: boolean;
@@ -634,7 +689,7 @@ async function checkAttendanceBypassSimple(
 
 async function checkIfEmployeeOnLeave(
   employee: any,
-  date: Date
+  date: Date,
 ): Promise<{ leaveType: string; reason: string } | null> {
   try {
     for (const leaveRequest of employee.leaveRequests) {
@@ -661,17 +716,17 @@ async function checkIfEmployeeOnLeave(
 
 async function checkAndCreateLateWarning(
   employeeId: string,
-  currentTime: Date
+  currentTime: Date,
 ): Promise<any> {
   try {
     const startOfWeek = new Date(currentTime);
     startOfWeek.setUTCDate(
-      currentTime.getUTCDate() - currentTime.getUTCDay() + 1
+      currentTime.getUTCDate() - currentTime.getUTCDay() + 1,
     );
     startOfWeek.setUTCHours(0, 0, 0, 0);
 
     const startOfMonth = new Date(
-      Date.UTC(currentTime.getUTCFullYear(), currentTime.getUTCMonth(), 1)
+      Date.UTC(currentTime.getUTCFullYear(), currentTime.getUTCMonth(), 1),
     );
 
     const weeklyLateCount = await db.attendanceRecord.count({
@@ -697,7 +752,7 @@ async function checkAndCreateLateWarning(
     });
 
     console.log(
-      `Late counts for employee ${employeeId}: Week=${weeklyLateCount}, Month=${monthlyLateCount}`
+      `Late counts for employee ${employeeId}: Week=${weeklyLateCount}, Month=${monthlyLateCount}`,
     );
 
     let warningType = "";
@@ -806,7 +861,7 @@ async function triggerAutoAttendanceForLeave() {
 
         const shouldCreateRecord = await shouldCreateLeaveAttendanceRecord(
           employee,
-          today
+          today,
         );
 
         if (shouldCreateRecord.shouldCreate) {
@@ -872,7 +927,7 @@ async function triggerAutoAttendanceForLeave() {
 
 async function shouldCreateLeaveAttendanceRecord(
   employee: any,
-  targetDate: Date
+  targetDate: Date,
 ): Promise<{
   shouldCreate: boolean;
   status?: AttendanceStatus;

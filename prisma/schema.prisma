@@ -17,53 +17,53 @@ model FinancialSettings {
 }
 
 model User {
-  id                  String             @id @default(cuid())
-  userId              String             @unique
-  email               String             @unique
-  name                String
-  userName            String             @unique
-  phone               String?
-  avatar              String?
-  role                UserRole           @default(VIEWER)
-  status              UserStatus         @default(ACTIVE)
-  lastLogin           DateTime?
-  timezone            String             @default("Africa/Johannesburg")
-  language            String             @default("en")
-  preferences         Json?
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  permissions         UserPermission[]
-  employeeId          String?            @unique
-  userType            UserType           @default(ADMIN)
-  GeneralSetting      GeneralSetting[]
-  activityLogs        ActivityLog[]
-  apiKeys             ApiKey[]
-  ChatSession         ChatSession[]
-  dashboardSettings   DashboardSettings?
-  managedDepartments  Department[]       @relation("DepartmentManager")
-  emergencyCallOuts   EmergencyCallOut[]
-  Expense             Expense[]
-  invoiceDocuments    InvoiceDocument[]
-  createdInvoices     Invoice[]
-  createdLenders      Lender[]
-  createdLoanPayments LoanPayment[]
-  createdLoans        Loan[]
-  notifications       Notification[]
-  Order               Order[]
-  passwordResets      PasswordReset[]
-  projectTeams        ProjectTeam[]
-  Project             Project[]
-  createdQuotations   Quotation[]
-  recurringInvoices   RecurringInvoice[]
-  createdReports      Report[]
-  sessions            Session[]
-  timeEntries         TimeEntry[]
-  createdTransactions Transaction[]
-  employee            Employee?          @relation(fields: [employeeId], references: [id])
-  Vendor              Vendor[]
-  workLogs            WorkLog[]
-  resolvedToolRequests ToolRequest[]    @relation("ResolvedRequests")
-  processedReturns     ToolReturn[]     @relation("ProcessedReturns")
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  email                String             @unique
+  name                 String
+  userName             String             @unique
+  phone                String?
+  avatar               String?
+  role                 UserRole           @default(VIEWER)
+  status               UserStatus         @default(ACTIVE)
+  lastLogin            DateTime?
+  timezone             String             @default("Africa/Johannesburg")
+  language             String             @default("en")
+  preferences          Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  permissions          UserPermission[]
+  employeeId           String?            @unique
+  userType             UserType           @default(ADMIN)
+  GeneralSetting       GeneralSetting[]
+  activityLogs         ActivityLog[]
+  apiKeys              ApiKey[]
+  ChatSession          ChatSession[]
+  dashboardSettings    DashboardSettings?
+  managedDepartments   Department[]       @relation("DepartmentManager")
+  emergencyCallOuts    EmergencyCallOut[]
+  Expense              Expense[]
+  invoiceDocuments     InvoiceDocument[]
+  createdInvoices      Invoice[]
+  createdLenders       Lender[]
+  createdLoanPayments  LoanPayment[]
+  createdLoans         Loan[]
+  notifications        Notification[]
+  Order                Order[]
+  passwordResets       PasswordReset[]
+  projectTeams         ProjectTeam[]
+  Project              Project[]
+  createdQuotations    Quotation[]
+  recurringInvoices    RecurringInvoice[]
+  createdReports       Report[]
+  sessions             Session[]
+  timeEntries          TimeEntry[]
+  resolvedToolRequests ToolRequest[]      @relation("ResolvedRequests")
+  processedReturns     ToolReturn[]       @relation("ProcessedReturns")
+  createdTransactions  Transaction[]
+  employee             Employee?          @relation(fields: [employeeId], references: [id])
+  Vendor               Vendor[]
+  workLogs             WorkLog[]
 
   @@map("users")
 }
@@ -195,14 +195,10 @@ model HRSettings {
   breakReminderMinutes       Int      @default(5)
   maxBreaksPerDay            Int      @default(2)
   totalBreakDurationMinutes  Int      @default(60)
-  break1WindowEnd            String?  @default("13:00")
-  break1WindowStart          String?  @default("11:00")
-  break2WindowEnd            String?  @default("16:00")
-  break2WindowStart          String?  @default("14:00")
-  break3WindowEnd            String?  @default("18:00")
-  break3WindowStart          String?  @default("17:00")
-  break4WindowEnd            String?  @default("20:00")
-  break4WindowStart          String?  @default("19:00")
+  lunchTimeWindowEnd         String?  @default("14:00")
+  lunchTimeWindowStart       String?  @default("13:00")
+  teaTimeWindowEnd           String?  @default("11:00")
+  teaTimeWindowStart         String?  @default("10:00")
 
   @@map("hr_settings")
 }
@@ -401,13 +397,13 @@ model Employee {
   overtimeRequests         OvertimeRequest[]
   payments                 Payment[]
   targets                  Target[]
+  toolRequests             ToolRequest[]
+  toolReturns              ToolReturn[]
   user                     User?
   Warning                  Warning[]
   tools                    EmployeeTool[]
   bypassRules              AttendanceBypassRule[] @relation("BypassRuleEmployees")
   assignedTasks            Task[]                 @relation("TaskAssignments")
-  toolRequests             ToolRequest[]
-  toolReturns              ToolReturn[]
 
   @@index([departmentId])
   @@index([status])
@@ -480,14 +476,14 @@ model FreeLancer {
   department               Department?            @relation("DepartmentFreelancers", fields: [departmentId], references: [id])
   kpiResults               KpiResult[]
   overtimeRequests         OvertimeRequest[]
-  toolReturns              ToolReturn[]
   payments                 Payment[]
   targets                  Target[]
+  toolRequests             ToolRequest[]
+  toolReturns              ToolReturn[]
   warnings                 Warning[]
   tools                    EmployeeTool[]
   bypassRules              AttendanceBypassRule[] @relation("BypassRuleFreelancers")
   assignedTasks            Task[]                 @relation("FreeLancerTaskAssignments")
-  toolRequests             ToolRequest[]
 
   @@index([departmentId])
   @@index([status])
@@ -2743,62 +2739,59 @@ model Lender {
 }
 
 model EmployeeTool {
-  id                String           @id @default(cuid())
+  id                String            @id @default(cuid())
   name              String
   description       String?
   serialNumber      String?
   code              String?
   category          String?
-  purchasePrice     Decimal          @default(0) @db.Decimal(10, 2)
+  purchasePrice     Decimal           @default(0) @db.Decimal(10, 2)
   purchaseDate      DateTime?
-  quantity          Int              @default(1)
+  quantity          Int               @default(1)
   employeeId        String?
   freelancerId      String?
   assignedDate      DateTime?
   returnDate        DateTime?
-  condition         ToolCondition    @default(GOOD)
-  status            WorkerToolStatus @default(AVAILABLE)
-  damageCost        Decimal?         @default(0) @db.Decimal(10, 2)
+  condition         ToolCondition     @default(GOOD)
+  status            WorkerToolStatus  @default(AVAILABLE)
+  damageCost        Decimal?          @default(0) @db.Decimal(10, 2)
   damageDescription String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
   createdBy         String?
   additionalInfo    String?
-  parentToolId      String?
-  parentTool        EmployeeTool?    @relation("ToolHierarchy", fields: [parentToolId], references: [id])
-  subTools          EmployeeTool[]   @relation("ToolHierarchy")
-
   images            String[]
-  employee          Employee?        @relation(fields: [employeeId], references: [id])
-  freelancer        FreeLancer?      @relation(fields: [freelancerId], references: [id])
-  returns           ToolReturn[]
+  parentToolId      String?
   maintenanceLogs   ToolMaintenance[]
+  returns           ToolReturn[]
+  employee          Employee?         @relation(fields: [employeeId], references: [id])
+  freelancer        FreeLancer?       @relation(fields: [freelancerId], references: [id])
+  parentTool        EmployeeTool?     @relation("ToolHierarchy", fields: [parentToolId], references: [id])
+  subTools          EmployeeTool[]    @relation("ToolHierarchy")
 
   @@map("worker_tools")
 }
 
 model ToolRequest {
-  id           String             @id @default(cuid())
-  employeeId   String?
-  freelancerId String?
-  type         String // e.g., "REPLACEMENT", "NEW_ITEM", "REPAIR"
-  toolName     String
-  quantity     Int                @default(1)
-  description  String?
-  priority     ToolRequestPriority @default(MEDIUM)
-  status       ToolRequestStatus   @default(PENDING)
-  notes        String?
-  reason       String?
-  requestedDate DateTime           @default(now())
+  id            String              @id @default(cuid())
+  employeeId    String?
+  freelancerId  String?
+  type          String
+  toolName      String
+  description   String?
+  priority      ToolRequestPriority @default(MEDIUM)
+  status        ToolRequestStatus   @default(PENDING)
+  notes         String?
+  requestedDate DateTime            @default(now())
   resolvedDate  DateTime?
-  
-  createdAt    DateTime            @default(now())
-  updatedAt    DateTime            @updatedAt
-
-  employee     Employee?           @relation(fields: [employeeId], references: [id])
-  freelancer   FreeLancer?         @relation(fields: [freelancerId], references: [id])
-  resolvedById String?
-  resolvedBy   User?               @relation("ResolvedRequests", fields: [resolvedById], references: [id])
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  reason        String?
+  quantity      Int                 @default(1)
+  resolvedById  String?
+  employee      Employee?           @relation(fields: [employeeId], references: [id])
+  freelancer    FreeLancer?         @relation(fields: [freelancerId], references: [id])
+  resolvedBy    User?               @relation("ResolvedRequests", fields: [resolvedById], references: [id])
 
   @@map("tool_requests")
 }
@@ -2815,39 +2808,35 @@ model ToolReturn {
   damageCost        Decimal?         @default(0) @db.Decimal(10, 2)
   returnedDate      DateTime         @default(now())
   processedById     String?
-
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
-
-  tool              EmployeeTool?    @relation(fields: [toolId], references: [id])
   employee          Employee?        @relation(fields: [employeeId], references: [id])
   freelancer        FreeLancer?      @relation(fields: [freelancerId], references: [id])
   processedBy       User?            @relation("ProcessedReturns", fields: [processedById], references: [id])
+  tool              EmployeeTool     @relation(fields: [toolId], references: [id])
 
   @@map("tool_returns")
 }
 
 model ToolMaintenance {
-  id                String           @id @default(cuid())
-  toolId            String?
-  toolName          String
-  serialNumber      String?
-  quantity          Int              @default(1)
-  issueDescription  String?
-  maintenanceType   String?          // e.g., "REPAIR", "CLEANING", "CALIBRATION"
-  cost              Decimal?         @default(0) @db.Decimal(10, 2)
-  status            MaintenanceStatus @default(PENDING)
-  priority          MaintenancePriority @default(MEDIUM)
-  startDate         DateTime?
-  completionDate    DateTime?
-  technician        String?
-  notes             String?
-  reportedBy        String?
-  
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-
-  tool              EmployeeTool?    @relation(fields: [toolId], references: [id])
+  id               String              @id @default(cuid())
+  toolId           String?
+  toolName         String
+  serialNumber     String?
+  quantity         Int                 @default(1)
+  issueDescription String?
+  maintenanceType  String?
+  cost             Decimal?            @default(0) @db.Decimal(10, 2)
+  status           MaintenanceStatus   @default(PENDING)
+  priority         MaintenancePriority @default(MEDIUM)
+  startDate        DateTime?
+  completionDate   DateTime?
+  technician       String?
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  reportedBy       String?
+  tool             EmployeeTool?       @relation(fields: [toolId], references: [id])
 
   @@map("tool_maintenance")
 }

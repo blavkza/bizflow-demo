@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (!employeeId && !freelancerId) {
       return NextResponse.json(
         { error: "Employee ID or Freelancer ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -33,13 +33,17 @@ export async function POST(request: NextRequest) {
 
     // Find employee or freelancer
     if (employeeId) {
-      person = await db.employee.findUnique({
-        where: { employeeNumber: employeeId },
+      person = await db.employee.findFirst({
+        where: {
+          OR: [{ id: employeeId }, { employeeNumber: employeeId }],
+        },
       });
       personType = "employee";
     } else {
-      person = await db.freeLancer.findUnique({
-        where: { freeLancerNumber: freelancerId },
+      person = await db.freeLancer.findFirst({
+        where: {
+          OR: [{ id: freelancerId }, { freeLancerNumber: freelancerId }],
+        },
       });
       personType = "freelancer";
     }
@@ -49,7 +53,7 @@ export async function POST(request: NextRequest) {
         {
           error: `${personType === "employee" ? "Employee" : "Freelancer"} not found`,
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -105,7 +109,7 @@ export async function POST(request: NextRequest) {
     const bypassResult = await checkAttendanceBypass(
       person.id,
       personType,
-      today
+      today,
     );
 
     console.log(`=== CHECK-OUT BYPASS DEBUG ===`);
@@ -168,7 +172,7 @@ export async function POST(request: NextRequest) {
     if (!attendanceRecord) {
       return NextResponse.json(
         { error: "No active check-in found" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -181,7 +185,7 @@ export async function POST(request: NextRequest) {
         {
           error: `${personType === "employee" ? "Employee" : "Freelancer"} already checked out`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -214,7 +218,7 @@ export async function POST(request: NextRequest) {
           : person.scheduledKnockIn);
 
       console.log(
-        `Schedule Override: Using Bypass Time ${scheduledKnockOutTime} as Knock-Out Schedule`
+        `Schedule Override: Using Bypass Time ${scheduledKnockOutTime} as Knock-Out Schedule`,
       );
     }
     // B. PRIORITY 2: STANDARD SCHEDULE
@@ -268,7 +272,8 @@ export async function POST(request: NextRequest) {
         checkOutTimeToUse,
         attendanceRecord.status,
         isNightShift,
-        hrSettings
+        hrSettings,
+        attendanceRecord.breakDuration || 0,
       );
 
     // Apply Generic Bypass (Force Present) if no custom time
@@ -288,7 +293,7 @@ export async function POST(request: NextRequest) {
     if (overtimeHours > 0 && personType === "employee") {
       overtimePay = overtimeHours * overtimeHourRate;
       console.log(
-        `Overtime pay: ${overtimeHours}h * R${overtimeHourRate} = R${overtimePay}`
+        `Overtime pay: ${overtimeHours}h * R${overtimeHourRate} = R${overtimePay}`,
       );
     }
 
@@ -340,7 +345,7 @@ export async function POST(request: NextRequest) {
         person.id,
         checkOutTimeToUse,
         finalStatus,
-        false
+        false,
       );
     }
 
@@ -350,8 +355,16 @@ export async function POST(request: NextRequest) {
     const updateData: any = {
       checkOut: checkOutTimeToUse,
       checkOutAddress: location || address,
-      checkOutLat: lat ? parseFloat(lat) : null,
-      checkOutLng: lng ? parseFloat(lng) : null,
+      checkOutLat: (() => {
+        if (lat === undefined || lat === null) return null;
+        const p = parseFloat(lat.toString());
+        return isNaN(p) ? null : p;
+      })(),
+      checkOutLng: (() => {
+        if (lng === undefined || lng === null) return null;
+        const p = parseFloat(lng.toString());
+        return isNaN(p) ? null : p;
+      })(),
       regularHours,
       overtimeHours,
       status: finalStatus,
@@ -417,7 +430,7 @@ export async function POST(request: NextRequest) {
     console.error("Check-out error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -428,7 +441,7 @@ export async function POST(request: NextRequest) {
 async function checkAttendanceBypass(
   assigneeId: string,
   assigneeType: "employee" | "freelancer",
-  date: Date
+  date: Date,
 ): Promise<{
   hasBypass: boolean;
   bypassCheckIn: boolean;
@@ -506,7 +519,8 @@ async function calculateHoursAndStatus(
   checkOutTime: Date,
   currentStatus: AttendanceStatus,
   isNightShift: boolean = false,
-  hrSettings?: any
+  hrSettings?: any,
+  breakDurationMinutes: number = 0,
 ): Promise<{
   regularHours: number;
   overtimeHours: number;
@@ -528,12 +542,16 @@ async function calculateHoursAndStatus(
   const weekendOvertimeThreshold =
     hrSettings?.WeekendovertimeThreshold || workingHoursWeekend;
 
-  const actualHoursWorked =
+  const grossHoursWorked =
     (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+
+  const actualHoursWorked = grossHoursWorked - breakDurationMinutes / 60;
 
   console.log(`Calculate hours:`, {
     checkInTime: checkInTime.toISOString(),
     checkOutTime: checkOutTime.toISOString(),
+    grossHoursWorked: grossHoursWorked.toFixed(2),
+    breakDurationMinutes,
     actualHoursWorked: actualHoursWorked.toFixed(2),
   });
 
@@ -587,11 +605,11 @@ async function calculateHoursAndStatus(
     const dateStr = checkInTime.toISOString().split("T")[0];
     const scheduleStartStr = `${dateStr}T${String(startHours).padStart(
       2,
-      "0"
+      "0",
     )}:${String(startMinutes).padStart(2, "0")}:00+02:00`;
     const scheduleEndStr = `${dateStr}T${String(endHours).padStart(
       2,
-      "0"
+      "0",
     )}:${String(endMinutes).padStart(2, "0")}:00+02:00`;
 
     const scheduledStartTime = new Date(scheduleStartStr);
@@ -621,7 +639,7 @@ async function calculateHoursAndStatus(
 
     // Calculate hours and status based on schedule
     console.log(
-      `Overtime check: ${totalHoursWorked.toFixed(2)} > ${effectiveOvertimeThreshold}?`
+      `Overtime check: ${totalHoursWorked.toFixed(2)} > ${effectiveOvertimeThreshold}?`,
     );
 
     if (totalHoursWorked > effectiveOvertimeThreshold) {
@@ -651,19 +669,19 @@ async function calculateHoursAndStatus(
         // If checked out BEFORE scheduled end time, mark as ABSENT
         if (checkOutDateTime < scheduledEndDateTime) {
           console.log(
-            `EARLY CHECK-OUT: Marking as ABSENT (checked out before scheduled time)`
+            `EARLY CHECK-OUT: Marking as ABSENT (checked out before scheduled time)`,
           );
           newStatus = AttendanceStatus.ABSENT;
         }
         // Otherwise, check normal thresholds
         else if (totalHoursWorked >= halfDayThreshold) {
           console.log(
-            `Normal check: ${totalHoursWorked.toFixed(2)} >= ${halfDayThreshold}`
+            `Normal check: ${totalHoursWorked.toFixed(2)} >= ${halfDayThreshold}`,
           );
           newStatus = currentStatus; // PRESENT (worked full schedule)
         } else {
           console.log(
-            `UNDER HALF DAY: ${totalHoursWorked.toFixed(2)} < ${halfDayThreshold}`
+            `UNDER HALF DAY: ${totalHoursWorked.toFixed(2)} < ${halfDayThreshold}`,
           );
           newStatus = AttendanceStatus.ABSENT;
         }
@@ -686,7 +704,7 @@ async function calculateHoursAndStatus(
     const totalHoursWorked = actualHoursWorked;
 
     console.log(
-      `Overtime check: ${totalHoursWorked.toFixed(2)} > ${effectiveOvertimeThreshold}?`
+      `Overtime check: ${totalHoursWorked.toFixed(2)} > ${effectiveOvertimeThreshold}?`,
     );
     if (totalHoursWorked > effectiveOvertimeThreshold) {
       console.log("OVERTIME DETECTED (no schedule)");
@@ -708,7 +726,7 @@ async function calculateHoursAndStatus(
       }
 
       console.log(
-        `Status check: ${totalHoursWorked.toFixed(2)} >= ${halfDayThreshold} ?`
+        `Status check: ${totalHoursWorked.toFixed(2)} >= ${halfDayThreshold} ?`,
       );
     }
   }
@@ -741,7 +759,7 @@ async function checkAndCreateAbsentWarning(
   employeeId: string,
   currentTime: Date,
   status: AttendanceStatus,
-  isAutoCreated: boolean = false
+  isAutoCreated: boolean = false,
 ): Promise<any> {
   try {
     if (status !== AttendanceStatus.ABSENT) {
@@ -750,7 +768,7 @@ async function checkAndCreateAbsentWarning(
 
     const now = new Date();
     const startOfMonth = new Date(
-      Date.UTC(now.getFullYear(), now.getMonth(), 1)
+      Date.UTC(now.getFullYear(), now.getMonth(), 1),
     ); // UTC Midnight Month Start
 
     const monthlyAbsentCount = await db.attendanceRecord.count({
@@ -839,7 +857,7 @@ async function checkAndCreateAbsentWarning(
 // HELPER: Auto Absent Records
 // ------------------------------------------------------------------
 async function checkAndCreateAbsentRecords(
-  currentEmployeeWorkedPercentage: number
+  currentEmployeeWorkedPercentage: number,
 ): Promise<boolean> {
   try {
     const now = new Date();
@@ -855,8 +873,8 @@ async function checkAndCreateAbsentRecords(
       Date.UTC(
         parseInt(getP("year")!),
         parseInt(getP("month")!) - 1,
-        parseInt(getP("day")!)
-      )
+        parseInt(getP("day")!),
+      ),
     );
 
     const employeesWorkedOver50 = await db.attendanceRecord.findMany({
@@ -969,12 +987,12 @@ async function createAbsentRecords() {
       Date.UTC(
         parseInt(getP("year")!),
         parseInt(getP("month")!) - 1,
-        parseInt(getP("day")!)
-      )
+        parseInt(getP("day")!),
+      ),
     );
 
     console.log(
-      "Auto-attendance: Creating absent records for EMPLOYEES who didn't check in..."
+      "Auto-attendance: Creating absent records for EMPLOYEES who didn't check in...",
     );
 
     const activeEmployeesWithoutRecords = await db.employee.findMany({
@@ -1023,7 +1041,7 @@ async function createAbsentRecords() {
 
         if (!isWorkingDay) {
           console.log(
-            `Skipping ${employee.firstName} - not a working day (${todayDay})`
+            `Skipping ${employee.firstName} - not a working day (${todayDay})`,
           );
           continue;
         }
@@ -1066,32 +1084,32 @@ async function createAbsentRecords() {
         });
 
         console.log(
-          `Auto-attendance: Created absent record for EMPLOYEE ${employee.firstName} ${employee.lastName} (${isWeekend ? "WEEKEND" : "WEEKDAY"})`
+          `Auto-attendance: Created absent record for EMPLOYEE ${employee.firstName} ${employee.lastName} (${isWeekend ? "WEEKEND" : "WEEKDAY"})`,
         );
 
         const warning = await checkAndCreateAbsentWarning(
           employee.id,
           today,
           AttendanceStatus.ABSENT,
-          true
+          true,
         );
 
         if (warning) {
           createdWarnings.push(warning);
           console.log(
-            `Auto-attendance: Created warning for auto-created absent record for ${employee.firstName} ${employee.lastName}`
+            `Auto-attendance: Created warning for auto-created absent record for ${employee.firstName} ${employee.lastName}`,
           );
         }
       } catch (error) {
         console.error(
           `Auto-attendance: Error processing employee ${employee.id}:`,
-          error
+          error,
         );
       }
     }
 
     console.log(
-      `Auto-attendance: Completed. Created ${createdRecords.length} EMPLOYEE absent records and ${createdWarnings.length} warnings.`
+      `Auto-attendance: Completed. Created ${createdRecords.length} EMPLOYEE absent records and ${createdWarnings.length} warnings.`,
     );
     return createdRecords.length > 0;
   } catch (error) {

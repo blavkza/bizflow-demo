@@ -15,14 +15,16 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Find employee by employee number
-    const employee = await db.employee.findUnique({
-      where: { employeeNumber: employeeId },
+    const employee = await db.employee.findFirst({
+      where: {
+        OR: [{ id: employeeId }, { employeeNumber: employeeId }],
+      },
     });
 
     if (!employee) {
       return NextResponse.json(
         { error: "Employee not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest) {
     console.error("Error creating leave request:", error);
     return NextResponse.json(
       { error: "Failed to create leave request" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -56,12 +58,20 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get("status");
     const employeeId = searchParams.get("employeeId");
 
-    const where = {
-      ...(status && status !== "ALL" ? { status } : {}),
-      ...(employeeId ? { employeeId } : {}),
-    };
+    const whereClause: any = {};
+
+    if (status && status !== "ALL") {
+      whereClause.status = status;
+    }
+
+    if (employeeId) {
+      whereClause.employee = {
+        OR: [{ id: employeeId }, { employeeNumber: employeeId }],
+      };
+    }
 
     const leaveRequests = await db.leaveRequest.findMany({
+      where: whereClause,
       include: {
         employee: {
           select: {
@@ -109,7 +119,7 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching leave requests:", error);
     return NextResponse.json(
       { error: "Failed to fetch leave requests" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

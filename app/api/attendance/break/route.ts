@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import db from "@/lib/db";
 import { AttendanceStatus } from "@prisma/client";
 
-// ROBUST TIME HANDLING (SAST = UTC+2)
 function getSASTContext(hrSettings?: any) {
   const now = new Date();
 
-  // Use Intl.DateTimeFormat to get components in the correct timezone (Africa/Johannesburg)
-  // This is safe even if the server is in a different timezone or UTC.
   const formatter = new Intl.DateTimeFormat("en-ZA", {
     timeZone: "Africa/Johannesburg",
     year: "numeric",
@@ -25,30 +22,22 @@ function getSASTContext(hrSettings?: any) {
   const hourStr = getPart("hour");
   const minuteStr = getPart("minute");
   const year = parseInt(getPart("year"));
-  const month = parseInt(getPart("month")) - 1; // 0-indexed
+  const month = parseInt(getPart("month")) - 1;
   const day = parseInt(getPart("day"));
 
   const timeStr = `${hourStr}:${minuteStr}`;
-  const today = new Date(Date.UTC(year, month, day)); // SAST date at midnight UTC
+  const today = new Date(Date.UTC(year, month, day));
 
   let currentWindow = 0;
   if (hrSettings) {
     const windows = [
       {
-        start: hrSettings?.break1WindowStart || "11:00",
-        end: hrSettings?.break1WindowEnd || "13:00",
+        start: hrSettings?.teaTimeWindowStart || "10:00",
+        end: hrSettings?.teaTimeWindowEnd || "11:00",
       },
       {
-        start: hrSettings?.break2WindowStart || "14:00",
-        end: hrSettings?.break2WindowEnd || "16:00",
-      },
-      {
-        start: hrSettings?.break3WindowStart || "17:00",
-        end: hrSettings?.break3WindowEnd || "18:00",
-      },
-      {
-        start: hrSettings?.break4WindowStart || "19:00",
-        end: hrSettings?.break4WindowEnd || "20:00",
+        start: hrSettings?.lunchTimeWindowStart || "13:00",
+        end: hrSettings?.lunchTimeWindowEnd || "14:00",
       },
     ];
 
@@ -92,24 +81,14 @@ export async function POST(request: NextRequest) {
 
     const breakWindows = [
       {
-        start: hrSettings?.break1WindowStart || "11:00",
-        end: hrSettings?.break1WindowEnd || "13:00",
+        start: hrSettings?.teaTimeWindowStart || "10:00",
+        end: hrSettings?.teaTimeWindowEnd || "11:00",
         label: 1,
       },
       {
-        start: hrSettings?.break2WindowStart || "14:00",
-        end: hrSettings?.break2WindowEnd || "16:00",
+        start: hrSettings?.lunchTimeWindowStart || "13:00",
+        end: hrSettings?.lunchTimeWindowEnd || "14:00",
         label: 2,
-      },
-      {
-        start: hrSettings?.break3WindowStart || "17:00",
-        end: hrSettings?.break3WindowEnd || "18:00",
-        label: 3,
-      },
-      {
-        start: hrSettings?.break4WindowStart || "19:00",
-        end: hrSettings?.break4WindowEnd || "20:00",
-        label: 4,
       },
     ];
 
@@ -118,13 +97,17 @@ export async function POST(request: NextRequest) {
     let personType: "employee" | "freelancer" = "employee";
 
     if (employeeId) {
-      person = await db.employee.findUnique({
-        where: { employeeNumber: employeeId },
+      person = await db.employee.findFirst({
+        where: {
+          OR: [{ id: employeeId }, { employeeNumber: employeeId }],
+        },
       });
       personType = "employee";
     } else {
-      person = await db.freeLancer.findUnique({
-        where: { freeLancerNumber: freelancerId },
+      person = await db.freeLancer.findFirst({
+        where: {
+          OR: [{ id: freelancerId }, { freeLancerNumber: freelancerId }],
+        },
       });
       personType = "freelancer";
     }
@@ -192,7 +175,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error: nextWindow
-              ? `Break ${nextWindow.label} is available from ${nextWindow.start} to ${nextWindow.end}. Current time (SAST): ${currentSASTTimeString}`
+              ? `${nextWindow.label === 1 ? "Tea Time" : "Lunch Time"} is available from ${nextWindow.start} to ${nextWindow.end}. Current time (SAST): ${currentSASTTimeString}`
               : `No more break windows available today. Current time (SAST): ${currentSASTTimeString}`,
           },
           { status: 400 },
@@ -207,7 +190,7 @@ export async function POST(request: NextRequest) {
         if (currentSASTTimeString < targetWindowInfo.start) {
           return NextResponse.json(
             {
-              error: `Break ${targetWindow} is only available from ${targetWindowInfo.start} to ${targetWindowInfo.end}. Current time: ${currentSASTTimeString}`,
+              error: `${targetWindow === 1 ? "Tea Time" : "Lunch Time"} is only available from ${targetWindowInfo.start} to ${targetWindowInfo.end}. Current time: ${currentSASTTimeString}`,
             },
             { status: 400 },
           );
@@ -226,8 +209,8 @@ export async function POST(request: NextRequest) {
           return NextResponse.json(
             {
               error: nextWindow
-                ? `Break ${targetWindow} window has passed. Next available: Break ${nextWindow.label} from ${nextWindow.start} to ${nextWindow.end}`
-                : `Break ${targetWindow} window has passed. No more breaks available today.`,
+                ? `${targetWindow === 1 ? "Tea Time" : "Lunch Time"} window has passed. Next available: ${nextWindow.label === 1 ? "Tea Time" : "Lunch Time"} from ${nextWindow.start} to ${nextWindow.end}`
+                : `${targetWindow === 1 ? "Tea Time" : "Lunch Time"} window has passed. No more breaks available today.`,
             },
             { status: 400 },
           );
@@ -252,7 +235,9 @@ export async function POST(request: NextRequest) {
 
       if (windowTaken) {
         return NextResponse.json(
-          { error: `You have already taken break ${targetWindow} today.` },
+          {
+            error: `You have already taken ${targetWindow === 1 ? "tea time" : "lunch time"} break today.`,
+          },
           { status: 400 },
         );
       }
@@ -381,15 +366,19 @@ export async function GET(request: NextRequest) {
     let personType: "employee" | "freelancer";
 
     if (employeeId) {
-      const p = await db.employee.findUnique({
-        where: { employeeNumber: employeeId },
+      const p = await db.employee.findFirst({
+        where: {
+          OR: [{ id: employeeId }, { employeeNumber: employeeId }],
+        },
       });
       if (!p) return NextResponse.json({ error: "NotFound" }, { status: 404 });
       personId = p.id;
       personType = "employee";
     } else {
-      const p = await db.freeLancer.findUnique({
-        where: { freeLancerNumber: freelancerId! },
+      const p = await db.freeLancer.findFirst({
+        where: {
+          OR: [{ id: freelancerId! }, { freeLancerNumber: freelancerId! }],
+        },
       });
       if (!p) return NextResponse.json({ error: "NotFound" }, { status: 404 });
       personId = p.id;
@@ -454,14 +443,10 @@ export async function GET(request: NextRequest) {
       currentBreakAllowance,
       maxBreaks: hrSettings?.maxBreaksPerDay || 2,
       breakReminderMinutes: hrSettings?.breakReminderMinutes || 5,
-      break1WindowStart: hrSettings?.break1WindowStart || "11:00",
-      break1WindowEnd: hrSettings?.break1WindowEnd || "13:00",
-      break2WindowStart: hrSettings?.break2WindowStart || "14:00",
-      break2WindowEnd: hrSettings?.break2WindowEnd || "16:00",
-      break3WindowStart: hrSettings?.break3WindowStart || "17:00",
-      break3WindowEnd: hrSettings?.break3WindowEnd || "18:00",
-      break4WindowStart: hrSettings?.break4WindowStart || "19:00",
-      break4WindowEnd: hrSettings?.break4WindowEnd || "20:00",
+      teaTimeWindowStart: hrSettings?.teaTimeWindowStart || "10:00",
+      teaTimeWindowEnd: hrSettings?.teaTimeWindowEnd || "11:00",
+      lunchTimeWindowStart: hrSettings?.lunchTimeWindowStart || "13:00",
+      lunchTimeWindowEnd: hrSettings?.lunchTimeWindowEnd || "14:00",
       currentBreakWindow: currentWindow,
       serverTime: context.now.toISOString(),
       sastTime: context.timeStr,

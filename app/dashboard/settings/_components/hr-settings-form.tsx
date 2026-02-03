@@ -58,17 +58,13 @@ const HRSettingsSchema = z.object({
   WeekendovertimeThreshold: z.number().min(1),
 
   // Break Settings
-  maxBreaksPerDay: z.number().min(0).max(10),
+  maxBreaksPerDay: z.number().min(0).max(2),
   totalBreakDurationMinutes: z.number().min(0).max(480),
   breakReminderMinutes: z.number().min(0).max(60),
-  break1WindowStart: z.string().optional(),
-  break1WindowEnd: z.string().optional(),
-  break2WindowStart: z.string().optional(),
-  break2WindowEnd: z.string().optional(),
-  break3WindowStart: z.string().optional(),
-  break3WindowEnd: z.string().optional(),
-  break4WindowStart: z.string().optional(),
-  break4WindowEnd: z.string().optional(),
+  teaTimeWindowStart: z.string().optional(),
+  teaTimeWindowEnd: z.string().optional(),
+  lunchTimeWindowStart: z.string().optional(),
+  lunchTimeWindowEnd: z.string().optional(),
 
   // Leave Settings
   annualLeaveDays: z.number().min(0),
@@ -177,14 +173,10 @@ interface HRSettings {
   maxBreaksPerDay: number;
   totalBreakDurationMinutes: number;
   breakReminderMinutes: number;
-  break1WindowStart?: string;
-  break1WindowEnd?: string;
-  break2WindowStart?: string;
-  break2WindowEnd?: string;
-  break3WindowStart?: string;
-  break3WindowEnd?: string;
-  break4WindowStart?: string;
-  break4WindowEnd?: string;
+  teaTimeWindowStart?: string;
+  teaTimeWindowEnd?: string;
+  lunchTimeWindowStart?: string;
+  lunchTimeWindowEnd?: string;
   annualLeaveDays: number;
   sickLeaveDays: number;
   studyLeaveDays: number;
@@ -280,14 +272,10 @@ export default function HRSettingsForm({
       maxBreaksPerDay: 2,
       totalBreakDurationMinutes: 60,
       breakReminderMinutes: 5,
-      break1WindowStart: "11:00",
-      break1WindowEnd: "13:00",
-      break2WindowStart: "14:00",
-      break2WindowEnd: "16:00",
-      break3WindowStart: "17:00",
-      break3WindowEnd: "18:00",
-      break4WindowStart: "19:00",
-      break4WindowEnd: "20:00",
+      teaTimeWindowStart: "10:00",
+      teaTimeWindowEnd: "11:00",
+      lunchTimeWindowStart: "13:00",
+      lunchTimeWindowEnd: "14:00",
       annualLeaveDays: 21,
       sickLeaveDays: 30,
       studyLeaveDays: 5,
@@ -393,17 +381,12 @@ export default function HRSettingsForm({
             WeekendovertimeThreshold: settings.WeekendovertimeThreshold,
             overtimeHourRate: settings.overtimeHourRate,
             maxBreaksPerDay: settings.maxBreaksPerDay ?? 2,
-            totalBreakDurationMinutes:
-              settings.totalBreakDurationMinutes ?? 60,
+            totalBreakDurationMinutes: settings.totalBreakDurationMinutes ?? 60,
             breakReminderMinutes: settings.breakReminderMinutes ?? 5,
-            break1WindowStart: settings.break1WindowStart ?? "11:00",
-            break1WindowEnd: settings.break1WindowEnd ?? "13:00",
-            break2WindowStart: settings.break2WindowStart ?? "14:00",
-            break2WindowEnd: settings.break2WindowEnd ?? "16:00",
-            break3WindowStart: settings.break3WindowStart ?? "17:00",
-            break3WindowEnd: settings.break3WindowEnd ?? "18:00",
-            break4WindowStart: settings.break4WindowStart ?? "19:00",
-            break4WindowEnd: settings.break4WindowEnd ?? "20:00",
+            teaTimeWindowStart: settings.teaTimeWindowStart ?? "10:00",
+            teaTimeWindowEnd: settings.teaTimeWindowEnd ?? "11:00",
+            lunchTimeWindowStart: settings.lunchTimeWindowStart ?? "13:00",
+            lunchTimeWindowEnd: settings.lunchTimeWindowEnd ?? "14:00",
             annualLeaveDays: settings.annualLeaveDays,
             sickLeaveDays: settings.sickLeaveDays,
             studyLeaveDays: settings.studyLeaveDays,
@@ -486,7 +469,7 @@ export default function HRSettingsForm({
       toast.success(
         hrSettings
           ? "HR settings updated successfully"
-          : "HR settings saved successfully"
+          : "HR settings saved successfully",
       );
       router.refresh();
     } catch (error) {
@@ -679,7 +662,7 @@ export default function HRSettingsForm({
                               <SelectItem key={day} value={day.toString()}>
                                 {day}
                               </SelectItem>
-                            )
+                            ),
                           )}
                         </SelectContent>
                       </Select>
@@ -934,7 +917,7 @@ export default function HRSettingsForm({
                           <Input
                             type="number"
                             min="0"
-                            max="10"
+                            max="2"
                             {...field}
                             onChange={(e) =>
                               field.onChange(parseInt(e.target.value))
@@ -1009,14 +992,14 @@ export default function HRSettingsForm({
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="break1WindowStart"
+                    name="teaTimeWindowStart"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
                         <div className="flex items-center">
-                          <FormLabel>Break 1 Window Start</FormLabel>
+                          <FormLabel>Tea Time Window Start</FormLabel>
                           <ExplanationPopover
-                            title="Break 1 Window Start"
-                            content="The earliest time employees can start their first break."
+                            title="Tea Time Window Start"
+                            content="The earliest time employees can start their tea time break."
                           />
                         </div>
                         <FormControl>
@@ -1033,14 +1016,14 @@ export default function HRSettingsForm({
                   />
                   <FormField
                     control={form.control}
-                    name="break1WindowEnd"
+                    name="teaTimeWindowEnd"
                     render={({ field }) => (
                       <FormItem className="space-y-2">
                         <div className="flex items-center">
-                          <FormLabel>Break 1 Window End</FormLabel>
+                          <FormLabel>Tea Time Window End</FormLabel>
                           <ExplanationPopover
-                            title="Break 1 Window End"
-                            content="The latest time employees can be on their first break."
+                            title="Tea Time Window End"
+                            content="The latest time employees can be on their tea time break."
                           />
                         </div>
                         <FormControl>
@@ -1060,14 +1043,14 @@ export default function HRSettingsForm({
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
-                      name="break2WindowStart"
+                      name="lunchTimeWindowStart"
                       render={({ field }) => (
                         <FormItem className="space-y-2">
                           <div className="flex items-center">
-                            <FormLabel>Break 2 Window Start</FormLabel>
+                            <FormLabel>Lunch Time Window Start</FormLabel>
                             <ExplanationPopover
-                              title="Break 2 Window Start"
-                              content="The earliest time employees can start their second break."
+                              title="Lunch Time Window Start"
+                              content="The earliest time employees can start their lunch break."
                             />
                           </div>
                           <FormControl>
@@ -1084,118 +1067,14 @@ export default function HRSettingsForm({
                     />
                     <FormField
                       control={form.control}
-                      name="break2WindowEnd"
+                      name="lunchTimeWindowEnd"
                       render={({ field }) => (
                         <FormItem className="space-y-2">
                           <div className="flex items-center">
-                            <FormLabel>Break 2 Window End</FormLabel>
+                            <FormLabel>Lunch Time Window End</FormLabel>
                             <ExplanationPopover
-                              title="Break 2 Window End"
-                              content="The latest time employees can be on their second break."
-                            />
-                          </div>
-                          <FormControl>
-                            <Input
-                              type="time"
-                              {...field}
-                              className="w-full"
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-                {maxBreaks >= 3 && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="break3WindowStart"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <div className="flex items-center">
-                            <FormLabel>Break 3 Window Start</FormLabel>
-                            <ExplanationPopover
-                              title="Break 3 Window Start"
-                              content="The earliest time employees can start their third break."
-                            />
-                          </div>
-                          <FormControl>
-                            <Input
-                              type="time"
-                              {...field}
-                              className="w-full"
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="break3WindowEnd"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <div className="flex items-center">
-                            <FormLabel>Break 3 Window End</FormLabel>
-                            <ExplanationPopover
-                              title="Break 3 Window End"
-                              content="The latest time employees can be on their third break."
-                            />
-                          </div>
-                          <FormControl>
-                            <Input
-                              type="time"
-                              {...field}
-                              className="w-full"
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-                {maxBreaks >= 4 && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="break4WindowStart"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <div className="flex items-center">
-                            <FormLabel>Break 4 Window Start</FormLabel>
-                            <ExplanationPopover
-                              title="Break 4 Window Start"
-                              content="The earliest time employees can start their fourth break."
-                            />
-                          </div>
-                          <FormControl>
-                            <Input
-                              type="time"
-                              {...field}
-                              className="w-full"
-                              disabled={!hasFullAccess && !canManageSettings}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="break4WindowEnd"
-                      render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <div className="flex items-center">
-                            <FormLabel>Break 4 Window End</FormLabel>
-                            <ExplanationPopover
-                              title="Break 4 Window End"
-                              content="The latest time employees can be on their fourth break."
+                              title="Lunch Time Window End"
+                              content="The latest time employees can be on their lunch break."
                             />
                           </div>
                           <FormControl>

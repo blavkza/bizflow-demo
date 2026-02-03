@@ -40,7 +40,7 @@ export async function GET() {
     console.error("Failed to fetch HR settings:", error);
     return NextResponse.json(
       { message: "Failed to fetch HR settings", error },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -139,14 +139,10 @@ export async function POST(request: Request) {
           maxBreaksPerDay: updates.maxBreaksPerDay || 2,
           totalBreakDurationMinutes: updates.totalBreakDurationMinutes || 60,
           breakReminderMinutes: updates.breakReminderMinutes || 5,
-          break1WindowStart: updates.break1WindowStart || "11:00",
-          break1WindowEnd: updates.break1WindowEnd || "13:00",
-          break2WindowStart: updates.break2WindowStart || "14:00",
-          break2WindowEnd: updates.break2WindowEnd || "16:00",
-          break3WindowStart: updates.break3WindowStart || "17:00",
-          break3WindowEnd: updates.break3WindowEnd || "18:00",
-          break4WindowStart: updates.break4WindowStart || "19:00",
-          break4WindowEnd: updates.break4WindowEnd || "20:00",
+          teaTimeWindowStart: updates.teaTimeWindowStart || "10:00", // Tea Time
+          teaTimeWindowEnd: updates.teaTimeWindowEnd || "11:00",
+          lunchTimeWindowStart: updates.lunchTimeWindowStart || "13:00", // Lunch Time
+          lunchTimeWindowEnd: updates.lunchTimeWindowEnd || "14:00",
 
           updatedBy: creator.name,
         },
@@ -292,22 +288,14 @@ export async function POST(request: Request) {
           currentSettings.totalBreakDurationMinutes,
         breakReminderMinutes:
           updates.breakReminderMinutes ?? currentSettings.breakReminderMinutes,
-        break1WindowStart:
-          updates.break1WindowStart ?? currentSettings.break1WindowStart,
-        break1WindowEnd:
-          updates.break1WindowEnd ?? currentSettings.break1WindowEnd,
-        break2WindowStart:
-          updates.break2WindowStart ?? currentSettings.break2WindowStart,
-        break2WindowEnd:
-          updates.break2WindowEnd ?? currentSettings.break2WindowEnd,
-        break3WindowStart:
-          updates.break3WindowStart ?? currentSettings.break3WindowStart,
-        break3WindowEnd:
-          updates.break3WindowEnd ?? currentSettings.break3WindowEnd,
-        break4WindowStart:
-          updates.break4WindowStart ?? currentSettings.break4WindowStart,
-        break4WindowEnd:
-          updates.break4WindowEnd ?? currentSettings.break4WindowEnd,
+        teaTimeWindowStart:
+          updates.teaTimeWindowStart ?? currentSettings.teaTimeWindowStart,
+        teaTimeWindowEnd:
+          updates.teaTimeWindowEnd ?? currentSettings.teaTimeWindowEnd,
+        lunchTimeWindowStart:
+          updates.lunchTimeWindowStart ?? currentSettings.lunchTimeWindowStart,
+        lunchTimeWindowEnd:
+          updates.lunchTimeWindowEnd ?? currentSettings.lunchTimeWindowEnd,
 
         updatedBy: creator.name,
       },
@@ -329,7 +317,7 @@ export async function POST(request: Request) {
     console.error("Failed to save HR settings:", error);
     return NextResponse.json(
       { message: "Failed to save HR settings", error },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
