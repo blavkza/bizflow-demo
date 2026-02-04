@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FolderIcon, PackageIcon, FolderTree, Filter } from "lucide-react";
+import {
+  FolderIcon,
+  PackageIcon,
+  FolderTree,
+  Filter,
+  Plus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
@@ -288,40 +294,72 @@ export default function CategoriesPage() {
 
   return (
     <SidebarInset>
-      <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
-        <div className="flex items-center gap-2 px-4">
+      <header className="flex h-16 shrink-0 items-center justify-between gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 px-4">
+        <div className="flex items-center gap-2">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
-          <h1 className="text-lg font-semibold">Package Categories</h1>
+          <div>
+            <h1 className="text-lg font-semibold">Package Categories</h1>
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              Organize packages into categories for better management
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Quick action buttons in header */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewType(viewType === "list" ? "tree" : "list")}
+            className="hidden sm:flex"
+          >
+            {viewType === "list" ? (
+              <>
+                <FolderTree className="mr-2 h-4 w-4" />
+                Tree View
+              </>
+            ) : (
+              <>
+                <Filter className="mr-2 h-4 w-4" />
+                List View
+              </>
+            )}
+          </Button>
+
+          {/* CategoryDialog in header */}
+          <CategoryDialog
+            onSuccess={loadCategories}
+            trigger={
+              <Button size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">New Category</span>
+                <span className="sm:hidden">New</span>
+              </Button>
+            }
+          />
         </div>
       </header>
 
       <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-        <div className="flex items-center justify-between">
+        {/* Updated description section without the duplicate button */}
+        <div className="flex items-center justify-between pt-4">
           <p className="text-sm text-muted-foreground">
-            Organize packages into categories for better management and
-            navigation
+            Create and manage categories to organize your packages effectively
           </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setViewType(viewType === "list" ? "tree" : "list")}
-            >
-              {viewType === "list" ? (
-                <>
-                  <FolderTree className="mr-2 h-4 w-4" />
-                  Tree View
-                </>
-              ) : (
-                <>
-                  <Filter className="mr-2 h-4 w-4" />
-                  List View
-                </>
-              )}
-            </Button>
-            <CategoryDialog onSuccess={loadCategories} />
-          </div>
+          {/* Mobile-only view toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setViewType(viewType === "list" ? "tree" : "list")}
+            className="sm:hidden"
+          >
+            {viewType === "list" ? (
+              <FolderTree className="h-4 w-4" />
+            ) : (
+              <Filter className="h-4 w-4" />
+            )}
+          </Button>
         </div>
 
         {/* Stats Cards */}

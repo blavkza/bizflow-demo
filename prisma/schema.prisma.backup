@@ -1,0 +1,3708 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model FinancialSettings {
+  id               String   @id @default(cuid())
+  currentPrimeRate Float    @default(11.75)
+  updatedAt        DateTime @updatedAt
+  updatedBy        String?
+
+  @@map("financial_settings")
+}
+
+model User {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  email                String             @unique
+  name                 String
+  userName             String             @unique
+  phone                String?
+  avatar               String?
+  role                 UserRole           @default(VIEWER)
+  status               UserStatus         @default(ACTIVE)
+  lastLogin            DateTime?
+  timezone             String             @default("Africa/Johannesburg")
+  language             String             @default("en")
+  preferences          Json?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  permissions          UserPermission[]
+  employeeId           String?            @unique
+  userType             UserType           @default(ADMIN)
+  GeneralSetting       GeneralSetting[]
+  activityLogs         ActivityLog[]
+  apiKeys              ApiKey[]
+  ChatSession          ChatSession[]
+  dashboardSettings    DashboardSettings?
+  managedDepartments   Department[]       @relation("DepartmentManager")
+  emergencyCallOuts    EmergencyCallOut[]
+  Expense              Expense[]
+  invoiceDocuments     InvoiceDocument[]
+  createdInvoices      Invoice[]
+  createdLenders       Lender[]
+  createdLoanPayments  LoanPayment[]
+  createdLoans         Loan[]
+  notifications        Notification[]
+  Order                Order[]
+  passwordResets       PasswordReset[]
+  projectTeams         ProjectTeam[]
+  Project              Project[]
+  createdQuotations    Quotation[]
+  recurringInvoices    RecurringInvoice[]
+  createdReports       Report[]
+  sessions             Session[]
+  timeEntries          TimeEntry[]
+  resolvedToolRequests ToolRequest[]      @relation("ResolvedRequests")
+  processedReturns     ToolReturn[]       @relation("ProcessedReturns")
+  createdTransactions  Transaction[]
+  employee             Employee?          @relation(fields: [employeeId], references: [id])
+  Vendor               Vendor[]
+  workLogs             WorkLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model GeneralSetting {
+  id                 String   @id @default(cuid())
+  userId             String
+  companyName        String
+  taxId              String
+  phone              String
+  phone2             String?
+  phone3             String?
+  website            String?
+  paymentTerms       String?
+  note               String?
+  bankAccount        String?
+  bankAccount2       String?
+  bankName           String?
+  bankName2          String?
+  logo               String?
+  email              String
+  Address            String
+  city               String
+  province           String
+  postCode           String
+  createdAt          DateTime @default(now())
+  creditNoteNote     String?
+  creditNoteTerms    String?
+  deliveryNoteNote   String?
+  deliveryNoteTerms  String?
+  proFormaNote       String?
+  proFormaTerms      String?
+  purchaseOrderNote  String?
+  purchaseOrderTerms String?
+  supplierListNote   String?
+  supplierListTerms  String?
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("GeneralSettings")
+}
+
+model HRSettings {
+  id                         String   @id @unique @default(cuid())
+  paymentDay                 Int      @default(25)
+  paymentMonth               String   @default("CURRENT")
+  autoProcessPayroll         Boolean  @default(false)
+  lateThreshold              Int      @default(15)
+  halfDayThreshold           Float    @default(4.0)
+  overtimeThreshold          Float    @default(8.0)
+  workingDaysPerMonth        Int      @default(22)
+  annualLeaveDays            Int      @default(21)
+  sickLeaveDays              Int      @default(30)
+  studyLeaveDays             Int      @default(5)
+  maternityLeaveDays         Int      @default(120)
+  paternityLeaveDays         Int      @default(10)
+  carryOverEnabled           Boolean  @default(true)
+  maxCarryOverDays           Int      @default(5)
+  workingHoursPerDay         Int      @default(8)
+  overtimeHourRate           Float    @default(50.00)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  updatedBy                  String?
+  annualBonusEnabled         Boolean  @default(true)
+  annualBonusPercentage      Float    @default(100)
+  annualBonusType            String   @default("DECEMBER")
+  appreciationBonusEnabled   Boolean  @default(true)
+  courtOrderEnabled          Boolean  @default(true)
+  damageLossEnabled          Boolean  @default(true)
+  damageLossMaxPercentage    Float    @default(20)
+  disciplinaryEnabled        Boolean  @default(true)
+  disciplinaryMaxPercentage  Float    @default(50)
+  funeralBenefitAmount       Float    @default(100)
+  funeralBenefitEnabled      Boolean  @default(true)
+  guaranteeFundEnabled       Boolean  @default(false)
+  incentivePaymentEnabled    Boolean  @default(true)
+  insuranceEnabled           Boolean  @default(true)
+  loanRepaymentEnabled       Boolean  @default(true)
+  medicalAidEnabled          Boolean  @default(true)
+  medicalAidMaxDeduction     Float    @default(2000)
+  meritBonusEnabled          Boolean  @default(true)
+  overpaymentEnabled         Boolean  @default(true)
+  overpaymentMaxPercentage   Float    @default(25)
+  pensionEnabled             Boolean  @default(true)
+  pensionPercentage          Float    @default(7.5)
+  performanceBonusEnabled    Boolean  @default(true)
+  performanceBonusType       String   @default("INDIVIDUAL")
+  profitSharingEnabled       Boolean  @default(false)
+  profitSharingPercentage    Float    @default(10)
+  recognitionAwardEnabled    Boolean  @default(true)
+  savingsEnabled             Boolean  @default(true)
+  savingsMaxPercentage       Float    @default(15)
+  spotBonusEnabled           Boolean  @default(true)
+  thirteenthChequeEnabled    Boolean  @default(false)
+  tradeUnionEnabled          Boolean  @default(false)
+  uifEnabled                 Boolean  @default(true)
+  uifPercentage              Float    @default(1)
+  uniformPPEEnabled          Boolean  @default(true)
+  uniformPPEMaxDeduction     Float    @default(500)
+  appreciationBonusAmount    Float    @default(250)
+  attendanceBonusEnabled     Boolean  @default(true)
+  attendanceBonusPercentage  Float    @default(2)
+  guaranteeFundAmount        Float    @default(20)
+  incentivePaymentPercentage Float    @default(4)
+  insurancePercentage        Float    @default(0.5)
+  meritBonusPercentage       Float    @default(3)
+  overtimeBonusEnabled       Boolean  @default(true)
+  overtimeBonusPercentage    Float    @default(10)
+  performanceBonusPercentage Float    @default(5)
+  recognitionAwardAmount     Float    @default(300)
+  spotBonusAmount            Float    @default(500)
+  taxEnabled                 Boolean  @default(true)
+  taxTableYear               String   @default("2025")
+  tradeUnionAmount           Float    @default(50)
+  workingHoursWeekend        Int      @default(4)
+  WeekendovertimeThreshold   Float    @default(4.0)
+  breakReminderMinutes       Int      @default(5)
+  maxBreaksPerDay            Int      @default(2)
+  totalBreakDurationMinutes  Int      @default(60)
+  lunchTimeWindowEnd         String?  @default("14:00")
+  lunchTimeWindowStart       String?  @default("13:00")
+  teaTimeWindowEnd           String?  @default("11:00")
+  teaTimeWindowStart         String?  @default("10:00")
+
+  @@map("hr_settings")
+}
+
+model DashboardSettings {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  showFinancialAlerts  Boolean   @default(true)
+  showProjectAlerts    Boolean   @default(true)
+  showTaskAlerts       Boolean   @default(true)
+  showEmployeeAlerts   Boolean   @default(true)
+  showFreelancerAlerts Boolean   @default(true)
+  defaultChartType     ChartType @default(BAR)
+  showInvoiceChart     Boolean   @default(true)
+  showQuotationChart   Boolean   @default(true)
+  showExpenseChart     Boolean   @default(true)
+  showRevenueChart     Boolean   @default(true)
+  payrollAlertDays     Int       @default(5)
+  dueDateAlertDays     Int       @default(3)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  user                 User      @relation(fields: [userId], references: [id])
+
+  @@map("dashboard_settings")
+}
+
+model POSSetting {
+  id                 String   @id @default(cuid())
+  vatEnabled         Boolean  @default(true)
+  vatRate            Float    @default(0.15)
+  deliveryEnabled    Boolean  @default(true)
+  deliveryFee        Float    @default(50.00)
+  freeDeliveryAbove  Float    @default(500.00)
+  discountEnabled    Boolean  @default(true)
+  maxDiscountRate    Float    @default(20.00)
+  receiptHeader      String?
+  receiptFooter      String?
+  printAutomatically Boolean  @default(false)
+  emailReceipt       Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Coupon {
+  id                String        @id @default(cuid())
+  code              String        @unique
+  type              DiscountType
+  value             Decimal       @db.Decimal(10, 2)
+  minOrderAmount    Decimal?      @db.Decimal(10, 2)
+  maxDiscountAmount Decimal?      @db.Decimal(10, 2)
+  startDate         DateTime
+  endDate           DateTime?
+  usageLimit        Int?
+  usedCount         Int           @default(0)
+  isActive          Boolean       @default(true)
+  description       String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  sales             Sale[]
+  products          ShopProduct[] @relation("CouponToShopProduct")
+
+  @@map("coupons")
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_resets")
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String
+  description String
+  metadata    Json?
+  ipAddress   String?
+  userAgent   String?
+  entityType  String?
+  entityId    String?
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model Department {
+  id               String            @id @default(cuid())
+  name             String
+  description      String?
+  code             String            @unique
+  managerId        String?
+  parentId         String?
+  status           DepartmentStatus  @default(ACTIVE)
+  currency         String            @default("ZAR")
+  location         String?
+  floor            String?
+  building         String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  updater          String?
+  budgets          Budget[]
+  manager          User?             @relation("DepartmentManager", fields: [managerId], references: [id])
+  parent           Department?       @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children         Department[]      @relation("DepartmentHierarchy")
+  employees        Employee[]        @relation("DepartmentEmployees")
+  freelancers      FreeLancer[]      @relation("DepartmentFreelancers")
+  invoiceDocuments InvoiceDocument[]
+  invoices         Invoice[]
+  quotations       Quotation[]
+  targets          Target[]
+  expenses         Transaction[]
+
+  @@map("departments")
+}
+
+model Employee {
+  id                       String                 @id @default(cuid())
+  employeeNumber           String                 @unique
+  firstName                String
+  lastName                 String
+  email                    String?
+  phone                    String?
+  avatar                   String?
+  position                 String
+  departmentId             String?
+  currency                 String                 @default("ZAR")
+  hireDate                 DateTime
+  terminationDate          DateTime?
+  status                   EmployeeStatus         @default(ACTIVE)
+  idNumber                 String?
+  taxNumber                String?
+  nationality              String?
+  maritalStatus            MaritalStatus?
+  address                  String?
+  city                     String?
+  province                 String?
+  postalCode               String?
+  country                  String                 @default("South Africa")
+  emergencyName            String?
+  emergencyPhone           String?
+  emergencyRelation        String?
+  emergencyAddress         String?
+  bankName                 String?
+  accountNumber            String?
+  branchCode               String?
+  accountType              String?
+  contractType             ContractType?
+  workSchedule             String?
+  probationEnd             DateTime?
+  scheduledKnockIn         String?
+  scheduledKnockOut        String?
+  workingDays              String[]
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  createdBy                String?
+  annualLeaveDays          Int                    @default(21)
+  sickLeaveDays            Int                    @default(30)
+  studyLeaveDays           Int                    @default(5)
+  maternityLeaveDays       Int                    @default(120)
+  paternityLeaveDays       Int                    @default(10)
+  unpaidLeaveDays          Int                    @default(0)
+  dailySalary              Decimal                @db.Decimal(15, 2)
+  monthlySalary            Decimal                @db.Decimal(15, 2)
+  salaryType               SalaryType?            @default(MONTHLY)
+  additionalInfo           String?
+  allergies                String?
+  emergencyContacts        Json?
+  firstAidNeeds            String?
+  medicalCondition         String?
+  restrictions             String?
+  riskLevel                String?
+  overtimeHourRate         Float                  @default(50.00)
+  canCheckByGPS            Boolean                @default(false)
+  expoPushToken            String?
+  scheduledWeekendKnockIn  String?
+  scheduledWeekendKnockOut String?
+  dayOff                   Int                    @default(0)
+  leaveRequests            LeaveRequest[]
+  Note                     Note[]
+  AttendanceRecord         AttendanceRecord[]
+  documents                Document[]
+  emergencyCallOuts        EmergencyCallOut[]
+  employeeNotification     EmployeeNotification[]
+  department               Department?            @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  kpiResults               KpiResult[]
+  overtimeRequests         OvertimeRequest[]
+  payments                 Payment[]
+  targets                  Target[]
+  toolRequests             ToolRequest[]
+  toolReturns              ToolReturn[]
+  user                     User?
+  Warning                  Warning[]
+  tools                    EmployeeTool[]
+  bypassRules              AttendanceBypassRule[] @relation("BypassRuleEmployees")
+  assignedTasks            Task[]                 @relation("TaskAssignments")
+
+  @@index([departmentId])
+  @@index([status])
+  @@map("employees")
+}
+
+model FreeLancer {
+  id                       String                 @id @default(cuid())
+  freeLancerNumber         String                 @unique
+  firstName                String
+  lastName                 String
+  email                    String?
+  phone                    String?
+  avatar                   String?
+  position                 String
+  departmentId             String?
+  salary                   Decimal                @db.Decimal(15, 2)
+  currency                 String                 @default("ZAR")
+  hireDate                 DateTime
+  terminationDate          DateTime?
+  status                   FreeLancerStatus       @default(ACTIVE)
+  reliable                 Boolean?
+  idNumber                 String?
+  taxNumber                String?
+  nationality              String?
+  maritalStatus            MaritalStatus?
+  address                  String?
+  city                     String?
+  province                 String?
+  postalCode               String?
+  country                  String                 @default("South Africa")
+  emergencyName            String?
+  emergencyPhone           String?
+  emergencyRelation        String?
+  emergencyAddress         String?
+  bankName                 String?
+  accountNumber            String?
+  branchCode               String?
+  accountType              String?
+  contractType             ContractType?
+  workSchedule             String?
+  probationEnd             DateTime?
+  scheduledKnockIn         String?
+  scheduledKnockOut        String?
+  workingDays              String[]
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  createdBy                String?
+  annualLeaveDays          Int                    @default(21)
+  sickLeaveDays            Int                    @default(30)
+  studyLeaveDays           Int                    @default(5)
+  maternityLeaveDays       Int                    @default(120)
+  paternityLeaveDays       Int                    @default(10)
+  unpaidLeaveDays          Int                    @default(0)
+  additionalInfo           String?
+  allergies                String?
+  emergencyContacts        Json?
+  firstAidNeeds            String?
+  medicalCondition         String?
+  restrictions             String?
+  riskLevel                String?
+  overtimeHourRate         Float                  @default(50.00)
+  scheduledWeekendKnockIn  String?
+  scheduledWeekendKnockOut String?
+  leaveRequests            LeaveRequest[]
+  notes                    Note[]
+  attendanceRecords        AttendanceRecord[]
+  documents                Document[]
+  emergencyCallOuts        EmergencyCallOut[]
+  department               Department?            @relation("DepartmentFreelancers", fields: [departmentId], references: [id])
+  kpiResults               KpiResult[]
+  overtimeRequests         OvertimeRequest[]
+  payments                 Payment[]
+  targets                  Target[]
+  toolRequests             ToolRequest[]
+  toolReturns              ToolReturn[]
+  warnings                 Warning[]
+  tools                    EmployeeTool[]
+  bypassRules              AttendanceBypassRule[] @relation("BypassRuleFreelancers")
+  assignedTasks            Task[]                 @relation("FreeLancerTaskAssignments")
+
+  @@index([departmentId])
+  @@index([status])
+  @@map("freelancers")
+}
+
+model AttendanceBypassRule {
+  id                 String       @id @default(cuid())
+  startDate          DateTime
+  endDate            DateTime
+  bypassCheckIn      Boolean      @default(false)
+  bypassCheckOut     Boolean      @default(false)
+  customCheckInTime  String?
+  customCheckOutTime String?
+  reason             String?
+  createdBy          String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  employees          Employee[]   @relation("BypassRuleEmployees")
+  freelancers        FreeLancer[] @relation("BypassRuleFreelancers")
+
+  @@index([startDate])
+  @@index([endDate])
+  @@map("attendance_bypass_rules")
+}
+
+model AttendanceRecord {
+  id                String           @id @default(cuid())
+  employeeId        String?
+  date              DateTime         @db.Date
+  checkIn           DateTime?
+  checkOut          DateTime?
+  breakStart        DateTime?
+  breakEnd          DateTime?
+  checkInLat        Decimal?         @db.Decimal(10, 8)
+  checkInLng        Decimal?         @db.Decimal(11, 8)
+  checkOutLat       Decimal?         @db.Decimal(10, 8)
+  checkOutLng       Decimal?         @db.Decimal(11, 8)
+  checkInAddress    String?
+  checkOutAddress   String?
+  checkInMethod     CheckInMethod?   @default(MANUAL)
+  scheduledKnockIn  String?
+  scheduledKnockOut String?
+  regularHours      Decimal?         @db.Decimal(5, 2)
+  overtimeHours     Decimal?         @db.Decimal(5, 2)
+  breakDuration     Int?
+  status            AttendanceStatus @default(PRESENT)
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  freeLancerId      String?
+  isWeekend         Boolean          @default(true)
+  bypassApplied     Boolean          @default(false)
+  bypassRuleId      String?
+  customCheckInTime DateTime?
+  overtimeRequestId String?
+  employee          Employee?        @relation(fields: [employeeId], references: [id])
+  freeLancer        FreeLancer?      @relation(fields: [freeLancerId], references: [id])
+  overtimeRequest   OvertimeRequest? @relation(fields: [overtimeRequestId], references: [id])
+  breaks            BreakRecord[]
+
+  @@unique([employeeId, date])
+  @@unique([freeLancerId, date])
+  @@map("attendance_records")
+}
+
+model BreakRecord {
+  id                 String           @id @default(cuid())
+  attendanceRecordId String
+  startTime          DateTime
+  endTime            DateTime?
+  duration           Int?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  attendanceRecord   AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+
+  @@map("break_records")
+}
+
+model Warning {
+  id              String      @id @default(cuid())
+  employeeId      String
+  type            String
+  severity        String
+  reason          String
+  actionPlan      String?
+  date            DateTime    @default(now())
+  status          String      @default("ACTIVE")
+  resolvedAt      DateTime?
+  resolutionNotes String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  freeLancerId    String?
+  employee        Employee    @relation(fields: [employeeId], references: [id])
+  freeLancer      FreeLancer? @relation(fields: [freeLancerId], references: [id])
+
+  @@map("warnings")
+}
+
+model LeaveRequest {
+  id            String      @id @default(cuid())
+  employeeId    String
+  leaveType     LeaveType
+  startDate     DateTime
+  endDate       DateTime
+  days          Int
+  reason        String
+  contactInfo   String?
+  status        LeaveStatus @default(PENDING)
+  requestedDate DateTime    @default(now())
+  approvedBy    String?
+  approvedDate  DateTime?
+  rejectedBy    String?
+  rejectedDate  DateTime?
+  comments      String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  freeLancerId  String?
+  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  freeLancer    FreeLancer? @relation(fields: [freeLancerId], references: [id])
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model Account {
+  id                String        @id @default(cuid())
+  name              String
+  accountNumber     String        @unique
+  type              AccountType
+  subType           String?
+  balance           Decimal       @db.Decimal(15, 2)
+  currency          String        @default("ZAR")
+  bankName          String?
+  branchCode        String?
+  isActive          Boolean       @default(true)
+  isDefault         Boolean       @default(false)
+  lastReconciledAt  DateTime?
+  reconciledBalance Decimal?      @db.Decimal(15, 2)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  transactions      Transaction[]
+  fromTransfers     Transfer[]    @relation("FromTransfers")
+  toTransfers       Transfer[]    @relation("ToTransfers")
+
+  @@map("accounts")
+}
+
+model Transaction {
+  id             String             @id @default(cuid())
+  amount         Decimal            @db.Decimal(15, 2)
+  currency       String             @default("ZAR")
+  type           TransactionType
+  status         TransactionStatus  @default(PENDING)
+  description    String
+  reference      String?
+  date           DateTime
+  method         PaymentMethod?
+  invoiceId      String?
+  categoryId     String?
+  clientId       String?
+  departmentId   String?
+  createdBy      String
+  taxAmount      Decimal?           @db.Decimal(15, 2)
+  taxRate        Decimal?           @db.Decimal(5, 4)
+  netAmount      Decimal?           @db.Decimal(15, 2)
+  vendor         String?
+  receiptUrl     String?
+  invoiceNumber  String?
+  isReconciled   Boolean            @default(false)
+  reconciledAt   DateTime?
+  reconciledBy   String?
+  exchangeRate   Decimal?           @db.Decimal(10, 6)
+  baseCurrency   String?
+  baseAmount     Decimal?           @db.Decimal(15, 2)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  accountId      String?
+  loanId         String?
+  loanPaymentId  String?
+  Note           Note[]
+  documents      Document[]
+  ExpensePayment ExpensePayment[]
+  Payment        Payment[]
+  Payroll        Payroll?
+  Refund         Refund[]
+  splits         TransactionSplit[]
+  Account        Account?           @relation(fields: [accountId], references: [id])
+  category       Category?          @relation(fields: [categoryId], references: [id])
+  client         Client?            @relation(fields: [clientId], references: [id])
+  creator        User               @relation(fields: [createdBy], references: [id])
+  department     Department?        @relation(fields: [departmentId], references: [id])
+  invoice        Invoice?           @relation(fields: [invoiceId], references: [id])
+  loan           Loan?              @relation(fields: [loanId], references: [id])
+  loanPayment    LoanPayment?       @relation(fields: [loanPaymentId], references: [id])
+
+  @@index([invoiceId])
+  @@index([categoryId])
+  @@index([clientId])
+  @@index([date])
+  @@index([type])
+  @@index([status])
+  @@map("transactions")
+}
+
+model TransactionCeo {
+  id            String            @id @default(cuid())
+  amount        Decimal           @db.Decimal(15, 2)
+  currency      String            @default("ZAR")
+  type          TransactionType
+  status        TransactionStatus @default(PENDING)
+  description   String
+  reference     String?
+  date          DateTime
+  method        PaymentMethod?
+  categoryCeoId String?
+  vendor        String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  CategoryCeo   CategoryCeo?      @relation(fields: [categoryCeoId], references: [id])
+
+  @@map("transactionsCeo")
+}
+
+model TransactionSplit {
+  id            String      @id @default(cuid())
+  transactionId String
+  categoryId    String
+  amount        Decimal     @db.Decimal(15, 2)
+  description   String?
+  percentage    Decimal?    @db.Decimal(5, 2)
+  category      Category    @relation(fields: [categoryId], references: [id])
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@map("transaction_splits")
+}
+
+model Payroll {
+  id                String             @id @default(cuid())
+  month             String
+  description       String?
+  type              PaymentType
+  totalAmount       Float
+  currency          String             @default("ZAR")
+  status            PayrollStatus      @default(PROCESSED)
+  baseAmount        Float
+  overtimeAmount    Float
+  transactionId     String?            @unique
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  createdBy         String?
+  netAmount         Float
+  totalBonuses      Float              @default(0)
+  totalDeductions   Float              @default(0)
+  payments          Payment[]
+  payrollBonuses    PayrollBonus[]
+  payrollDeductions PayrollDeduction[]
+  transaction       Transaction?       @relation(fields: [transactionId], references: [id])
+
+  @@map("payrolls")
+}
+
+model Payment {
+  id                String             @id @default(cuid())
+  employeeId        String?
+  amount            Decimal            @db.Decimal(15, 2)
+  currency          String             @default("ZAR")
+  type              PaymentType
+  description       String?
+  payDate           DateTime
+  status            PaymentStatus      @default(PAID)
+  baseAmount        Decimal            @db.Decimal(15, 2)
+  overtimeAmount    Decimal            @db.Decimal(15, 2)
+  overtimeHours     Decimal?           @db.Decimal(15, 2)
+  regularHours      Decimal?           @db.Decimal(15, 2)
+  daysWorked        Int
+  createdBy         String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  transactionId     String?
+  payrollId         String?
+  freeLancerId      String?
+  bonusAmount       Decimal            @default(0) @db.Decimal(15, 2)
+  deductionAmount   Decimal            @default(0) @db.Decimal(15, 2)
+  netAmount         Decimal            @db.Decimal(15, 2)
+  performanceScore  Int?
+  paymentBonuses    PaymentBonus[]
+  paymentDeductions PaymentDeduction[]
+  employee          Employee?          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  freeLancer        FreeLancer?        @relation(fields: [freeLancerId], references: [id], onDelete: Cascade)
+  Payroll           Payroll?           @relation(fields: [payrollId], references: [id])
+  transaction       Transaction?       @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([freeLancerId])
+  @@index([payDate])
+  @@map("payments")
+}
+
+model PaymentDeduction {
+  id             String   @id @default(cuid())
+  paymentId      String
+  deductionType  String
+  amount         Decimal  @db.Decimal(15, 2)
+  description    String?
+  isPercentage   Boolean  @default(false)
+  percentageRate Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_deductions")
+}
+
+model PaymentBonus {
+  id             String   @id @default(cuid())
+  paymentId      String
+  bonusType      String
+  amount         Decimal  @db.Decimal(15, 2)
+  description    String?
+  isPercentage   Boolean  @default(false)
+  percentageRate Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@map("payment_bonuses")
+}
+
+model PayrollBonus {
+  id             String   @id @default(cuid())
+  payrollId      String
+  bonusType      String
+  amount         Decimal  @db.Decimal(15, 2)
+  description    String?
+  isPercentage   Boolean  @default(false)
+  percentageRate Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  payroll        Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  @@map("payroll_bonuses")
+}
+
+model PayrollDeduction {
+  id             String   @id @default(cuid())
+  payrollId      String
+  deductionType  String
+  amount         Decimal  @db.Decimal(15, 2)
+  description    String?
+  isPercentage   Boolean  @default(false)
+  percentageRate Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  payroll        Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+
+  @@map("payroll_deductions")
+}
+
+model Transfer {
+  id            String         @id @default(cuid())
+  fromAccountId String
+  toAccountId   String
+  amount        Decimal        @db.Decimal(15, 2)
+  currency      String         @default("ZAR")
+  exchangeRate  Decimal?       @db.Decimal(10, 6)
+  fee           Decimal?       @db.Decimal(15, 2)
+  description   String?
+  reference     String?
+  status        TransferStatus @default(PENDING)
+  transferDate  DateTime
+  processedAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  fromAccount   Account        @relation("FromTransfers", fields: [fromAccountId], references: [id])
+  toAccount     Account        @relation("ToTransfers", fields: [toAccountId], references: [id])
+
+  @@map("transfers")
+}
+
+model Category {
+  id                         String             @id @default(cuid())
+  name                       String             @unique
+  description                String?
+  color                      String?
+  icon                       String?
+  type                       CategoryType
+  parentId                   String?
+  status                     CategoryStatus     @default(ACTIVE)
+  sortOrder                  Int                @default(0)
+  taxDeductible              Boolean            @default(false)
+  taxCategory                String?
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  createdBy                  String?
+  budgets                    BudgetItem[]
+  parent                     Category?          @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children                   Category[]         @relation("CategoryHierarchy")
+  Expense                    Expense[]
+  splits                     TransactionSplit[]
+  transactions               Transaction[]
+  categories_CategoryLinks_A Category[]         @relation("CategoryLinks")
+  categories_CategoryLinks_B Category[]         @relation("CategoryLinks")
+
+  @@map("categories")
+}
+
+model CategoryCeo {
+  id            String           @id @default(cuid())
+  name          String           @unique
+  description   String?
+  color         String?
+  icon          String?
+  type          CategoryType
+  parentId      String?
+  status        CategoryStatus   @default(ACTIVE)
+  sortOrder     Int              @default(0)
+  taxDeductible Boolean          @default(false)
+  taxCategory   String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  createdBy     String?
+  transactions  TransactionCeo[]
+
+  @@map("categoriesCeo")
+}
+
+model Client {
+  id                 String             @id @default(cuid())
+  clientNumber       String             @unique
+  name               String
+  email              String?
+  phone              String             @unique
+  company            String?
+  avatar             String?
+  status             ClientStatus       @default(ACTIVE)
+  type               ClientType         @default(INDIVIDUAL)
+  taxNumber          String?
+  vatNumber          String?
+  website            String?
+  address            String?
+  creditLimit        Decimal?           @db.Decimal(15, 2)
+  paymentTerms       Int?
+  currency           String             @default("ZAR")
+  assignedTo         String?
+  source             String?
+  notes              String?
+  createdBy          String
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  country            String?
+  province           String?
+  street             String?
+  town               String?
+  village            String?
+  additionalInfo     String?
+  companyCountry     String?
+  companyFullName    String?
+  companyProvince    String?
+  companyaddress     String?
+  companystreet      String?
+  companytown        String?
+  companyvillage     String?
+  phone2             String?
+  registrationNumber String?
+  telNo1             String?
+  telNo2             String?
+  tradingName        String?
+  Note               Note[]
+  documents          Document[]
+  invoiceDocuments   InvoiceDocument[]
+  invoices           Invoice[]
+  projects           Project[]
+  quotations         Quotation[]
+  recurringInvoices  RecurringInvoice[]
+  toolRentals        ToolRental[]
+  transactions       Transaction[]
+
+  @@index([status])
+  @@index([type])
+  @@map("clients")
+}
+
+model Project {
+  id               String            @id @default(cuid())
+  projectNumber    String
+  title            String
+  description      String?
+  clientId         String?
+  managerId        String
+  status           ProjectStatus     @default(PLANNING)
+  priority         Priority          @default(MEDIUM)
+  starred          Boolean           @default(false)
+  archived         Boolean           @default(false)
+  startDate        DateTime?
+  endDate          DateTime?
+  deadline         DateTime?
+  budget           Decimal?          @db.Decimal(15, 2)
+  budgetSpent      Decimal?          @db.Decimal(15, 2)
+  currency         String            @default("ZAR")
+  hourlyRate       Decimal?          @db.Decimal(10, 2)
+  progress         Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  billingType      BillingType?
+  projectType      ProjectType       @default(NEW_PROJECT)
+  serviceId        String?
+  Folder           Folder[]
+  Note             Note[]
+  comment          comment[]
+  documents        Document[]
+  Expense          Expense[]
+  invoiceDocuments InvoiceDocument[]
+  invoices         Invoice[]
+  teamMembers      ProjectTeam[]
+  client           Client?           @relation(fields: [clientId], references: [id])
+  manager          User              @relation(fields: [managerId], references: [id])
+  service          Service?          @relation(fields: [serviceId], references: [id])
+  quotations       Quotation[]
+  tasks            Task[]
+  timeEntries      TimeEntry[]
+  toolInterUses    ToolInterUse[]
+  workLogs         WorkLog[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([projectType])
+  @@map("projects")
+}
+
+model WorkLog {
+  id          String   @id @default(cuid())
+  date        DateTime
+  hours       Decimal  @db.Decimal(5, 2)
+  description String
+  projectId   String
+  userId      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([projectId])
+  @@index([userId])
+  @@map("work_logs")
+}
+
+model ProjectTeam {
+  id               String   @id @default(cuid())
+  projectId        String
+  userId           String
+  role             String?
+  canEditTask      Boolean  @default(false)
+  canDeleteTask    Boolean  @default(false)
+  canDeleteFiles   Boolean  @default(false)
+  canCreateTask    Boolean  @default(false)
+  canAddInvoice    Boolean  @default(false)
+  canUploadFiles   Boolean  @default(false)
+  canEditFile      Boolean  @default(false)
+  canViewFinancial Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+  @@map("project_teams")
+}
+
+model Task {
+  id                  String       @id @default(cuid())
+  taskNumber          String
+  title               String
+  description         String?
+  projectId           String
+  status              TaskStatus   @default(TODO)
+  priority            Priority     @default(MEDIUM)
+  noteId              String?
+  isAIGenerated       Boolean      @default(false)
+  dueDate             DateTime?
+  completedAt         DateTime?
+  estimatedHours      Decimal?     @db.Decimal(8, 2)
+  actualHours         Decimal?     @db.Decimal(8, 2)
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  freelancerId        String?
+  subtask             Subtask[]
+  comment             comment[]
+  documents           Document[]
+  project             Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timeEntries         TimeEntry[]
+  freeLancerAssignees FreeLancer[] @relation("FreeLancerTaskAssignments")
+  assignees           Employee[]   @relation("TaskAssignments")
+
+  @@index([projectId])
+  @@index([status])
+  @@index([freelancerId])
+  @@map("tasks")
+}
+
+model Subtask {
+  id             String     @id @default(cuid())
+  title          String
+  description    String?
+  status         TaskStatus @default(TODO)
+  estimatedHours Float?
+  order          Int
+  taskId         String
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  task           Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id               String            @id @default(cuid())
+  name             String
+  originalName     String?
+  type             DocumentType
+  url              String
+  size             Int?
+  mimeType         String?
+  checksum         String?
+  employeeId       String?
+  clientId         String?
+  transactionId    String?
+  projectId        String?
+  venderId         String?
+  folderId         String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  taskId           String?
+  freeLancerId     String?
+  shared           Boolean           @default(false)
+  starred          Boolean           @default(false)
+  lenderId         String?
+  loanId           String?
+  loanPaymentId    String?
+  documentPayments DocumentPayment[]
+  client           Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  employee         Employee?         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  folder           Folder?           @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  freeLancer       FreeLancer?       @relation(fields: [freeLancerId], references: [id])
+  lender           Lender?           @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+  loan             Loan?             @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  loanPayment      LoanPayment?      @relation(fields: [loanPaymentId], references: [id], onDelete: Cascade)
+  Project          Project?          @relation(fields: [projectId], references: [id])
+  Task             Task?             @relation(fields: [taskId], references: [id])
+  transaction      Transaction?      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  vender           Vendor?           @relation(fields: [venderId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([employeeId])
+  @@index([clientId])
+  @@index([transactionId])
+  @@index([loanId])
+  @@index([loanPaymentId])
+  @@index([lenderId])
+  @@map("documents")
+}
+
+model comment {
+  id              String         @id @default(cuid())
+  content         String
+  projectId       String?
+  liked           Boolean        @default(false)
+  pinned          Boolean        @default(false)
+  commenterName   String
+  commenterId     String
+  commenterAvatar String?
+  commenterRole   String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  taskId          String?
+  Project         Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  Task            Task?          @relation(fields: [taskId], references: [id])
+  commentReply    commentReply[]
+}
+
+model Note {
+  id            String       @id @default(cuid())
+  title         String
+  content       String
+  tags          String[]
+  employeeId    String?
+  clientId      String?
+  transactionId String?
+  projectId     String?
+  folderId      String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  freeLancerId  String?
+  color         String?
+  pinned        Boolean      @default(false)
+  client        Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  employee      Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  folder        Folder?      @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  freeLancer    FreeLancer?  @relation(fields: [freeLancerId], references: [id])
+  Project       Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([clientId])
+  @@index([transactionId])
+}
+
+model commentReply {
+  id              String   @id @default(cuid())
+  content         String
+  commentId       String
+  liked           Boolean  @default(false)
+  commenterName   String
+  commenterId     String
+  commenterAvatar String?
+  commenterRole   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  comment         comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+}
+
+model Folder {
+  id        String     @id @default(cuid())
+  title     String
+  projectId String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  Project   Project?   @relation(fields: [projectId], references: [id])
+  Note      Note[]
+  Document  Document[]
+
+  @@index([projectId])
+}
+
+model TimeEntry {
+  id          String    @id @default(cuid())
+  projectId   String?
+  taskId      String?
+  description String?
+  hours       Decimal   @db.Decimal(8, 2)
+  hourlyRate  Decimal?  @db.Decimal(10, 2)
+  date        DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  timeIn      DateTime
+  timeOut     DateTime?
+  userId      String
+  images      String[]  @default([])
+  project     Project?  @relation(fields: [projectId], references: [id])
+  task        Task?     @relation(fields: [taskId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@index([projectId])
+  @@index([date])
+  @@index([taskId])
+  @@map("time_entries")
+}
+
+model Budget {
+  id           String        @id @default(cuid())
+  name         String
+  description  String?
+  totalAmount  Decimal       @db.Decimal(15, 2)
+  currency     String        @default("ZAR")
+  startDate    DateTime
+  endDate      DateTime
+  status       BudgetStatus  @default(ACTIVE)
+  departmentId String?
+  approvedBy   String?
+  approvedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  alerts       BudgetAlert[]
+  items        BudgetItem[]
+  department   Department?   @relation(fields: [departmentId], references: [id])
+
+  @@index([departmentId])
+  @@index([status])
+  @@map("budgets")
+}
+
+model BudgetItem {
+  id         String   @id @default(cuid())
+  budgetId   String
+  categoryId String
+  amount     Decimal  @db.Decimal(15, 2)
+  spent      Decimal  @default(0) @db.Decimal(15, 2)
+  currency   String   @default("ZAR")
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  budget     Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([budgetId, categoryId])
+  @@map("budget_items")
+}
+
+model BudgetAlert {
+  id          String          @id @default(cuid())
+  budgetId    String
+  type        BudgetAlertType
+  threshold   Decimal         @db.Decimal(5, 2)
+  triggered   Boolean         @default(false)
+  triggeredAt DateTime?
+  message     String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  budget      Budget          @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@map("budget_alerts")
+}
+
+model Invoice {
+  id              String            @id @default(cuid())
+  invoiceNumber   String            @unique
+  clientId        String
+  project         String?
+  amount          Decimal           @db.Decimal(15, 2)
+  currency        String            @default("ZAR")
+  status          InvoiceStatus     @default(DRAFT)
+  issueDate       DateTime
+  dueDate         DateTime
+  paidDate        DateTime?
+  description     String?
+  taxAmount       Decimal?          @db.Decimal(15, 2)
+  taxRate         Decimal?          @db.Decimal(5, 2)
+  discountAmount  Decimal?          @db.Decimal(15, 2)
+  discountType    DiscountType?     @default(AMOUNT)
+  totalAmount     Decimal           @db.Decimal(15, 2)
+  paymentTerms    String?
+  notes           String?
+  terms           String?
+  createdBy       String
+  isRecurring     Boolean           @default(false)
+  recurringId     String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  projectId       String?
+  departmentId    String?
+  depositAmount   Decimal?          @db.Decimal(15, 2)
+  depositRequired Boolean           @default(false)
+  depositType     DepositType?      @default(AMOUNT)
+  depositRate     Decimal?          @db.Decimal(15, 2)
+  packageId       String?
+  subpackageId    String?
+  Expense         Expense[]
+  items           InvoiceItem[]
+  payments        InvoicePayment[]
+  client          Client            @relation(fields: [clientId], references: [id])
+  creator         User              @relation(fields: [createdBy], references: [id])
+  Department      Department?       @relation(fields: [departmentId], references: [id])
+  package         Package?          @relation(fields: [packageId], references: [id])
+  Project         Project?          @relation(fields: [projectId], references: [id])
+  recurring       RecurringInvoice? @relation(fields: [recurringId], references: [id])
+  subpackage      Subpackage?       @relation(fields: [subpackageId], references: [id])
+  toolRentals     ToolRental[]
+  Transaction     Transaction[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id                 String        @id @default(cuid())
+  invoiceId          String
+  description        String
+  quantity           Decimal       @db.Decimal(10, 2)
+  unitPrice          Decimal       @db.Decimal(15, 2)
+  amount             Decimal       @db.Decimal(15, 2)
+  currency           String        @default("ZAR")
+  taxRate            Decimal?      @db.Decimal(5, 2)
+  taxAmount          Decimal?      @db.Decimal(15, 2)
+  shopProductId      String?
+  itemDiscountAmount Decimal?
+  itemDiscountType   DiscountType?
+  serviceId          String?
+  details            String?
+  invoice            Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  service            Service?      @relation(fields: [serviceId], references: [id])
+  shopProduct        ShopProduct?  @relation(fields: [shopProductId], references: [id])
+
+  @@map("invoice_items")
+}
+
+model RecurringInvoice {
+  id                     String             @id @default(cuid())
+  clientId               String
+  frequency              RecurringFrequency
+  interval               Int                @default(1)
+  startDate              DateTime
+  endDate                DateTime?
+  nextDate               DateTime
+  status                 RecurringStatus    @default(ACTIVE)
+  description            String?
+  items                  Json
+  currency               String             @default("ZAR")
+  taxRate                Decimal?           @db.Decimal(5, 2)
+  discountAmount         Decimal?           @db.Decimal(15, 2)
+  discountType           DiscountType?      @default(AMOUNT)
+  paymentTerms           String?
+  notes                  String?
+  totalInvoicesGenerated Int                @default(0)
+  lastGeneratedAt        DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  creator                String
+  depositAmount          Decimal?           @db.Decimal(15, 2)
+  depositRequired        Boolean            @default(false)
+  depositType            DepositType?       @default(AMOUNT)
+  depositRate            Decimal?           @db.Decimal(15, 2)
+  invoices               Invoice[]
+  client                 Client             @relation(fields: [clientId], references: [id])
+  user                   User               @relation(fields: [creator], references: [id])
+
+  @@map("recurring_invoices")
+}
+
+model InvoicePayment {
+  id        String               @id @default(cuid())
+  invoiceId String
+  amount    Decimal              @db.Decimal(15, 2)
+  currency  String               @default("ZAR")
+  method    PaymentMethod
+  reference String?
+  notes     String?
+  status    InvoicePaymentStatus @default(PENDING)
+  paidAt    DateTime?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  invoice   Invoice              @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("invoice_payments")
+}
+
+model InvoiceDocument {
+  id                     String              @id @default(cuid())
+  invoiceDocumentNumber  String              @unique
+  invoiceDocumentType    InvoiceDocumentType
+  status                 DocumentStatus      @default(DRAFT)
+  invoiceId              String?
+  originalDocumentId     String?
+  clientId               String?
+  supplierId             String?
+  issueDate              DateTime
+  dueDate                DateTime?
+  deliveryDate           DateTime?
+  orderDate              DateTime?
+  subtotal               Decimal             @db.Decimal(15, 2)
+  taxAmount              Decimal?            @db.Decimal(15, 2)
+  discountAmount         Decimal?            @db.Decimal(15, 2)
+  discountType           DiscountType?       @default(AMOUNT)
+  totalAmount            Decimal             @db.Decimal(15, 2)
+  currency               String              @default("ZAR")
+  referenceNumber        String?
+  purchaseOrderNumber    String?
+  deliveryNoteNumber     String?
+  invoiceNumber          String?
+  deliveryAddress        Json?
+  shippingMethod         String?
+  shippingTrackingNumber String?
+  paymentTerms           String?
+  notes                  String?
+  terms                  String?
+  createdBy              String
+  projectId              String?
+  departmentId           String?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+  items                  DocumentItem[]
+  payments               DocumentPayment[]
+  client                 Client?             @relation(fields: [clientId], references: [id])
+  creator                User                @relation(fields: [createdBy], references: [id])
+  department             Department?         @relation(fields: [departmentId], references: [id])
+  project                Project?            @relation(fields: [projectId], references: [id])
+  supplier               Vendor?             @relation(fields: [supplierId], references: [id])
+
+  @@index([invoiceDocumentType])
+  @@index([status])
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([invoiceDocumentNumber])
+  @@map("invoice_documents")
+}
+
+model DocumentItem {
+  id                String           @id @default(cuid())
+  description       String
+  quantity          Decimal          @db.Decimal(10, 2)
+  unitPrice         Decimal          @db.Decimal(15, 2)
+  amount            Decimal          @db.Decimal(15, 2)
+  currency          String           @default("ZAR")
+  productId         String?
+  serviceId         String?
+  unitOfMeasure     String?
+  taxRate           Decimal?         @db.Decimal(5, 2)
+  taxAmount         Decimal?         @db.Decimal(15, 2)
+  deliveredQuantity Decimal?         @db.Decimal(10, 2)
+  invoiceDocumentId String?
+  invoiceDocument   InvoiceDocument? @relation(fields: [invoiceDocumentId], references: [id])
+  product           ShopProduct?     @relation(fields: [productId], references: [id])
+  service           Service?         @relation(fields: [serviceId], references: [id])
+
+  @@map("document_items")
+}
+
+model DocumentPayment {
+  id                String           @id @default(cuid())
+  documentId        String
+  amount            Decimal          @db.Decimal(15, 2)
+  currency          String           @default("ZAR")
+  paymentDate       DateTime
+  paymentMethod     String
+  reference         String?
+  notes             String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  invoiceDocumentId String?
+  document          Document         @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  invoiceDocument   InvoiceDocument? @relation(fields: [invoiceDocumentId], references: [id])
+
+  @@map("document_payments")
+}
+
+model Quotation {
+  id                 String          @id @default(cuid())
+  quotationNumber    String          @unique
+  clientId           String
+  projectId          String?
+  amount             Decimal         @db.Decimal(15, 2)
+  currency           String          @default("ZAR")
+  status             QuotationStatus @default(DRAFT)
+  issueDate          DateTime
+  validUntil         DateTime
+  acceptedDate       DateTime?
+  rejectedDate       DateTime?
+  title              String?
+  description        String?
+  taxAmount          Decimal?        @db.Decimal(15, 2)
+  taxRate            Decimal?        @db.Decimal(5, 2)
+  discountAmount     Decimal?        @db.Decimal(15, 2)
+  discountType       DiscountType?   @default(AMOUNT)
+  totalAmount        Decimal         @db.Decimal(15, 2)
+  terms              String?
+  notes              String?
+  paymentTerms       String?
+  deliveryTerms      String?
+  convertedToInvoice Boolean         @default(false)
+  invoiceId          String?
+  createdBy          String
+  followUpDate       DateTime?
+  reminderSent       Boolean         @default(false)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  departmentId       String?
+  depositAmount      Decimal?        @db.Decimal(15, 2)
+  depositRequired    Boolean         @default(false)
+  depositType        DepositType?    @default(AMOUNT)
+  depositRate        Decimal?        @db.Decimal(15, 2)
+  packageId          String?
+  subpackageId       String?
+  items              QuotationItem[]
+  client             Client          @relation(fields: [clientId], references: [id])
+  creator            User            @relation(fields: [createdBy], references: [id])
+  Department         Department?     @relation(fields: [departmentId], references: [id])
+  package            Package?        @relation(fields: [packageId], references: [id])
+  project            Project?        @relation(fields: [projectId], references: [id])
+  subpackage         Subpackage?     @relation(fields: [subpackageId], references: [id])
+  toolRentals        ToolRental[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([validUntil])
+  @@index([createdBy])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id                 String        @id @default(cuid())
+  quotationId        String
+  description        String
+  quantity           Decimal       @db.Decimal(10, 2)
+  unitPrice          Decimal       @db.Decimal(15, 2)
+  amount             Decimal       @db.Decimal(15, 2)
+  currency           String        @default("ZAR")
+  taxRate            Decimal?      @db.Decimal(5, 2)
+  taxAmount          Decimal?      @db.Decimal(15, 2)
+  notes              String?
+  sortOrder          Int           @default(0)
+  shopProductId      String?
+  itemDiscountAmount Decimal?
+  itemDiscountType   DiscountType?
+  serviceId          String?
+  details            String?
+  quotation          Quotation     @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  service            Service?      @relation(fields: [serviceId], references: [id])
+  shopProduct        ShopProduct?  @relation(fields: [shopProductId], references: [id])
+
+  @@map("quotation_items")
+}
+
+model Vendor {
+  id                 String            @id @default(cuid())
+  name               String
+  email              String?
+  phone              String
+  website            String?
+  address            String?
+  taxNumber          String?
+  currency           String            @default("ZAR")
+  paymentTerms       String?
+  notes              String?
+  status             VendorStatus      @default(ACTIVE)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  userId             String
+  phone2             String?
+  registrationNumber String?
+  type               String            @default("SUPPLIER")
+  fullName           String?
+  productCategories  ProductCategory[]
+  Document           Document[]
+  expenses           Expense[]
+  invoiceDocuments   InvoiceDocument[]
+  shopProducts       ShopProduct[]
+  user               User              @relation(fields: [userId], references: [id])
+  categories         ProductCategory[] @relation("VendorCategories")
+
+  @@map("vendors")
+}
+
+model Expense {
+  expenseNumber   String           @unique
+  id              String           @id @default(cuid())
+  description     String
+  categoryId      String
+  vendorEmail     String?
+  vendorPhone     String?
+  totalAmount     Decimal          @db.Decimal(12, 2)
+  paidAmount      Decimal          @default(0) @db.Decimal(12, 2)
+  remainingAmount Decimal          @db.Decimal(12, 2)
+  status          ExpenseStatus    @default(PENDING)
+  priority        ExpensePriority  @default(MEDIUM)
+  dueDate         DateTime         @db.Date
+  paidDate        DateTime?        @db.Date
+  createdDate     DateTime         @default(now())
+  paymentMethod   String?
+  accountCode     String?
+  projectCode     String?
+  approvedBy      String?
+  approvedDate    DateTime?
+  notes           String?
+  attachments     Json?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  userId          String
+  expenseDate     DateTime         @default(now())
+  projectId       String?
+  invoiceId       String?
+  vendorId        String?
+  payments        ExpensePayment[]
+  category        Category         @relation(fields: [categoryId], references: [id])
+  Invoice         Invoice?         @relation(fields: [invoiceId], references: [id])
+  Project         Project?         @relation(fields: [projectId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
+  Vendor          Vendor?          @relation(fields: [vendorId], references: [id])
+
+  @@map("expenses")
+}
+
+model ExpensePayment {
+  id            String        @id @default(cuid())
+  expenseId     String
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentDate   DateTime      @db.Date
+  method        String
+  reference     String?
+  status        PaymentStatus @default(PENDING)
+  paidBy        String
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  transactionId String?
+  expense       Expense       @relation(fields: [expenseId], references: [id])
+  transaction   Transaction?  @relation(fields: [transactionId], references: [id])
+
+  @@map("expense_payments")
+}
+
+model Product {
+  id        String   @id @default(uuid())
+  category  String
+  size      String
+  price     Decimal
+  panels    Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("products")
+}
+
+model ProductCategory {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String?
+  images      String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  vendorId    String?
+  vendor      Vendor?       @relation(fields: [vendorId], references: [id])
+  products    ShopProduct[]
+  vendors     Vendor[]      @relation("VendorCategories")
+
+  @@map("Productcategories")
+}
+
+model ShopProduct {
+  id                 String              @id @default(cuid())
+  name               String
+  description        String?
+  sku                String              @unique
+  category           String
+  price              Decimal             @db.Decimal(10, 2)
+  costPrice          Decimal?            @db.Decimal(10, 2)
+  stock              Int                 @default(0)
+  minStock           Int                 @default(0)
+  maxStock           Int?
+  weight             Decimal?            @db.Decimal(8, 3)
+  dimensions         String?
+  color              String?
+  size               String?
+  brand              String?
+  status             ProductStatus       @default(ACTIVE)
+  featured           Boolean             @default(false)
+  images             Json?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  creater            String?
+  productCategoryId  String?
+  costPriceBeforeTax Decimal?            @db.Decimal(10, 2)
+  priceBeforeTax     Decimal?            @db.Decimal(10, 2)
+  priceInputMode     String              @default("AFTER_TAX")
+  packageId          String?
+  venderId           String?
+  warranty           String?
+  documentItems      DocumentItem[]
+  invoiceItems       InvoiceItem[]
+  orderItems         OrderItem[]
+  productDocuments   ProductDocument[]
+  quotationItems     QuotationItem[]
+  saleItems          SaleItem[]
+  saleQuoteItems     SaleQuoteItem[]
+  package            Package?            @relation(fields: [packageId], references: [id])
+  ProductCategory    ProductCategory?    @relation(fields: [productCategoryId], references: [id])
+  vender             Vendor?             @relation(fields: [venderId], references: [id], onDelete: Cascade)
+  stockAwaits        StockAwait[]
+  stockMovements     StockMovement[]
+  subpackages        SubpackageProduct[]
+  coupons            Coupon[]            @relation("CouponToShopProduct")
+
+  @@map("shopProducts")
+}
+
+model ProductDocument {
+  id            String       @id @default(cuid())
+  name          String
+  url           String
+  type          DocumentType
+  size          Int
+  mimeType      String
+  shopProductId String
+  createdAt     DateTime     @default(now())
+  shopProduct   ShopProduct  @relation(fields: [shopProductId], references: [id], onDelete: Cascade)
+
+  @@map("product_documents")
+}
+
+model StockMovement {
+  id            String            @id @default(cuid())
+  shopProductId String
+  type          StockMovementType
+  quantity      Int
+  reason        String?
+  reference     String?
+  previousStock Int
+  newStock      Int
+  createdAt     DateTime          @default(now())
+  creater       String?
+  shopProduct   ShopProduct       @relation(fields: [shopProductId], references: [id])
+
+  @@map("stock_movements")
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  orderNumber    String      @unique
+  saleId         String      @unique
+  status         OrderStatus @default(PENDING)
+  deliveryDate   DateTime?
+  assignedTo     String?
+  carrier        String?
+  trackingNumber String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  userId         String?
+  customerId     String?
+  packageId      String?
+  OrderItem      OrderItem[]
+  Customer       Customer?   @relation(fields: [customerId], references: [id])
+  package        Package?    @relation(fields: [packageId], references: [id])
+  sale           Sale        @relation(fields: [saleId], references: [id])
+  User           User?       @relation(fields: [userId], references: [id])
+
+  @@map("orders")
+}
+
+model SaleQuote {
+  id                   String          @id @default(cuid())
+  quoteNumber          String          @unique
+  customerId           String?
+  customerName         String?
+  customerPhone        String?
+  customerEmail        String?
+  customerAddress      String?
+  status               QuoteStatus     @default(PENDING)
+  expiryDate           DateTime?
+  notes                String?
+  isDelivery           Boolean         @default(false)
+  deliveryAddress      String?
+  deliveryInstructions String?
+  subtotal             Float
+  discount             Float           @default(0)
+  discountPercent      Float           @default(0)
+  tax                  Float           @default(0)
+  deliveryFee          Float           @default(0)
+  total                Float
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  createdBy            String
+  items                SaleQuoteItem[]
+  customer             Customer?       @relation(fields: [customerId], references: [id])
+  convertedTo          Sale?           @relation("QuoteToSale")
+  stockAwaits          StockAwait[]
+
+  @@map("sale_quotes")
+}
+
+model SaleQuoteItem {
+  id               String      @id @default(cuid())
+  quoteId          String
+  shopProductId    String
+  quantity         Int
+  price            Decimal     @db.Decimal(10, 2)
+  total            Decimal     @db.Decimal(10, 2)
+  hadNegativeStock Boolean     @default(false)
+  awaitedQuantity  Int         @default(0)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  quote            SaleQuote   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  shopProduct      ShopProduct @relation(fields: [shopProductId], references: [id])
+
+  @@map("sale_quote_items")
+}
+
+model StockAwait {
+  id            String           @id @default(cuid())
+  saleId        String?
+  quoteId       String?
+  shopProductId String
+  quantity      Int
+  status        StockAwaitStatus @default(PENDING)
+  notes         String?
+  resolvedAt    DateTime?
+  resolvedBy    String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  quote         SaleQuote?       @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  sale          Sale?            @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  shopProduct   ShopProduct      @relation(fields: [shopProductId], references: [id])
+
+  @@unique([saleId, shopProductId])
+  @@unique([quoteId, shopProductId])
+  @@map("stock_awaits")
+}
+
+model Sale {
+  id                   String            @id @default(cuid())
+  saleNumber           String            @unique
+  customerId           String?
+  customerName         String?
+  customerPhone        String?
+  customerEmail        String?
+  customerAddress      String?
+  status               SaleStatus        @default(COMPLETED)
+  isDelivery           Boolean           @default(false)
+  deliveryFee          Float             @default(0)
+  deliveryAddress      String?
+  deliveryInstructions String?
+  subtotal             Float
+  tax                  Float             @default(0)
+  discount             Float             @default(0)
+  discountPercent      Float             @default(0)
+  deliveryAmount       Float             @default(0)
+  total                Float
+  refundedAmount       Decimal           @default(0) @db.Decimal(10, 2)
+  refundedTax          Decimal           @default(0) @db.Decimal(10, 2)
+  paymentStatus        ShopPaymentStatus @default(COMPLETED)
+  paymentMethod        PaymentMethod
+  amountReceived       Float?
+  change               Float?
+  receiptSent          Boolean           @default(false)
+  receiptEmail         String?
+  saleDate             DateTime          @default(now())
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  createdBy            String
+  orderId              String?
+  quoteId              String?           @unique
+  couponId             String?
+  Order                Order?
+  Refund               Refund[]
+  items                SaleItem[]
+  coupon               Coupon?           @relation(fields: [couponId], references: [id])
+  customer             Customer?         @relation(fields: [customerId], references: [id])
+  quote                SaleQuote?        @relation("QuoteToSale", fields: [quoteId], references: [id])
+  StockAwait           StockAwait[]
+
+  @@map("sales")
+}
+
+model SaleItem {
+  id               String       @id @default(cuid())
+  saleId           String
+  shopProductId    String
+  quantity         Int
+  price            Decimal      @db.Decimal(10, 2)
+  total            Decimal      @db.Decimal(10, 2)
+  awaitedQuantity  Int          @default(0)
+  hadNegativeStock Boolean      @default(false)
+  RefundItem       RefundItem[]
+  sale             Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  ShopProduct      ShopProduct  @relation(fields: [shopProductId], references: [id])
+
+  @@map("sale_items")
+}
+
+model OrderItem {
+  id            String      @id @default(cuid())
+  orderId       String
+  shopProductId String
+  quantity      Int
+  price         Float
+  total         Float
+  order         Order       @relation(fields: [orderId], references: [id])
+  ShopProduct   ShopProduct @relation(fields: [shopProductId], references: [id])
+
+  @@map("order_items")
+}
+
+model Refund {
+  id              String       @id @default(cuid())
+  refundNumber    String       @unique
+  saleId          String
+  status          RefundStatus @default(PENDING)
+  reason          String
+  method          RefundMethod
+  amount          Float
+  taxAmount       Float        @default(0)
+  requestedBy     String
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  processedBy     String?
+  processedAt     DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  transactionId   String?
+  notes           String?
+  items           RefundItem[]
+  sale            Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  transaction     Transaction? @relation(fields: [transactionId], references: [id])
+
+  @@map("refunds")
+}
+
+model RefundItem {
+  id         String   @id @default(cuid())
+  refundId   String
+  saleItemId String
+  quantity   Int
+  price      Float
+  total      Float
+  taxAmount  Float    @default(0)
+  refund     Refund   @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  saleItem   SaleItem @relation(fields: [saleItemId], references: [id])
+
+  @@map("refund_items")
+}
+
+model PackageCategory {
+  id          String         @id @default(cuid())
+  name        String
+  description String?
+  parentId    String?
+  status      CategoryStatus @default(ACTIVE)
+  sortOrder   Int            @default(0)
+  thumbnail   String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  packages    Package[]
+
+  @@map("packageCategories")
+}
+
+model Package {
+  id                String           @id @default(cuid())
+  name              String
+  description       String?
+  shortDescription  String?
+  status            PackageStatus    @default(ACTIVE)
+  featured          Boolean          @default(false)
+  isPublic          Boolean          @default(true)
+  images            Json?
+  thumbnail         String?
+  salesCount        Int              @default(0)
+  totalRevenue      Decimal          @default(0) @db.Decimal(12, 2)
+  benefits          String[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  notes             String?
+  packageCategoryId String?
+  invoices          Invoice[]
+  orders            Order[]
+  packageCategory   PackageCategory? @relation(fields: [packageCategoryId], references: [id])
+  quotations        Quotation[]
+  services          Service[]
+  shopProducts      ShopProduct[]
+  subpackages       Subpackage[]
+
+  @@map("packages")
+}
+
+model Subpackage {
+  id               String              @id @default(cuid())
+  packageId        String
+  name             String
+  description      String?
+  shortDescription String?
+  price            Decimal             @db.Decimal(10, 2)
+  originalPrice    Decimal?            @db.Decimal(10, 2)
+  discount         Int?
+  discountType     String?
+  duration         String?
+  status           PackageStatus       @default(ACTIVE)
+  isDefault        Boolean             @default(false)
+  sortOrder        Int                 @default(0)
+  features         String[]
+  salesCount       Int                 @default(0)
+  revenue          Decimal             @default(0) @db.Decimal(12, 2)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  invoices         Invoice[]
+  quotations       Quotation[]
+  products         SubpackageProduct[]
+  services         SubpackageService[]
+  package          Package             @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@map("subpackages")
+}
+
+model SubpackageProduct {
+  id                 String        @id @default(cuid())
+  subpackageId       String
+  productId          String
+  quantity           Int           @default(1)
+  unitPrice          Decimal?      @db.Decimal(10, 2)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  itemDiscountAmount Decimal?      @db.Decimal(15, 2)
+  itemDiscountType   DiscountType?
+  taxAmount          Decimal?      @db.Decimal(15, 2)
+  taxRate            Decimal?      @db.Decimal(5, 2)
+  product            ShopProduct   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  subpackage         Subpackage    @relation(fields: [subpackageId], references: [id], onDelete: Cascade)
+
+  @@unique([subpackageId, productId])
+  @@map("subpackage_products")
+}
+
+model SubpackageService {
+  id                 String        @id @default(cuid())
+  subpackageId       String
+  serviceId          String
+  quantity           Int           @default(1)
+  unitPrice          Decimal?      @db.Decimal(10, 2)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  itemDiscountAmount Decimal?      @db.Decimal(15, 2)
+  itemDiscountType   DiscountType?
+  taxAmount          Decimal?      @db.Decimal(15, 2)
+  taxRate            Decimal?      @db.Decimal(5, 2)
+  service            Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  subpackage         Subpackage    @relation(fields: [subpackageId], references: [id], onDelete: Cascade)
+
+  @@unique([subpackageId, serviceId])
+  @@map("subpackage_services")
+}
+
+model Customer {
+  id          String      @id @default(cuid())
+  firstName   String
+  lastName    String?
+  email       String?     @unique
+  phone       String?
+  address     String?
+  city        String?
+  province    Province?
+  postalCode  String?
+  country     String      @default("South Africa")
+  dateOfBirth DateTime?   @db.Date
+  gender      Gender?
+  createdBy   String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  orders      Order[]
+  saleQuotes  SaleQuote[]
+  sales       Sale[]
+
+  @@map("customers")
+}
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  title     String
+  userId    String
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chat_sessions")
+}
+
+model Tool {
+  id                String               @id @default(cuid())
+  name              String
+  description       String?
+  category          String?
+  canBeRented       Boolean              @default(true)
+  purchasePrice     Decimal              @db.Decimal(12, 2)
+  purchaseDate      DateTime?            @db.Date
+  rentalRateDaily   Decimal?             @db.Decimal(10, 2)
+  rentalRateWeekly  Decimal?             @db.Decimal(10, 2)
+  rentalRateMonthly Decimal?             @db.Decimal(10, 2)
+  status            ToolStatus           @default(AVAILABLE)
+  condition         ToolCondition        @default(GOOD)
+  primaryImage      String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  createdBy         String
+  images            Json?
+  rentalRequests    RentalRequest[]
+  InterUse          ToolInterUse[]
+  maintenanceLogs   ToolMaintenanceLog[]
+  rentals           ToolRental[]
+
+  @@map("tools")
+}
+
+model ToolRental {
+  id                String        @id @default(cuid())
+  toolId            String
+  businessName      String
+  renterContact     String?
+  renterEmail       String?
+  renterPhone       String?
+  rentalStartDate   DateTime      @db.Date
+  rentalEndDate     DateTime      @db.Date
+  rentalRate        Decimal       @db.Decimal(10, 2)
+  rentalDays        Int?
+  totalCost         Decimal?      @db.Decimal(10, 2)
+  paymentStatus     PaymentStatus @default(PENDING)
+  amountPaid        Decimal       @default(0) @db.Decimal(10, 2)
+  remainingAmount   Decimal?      @db.Decimal(10, 2)
+  paidDate          DateTime?     @db.Date
+  returnDate        DateTime?
+  status            RentalStatus  @default(ACTIVE)
+  notes             String?
+  returnCondition   String?
+  damageReported    Boolean       @default(false)
+  damageDescription String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  quotationId       String?
+  invoiceId         String?
+  clientId          String?
+  client            Client?       @relation(fields: [clientId], references: [id])
+  invoice           Invoice?      @relation(fields: [invoiceId], references: [id])
+  quotation         Quotation?    @relation(fields: [quotationId], references: [id])
+  tool              Tool          @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@map("tool_rentals")
+}
+
+model ToolInterUse {
+  id                String             @id @default(cuid())
+  toolId            String
+  useStartDate      DateTime           @db.Date
+  useEndDate        DateTime           @db.Date
+  status            ToolInterUseStatus @default(ACTIVE)
+  notes             String?
+  damageReported    Boolean            @default(false)
+  damageDescription String?
+  relisedBy         String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  projectId         String?
+  Project           Project?           @relation(fields: [projectId], references: [id])
+  tool              Tool               @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@map("tool_interUses")
+}
+
+model ToolMaintenanceLog {
+  id              String   @id @default(cuid())
+  toolId          String
+  maintenanceType String
+  cost            Decimal  @db.Decimal(10, 2)
+  maintenanceDate DateTime @db.Date
+  notes           String?
+  assignedTo      String?
+  processedBy     String?
+  createdAt       DateTime @default(now())
+  tool            Tool     @relation(fields: [toolId], references: [id], onDelete: Cascade)
+
+  @@map("tool_maintenance_logs")
+}
+
+model Service {
+  id                String              @id @default(cuid())
+  name              String
+  description       String
+  category          String
+  categoryId        String
+  amount            Float
+  currency          String?             @default("ZAR")
+  duration          String?
+  status            ServiceStatus       @default(ACTIVE)
+  features          String[]
+  clients           Int                 @default(0)
+  revenue           Float               @default(0)
+  completedProjects Int                 @default(0)
+  activeProjects    Int                 @default(0)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  packageId         String?
+  documentItems     DocumentItem[]
+  invoiceItems      InvoiceItem[]
+  projects          Project[]
+  quotationItems    QuotationItem[]
+  package           Package?            @relation(fields: [packageId], references: [id])
+  subpackages       SubpackageService[]
+
+  @@map("services")
+}
+
+model RentalRequest {
+  id                  String        @id @default(cuid())
+  toolId              String?
+  requesterName       String
+  requesterEmail      String
+  requesterPhone      String?
+  requesterBusiness   String
+  requestedStartDate  DateTime      @db.Date
+  requestedEndDate    DateTime      @db.Date
+  rentalDays          Int?
+  estimatedCost       Decimal?      @db.Decimal(10, 2)
+  status              RequestStatus @default(PENDING)
+  priority            Priority      @default(MEDIUM)
+  approvedAt          DateTime?
+  approvedBy          String?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  purpose             String?
+  specialRequirements String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  tool                Tool?         @relation(fields: [toolId], references: [id])
+
+  @@map("rental_requests")
+}
+
+model Target {
+  id           String         @id @default(cuid())
+  name         String
+  description  String?
+  type         TargetType
+  category     String?
+  targetValue  Decimal        @db.Decimal(15, 2)
+  currentValue Decimal        @default(0) @db.Decimal(15, 2)
+  unit         String?
+  currency     String?        @default("ZAR")
+  startDate    DateTime
+  endDate      DateTime
+  employeeId   String?
+  departmentId String?
+  status       TargetStatus   @default(ACTIVE)
+  priority     Priority       @default(MEDIUM)
+  progress     Decimal        @default(0) @db.Decimal(5, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  freeLancerId String?
+  kpis         Kpi[]
+  updates      TargetUpdate[]
+  department   Department?    @relation(fields: [departmentId], references: [id])
+  employee     Employee?      @relation(fields: [employeeId], references: [id])
+  freeLancer   FreeLancer?    @relation(fields: [freeLancerId], references: [id])
+
+  @@index([employeeId])
+  @@index([departmentId])
+  @@index([status])
+  @@map("targets")
+}
+
+model TargetUpdate {
+  id        String   @id @default(cuid())
+  targetId  String
+  value     Decimal  @db.Decimal(15, 2)
+  notes     String?
+  updatedBy String?
+  createdAt DateTime @default(now())
+  target    Target   @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([targetId])
+  @@map("target_updates")
+}
+
+model Kpi {
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  formula     String?
+  unit        String?
+  targetId    String?
+  frequency   KpiFrequency @default(MONTHLY)
+  isActive    Boolean      @default(true)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  results     KpiResult[]
+  target      Target?      @relation(fields: [targetId], references: [id])
+
+  @@map("kpis")
+}
+
+model KpiResult {
+  id           String      @id @default(cuid())
+  kpiId        String
+  employeeId   String?
+  value        Decimal     @db.Decimal(15, 2)
+  period       DateTime
+  notes        String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  freeLancerId String?
+  employee     Employee?   @relation(fields: [employeeId], references: [id])
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
+  kpi          Kpi         @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+
+  @@unique([kpiId, employeeId, period])
+  @@index([kpiId])
+  @@index([period])
+  @@map("kpi_results")
+}
+
+model Report {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  type        ReportType
+  config      Json
+  schedule    Json?
+  isScheduled Boolean           @default(false)
+  isPublic    Boolean           @default(false)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+  status      ReportStatus      @default(DRAFT)
+  createdBy   String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  executions  ReportExecution[]
+  creator     User              @relation(fields: [createdBy], references: [id])
+
+  @@index([type])
+  @@index([createdBy])
+  @@map("reports")
+}
+
+model ReportExecution {
+  id          String                @id @default(cuid())
+  reportId    String
+  status      ReportExecutionStatus @default(RUNNING)
+  startedAt   DateTime              @default(now())
+  completedAt DateTime?
+  fileUrl     String?
+  fileSize    Int?
+  error       String?
+  parameters  Json?
+  report      Report                @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@index([status])
+  @@map("report_executions")
+}
+
+model Notification {
+  id        String                @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      NotificationType
+  priority  NotificationPriority  @default(MEDIUM)
+  isRead    Boolean               @default(false)
+  actionUrl String?
+  metadata  Json?
+  channels  NotificationChannel[]
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([type])
+  @@map("notifications")
+}
+
+model OvertimeRequest {
+  id                String             @id @default(cuid())
+  employeeId        String?
+  freeLancerId      String?
+  date              DateTime           @db.Date
+  startTime         DateTime
+  endTime           DateTime?
+  duration          Float?
+  reason            String?
+  status            OvertimeStatus     @default(PENDING)
+  requestedAt       DateTime           @default(now())
+  approvedAt        DateTime?
+  approvedBy        String?
+  attendanceRecords AttendanceRecord[]
+  employee          Employee?          @relation(fields: [employeeId], references: [id])
+  freeLancer        FreeLancer?        @relation(fields: [freeLancerId], references: [id])
+
+  @@map("overtime_requests")
+}
+
+model EmployeeNotification {
+  id         String                @id @default(cuid())
+  title      String
+  message    String
+  type       NotificationType
+  priority   NotificationPriority  @default(MEDIUM)
+  isRead     Boolean               @default(false)
+  actionUrl  String?
+  metadata   Json?
+  channels   NotificationChannel[]
+  sentAt     DateTime?
+  readAt     DateTime?
+  createdAt  DateTime              @default(now())
+  updatedAt  DateTime              @updatedAt
+  employeeId String?
+  employee   Employee?             @relation(fields: [employeeId], references: [id])
+
+  @@index([isRead])
+  @@index([type])
+  @@map("employee_notifications")
+}
+
+model NotificationTemplate {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  subject   String
+  body      String
+  type      NotificationType
+  variables String[]
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@map("notification_templates")
+}
+
+model EmergencyCallOut {
+  id              String        @id @default(cuid())
+  employeeId      String?
+  freeLancerId    String?
+  title           String
+  message         String?
+  startTime       DateTime
+  status          CallOutStatus @default(PENDING)
+  requestedBy     String
+  requestedAt     DateTime      @default(now())
+  acceptedAt      DateTime?
+  declinedAt      DateTime?
+  declinedReason  String?
+  completedAt     DateTime?
+  checkIn         DateTime?
+  checkInAddress  String?
+  checkInLat      Float?
+  checkInLng      Float?
+  checkOut        DateTime?
+  checkOutAddress String?
+  checkOutLat     Float?
+  checkOutLng     Float?
+  duration        Float?
+  notes           String?
+  employee        Employee?     @relation(fields: [employeeId], references: [id])
+  freeLancer      FreeLancer?   @relation(fields: [freeLancerId], references: [id])
+  requestedUser   User          @relation(fields: [requestedBy], references: [id])
+
+  @@map("emergency_call_outs")
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  key         String    @unique
+  permissions String[]
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("api_keys")
+}
+
+model Webhook {
+  id            String            @id @default(cuid())
+  url           String
+  events        String[]
+  secret        String?
+  isActive      Boolean           @default(true)
+  lastTriggered DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deliveries    WebhookDelivery[]
+
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id          String                @id @default(cuid())
+  webhookId   String
+  event       String
+  payload     Json
+  status      WebhookDeliveryStatus @default(PENDING)
+  attempts    Int                   @default(0)
+  lastAttempt DateTime?
+  response    Json?
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  webhook     Webhook               @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId])
+  @@index([status])
+  @@map("webhook_deliveries")
+}
+
+model ContentPage {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  title           String
+  content         String
+  metaTitle       String?
+  metaDescription String?
+  isPublished     Boolean   @default(false)
+  publishedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("content_pages")
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  name        String
+  company     String?
+  position    String?
+  content     String
+  rating      Int?
+  avatar      String?
+  isPublished Boolean  @default(false)
+  featured    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("testimonials")
+}
+
+model FaqItem {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  category    String?
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("faq_items")
+}
+
+model BlogPost {
+  id              String    @id @default(cuid())
+  slug            String    @unique
+  title           String
+  excerpt         String?
+  content         String
+  featuredImage   String?
+  tags            String[]
+  isPublished     Boolean   @default(false)
+  publishedAt     DateTime?
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("blog_posts")
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  type      String   @default("string")
+  category  String   @default("general")
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+  @@map("settings")
+}
+
+model Currency {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  symbol    String
+  rate      Decimal  @db.Decimal(10, 6)
+  isBase    Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  updatedAt DateTime @updatedAt
+
+  @@map("currencies")
+}
+
+model TaxRate {
+  id          String   @id @default(cuid())
+  name        String
+  rate        Decimal  @db.Decimal(5, 4)
+  type        TaxType
+  description String?
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  country     String?  @default("ZA")
+  region      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tax_rates")
+}
+
+model Loan {
+  id                String                @id @default(cuid())
+  lender            String
+  loanType          String?
+  referenceNumber   String?
+  amount            Float
+  interestRate      Float
+  startDate         DateTime
+  endDate           DateTime?
+  termMonths        Int?
+  description       String?
+  monthlyPayment    Float?
+  status            LoanStatus            @default(ACTIVE)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  calculationMethod LoanCalculationMethod @default(AMORTIZED)
+  interestAmount    Float?
+  totalPayable      Float?
+  lenderId          String?
+  interestType      InterestType          @default(FIXED)
+  primeMargin       Float?                @default(0)
+  createdBy         String?
+  documents         Document[]
+  payments          LoanPayment[]
+  creator           User?                 @relation(fields: [createdBy], references: [id])
+  lenderRef         Lender?               @relation(fields: [lenderId], references: [id])
+  transactions      Transaction[]
+
+  @@map("loans")
+}
+
+model LoanPayment {
+  id           String          @id @default(cuid())
+  loanId       String
+  amount       Float
+  date         DateTime
+  type         LoanPaymentType
+  reference    String?
+  notes        String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  createdBy    String?
+  documents    Document[]
+  creator      User?           @relation(fields: [createdBy], references: [id])
+  loan         Loan            @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([loanId])
+  @@map("loan_payments")
+}
+
+model Lender {
+  id            String     @id @default(cuid())
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String?
+  website       String?
+  address       String?
+  description   String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  interestRate  Float?
+  termMonths    Int?
+  createdBy     String?
+  documents     Document[]
+  creator       User?      @relation(fields: [createdBy], references: [id])
+  loans         Loan[]
+
+  @@map("lenders")
+}
+
+model EmployeeTool {
+  id                String            @id @default(cuid())
+  name              String
+  description       String?
+  serialNumber      String?
+  code              String?
+  category          String?
+  purchasePrice     Decimal           @default(0) @db.Decimal(10, 2)
+  purchaseDate      DateTime?
+  quantity          Int               @default(1)
+  employeeId        String?
+  freelancerId      String?
+  allocatedDate     DateTime?
+  returnDate        DateTime?
+  condition         ToolCondition     @default(GOOD)
+  status            WorkerToolStatus  @default(AVAILABLE)
+  damageCost        Decimal?          @default(0) @db.Decimal(10, 2)
+  damageDescription String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  createdBy         String?
+  additionalInfo    String?
+  images            String[]
+  parentToolId      String?
+  maintenanceLogs   ToolMaintenance[]
+  returns           ToolReturn[]
+  employee          Employee?         @relation(fields: [employeeId], references: [id])
+  freelancer        FreeLancer?       @relation(fields: [freelancerId], references: [id])
+  parentTool        EmployeeTool?     @relation("ToolHierarchy", fields: [parentToolId], references: [id])
+  subTools          EmployeeTool[]    @relation("ToolHierarchy")
+
+  @@map("worker_tools")
+}
+
+model ToolRequest {
+  id            String              @id @default(cuid())
+  employeeId    String?
+  freelancerId  String?
+  type          String
+  toolName      String
+  description   String?
+  priority      ToolRequestPriority @default(MEDIUM)
+  status        ToolRequestStatus   @default(PENDING)
+  notes         String?
+  requestedDate DateTime            @default(now())
+  resolvedDate  DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  reason        String?
+  quantity      Int                 @default(1)
+  resolvedById  String?
+  employee      Employee?           @relation(fields: [employeeId], references: [id])
+  freelancer    FreeLancer?         @relation(fields: [freelancerId], references: [id])
+  resolvedBy    User?               @relation("ResolvedRequests", fields: [resolvedById], references: [id])
+
+  @@map("tool_requests")
+}
+
+model ToolReturn {
+  id                String           @id @default(cuid())
+  toolId            String
+  employeeId        String?
+  freelancerId      String?
+  quantity          Int
+  status            WorkerToolStatus
+  condition         ToolCondition
+  damageDescription String?
+  damageCost        Decimal?         @default(0) @db.Decimal(10, 2)
+  returnedDate      DateTime         @default(now())
+  processedById     String?
+  isApproved        Boolean          @default(false)
+  adminNotes        String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  employee          Employee?        @relation(fields: [employeeId], references: [id])
+  freelancer        FreeLancer?      @relation(fields: [freelancerId], references: [id])
+  processedBy       User?            @relation("ProcessedReturns", fields: [processedById], references: [id])
+  tool              EmployeeTool     @relation(fields: [toolId], references: [id])
+
+  @@map("tool_returns")
+}
+
+model ToolMaintenance {
+  id               String              @id @default(cuid())
+  toolId           String?
+  toolName         String
+  serialNumber     String?
+  quantity         Int                 @default(1)
+  issueDescription String?
+  maintenanceType  String?
+  cost             Decimal?            @default(0) @db.Decimal(10, 2)
+  status           MaintenanceStatus   @default(PENDING)
+  priority         MaintenancePriority @default(MEDIUM)
+  startDate        DateTime?
+  completionDate   DateTime?
+  technician       String?
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  reportedBy       String?
+  tool             EmployeeTool?       @relation(fields: [toolId], references: [id])
+
+  @@map("tool_maintenance")
+}
+
+enum MaintenanceStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ToolRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  WAITLIST
+}
+
+enum ToolRequestPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ChartType {
+  BAR
+  LINE
+  AREA
+  PIE
+}
+
+enum PayrollStatus {
+  DRAFT
+  PROCESSED
+  PAID
+  CANCELLED
+}
+
+enum DocumentStatus {
+  DRAFT
+  SENT
+  DELIVERED
+  CANCELLED
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+}
+
+enum InvoiceDocumentType {
+  DELIVERY_NOTE
+  PURCHASE_ORDER
+  PRO_FORMA_INVOICE
+  CREDIT_NOTE
+  SUPPLIER_LIST
+  INVOICE
+}
+
+enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+  COMING_SOON
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum CallOutStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  COMPLETED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum Province {
+  EASTERN_CAPE
+  FREE_STATE
+  GAUTENG
+  KWAZULU_NATAL
+  LIMPOPO
+  MPUMALANGA
+  NORTHERN_CAPE
+  NORTH_WEST
+  WESTERN_CAPE
+}
+
+enum UserRole {
+  CHIEF_EXECUTIVE_OFFICER
+  ADMIN_MANAGER
+  GENERAL_MANAGER
+  MANAGER
+  VIEWER
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum UserPermission {
+  INVOICES_CREATE
+  INVOICES_EDIT
+  INVOICES_DELETE
+  INVOICES_VIEW
+  QUOTATIONS_CREATE
+  QUOTATIONS_EDIT
+  QUOTATIONS_DELETE
+  QUOTATIONS_VIEW
+  Expanses_CREATE
+  Expanses_EDIT
+  Expanses_DELETE
+  Expanses_VIEW
+  USERS_CREATE
+  USERS_EDIT
+  USERS_DELETE
+  USERS_VIEW
+  EMPLOYEES_CREATE
+  EMPLOYEES_EDIT
+  EMPLOYEES_DELETE
+  EMPLOYEES_VIEW
+  Freelancer_CREATE
+  Freelancer_EDIT
+  Freelancer_DELETE
+  Freelancer_VIEW
+  DEPARTMENT_CREATE
+  DEPARTMENT_EDIT
+  DEPARTMENT_DELETE
+  DEPARTMENT_VIEW
+  SETTINGS_MANAGE
+  SETTINGS_VIEW
+  TRANSACTIONS_MANAGE
+  TRANSACTIONS_VIEW
+  PAYROLL_MANAGE
+  PAYROLL_VIEW
+  CATEGORY_MANAGE
+  CATEGORY_VIEW
+  INVENTORY_MANAGE
+  INVENTORY_VIEW
+  SYSTEMS_AI
+  SYSTEMS_DASHBOARD
+  SYSTEMS_NOTIFICATIONS
+  DASHBOARD_FINANCES
+  DASHBOARD_PROJECTS
+  DASHBOARD_TASKs
+  DASHBOARD_WORKS
+  PROJECTS_CREATE
+  PROJECTS_DELETE
+  PROJECTS_VIEW
+  Clients_CREATE
+  Clients_EDIT
+  Clients_DELETE
+  Clients_VIEW
+  Attendence_VIEW
+  Attendence_CREATE
+  Attendence_EDIT
+  Attendence_DELETE
+  Perfomance_VIEW
+  Perfomance_CREATE
+  Perfomance_EDIT
+  Perfomance_DELETE
+  POS_VIEW
+  Order_VIEW
+  Order_CREATE
+  Order_EDIT
+  Order_DELETE
+  Sale_VIEW
+  Sale_CREATE
+  Sale_EDIT
+  Sale_DELETE
+  Product_VIEW
+  Product_CREATE
+  Product_EDIT
+  Product_DELETE
+  Tool_VIEW
+  Tool_CREATE
+  Tool_EDIT
+  Tool_DELETE
+  ToolRental_VIEW
+  ToolRental_CREATE
+  ToolRental_EDIT
+  ToolRental_DELETE
+  Refund_VIEW
+  Refund_CREATE
+  Refund_EDIT
+  Refund_DELETE
+  Vender_VIEW
+  Vender_CREATE
+  Vender_EDIT
+  Vender_DELETE
+  Leave_VIEW
+  Leave_CREATE
+  Leave_EDIT
+  Leave_DELETE
+  Service_VIEW
+  Service_CREATE
+  Service_EDIT
+  Service_DELETE
+  Package_VIEW
+  Package_CREATE
+  Package_EDIT
+  Package_DELETE
+  Coupon_VIEW
+  Coupon_CREATE
+  Coupon_EDIT
+  LOANS_VIEW
+  LOANS_CREATE
+  LOANS_EDIT
+  LOANS_DELETE
+  LOAN_PAYMENTS_CREATE
+  LOAN_PAYMENTS_DELETE
+  LENDERS_VIEW
+  LENDERS_CREATE
+  LENDERS_EDIT
+  LENDERS_DELETE
+  Coupon_DELETE
+  WORKER_TOOLS_VIEW
+  WORKER_TOOLS_CREATE
+  WORKER_TOOLS_EDIT
+  WORKER_TOOLS_DELETE
+  TOOL_REQUESTS_VIEW
+  TOOL_REQUESTS_CREATE
+  TOOL_REQUESTS_EDIT
+  TOOL_REQUESTS_DELETE
+  TOOL_MAINTENANCE_VIEW
+  TOOL_MAINTENANCE_CREATE
+  TOOL_MAINTENANCE_EDIT
+  TOOL_MAINTENANCE_DELETE
+}
+
+enum DepositType {
+  AMOUNT
+  PERCENTAGE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  HALF_DAY
+  SICK_LEAVE
+  ANNUAL_LEAVE
+  UNPAID_LEAVE
+  MATERNITY_LEAVE
+  PATERNITY_LEAVE
+  STUDY_LEAVE
+  ON_BREAK
+}
+
+enum CheckInMethod {
+  GPS
+  MANUAL
+  BARCODE
+}
+
+enum DepartmentStatus {
+  ACTIVE
+  INACTIVE
+  RESTRUCTURING
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+  OFF_DUTY
+  PROBATION
+}
+
+enum FreeLancerStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+  OFF_DUTY
+  PROBATION
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+  SEPARATED
+}
+
+enum ContractType {
+  PERMANENT
+  CONTRACT
+  TEMPORARY
+  INTERN
+  PART_TIME
+  FULL_TIME
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+  LOAN
+  INVESTMENT
+  CASH
+  BANK
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  ADJUSTMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  FAILED
+  RECONCILED
+}
+
+enum TransferStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum CategoryType {
+  INCOME
+  EXPENSE
+  BOTH
+}
+
+enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PROSPECT
+  BLACKLISTED
+}
+
+enum VendorStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PROSPECT
+  BLACKLISTED
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+  GOVERNMENT
+  NON_PROFIT
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectType {
+  NEW_PROJECT
+  RETURN_JOB
+  MAINTENANCE
+  FAULT_FINDING
+}
+
+enum BillingType {
+  INVOICED
+  MAINTENANCE_CONTRACT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum BudgetStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  EXCEEDED
+}
+
+enum BudgetAlertType {
+  WARNING
+  CRITICAL
+  EXCEEDED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum RecurringStatus {
+  ACTIVE
+  PAUSED
+  CANCELLED
+  COMPLETED
+}
+
+enum DiscountType {
+  AMOUNT
+  PERCENTAGE
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+  EFT
+  CHEQUE
+  MOBILE_PAYMENT
+  DEBIT_CARD
+  CRYPTOCURRENCY
+  STORE_CREDIT
+  INVOICE
+  CARD
+}
+
+enum InvoicePaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum RecurringFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum PaymentType {
+  SALARY
+  BONUS
+  OVERTIME
+  ALLOWANCE
+  COMMISSION
+  REIMBURSEMENT
+  DEDUCTION
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+  PARTIALLY_PAID
+}
+
+enum TargetType {
+  REVENUE
+  SALES
+  PRODUCTIVITY
+  EFFICIENCY
+  QUALITY
+  CUSTOMER_SATISFACTION
+  COST_REDUCTION
+  CUSTOM
+}
+
+enum TargetStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  OVERDUE
+}
+
+enum KpiFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum DocumentType {
+  CONTRACT
+  INVOICE
+  RECEIPT
+  ID_COPY
+  CERTIFICATE
+  BANK_STATEMENT
+  TAX_DOCUMENT
+  PAYSLIP
+  LEAVE_FORM
+  PERFORMANCE_REVIEW
+  OTHER
+  DOCUMENT
+  IMAGE
+  PDF
+}
+
+enum AccessLevel {
+  PRIVATE
+  INTERNAL
+  PUBLIC
+}
+
+enum ReportType {
+  FINANCIAL
+  PAYROLL
+  BUDGET
+  TAX
+  PERFORMANCE
+  CUSTOM
+}
+
+enum ReportStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ReportExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum NotificationType {
+  ALERT
+  REMINDER
+  UPDATE
+  SYSTEM
+  PAYMENT
+  INVOICE
+  QUOTATION
+  CLIENT
+  PRODUCT
+  TRANSACTION
+  CATEGORY
+  EMPLOYEE
+  FREELANCER
+  ATTENDANCE
+  LEAVE
+  WARNING
+  ORDER
+  SALE
+  REFUNDED
+  TOOLS
+  RANTAL
+  DEPARTMENT
+  BUDGET
+  TARGET
+  PROJECT
+  SERVICE
+  Task
+  EMERGENCY
+}
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+  IN_APP
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+  RETRYING
+}
+
+enum TaxType {
+  VAT
+  INCOME_TAX
+  WITHHOLDING_TAX
+  CUSTOMS_DUTY
+  EXCISE_TAX
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  CONVERTED
+}
+
+enum QuotationActivityType {
+  CREATED
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  REVISED
+  CONVERTED
+  CANCELLED
+  REMINDER_SENT
+  FOLLOW_UP
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  MATERNITY
+  PATERNITY
+  STUDY
+  UNPAID
+  COMPASSIONATE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DISCONTINUED
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  RETURN
+}
+
+enum QuoteStatus {
+  PENDING
+  CONVERTED
+  EXPIRED
+  CANCELLED
+}
+
+enum StockAwaitStatus {
+  PENDING
+  RESOLVED
+  CANCELLED
+}
+
+enum SaleStatus {
+  COMPLETED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELLED
+  AWAITING_STOCK
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY_FOR_DELIVERY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+  PENDING_STOCK
+}
+
+enum ShopPaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  COMPLETED
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum RefundMethod {
+  ORIGINAL_METHOD
+  CASH
+  CREDIT_CARD
+  BANK_TRANSFER
+  STORE_CREDIT
+}
+
+enum ToolStatus {
+  AVAILABLE
+  INTERUSE
+  RENTED
+  MAINTENANCE
+  RETIRED
+}
+
+enum ToolCondition {
+  EXCELLENT
+  GOOD
+  FAIR
+  POOR
+  DAMAGED
+}
+
+enum RentalStatus {
+  PENDING
+  ACTIVE
+  OVERDUE
+  COMPLETED
+  CANCELLED
+  RETURNED_DAMAGED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ToolInterUseStatus {
+  PENDING
+  ACTIVE
+  OVERDUE
+  COMPLETED
+  CANCELLED
+  RETURNED_DAMAGED
+}
+
+enum ExpenseStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ExpensePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SalaryType {
+  DAILY
+  MONTHLY
+}
+
+enum UserType {
+  ADMIN
+  EMPLOYEE
+}
+
+enum PackageType {
+  BUNDLE
+  PRODUCT_ONLY
+  SERVICE_ONLY
+}
+
+enum PackageStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum LoanStatus {
+  ACTIVE
+  PAID_OFF
+  DEFAULTED
+  CLOSED
+}
+
+enum LoanPaymentType {
+  REGULAR
+  EXTRA
+  INTEREST_ONLY
+  EARLY_SETTLEMENT
+}
+
+enum LoanCalculationMethod {
+  AMORTIZED
+  FLAT
+}
+
+enum InterestType {
+  FIXED
+  PRIME_LINKED
+}
+
+enum WorkerToolStatus {
+  AVAILABLE
+  ALLOCATED
+  DAMAGED
+  LOST
+  MAINTENANCE
+  RETIRED
+  RETURNED
+  PENDING_RETURN
+  NOT_AVAILABLE
+}

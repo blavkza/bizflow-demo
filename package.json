@@ -67,6 +67,7 @@
     "framer-motion": "^12.16.0",
     "html2canvas": "^1.4.1",
     "input-otp": "1.4.1",
+    "is-number": "^7.0.0",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
     "leaflet": "^1.9.4",
