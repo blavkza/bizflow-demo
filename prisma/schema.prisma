@@ -3704,4 +3704,5 @@ enum WorkerToolStatus {
   RETIRED
   RETURNED
   PENDING_RETURN
+  NOT_AVAILABLE
 }

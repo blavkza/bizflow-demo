@@ -133,6 +133,7 @@ export async function PATCH(
 
       // Perform Allocation
       let remainingToAssign = currentRequest.quantity;
+
       for (const toolRecord of availableTools) {
         if (remainingToAssign <= 0) break;
 
@@ -140,9 +141,15 @@ export async function PATCH(
 
         if (recordQty > remainingToAssign) {
           // Split the record: keep some available, allocate some
+          const newAvailableQty = recordQty - remainingToAssign;
+
           await db.employeeTool.update({
             where: { id: toolRecord.id },
-            data: { quantity: recordQty - remainingToAssign },
+            data: {
+              quantity: newAvailableQty,
+              // Update status to NOT_AVAILABLE if new quantity is 0
+              status: newAvailableQty === 0 ? "NOT_AVAILABLE" : "AVAILABLE",
+            },
           });
 
           await db.employeeTool.create({
@@ -151,6 +158,7 @@ export async function PATCH(
               description: toolRecord.description,
               serialNumber: toolRecord.serialNumber,
               code: toolRecord.code,
+              images: toolRecord.images,
               category: toolRecord.category,
               purchasePrice: toolRecord.purchasePrice,
               purchaseDate: toolRecord.purchaseDate,
@@ -160,15 +168,19 @@ export async function PATCH(
               freelancerId: currentRequest.freelancerId,
               allocatedDate: new Date(),
               createdBy: dbUserId,
+              parentToolId: toolRecord.id,
             },
           });
           remainingToAssign = 0;
         } else {
           // Allocate the whole record
+          const newQty = 0; // Entire record is allocated
+
           await db.employeeTool.update({
             where: { id: toolRecord.id },
             data: {
-              status: "ALLOCATED",
+              quantity: newQty,
+              status: newQty === 0 ? "NOT_AVAILABLE" : "AVAILABLE",
               employeeId: currentRequest.employeeId,
               freelancerId: currentRequest.freelancerId,
               allocatedDate: new Date(),
@@ -177,6 +189,18 @@ export async function PATCH(
           remainingToAssign -= recordQty;
         }
       }
+
+      // After allocation, also check if any parent tools have 0 quantity
+      // and update their status to NOT_AVAILABLE
+      await db.employeeTool.updateMany({
+        where: {
+          name: currentRequest.toolName,
+          quantity: 0,
+        },
+        data: {
+          status: "NOT_AVAILABLE",
+        },
+      });
     }
 
     const updatedRequest = await db.toolRequest.update({

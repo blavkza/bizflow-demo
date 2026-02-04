@@ -10,13 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,19 +19,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Copy,
-  Edit,
-  MoreHorizontal,
-  Trash,
-  ArrowUpDown,
-  AlertTriangle,
-} from "lucide-react";
 import { PaginationControls } from "@/components/PaginationControls";
 import { ToolColumn } from "./tool-columns";
 import Image from "next/image";
-import Link from "next/link";
 import { CellAction } from "./cell-action";
 import { useRouter } from "next/navigation";
 import { formatCurrency } from "../../utils";
@@ -63,10 +46,23 @@ export default function ToolsFilterTable({ tools }: ToolsFilterTableProps) {
     }
   };
 
-  const filteredTools = useMemo(() => {
-    let result = [...tools];
+  // Filter to show only main tools (not allocated to any employee/freelancer)
+  const mainTools = useMemo(() => {
+    return tools.filter((tool) => {
+      // Check if tool is not allocated to anyone
+      const isNotAllocated = !tool.employeeId && !tool.freelancerId;
 
-    // Status Filter
+      // Also check status if needed (optional)
+      const isAvailable = tool.status !== "ALLOCATED";
+
+      return isNotAllocated && isAvailable;
+    });
+  }, [tools]);
+
+  const filteredTools = useMemo(() => {
+    let result = [...mainTools];
+
+    // Status Filter - only show statuses that make sense for main tools
     if (statusFilter !== "all") {
       result = result.filter((tool) => tool.status === statusFilter);
     }
@@ -96,7 +92,7 @@ export default function ToolsFilterTable({ tools }: ToolsFilterTableProps) {
     }
 
     return result;
-  }, [tools, searchTerm, statusFilter, conditionFilter, sortOption]);
+  }, [mainTools, searchTerm, statusFilter, conditionFilter, sortOption]);
 
   const totalPages = Math.ceil(filteredTools.length / itemsPerPage);
   const paginatedTools = useMemo(() => {
@@ -115,11 +111,11 @@ export default function ToolsFilterTable({ tools }: ToolsFilterTableProps) {
 
   return (
     <div className="space-y-4">
-      {/* Filters Section matching InvoiceFilters */}
+      {/* Filters Section */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-1 flex-wrap gap-2">
           <Input
-            placeholder="Search tools..."
+            placeholder="Search unallocated tools..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-[200px]"
@@ -131,10 +127,9 @@ export default function ToolsFilterTable({ tools }: ToolsFilterTableProps) {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="AVAILABLE">Available</SelectItem>
-              <SelectItem value="ASSIGNED">Assigned</SelectItem>
               <SelectItem value="DAMAGED">Damaged</SelectItem>
-              <SelectItem value="LOST">Lost</SelectItem>
               <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+              <SelectItem value="LOST">Lost</SelectItem>
             </SelectContent>
           </Select>
           <Select value={conditionFilter} onValueChange={setConditionFilter}>
@@ -160,11 +155,17 @@ export default function ToolsFilterTable({ tools }: ToolsFilterTableProps) {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Stats badge showing count of unallocated tools */}
+        <div className="text-sm text-muted-foreground">
+          Showing {filteredTools.length} unallocated tool
+          {filteredTools.length !== 1 ? "s" : ""}
+        </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Tools Management</CardTitle>
+          <CardTitle>Unallocated Tools (Inventory)</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-md border">
@@ -185,7 +186,9 @@ export default function ToolsFilterTable({ tools }: ToolsFilterTableProps) {
                 {paginatedTools.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="h-24 text-center">
-                      No tools found.
+                      {tools.length === 0
+                        ? "No tools in inventory."
+                        : "All tools are currently allocated. No unallocated tools found."}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -205,6 +208,7 @@ export default function ToolsFilterTable({ tools }: ToolsFilterTableProps) {
                               alt={tool.name}
                               fill
                               className="object-cover"
+                              sizes="48px"
                             />
                           ) : (
                             <div className="flex items-center justify-center h-full w-full bg-secondary text-secondary-foreground text-xs">
@@ -224,9 +228,11 @@ export default function ToolsFilterTable({ tools }: ToolsFilterTableProps) {
                           variant={
                             tool.status === "AVAILABLE"
                               ? "default"
-                              : tool.status === "ASSIGNED"
-                                ? "secondary"
-                                : "destructive"
+                              : tool.status === "DAMAGED"
+                                ? "destructive"
+                                : tool.status === "MAINTENANCE"
+                                  ? "secondary"
+                                  : "outline"
                           }
                         >
                           {tool.status}
@@ -240,7 +246,7 @@ export default function ToolsFilterTable({ tools }: ToolsFilterTableProps) {
                           {tool.condition}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <CellAction data={tool} />
                       </TableCell>
                     </TableRow>

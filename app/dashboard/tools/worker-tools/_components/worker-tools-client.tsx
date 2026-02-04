@@ -100,14 +100,14 @@ export const WorkerToolsClient = () => {
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Assigned Tools
+              Allocated Tools
             </CardTitle>
             <Truck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {tools
-                ?.filter((t: any) => t.status === "ASSIGNED")
+                ?.filter((t: any) => t.status === "ALLOCATED")
                 .reduce((sum: number, t: any) => sum + (t.quantity || 1), 0) ||
                 0}
             </div>

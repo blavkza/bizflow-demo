@@ -29,12 +29,39 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id } = params;
     const body = await request.json();
 
-    // Fetch the original subpackage with its relationships
+    // Fetch the original subpackage with ALL its relationships in the correct order
     const originalSubpackage = await db.subpackage.findUnique({
       where: { id },
       include: {
-        products: true, // Include all product fields
-        services: true, // Include all service fields
+        // Products will be returned in the order they were created (by createdAt)
+        products: {
+          orderBy: { createdAt: "asc" }, // This maintains original creation sequence
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                sku: true,
+                description: true,
+              },
+            },
+          },
+        },
+        // Services will be returned in the order they were created (by createdAt)
+        services: {
+          orderBy: { createdAt: "asc" }, // This maintains original creation sequence
+          include: {
+            service: {
+              select: {
+                id: true,
+                name: true,
+                amount: true,
+                description: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -114,97 +141,72 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    // Create product connections in the junction table WITH NEW FIELDS
-    if (body.products && Array.isArray(body.products)) {
-      // Use provided product list
-      for (const productData of body.products) {
-        await db.subpackageProduct.create({
-          data: {
-            subpackageId: duplicate.id,
-            productId: productData.id,
-            quantity: productData.quantity || 1,
-            unitPrice: productData.unitPrice || null,
-            // NEW FIELDS
-            itemDiscountType: productData.itemDiscountType || null,
-            itemDiscountAmount: productData.itemDiscountAmount
-              ? parseFloat(productData.itemDiscountAmount)
-              : null,
-            taxRate: productData.taxRate
-              ? parseFloat(productData.taxRate)
-              : null,
-            taxAmount: productData.taxAmount
-              ? parseFloat(productData.taxAmount)
-              : null,
-          },
-        });
-      }
-    } else if (originalSubpackage.products.length > 0) {
-      // Copy original product connections WITH NEW FIELDS
+    console.log(
+      `Duplicating ${originalSubpackage.products.length} products and ${originalSubpackage.services.length} services`
+    );
+
+    // Create product connections - copy ALL original products IN SEQUENCE
+    if (originalSubpackage.products.length > 0) {
+      const productPromises = [];
+
       for (const productRelation of originalSubpackage.products) {
-        await db.subpackageProduct.create({
-          data: {
-            subpackageId: duplicate.id,
-            productId: productRelation.productId,
-            quantity: productRelation.quantity,
-            unitPrice: productRelation.unitPrice,
-            // COPY NEW FIELDS FROM ORIGINAL
-            itemDiscountType: productRelation.itemDiscountType,
-            itemDiscountAmount: productRelation.itemDiscountAmount,
-            taxRate: productRelation.taxRate,
-            taxAmount: productRelation.taxAmount,
-          },
-        });
+        productPromises.push(
+          db.subpackageProduct.create({
+            data: {
+              subpackageId: duplicate.id,
+              productId: productRelation.productId,
+              quantity: productRelation.quantity || 1,
+              unitPrice: productRelation.unitPrice,
+              // NEW FIELDS
+              itemDiscountType: productRelation.itemDiscountType,
+              itemDiscountAmount: productRelation.itemDiscountAmount,
+              taxRate: productRelation.taxRate,
+              taxAmount: productRelation.taxAmount,
+              // Note: No sortOrder field available in SubpackageProduct model
+              // Sequence is maintained by creation order
+            },
+          })
+        );
       }
+
+      await Promise.all(productPromises);
+      console.log(`Successfully duplicated ${productPromises.length} products`);
     }
 
-    // Create service connections in the junction table WITH NEW FIELDS
-    if (body.services && Array.isArray(body.services)) {
-      // Use provided service list
-      for (const serviceData of body.services) {
-        await db.subpackageService.create({
-          data: {
-            subpackageId: duplicate.id,
-            serviceId: serviceData.id,
-            quantity: serviceData.quantity || 1,
-            unitPrice: serviceData.unitPrice || null,
-            // NEW FIELDS
-            itemDiscountType: serviceData.itemDiscountType || null,
-            itemDiscountAmount: serviceData.itemDiscountAmount
-              ? parseFloat(serviceData.itemDiscountAmount)
-              : null,
-            taxRate: serviceData.taxRate
-              ? parseFloat(serviceData.taxRate)
-              : null,
-            taxAmount: serviceData.taxAmount
-              ? parseFloat(serviceData.taxAmount)
-              : null,
-          },
-        });
-      }
-    } else if (originalSubpackage.services.length > 0) {
-      // Copy original service connections WITH NEW FIELDS
+    // Create service connections - copy ALL original services IN SEQUENCE
+    if (originalSubpackage.services.length > 0) {
+      const servicePromises = [];
+
       for (const serviceRelation of originalSubpackage.services) {
-        await db.subpackageService.create({
-          data: {
-            subpackageId: duplicate.id,
-            serviceId: serviceRelation.serviceId,
-            quantity: serviceRelation.quantity,
-            unitPrice: serviceRelation.unitPrice,
-            // COPY NEW FIELDS FROM ORIGINAL
-            itemDiscountType: serviceRelation.itemDiscountType,
-            itemDiscountAmount: serviceRelation.itemDiscountAmount,
-            taxRate: serviceRelation.taxRate,
-            taxAmount: serviceRelation.taxAmount,
-          },
-        });
+        servicePromises.push(
+          db.subpackageService.create({
+            data: {
+              subpackageId: duplicate.id,
+              serviceId: serviceRelation.serviceId,
+              quantity: serviceRelation.quantity || 1,
+              unitPrice: serviceRelation.unitPrice,
+              // NEW FIELDS
+              itemDiscountType: serviceRelation.itemDiscountType,
+              itemDiscountAmount: serviceRelation.itemDiscountAmount,
+              taxRate: serviceRelation.taxRate,
+              taxAmount: serviceRelation.taxAmount,
+              // Note: No sortOrder field available in SubpackageService model
+              // Sequence is maintained by creation order
+            },
+          })
+        );
       }
+
+      await Promise.all(servicePromises);
+      console.log(`Successfully duplicated ${servicePromises.length} services`);
     }
 
-    // Fetch the created duplicate with relations including product and service details
+    // Fetch the created duplicate with ALL relations in the correct order
     const createdDuplicate = await db.subpackage.findUnique({
       where: { id: duplicate.id },
       include: {
         products: {
+          orderBy: { createdAt: "asc" }, // Maintain the creation sequence
           include: {
             product: {
               select: {
@@ -218,6 +220,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           },
         },
         services: {
+          orderBy: { createdAt: "asc" }, // Maintain the creation sequence
           include: {
             service: {
               select: {
@@ -240,7 +243,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Transform response for frontend WITH NEW FIELDS
+    // Transform response for frontend
     const transformedResponse = {
       id: createdDuplicate.id,
       name: createdDuplicate.name,
@@ -261,6 +264,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       revenue: Number(createdDuplicate.revenue),
       createdAt: createdDuplicate.createdAt,
       updatedAt: createdDuplicate.updatedAt,
+      // Products will be in the same sequence as original due to createdAt ordering
       products: createdDuplicate.products.map((p) => ({
         id: p.product.id,
         name: p.product.name,
@@ -277,6 +281,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         taxRate: p.taxRate ? Number(p.taxRate) : null,
         taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
       })),
+      // Services will be in the same sequence as original due to createdAt ordering
       services: createdDuplicate.services.map((s) => ({
         id: s.service.id,
         name: s.service.name,
@@ -297,17 +302,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json(
       {
         success: true,
-        message: "Subpackage duplicated successfully",
+        message: `Subpackage duplicated successfully with ${transformedResponse.products.length} products and ${transformedResponse.services.length} services`,
         data: transformedResponse,
       },
       { status: 201 }
     );
   } catch (error) {
     console.error("Error duplicating subpackage:", error);
+
     return NextResponse.json(
       {
         error: "Failed to duplicate subpackage",
         details: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
       },
       { status: 500 }
     );

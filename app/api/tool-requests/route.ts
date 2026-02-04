@@ -96,7 +96,7 @@ export async function POST(req: Request) {
       data: {
         toolName,
         type,
-        priority, // Assuming frontend sends valid enum or string that matches
+        priority,
         description,
         quantity: quantity || 1,
         employeeId,
