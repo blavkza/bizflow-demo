@@ -44,7 +44,7 @@ export default function RootLayout({
               <ClientWrapper>
                 <Providers>
                   <NotificationProvider>
-                    <OvertimeChecker />
+                    {/*  <OvertimeChecker /> */}
                     {children}
                     <FinancialCalculator />
                   </NotificationProvider>
