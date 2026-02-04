@@ -308,24 +308,7 @@ export default function CategoriesPage() {
 
         <div className="flex items-center gap-2">
           {/* Quick action buttons in header */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setViewType(viewType === "list" ? "tree" : "list")}
-            className="hidden sm:flex"
-          >
-            {viewType === "list" ? (
-              <>
-                <FolderTree className="mr-2 h-4 w-4" />
-                Tree View
-              </>
-            ) : (
-              <>
-                <Filter className="mr-2 h-4 w-4" />
-                List View
-              </>
-            )}
-          </Button>
+      
 
           {/* CategoryDialog in header */}
           <CategoryDialog
