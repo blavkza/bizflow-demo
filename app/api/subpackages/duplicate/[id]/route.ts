@@ -35,7 +35,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       include: {
         // Products will be returned in the order they were created (by createdAt)
         products: {
-          orderBy: { createdAt: "asc" }, // This maintains original creation sequence
+          orderBy: { sortOrder: "asc" }, // Use sortOrder instead of createdAt
           include: {
             product: {
               select: {
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
         // Services will be returned in the order they were created (by createdAt)
         services: {
-          orderBy: { createdAt: "asc" }, // This maintains original creation sequence
+          orderBy: { sortOrder: "asc" }, // Use sortOrder instead of createdAt
           include: {
             service: {
               select: {
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!originalSubpackage) {
       return NextResponse.json(
         { error: "Original subpackage not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     console.log(
-      `Duplicating ${originalSubpackage.products.length} products and ${originalSubpackage.services.length} services`
+      `Duplicating ${originalSubpackage.products.length} products and ${originalSubpackage.services.length} services`,
     );
 
     // Create product connections - copy ALL original products IN SEQUENCE
@@ -162,10 +162,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               itemDiscountAmount: productRelation.itemDiscountAmount,
               taxRate: productRelation.taxRate,
               taxAmount: productRelation.taxAmount,
-              // Note: No sortOrder field available in SubpackageProduct model
-              // Sequence is maintained by creation order
+              sortOrder: productRelation.sortOrder,
             },
-          })
+          }),
         );
       }
 
@@ -190,10 +189,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               itemDiscountAmount: serviceRelation.itemDiscountAmount,
               taxRate: serviceRelation.taxRate,
               taxAmount: serviceRelation.taxAmount,
-              // Note: No sortOrder field available in SubpackageService model
-              // Sequence is maintained by creation order
+              sortOrder: serviceRelation.sortOrder,
             },
-          })
+          }),
         );
       }
 
@@ -206,7 +204,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       where: { id: duplicate.id },
       include: {
         products: {
-          orderBy: { createdAt: "asc" }, // Maintain the creation sequence
+          orderBy: { sortOrder: "asc" }, // Maintain the sortOrder sequence
           include: {
             product: {
               select: {
@@ -220,7 +218,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           },
         },
         services: {
-          orderBy: { createdAt: "asc" }, // Maintain the creation sequence
+          orderBy: { sortOrder: "asc" }, // Maintain the sortOrder sequence
           include: {
             service: {
               select: {
@@ -239,7 +237,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!createdDuplicate) {
       return NextResponse.json(
         { error: "Failed to fetch created subpackage" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -280,6 +278,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           : null,
         taxRate: p.taxRate ? Number(p.taxRate) : null,
         taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
+        sortOrder: p.sortOrder,
       })),
       // Services will be in the same sequence as original due to createdAt ordering
       services: createdDuplicate.services.map((s) => ({
@@ -296,6 +295,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           : null,
         taxRate: s.taxRate ? Number(s.taxRate) : null,
         taxAmount: s.taxAmount ? Number(s.taxAmount) : null,
+        sortOrder: s.sortOrder,
       })),
     };
 
@@ -305,7 +305,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         message: `Subpackage duplicated successfully with ${transformedResponse.products.length} products and ${transformedResponse.services.length} services`,
         data: transformedResponse,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error duplicating subpackage:", error);
@@ -316,7 +316,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         details: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

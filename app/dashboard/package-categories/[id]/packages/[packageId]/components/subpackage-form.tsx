@@ -19,6 +19,7 @@ import {
   FileText,
   Briefcase,
   Info,
+  GripVertical,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,28 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
+// Import DnD Kit components
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+  DragMoveEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 // Subpackage form schema with discount validation
 const subpackageFormSchema = z
@@ -90,7 +113,7 @@ const subpackageFormSchema = z
     {
       message: "Discount value is required when discount type is selected",
       path: ["discountValue"],
-    }
+    },
   );
 
 export type SubPackageFormValues = z.infer<typeof subpackageFormSchema>;
@@ -112,6 +135,8 @@ export type SelectedItem = {
   itemDiscountAmount?: number;
   taxRate: number;
   taxAmount?: number;
+  sortOrder: number;
+  frontEndId: string;
 };
 
 type SearchableItem = {
@@ -155,6 +180,57 @@ const formatCurrency = (amount: number) => {
 // Safe number conversion
 const safeNumber = (val: any) => (val ? Number(val) : 0);
 
+// Sortable Item Component
+interface SortableItemProps {
+  id: string;
+  index: number;
+  children: React.ReactNode;
+  disabled?: boolean;
+}
+
+const SortableItem = ({
+  id,
+  index,
+  children,
+  disabled = false,
+}: SortableItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id, disabled });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn("relative", isDragging && "z-50")}
+    >
+      {children}
+      {!disabled && (
+        <div
+          className="absolute left-0 top-0 bottom-0 flex items-center cursor-move transition-opacity group"
+          {...attributes}
+          {...listeners}
+        >
+          <div className="p-2 hover:bg-accent rounded">
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // SearchableItemInput Component
 interface SearchableItemInputProps {
   index: number;
@@ -167,6 +243,7 @@ interface SearchableItemInputProps {
   onBlur: () => void;
   onSelect: (index: number, item: SearchableItem) => void;
   setShowDropdown: (index: number | null) => void;
+  disabled?: boolean;
 }
 
 const SearchableItemInput = ({
@@ -180,6 +257,7 @@ const SearchableItemInput = ({
   onBlur,
   onSelect,
   setShowDropdown,
+  disabled = false,
 }: SearchableItemInputProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
@@ -189,7 +267,7 @@ const SearchableItemInput = ({
       // Check if this item is already in selectedItems (excluding current index)
       const isAlreadySelected = selectedItems.some(
         (selected, i) =>
-          i !== index && selected.id === item.id && selected.type === item.type
+          i !== index && selected.id === item.id && selected.type === item.type,
       );
 
       if (isAlreadySelected) return false;
@@ -216,14 +294,14 @@ const SearchableItemInput = ({
       case "ArrowDown":
         e.preventDefault();
         setSelectedIndex((prev) =>
-          prev < filteredItems.length - 1 ? prev + 1 : 0
+          prev < filteredItems.length - 1 ? prev + 1 : 0,
         );
         break;
 
       case "ArrowUp":
         e.preventDefault();
         setSelectedIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredItems.length - 1
+          prev > 0 ? prev - 1 : filteredItems.length - 1,
         );
         break;
 
@@ -278,6 +356,7 @@ const SearchableItemInput = ({
               setSelectedIndex(-1);
             }, 200);
           }}
+          disabled={disabled}
         />
       </div>
 
@@ -292,7 +371,7 @@ const SearchableItemInput = ({
                   key={`${item.type}-${item.id}`}
                   className={cn(
                     "flex items-start p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0 gap-3",
-                    selectedIndex === itemIndex && "bg-accent"
+                    selectedIndex === itemIndex && "bg-accent",
                   )}
                   onMouseEnter={() => setSelectedIndex(itemIndex)}
                   onMouseDown={(e) => {
@@ -377,13 +456,13 @@ const SearchableItemInput = ({
                   (selected, i) =>
                     i !== index &&
                     selected.id === item.id &&
-                    selected.type === item.type
+                    selected.type === item.type,
                 ) &&
                 (item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                   item.sku?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                   item.category
                     ?.toLowerCase()
-                    .includes(searchTerm.toLowerCase()))
+                    .includes(searchTerm.toLowerCase())),
             ) ? (
               <div>
                 <p className="font-medium">Item already added</p>
@@ -513,17 +592,18 @@ export function SubpackageForm({
   const [searchableItems, setSearchableItems] = useState<SearchableItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [searchInputs, setSearchInputs] = useState<{ [key: number]: string }>(
-    {}
+    {},
   );
   const [showDropdown, setShowDropdown] = useState<number | null>(null);
   const [features, setFeatures] = useState<string[]>([]);
   const [featureInput, setFeatureInput] = useState("");
   const [autoCalculatedPrice, setAutoCalculatedPrice] = useState<number | null>(
-    null
+    null,
   );
   const [useAutoPrice, setUseAutoPrice] = useState(true);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [showTaxBreakdown, setShowTaxBreakdown] = useState<number | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   const form = useForm<SubPackageFormValues>({
     resolver: zodResolver(subpackageFormSchema),
@@ -542,6 +622,23 @@ export function SubpackageForm({
       status: "DRAFT",
     },
   });
+
+  // Set up DnD sensors - FIXED: Reduced activation distance
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5, // Reduced from 8 to 5 for better sensitivity
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  // Get DnD IDs for SortableContext - FIXED: Use frontEndId instead of index
+  const dndIds = useMemo(() => {
+    return selectedItems.map((item) => item.frontEndId);
+  }, [selectedItems]);
 
   // Watch form values for calculations
   const originalPrice = form.watch("originalPrice");
@@ -741,7 +838,7 @@ export function SubpackageForm({
     return 0;
   };
 
-  // Load existing data for edit mode - FIXED VERSION
+  // Load existing data for edit mode
   useEffect(() => {
     if (mode === "edit" && subpackageData && !hasInitialized) {
       console.log("Initializing edit mode with data:", subpackageData);
@@ -799,10 +896,10 @@ export function SubpackageForm({
               name: itemData.name || item.name || "",
               type: type,
               price: Number(
-                item.unitPrice || item.price || itemData.price || 0
+                item.unitPrice || item.price || itemData.price || 0,
               ),
               unitPrice: Number(
-                item.unitPrice || item.price || itemData.price || 0
+                item.unitPrice || item.price || itemData.price || 0,
               ),
               quantity: item.quantity || 1,
               amount:
@@ -819,21 +916,26 @@ export function SubpackageForm({
                 : 0,
               taxRate: item.taxRate ? Number(item.taxRate) : 15,
               taxAmount: item.taxAmount ? Number(item.taxAmount) : 0,
+              sortOrder: item.sortOrder || 0,
+              frontEndId: `${type}-${itemData.id || item.id}-${Math.random().toString(36).substr(2, 5)}`,
             };
 
             existingItems.push(selectedItem);
-            searchInputsObj[currentIndex] = selectedItem.name;
           });
         }
       };
 
-      // Load products
-      console.log("Loading products:", subpackageData.products);
+      // Load products and services
       addItemsFromArray(subpackageData.products || [], "product");
-
-      // Load services
-      console.log("Loading services:", subpackageData.services);
       addItemsFromArray(subpackageData.services || [], "service");
+
+      // Sort by sortOrder to maintain drag-and-drop position
+      existingItems.sort((a, b) => a.sortOrder - b.sortOrder);
+
+      // Re-populate search inputs
+      existingItems.forEach((item, index) => {
+        searchInputsObj[index] = item.name;
+      });
 
       console.log("Existing items loaded:", existingItems);
       console.log("Search inputs:", searchInputsObj);
@@ -858,6 +960,8 @@ export function SubpackageForm({
             itemDiscountType: undefined,
             itemDiscountAmount: 0,
             taxAmount: 0,
+            sortOrder: 0,
+            frontEndId: `new-${Date.now()}`,
           },
         ]);
         setSearchInputs({ 0: "" });
@@ -884,6 +988,8 @@ export function SubpackageForm({
           itemDiscountType: undefined,
           itemDiscountAmount: 0,
           taxAmount: 0,
+          sortOrder: 0,
+          frontEndId: `new-${Date.now()}`,
         },
       ]);
       setSearchInputs({ 0: "" });
@@ -982,6 +1088,8 @@ export function SubpackageForm({
           itemDiscountType: undefined,
           itemDiscountAmount: 0,
           taxAmount: 0,
+          sortOrder: newItems[index].sortOrder || 0,
+          frontEndId: newItems[index].frontEndId || `new-${Date.now()}`,
         };
       } else if (!newItems[index].id) {
         // Only update name if it's not a selected item yet
@@ -1004,7 +1112,7 @@ export function SubpackageForm({
       (selectedItem, i) =>
         i !== index &&
         selectedItem.id === item.id &&
-        selectedItem.type === item.type
+        selectedItem.type === item.type,
     );
 
     if (isDuplicate) {
@@ -1033,6 +1141,8 @@ export function SubpackageForm({
       itemDiscountType: undefined,
       itemDiscountAmount: 0,
       taxAmount: item.price * 0.15,
+      sortOrder: index,
+      frontEndId: `new-${item.type}-${item.id}-${Date.now()}`,
     };
 
     const newItems = [...selectedItems];
@@ -1060,22 +1170,23 @@ export function SubpackageForm({
   // Add item
   const addItem = () => {
     const newIndex = selectedItems.length;
-    setSelectedItems([
-      ...selectedItems,
-      {
-        id: "",
-        name: "",
-        type: "product",
-        price: 0,
-        unitPrice: 0,
-        quantity: 1,
-        amount: 0,
-        taxRate: 15,
-        itemDiscountType: undefined,
-        itemDiscountAmount: 0,
-        taxAmount: 0,
-      },
-    ]);
+    const newItem = {
+      id: "",
+      name: "",
+      type: "product" as const,
+      price: 0,
+      unitPrice: 0,
+      quantity: 1,
+      amount: 0,
+      taxRate: 15,
+      itemDiscountType: undefined,
+      itemDiscountAmount: 0,
+      taxAmount: 0,
+      sortOrder: newIndex,
+      frontEndId: `new-${Date.now()}`,
+    };
+
+    setSelectedItems([...selectedItems, newItem]);
     setSearchInputs((prev) => ({ ...prev, [newIndex]: "" }));
   };
 
@@ -1083,7 +1194,7 @@ export function SubpackageForm({
   const handleUpdateItemField = <K extends keyof SelectedItem>(
     index: number,
     field: K,
-    value: SelectedItem[K]
+    value: SelectedItem[K],
   ) => {
     const newItems = [...selectedItems];
     newItems[index] = { ...newItems[index], [field]: value };
@@ -1107,6 +1218,8 @@ export function SubpackageForm({
         itemDiscountType: undefined,
         itemDiscountAmount: 0,
         taxAmount: 0,
+        sortOrder: index,
+        frontEndId: `new-${Date.now()}`,
       };
       setSelectedItems(newItems);
       setSearchInputs((prev) => ({ ...prev, [index]: "" }));
@@ -1124,6 +1237,45 @@ export function SubpackageForm({
       });
 
       setSearchInputs(reindexedInputs);
+    }
+  };
+
+  // Handle drag start
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  // Handle drag end
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (over && active.id !== over.id) {
+      const oldIndex = dndIds.indexOf(active.id as string);
+      const newIndex = dndIds.indexOf(over.id as string);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        // Reorder items
+        const newItems = arrayMove(selectedItems, oldIndex, newIndex);
+
+        // Update sortOrder for all items based on their new position
+        const updatedItems = newItems.map((item, index) => ({
+          ...item,
+          sortOrder: index,
+        }));
+
+        setSelectedItems(updatedItems);
+
+        // Reorder search inputs
+        const newSearchInputs: { [key: number]: string } = {};
+        updatedItems.forEach((item, index) => {
+          newSearchInputs[index] = item.name;
+        });
+
+        setSearchInputs(newSearchInputs);
+
+        toast.success("Items reordered successfully");
+      }
     }
   };
 
@@ -1249,7 +1401,7 @@ export function SubpackageForm({
         features,
         products: validItems
           .filter((item) => item.type === "product")
-          .map((item) => ({
+          .map((item, index) => ({
             id: item.id,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
@@ -1257,10 +1409,11 @@ export function SubpackageForm({
             itemDiscountAmount: item.itemDiscountAmount,
             taxRate: item.taxRate,
             taxAmount: item.taxAmount,
+            sortOrder: validItems.indexOf(item), // Use the global index as sortOrder
           })),
         services: validItems
           .filter((item) => item.type === "service")
-          .map((item) => ({
+          .map((item, index) => ({
             id: item.id,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
@@ -1268,6 +1421,7 @@ export function SubpackageForm({
             itemDiscountAmount: item.itemDiscountAmount,
             taxRate: item.taxRate,
             taxAmount: item.taxAmount,
+            sortOrder: validItems.indexOf(item), // Use the global index as sortOrder
           })),
         packageId,
       };
@@ -1278,7 +1432,7 @@ export function SubpackageForm({
       if (mode === "edit" && subpackageData) {
         response = await axios.put(
           `/api/subpackages/${subpackageData.id}`,
-          data
+          data,
         );
         toast.success("Subpackage updated successfully!");
       } else {
@@ -1426,7 +1580,8 @@ export function SubpackageForm({
                 <div>
                   <h3 className="text-lg font-semibold">Subpackage Items</h3>
                   <p className="text-sm text-muted-foreground">
-                    Search for products or services, or type custom descriptions
+                    Search for products or services, drag to reorder, or type
+                    custom descriptions
                   </p>
                 </div>
                 <Badge variant="outline" className="bg-blue-50 text-blue-700">
@@ -1436,7 +1591,8 @@ export function SubpackageForm({
 
               {/* Items Header */}
               <div className="grid grid-cols-12 gap-3 mb-3 px-4 py-2 bg-muted/50 rounded-lg text-sm font-medium">
-                <div className="col-span-4">Description</div>
+                <div className="col-span-1"></div>
+                <div className="col-span-3">Description</div>
                 <div className="col-span-1 text-center">Qty</div>
                 <div className="col-span-2 text-center">Price</div>
                 <div className="col-span-1 text-center">Discount</div>
@@ -1445,191 +1601,239 @@ export function SubpackageForm({
                 <div className="col-span-1"></div>
               </div>
 
-              {/* Items List */}
-              <div className="space-y-3">
-                {selectedItems.map((item, index) => (
-                  <div
-                    key={index}
-                    className="border rounded-lg bg-background hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="grid grid-cols-12 gap-3 items-center p-4">
-                      {/* Searchable Item Input - Column 1 */}
-                      <div className="col-span-4">
-                        <SearchableItemInput
-                          index={index}
-                          searchTerm={searchInputs[index] || ""}
-                          searchableItems={searchableItems}
-                          selectedItems={selectedItems}
-                          showDropdown={showDropdown}
-                          onSearchChange={handleSearchInputChange}
-                          onFocus={handleSearchFocus}
-                          onBlur={handleSearchBlur}
-                          onSelect={handleItemSelect}
-                          setShowDropdown={setShowDropdown}
-                        />
-                      </div>
-
-                      {/* Quantity - Column 2 */}
-                      <div className="col-span-1">
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min="1"
-                            step="1"
-                            className="text-center"
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value);
-                              const finalValue = isNaN(value) ? 1 : value;
-                              handleUpdateItemField(
-                                index,
-                                "quantity",
-                                finalValue
-                              );
-                            }}
-                            disabled={loading || !item.name}
-                          />
-                        </FormControl>
-                      </div>
-
-                      {/* Unit Price - Column 3 */}
-                      <div className="col-span-2">
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            className="text-left"
-                            value={item.unitPrice}
-                            onChange={(e) => {
-                              const value =
-                                e.target.valueAsNumber ||
-                                parseFloat(e.target.value) ||
-                                0;
-                              handleUpdateItemField(index, "unitPrice", value);
-                            }}
-                            disabled={loading || !item.name}
-                          />
-                        </FormControl>
-                      </div>
-
-                      {/* Item Discount - Column 4 */}
-                      <div className="col-span-1 space-y-1">
-                        <Select
-                          value={item.itemDiscountType || ""}
-                          onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
-                            handleUpdateItemField(
-                              index,
-                              "itemDiscountType",
-                              value
-                            );
-                          }}
+              {/* DnD Context for Items List */}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={dndIds}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-3">
+                    {selectedItems.map((item, index) => (
+                      <SortableItem
+                        key={item.frontEndId}
+                        id={item.frontEndId}
+                        index={index}
+                        disabled={loading}
+                      >
+                        <div
+                          className={cn(
+                            "border rounded-lg bg-background hover:bg-muted/30 transition-colors",
+                            activeId === item.frontEndId &&
+                              "ring-2 ring-primary",
+                          )}
                         >
-                          <SelectTrigger className="h-8 text-xs">
-                            <SelectValue placeholder="Type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="AMOUNT">R</SelectItem>
-                            <SelectItem value="PERCENTAGE">%</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <div className="grid grid-cols-12 gap-3 items-center p-4">
+                            <div className="col-span-1 flex justify-center"></div>
 
-                        {item.itemDiscountType && (
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              step={
-                                item.itemDiscountType === "PERCENTAGE"
-                                  ? "0.1"
-                                  : "0.01"
-                              }
-                              placeholder="0.00"
-                              className="h-8 text-center text-xs"
-                              value={item.itemDiscountAmount || ""}
-                              onChange={(e) => {
-                                const input = e.target.value;
-                                if (input === "") {
+                            {/* Searchable Item Input - Column 2-4 */}
+                            <div className="col-span-3">
+                              <SearchableItemInput
+                                index={index}
+                                searchTerm={searchInputs[index] || ""}
+                                searchableItems={searchableItems}
+                                selectedItems={selectedItems}
+                                showDropdown={showDropdown}
+                                onSearchChange={handleSearchInputChange}
+                                onFocus={handleSearchFocus}
+                                onBlur={handleSearchBlur}
+                                onSelect={handleItemSelect}
+                                setShowDropdown={setShowDropdown}
+                                disabled={loading}
+                              />
+                            </div>
+
+                            {/* Quantity - Column 5 */}
+                            <div className="col-span-1">
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  className="text-center"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    const value = parseFloat(e.target.value);
+                                    const finalValue = isNaN(value) ? 1 : value;
+                                    handleUpdateItemField(
+                                      index,
+                                      "quantity",
+                                      finalValue,
+                                    );
+                                  }}
+                                  disabled={loading || !item.name}
+                                />
+                              </FormControl>
+                            </div>
+
+                            {/* Unit Price - Column 6-7 */}
+                            <div className="col-span-2">
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  className="text-left"
+                                  value={item.unitPrice}
+                                  onChange={(e) => {
+                                    const value =
+                                      e.target.valueAsNumber ||
+                                      parseFloat(e.target.value) ||
+                                      0;
+                                    handleUpdateItemField(
+                                      index,
+                                      "unitPrice",
+                                      value,
+                                    );
+                                  }}
+                                  disabled={loading || !item.name}
+                                />
+                              </FormControl>
+                            </div>
+
+                            {/* Item Discount - Column 8 */}
+                            <div className="col-span-1 space-y-1">
+                              <Select
+                                value={item.itemDiscountType || ""}
+                                onValueChange={(
+                                  value: "AMOUNT" | "PERCENTAGE",
+                                ) => {
                                   handleUpdateItemField(
                                     index,
-                                    "itemDiscountAmount",
-                                    0
+                                    "itemDiscountType",
+                                    value,
                                   );
-                                  return;
-                                }
-                                let value = parseFloat(input);
-                                if (isNaN(value)) {
-                                  handleUpdateItemField(
-                                    index,
-                                    "itemDiscountAmount",
-                                    0
-                                  );
-                                  return;
-                                }
-                                if (
-                                  item.itemDiscountType === "PERCENTAGE" &&
-                                  value > 100
-                                ) {
-                                  value = 100;
-                                }
-                                handleUpdateItemField(
-                                  index,
-                                  "itemDiscountAmount",
-                                  value
-                                );
-                              }}
-                              disabled={loading || !item.name}
-                            />
-                          </FormControl>
-                        )}
-                      </div>
+                                }}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="AMOUNT">R</SelectItem>
+                                  <SelectItem value="PERCENTAGE">%</SelectItem>
+                                </SelectContent>
+                              </Select>
 
-                      {/* Tax Rate - Column 5 */}
-                      <div className="col-span-1">
-                        <FormControl>
-                          <Input
-                            type="number"
-                            step="0.1"
-                            className="text-center"
-                            value={item.taxRate || ""}
-                            onChange={(e) => {
-                              const value =
-                                e.target.value === ""
-                                  ? 0
-                                  : parseFloat(e.target.value);
-                              handleUpdateItemField(index, "taxRate", value);
-                            }}
-                            disabled={loading || !item.name}
-                          />
-                        </FormControl>
-                      </div>
+                              {item.itemDiscountType && (
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step={
+                                      item.itemDiscountType === "PERCENTAGE"
+                                        ? "0.1"
+                                        : "0.01"
+                                    }
+                                    placeholder="0.00"
+                                    className="h-8 text-center text-xs"
+                                    value={item.itemDiscountAmount || ""}
+                                    onChange={(e) => {
+                                      const input = e.target.value;
+                                      if (input === "") {
+                                        handleUpdateItemField(
+                                          index,
+                                          "itemDiscountAmount",
+                                          0,
+                                        );
+                                        return;
+                                      }
+                                      let value = parseFloat(input);
+                                      if (isNaN(value)) {
+                                        handleUpdateItemField(
+                                          index,
+                                          "itemDiscountAmount",
+                                          0,
+                                        );
+                                        return;
+                                      }
+                                      if (
+                                        item.itemDiscountType ===
+                                          "PERCENTAGE" &&
+                                        value > 100
+                                      ) {
+                                        value = 100;
+                                      }
+                                      handleUpdateItemField(
+                                        index,
+                                        "itemDiscountAmount",
+                                        value,
+                                      );
+                                    }}
+                                    disabled={loading || !item.name}
+                                  />
+                                </FormControl>
+                              )}
+                            </div>
 
-                      {/* Item Total (Display Only) - Column 6 */}
-                      <div className="col-span-2 text-center">
-                        <div className="text-sm font-medium">
-                          {formatCurrency(getRowNetTotal(index))}
-                        </div>
-                        {getItemDiscountAmount(index) > 0 && (
-                          <div className="text-xs text-red-600">
-                            -{formatCurrency(getItemDiscountAmount(index))}
+                            {/* Tax Rate - Column 9 */}
+                            <div className="col-span-1">
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  className="text-center"
+                                  value={item.taxRate || ""}
+                                  onChange={(e) => {
+                                    const value =
+                                      e.target.value === ""
+                                        ? 0
+                                        : parseFloat(e.target.value);
+                                    handleUpdateItemField(
+                                      index,
+                                      "taxRate",
+                                      value,
+                                    );
+                                  }}
+                                  disabled={loading || !item.name}
+                                />
+                              </FormControl>
+                            </div>
+
+                            {/* Item Total (Display Only) - Column 10-11 */}
+                            <div className="col-span-2 text-center">
+                              <div className="text-sm font-medium">
+                                {formatCurrency(getRowNetTotal(index))}
+                              </div>
+                              {getItemDiscountAmount(index) > 0 && (
+                                <div className="text-xs text-red-600">
+                                  -
+                                  {formatCurrency(getItemDiscountAmount(index))}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Remove Button - Column 12 */}
+                            <div className="col-span-1 flex justify-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleRemoveItem(index)}
+                                disabled={loading}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        )}
-                      </div>
-
-                      {/* Remove Button - Column 7 */}
-                      <div className="col-span-1 flex justify-center">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveItem(index)}
-                          disabled={loading}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                        </div>
+                      </SortableItem>
+                    ))}
                   </div>
-                ))}
+                </SortableContext>
+              </DndContext>
+
+              {/* Drag & Drop Instructions */}
+              <div className="mt-4 p-3 bg-muted/30 rounded-md text-xs text-center">
+                <p className="flex items-center justify-center gap-1">
+                  <GripVertical className="h-3 w-3" />
+                  <span>Drag items to reorder them</span>
+                </p>
+                <p className="text-muted-foreground mt-1">
+                  Reordering affects the display order in the subpackage
+                </p>
               </div>
 
               {/* Add Item Button */}
@@ -1647,6 +1851,8 @@ export function SubpackageForm({
               </div>
             </CardContent>
           </Card>
+
+          {/* ... Rest of the component remains the same ... */}
 
           {/* Pricing Information */}
           <Card>
@@ -1787,7 +1993,7 @@ export function SubpackageForm({
                                   field.onChange(
                                     e.target.value === ""
                                       ? undefined
-                                      : Number(e.target.value)
+                                      : Number(e.target.value),
                                   )
                                 }
                                 disabled={loading}
@@ -1821,7 +2027,7 @@ export function SubpackageForm({
                                   field.onChange(
                                     e.target.value === ""
                                       ? undefined
-                                      : Number(e.target.value)
+                                      : Number(e.target.value),
                                   )
                                 }
                                 disabled={loading}
@@ -1876,8 +2082,8 @@ export function SubpackageForm({
                             new Set(
                               selectedItems
                                 .filter((item) => item.name && item.taxRate > 0)
-                                .map((item) => `${item.taxRate}%`)
-                            )
+                                .map((item) => `${item.taxRate}%`),
+                            ),
                           ).join(", ")}
                           )
                         </span>
@@ -1931,7 +2137,7 @@ export function SubpackageForm({
                           Products:{" "}
                           {
                             selectedItems.filter(
-                              (item) => item.type === "product" && item.name
+                              (item) => item.type === "product" && item.name,
                             ).length
                           }
                         </div>
@@ -1939,7 +2145,7 @@ export function SubpackageForm({
                           Services:{" "}
                           {
                             selectedItems.filter(
-                              (item) => item.type === "service" && item.name
+                              (item) => item.type === "service" && item.name,
                             ).length
                           }
                         </div>
@@ -1959,15 +2165,15 @@ export function SubpackageForm({
                               "font-medium",
                               Math.abs(
                                 calculateTotalCost() -
-                                  (form.getValues("finalPrice") || 0)
+                                  (form.getValues("finalPrice") || 0),
                               ) < 0.01
                                 ? "text-green-600"
-                                : "text-yellow-600"
+                                : "text-yellow-600",
                             )}
                           >
                             {Math.abs(
                               calculateTotalCost() -
-                                (form.getValues("finalPrice") || 0)
+                                (form.getValues("finalPrice") || 0),
                             ) < 0.01
                               ? "✓ Price matches auto-calculation"
                               : "⚠ Price differs from auto-calculation"}

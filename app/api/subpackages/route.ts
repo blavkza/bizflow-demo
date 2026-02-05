@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     if (!body.name || !body.packageId) {
       return NextResponse.json(
         { error: "Name and packageId are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     } else if (body.discountType === "amount" && body.discount) {
       finalPrice = Math.max(
         0,
-        Number(body.originalPrice) - Number(body.discount)
+        Number(body.originalPrice) - Number(body.discount),
       );
     }
 
@@ -63,12 +63,14 @@ export async function POST(request: NextRequest) {
 
     if (body.products && Array.isArray(body.products)) {
       for (const product of body.products) {
-        await db.subpackageProduct.create({
+        await (db.subpackageProduct as any).create({
           data: {
             subpackageId: subpackage.id,
             productId: product.id,
             quantity: product.quantity || 1,
             unitPrice: product.unitPrice || null,
+            sortOrder:
+              product.sortOrder !== undefined ? Number(product.sortOrder) : 0,
             itemDiscountType: product.itemDiscountType || null,
             itemDiscountAmount: product.itemDiscountAmount
               ? parseFloat(product.itemDiscountAmount)
@@ -82,12 +84,14 @@ export async function POST(request: NextRequest) {
 
     if (body.services && Array.isArray(body.services)) {
       for (const service of body.services) {
-        await db.subpackageService.create({
+        await (db.subpackageService as any).create({
           data: {
             subpackageId: subpackage.id,
             serviceId: service.id,
             quantity: service.quantity || 1,
             unitPrice: service.unitPrice || null,
+            sortOrder:
+              service.sortOrder !== undefined ? Number(service.sortOrder) : 0,
             // NEW FIELDS
             itemDiscountType: service.itemDiscountType || null,
             itemDiscountAmount: service.itemDiscountAmount
@@ -120,10 +124,16 @@ export async function POST(request: NextRequest) {
           include: {
             product: true,
           },
+          orderBy: {
+            sortOrder: "asc",
+          },
         },
         services: {
           include: {
             service: true,
+          },
+          orderBy: {
+            sortOrder: "asc",
           },
         },
         package: {
@@ -136,19 +146,18 @@ export async function POST(request: NextRequest) {
     });
 
     // Transform response
+    const sp: any = createdSubpackage;
     const response = {
-      id: createdSubpackage?.id,
-      name: createdSubpackage?.name,
-      price: Number(createdSubpackage?.price),
-      originalPrice: createdSubpackage?.originalPrice
-        ? Number(createdSubpackage.originalPrice)
-        : null,
-      discount: createdSubpackage?.discount,
-      discountType: createdSubpackage?.discountType,
-      status: createdSubpackage?.status,
-      features: createdSubpackage?.features,
+      id: sp?.id,
+      name: sp?.name,
+      price: Number(sp?.price),
+      originalPrice: sp?.originalPrice ? Number(sp.originalPrice) : null,
+      discount: sp?.discount,
+      discountType: sp?.discountType,
+      status: sp?.status,
+      features: sp?.features,
       products:
-        createdSubpackage?.products?.map((p) => ({
+        sp?.products?.map((p: any) => ({
           id: p.product.id,
           name: p.product.name,
           price: Number(p.product.price),
@@ -161,9 +170,10 @@ export async function POST(request: NextRequest) {
             : null,
           taxRate: p.taxRate ? Number(p.taxRate) : null,
           taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
+          sortOrder: p.sortOrder,
         })) || [],
       services:
-        createdSubpackage?.services?.map((s) => ({
+        sp?.services?.map((s: any) => ({
           id: s.service.id,
           name: s.service.name,
           amount: Number(s.service.amount),
@@ -176,6 +186,7 @@ export async function POST(request: NextRequest) {
             : null,
           taxRate: s.taxRate ? Number(s.taxRate) : null,
           taxAmount: s.taxAmount ? Number(s.taxAmount) : null,
+          sortOrder: s.sortOrder,
         })) || [],
     };
 
@@ -185,7 +196,7 @@ export async function POST(request: NextRequest) {
         message: "Subpackage created successfully",
         data: response,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error creating subpackage:", error);
@@ -194,7 +205,7 @@ export async function POST(request: NextRequest) {
         error: "Failed to create subpackage",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -202,7 +213,7 @@ export async function POST(request: NextRequest) {
 // Also update the PUT route for editing subpackages
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -231,7 +242,7 @@ export async function PUT(
     if (!existingSubpackage) {
       return NextResponse.json(
         { error: "Subpackage not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -243,7 +254,7 @@ export async function PUT(
     } else if (body.discountType === "amount" && body.discount) {
       finalPrice = Math.max(
         0,
-        Number(body.originalPrice) - Number(body.discount)
+        Number(body.originalPrice) - Number(body.discount),
       );
     }
 
@@ -279,13 +290,15 @@ export async function PUT(
 
     // Reconnect products if provided
     if (body.products && Array.isArray(body.products)) {
-      for (const product of body.products) {
+      for (const [index, product] of body.products.entries()) {
         await db.subpackageProduct.create({
           data: {
             subpackageId: subpackageId,
             productId: product.id,
             quantity: product.quantity || 1,
             unitPrice: product.unitPrice || null,
+            sortOrder:
+              product.sortOrder !== undefined ? product.sortOrder : index,
             // NEW FIELDS
             itemDiscountType: product.itemDiscountType || null,
             itemDiscountAmount: product.itemDiscountAmount
@@ -300,13 +313,15 @@ export async function PUT(
 
     // Reconnect services if provided
     if (body.services && Array.isArray(body.services)) {
-      for (const service of body.services) {
+      for (const [index, service] of body.services.entries()) {
         await db.subpackageService.create({
           data: {
             subpackageId: subpackageId,
             serviceId: service.id,
             quantity: service.quantity || 1,
             unitPrice: service.unitPrice || null,
+            sortOrder:
+              service.sortOrder !== undefined ? service.sortOrder : index,
             // NEW FIELDS
             itemDiscountType: service.itemDiscountType || null,
             itemDiscountAmount: service.itemDiscountAmount
@@ -341,10 +356,16 @@ export async function PUT(
           include: {
             product: true,
           },
+          orderBy: {
+            sortOrder: "asc",
+          },
         },
         services: {
           include: {
             service: true,
+          },
+          orderBy: {
+            sortOrder: "asc",
           },
         },
         package: {
@@ -357,19 +378,18 @@ export async function PUT(
     });
 
     // Transform response
+    const sp: any = finalSubpackage;
     const response = {
-      id: finalSubpackage?.id,
-      name: finalSubpackage?.name,
-      price: Number(finalSubpackage?.price),
-      originalPrice: finalSubpackage?.originalPrice
-        ? Number(finalSubpackage.originalPrice)
-        : null,
-      discount: finalSubpackage?.discount,
-      discountType: finalSubpackage?.discountType,
-      status: finalSubpackage?.status,
-      features: finalSubpackage?.features,
+      id: sp?.id,
+      name: sp?.name,
+      price: Number(sp?.price),
+      originalPrice: sp?.originalPrice ? Number(sp.originalPrice) : null,
+      discount: sp?.discount,
+      discountType: sp?.discountType,
+      status: sp?.status,
+      features: sp?.features,
       products:
-        finalSubpackage?.products?.map((p) => ({
+        sp?.products?.map((p: any) => ({
           id: p.product.id,
           name: p.product.name,
           price: Number(p.product.price),
@@ -382,9 +402,10 @@ export async function PUT(
             : null,
           taxRate: p.taxRate ? Number(p.taxRate) : null,
           taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
+          sortOrder: p.sortOrder,
         })) || [],
       services:
-        finalSubpackage?.services?.map((s) => ({
+        sp?.services?.map((s: any) => ({
           id: s.service.id,
           name: s.service.name,
           amount: Number(s.service.amount),
@@ -397,6 +418,7 @@ export async function PUT(
             : null,
           taxRate: s.taxRate ? Number(s.taxRate) : null,
           taxAmount: s.taxAmount ? Number(s.taxAmount) : null,
+          sortOrder: s.sortOrder,
         })) || [],
     };
 
@@ -406,7 +428,7 @@ export async function PUT(
         message: "Subpackage updated successfully",
         data: response,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error updating subpackage:", error);
@@ -415,7 +437,7 @@ export async function PUT(
         error: "Failed to update subpackage",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -423,7 +445,7 @@ export async function PUT(
 // Also update the GET route to include the new fields
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -441,10 +463,16 @@ export async function GET(
           include: {
             product: true,
           },
+          orderBy: {
+            sortOrder: "asc",
+          },
         },
         services: {
           include: {
             service: true,
+          },
+          orderBy: {
+            sortOrder: "asc",
           },
         },
         package: {
@@ -459,28 +487,27 @@ export async function GET(
     if (!subpackage) {
       return NextResponse.json(
         { error: "Subpackage not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Transform response with new fields
+    const sp: any = subpackage;
     const response = {
-      id: subpackage.id,
-      name: subpackage.name,
-      description: subpackage.description,
-      shortDescription: subpackage.shortDescription,
-      price: Number(subpackage.price),
-      originalPrice: subpackage.originalPrice
-        ? Number(subpackage.originalPrice)
-        : null,
-      discount: subpackage.discount,
-      discountType: subpackage.discountType,
-      duration: subpackage.duration,
-      status: subpackage.status,
-      isDefault: subpackage.isDefault,
-      sortOrder: subpackage.sortOrder,
-      features: subpackage.features,
-      products: subpackage.products.map((p) => ({
+      id: sp.id,
+      name: sp.name,
+      description: sp.description,
+      shortDescription: sp.shortDescription,
+      price: Number(sp.price),
+      originalPrice: sp.originalPrice ? Number(sp.originalPrice) : null,
+      discount: sp.discount,
+      discountType: sp.discountType,
+      duration: sp.duration,
+      status: sp.status,
+      isDefault: sp.isDefault,
+      sortOrder: sp.sortOrder,
+      features: sp.features,
+      products: sp.products.map((p: any) => ({
         id: p.product.id,
         name: p.product.name,
         price: Number(p.product.price),
@@ -493,8 +520,9 @@ export async function GET(
           : null,
         taxRate: p.taxRate ? Number(p.taxRate) : null,
         taxAmount: p.taxAmount ? Number(p.taxAmount) : null,
+        sortOrder: p.sortOrder,
       })),
-      services: subpackage.services.map((s) => ({
+      services: sp.services.map((s: any) => ({
         id: s.service.id,
         name: s.service.name,
         amount: Number(s.service.amount),
@@ -507,8 +535,9 @@ export async function GET(
           : null,
         taxRate: s.taxRate ? Number(s.taxRate) : null,
         taxAmount: s.taxAmount ? Number(s.taxAmount) : null,
+        sortOrder: s.sortOrder,
       })),
-      package: subpackage.package,
+      package: sp.package,
     };
 
     return NextResponse.json(
@@ -516,7 +545,7 @@ export async function GET(
         success: true,
         data: response,
       },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error fetching subpackage:", error);
@@ -525,7 +554,7 @@ export async function GET(
         error: "Failed to fetch subpackage",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

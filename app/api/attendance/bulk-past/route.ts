@@ -24,19 +24,27 @@ export async function POST(request: NextRequest) {
     const hrSettings = await db.hRSettings.findFirst();
     const results = [];
 
-    // Process each freelancer entry
+    // Process each worker entry
     for (const entry of entries) {
-      const { freelancerId, checkIn, checkOut } = entry;
+      const { workerId, workerType, checkIn, checkOut } = entry;
+      const isEmployee = workerType === "employee";
 
-      const freelancer = await db.freeLancer.findUnique({
-        where: { id: freelancerId },
-      });
+      let worker;
+      if (isEmployee) {
+        worker = await db.employee.findUnique({
+          where: { id: workerId },
+        });
+      } else {
+        worker = await db.freeLancer.findUnique({
+          where: { id: workerId },
+        });
+      }
 
-      if (!freelancer) {
+      if (!worker) {
         results.push({
-          freelancerId,
+          workerId,
           status: "error",
-          message: "Freelancer not found",
+          message: `${isEmployee ? "Employee" : "Freelancer"} not found`,
         });
         continue;
       }
@@ -55,73 +63,69 @@ export async function POST(request: NextRequest) {
       const recordDate = new Date(date);
       recordDate.setUTCHours(0, 0, 0, 0);
 
-      // Reuse calculation logic (simplified for this context)
+      // Reuse calculation logic
       const calculation = await calculateHoursAndStatus(
-        freelancer,
+        worker,
         checkInDate,
         checkOutDate,
         AttendanceStatus.PRESENT,
-        false, // assuming no night shift for manual bulk for now
+        false,
         hrSettings,
       );
 
+      // Build specific search key for upsert
+      const upsertWhere: any = isEmployee
+        ? { employeeId_date: { employeeId: worker.id, date: recordDate } }
+        : { freeLancerId_date: { freeLancerId: worker.id, date: recordDate } };
+
+      const dataBatch: any = {
+        date: recordDate,
+        checkIn: checkInDate,
+        checkOut: checkOutDate,
+        regularHours: calculation.regularHours,
+        overtimeHours: calculation.overtimeHours,
+        status: calculation.newStatus,
+        checkInMethod: CheckInMethod.MANUAL,
+        notes: "Manual entry for past date",
+      };
+
+      if (isEmployee) {
+        dataBatch.employeeId = worker.id;
+      } else {
+        dataBatch.freeLancerId = worker.id;
+      }
+
       // Upsert Attendance Record
       const record = await db.attendanceRecord.upsert({
-        where: {
-          freeLancerId_date: {
-            freeLancerId: freelancer.id,
-            date: recordDate,
-          },
-        },
-        update: {
-          checkIn: checkInDate,
-          checkOut: checkOutDate,
-          regularHours: calculation.regularHours,
-          overtimeHours: calculation.overtimeHours,
-          status: calculation.newStatus,
-          checkInMethod: CheckInMethod.MANUAL,
-          notes: "Manual entry for past date",
-        },
-        create: {
-          freeLancerId: freelancer.id,
-          date: recordDate,
-          checkIn: checkInDate,
-          checkOut: checkOutDate,
-          regularHours: calculation.regularHours,
-          overtimeHours: calculation.overtimeHours,
-          status: calculation.newStatus,
-          checkInMethod: CheckInMethod.MANUAL,
-          notes: "Manual entry for past date",
-        },
+        where: upsertWhere,
+        update: dataBatch,
+        create: dataBatch,
       });
 
       // If there's overtime, create an approved overtime request automatically
       if (calculation.overtimeHours > 0) {
+        const otWhere: any = { id: record.overtimeRequestId || "new" };
+        const otData: any = {
+          date: recordDate,
+          startTime: checkInDate,
+          endTime: checkOutDate,
+          duration: calculation.overtimeHours,
+          status: OvertimeStatus.APPROVED,
+          reason: "Auto-approved via bulk manual entry",
+          approvedAt: new Date(),
+          approvedBy: userId,
+        };
+
+        if (isEmployee) {
+          otData.employeeId = worker.id;
+        } else {
+          otData.freeLancerId = worker.id;
+        }
+
         const otRequest = await db.overtimeRequest.upsert({
-          where: {
-            // We don't have a unique constraint on OvertimeRequest date/freelancer besides what we add
-            // but for manual entry, we should ensure only one exists or update existing
-            id: record.overtimeRequestId || "new",
-          },
-          update: {
-            status: OvertimeStatus.APPROVED,
-            startTime: checkInDate, // Or some default
-            endTime: checkOutDate,
-            duration: calculation.overtimeHours,
-            approvedAt: new Date(),
-            approvedBy: userId,
-          },
-          create: {
-            freeLancerId: freelancer.id,
-            date: recordDate,
-            startTime: checkInDate,
-            endTime: checkOutDate,
-            duration: calculation.overtimeHours,
-            status: OvertimeStatus.APPROVED,
-            reason: "Auto-approved via bulk manual entry",
-            approvedAt: new Date(),
-            approvedBy: userId,
-          },
+          where: otWhere,
+          update: otData,
+          create: otData,
         });
 
         // Link it back to the record if it wasn't already
@@ -133,7 +137,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      results.push({ freelancerId, status: "success", recordId: record.id });
+      results.push({ workerId, status: "success", recordId: record.id });
     }
 
     return NextResponse.json({ success: true, results });

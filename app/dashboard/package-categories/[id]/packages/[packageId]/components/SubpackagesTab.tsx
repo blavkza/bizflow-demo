@@ -60,7 +60,7 @@ export default function SubpackagesTab({
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingSubpackage, setEditingSubpackage] = useState<Subpackage | null>(
-    null
+    null,
   );
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
@@ -127,10 +127,14 @@ export default function SubpackagesTab({
         status: "DRAFT",
         features: subpackage.features || [],
         products: subpackageProducts.map((p: any) => ({
-          id: p.id,
+          id: p.id || p.productId,
           quantity: p.quantity || 1,
+          sortOrder: p.sortOrder || 0,
         })),
-        services: subpackageServices.map((s: any) => ({ id: s.id })),
+        services: subpackageServices.map((s: any) => ({
+          id: s.id || s.serviceId,
+          sortOrder: s.sortOrder || 0,
+        })),
         packageId: subpackage.packageId,
       };
 

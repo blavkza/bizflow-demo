@@ -54,6 +54,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
               },
             },
           },
+          orderBy: {
+            sortOrder: "asc",
+          },
         },
         services: {
           include: {
@@ -70,6 +73,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
               },
             },
           },
+          orderBy: {
+            sortOrder: "asc",
+          },
         },
       },
     });
@@ -77,7 +83,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!subpackage) {
       return NextResponse.json(
         { error: "Subpackage not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -119,37 +125,31 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     };
 
     // Transform the response WITH NEW FIELDS
+    const sp: any = subpackage;
     const response = {
-      id: subpackage.id,
-      packageId: subpackage.packageId,
-      name: subpackage.name,
-      description: subpackage.description,
-      shortDescription: subpackage.shortDescription,
-      price: Number(subpackage.price),
-      originalPrice: subpackage.originalPrice
-        ? Number(subpackage.originalPrice)
-        : null,
-      discount: subpackage.discount,
-      discountType: subpackage.discountType,
-      duration: subpackage.duration,
-      status: subpackage.status,
-      isDefault: subpackage.isDefault,
-      sortOrder: subpackage.sortOrder,
-      features: subpackage.features,
-      salesCount: subpackage.salesCount,
-      revenue: Number(subpackage.revenue),
-      createdAt: subpackage.createdAt,
-      updatedAt: subpackage.updatedAt,
-      package: subpackage.package,
-      products: subpackage.products.map((item) => ({
+      id: sp.id,
+      packageId: sp.packageId,
+      name: sp.name,
+      description: sp.description,
+      shortDescription: sp.shortDescription,
+      price: Number(sp.price),
+      originalPrice: sp.originalPrice ? Number(sp.originalPrice) : null,
+      discount: sp.discount,
+      discountType: sp.discountType,
+      duration: sp.duration,
+      status: sp.status,
+      isDefault: sp.isDefault,
+      sortOrder: sp.sortOrder,
+      features: sp.features,
+      salesCount: sp.salesCount,
+      revenue: Number(sp.revenue),
+      createdAt: sp.createdAt,
+      updatedAt: sp.updatedAt,
+      package: sp.package,
+      products: sp.products.map((item: any) => ({
         id: item.product.id,
         name: item.product.name,
-        description: item.product.description,
-        sku: item.product.sku,
         price: Number(item.product.price),
-        category: item.product.category,
-        stock: item.product.stock,
-        image: getProductImage(item.product.images),
         quantity: item.quantity,
         unitPrice: item.unitPrice ? Number(item.unitPrice) : null,
         // NEW FIELDS
@@ -159,12 +159,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           : null,
         taxRate: item.taxRate ? Number(item.taxRate) : null,
         taxAmount: item.taxAmount ? Number(item.taxAmount) : null,
+        sortOrder: item.sortOrder,
         status: item.product.status,
       })),
-      services: subpackage.services.map((item) => ({
+      services: sp.services.map((item: any) => ({
         id: item.service.id,
         name: item.service.name,
-        description: item.service.description,
         price: Number(item.service.amount),
         duration: item.service.duration,
         category: item.service.category,
@@ -178,6 +178,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           : null,
         taxRate: item.taxRate ? Number(item.taxRate) : null,
         taxAmount: item.taxAmount ? Number(item.taxAmount) : null,
+        sortOrder: item.sortOrder,
         status: item.service.status,
       })),
     };
@@ -193,7 +194,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         error: "Failed to fetch subpackage",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -231,7 +232,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (!existingSubpackage) {
       return NextResponse.json(
         { error: "Subpackage not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -248,7 +249,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       finalPrice = Math.max(
         0,
         Number(body.originalPrice || existingSubpackage.originalPrice) -
-          Number(body.discount)
+          Number(body.discount),
       );
     }
 
@@ -293,12 +294,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       // Create new product connections WITH NEW FIELDS
       for (const product of body.products) {
-        await db.subpackageProduct.create({
+        await (db.subpackageProduct as any).create({
           data: {
             subpackageId: id,
             productId: product.id,
             quantity: product.quantity || 1,
             unitPrice: product.unitPrice || null,
+            sortOrder:
+              product.sortOrder !== undefined ? Number(product.sortOrder) : 0,
             // NEW FIELDS
             itemDiscountType: product.itemDiscountType || null,
             itemDiscountAmount: product.itemDiscountAmount
@@ -320,12 +323,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       // Create new service connections WITH NEW FIELDS
       for (const service of body.services) {
-        await db.subpackageService.create({
+        await (db.subpackageService as any).create({
           data: {
             subpackageId: id,
             serviceId: service.id,
             quantity: service.quantity || 1,
             unitPrice: service.unitPrice || null,
+            sortOrder:
+              service.sortOrder !== undefined ? Number(service.sortOrder) : 0,
             // NEW FIELDS
             itemDiscountType: service.itemDiscountType || null,
             itemDiscountAmount: service.itemDiscountAmount
@@ -372,6 +377,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
               },
             },
           },
+          orderBy: {
+            sortOrder: "asc",
+          },
         },
         services: {
           include: {
@@ -388,6 +396,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
               },
             },
           },
+          orderBy: {
+            sortOrder: "asc",
+          },
         },
       },
     });
@@ -395,7 +406,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (!finalSubpackage) {
       return NextResponse.json(
         { error: "Failed to fetch updated subpackage" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -425,8 +436,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     };
 
     // Create response with new fields
+    const sp: any = finalSubpackage;
     const response = {
-      id: finalSubpackage.id,
+      id: sp.id,
       packageId: finalSubpackage.packageId,
       name: finalSubpackage.name,
       description: finalSubpackage.description,
@@ -445,8 +457,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       salesCount: finalSubpackage.salesCount,
       revenue: Number(finalSubpackage.revenue),
       createdAt: finalSubpackage.createdAt,
-      updatedAt: finalSubpackage.updatedAt,
-      products: finalSubpackage.products.map((item) => ({
+      updatedAt: sp.updatedAt,
+      products: sp.products.map((item: any) => ({
         id: item.product.id,
         name: item.product.name,
         description: item.product.description,
@@ -464,9 +476,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
           : null,
         taxRate: item.taxRate ? Number(item.taxRate) : null,
         taxAmount: item.taxAmount ? Number(item.taxAmount) : null,
+        sortOrder: item.sortOrder,
         status: item.product.status,
       })),
-      services: finalSubpackage.services.map((item) => ({
+      services: sp.services.map((item: any) => ({
         id: item.service.id,
         name: item.service.name,
         description: item.service.description,
@@ -483,6 +496,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
           : null,
         taxRate: item.taxRate ? Number(item.taxRate) : null,
         taxAmount: item.taxAmount ? Number(item.taxAmount) : null,
+        sortOrder: item.sortOrder,
         status: item.service.status,
       })),
     };
@@ -499,7 +513,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         error: "Failed to update subpackage",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -532,7 +546,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     if (!existingSubpackage) {
       return NextResponse.json(
         { error: "Subpackage not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -562,7 +576,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         error: "Failed to delete subpackage",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
