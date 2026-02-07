@@ -279,9 +279,8 @@ export const LoanClient = () => {
         initialData={editingLoan}
         onSuccess={(data) => {
           refetch();
-          if (data && data.id) {
-            router.push(`/dashboard/loans/${data.id}`);
-          }
+          setOpen(false);
+          setEditingLoan(null);
         }}
         lenders={lenders || []}
         financialSettings={financialSettings}

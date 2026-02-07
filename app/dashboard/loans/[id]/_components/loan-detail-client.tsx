@@ -178,10 +178,22 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
 
   // Auto-fill amount with Monthly Payment when dialog opens
   useEffect(() => {
-    if (openPayment && loan.monthlyPayment) {
-      paymentForm.setValue("amount", Math.min(loan.monthlyPayment, balance));
+    if (openPayment && loan && loan.monthlyPayment) {
+      const totalPaid = (loan.payments || []).reduce(
+        (acc: number, curr: any) => acc + curr.amount,
+        0,
+      );
+      // Simple estimation of balance for pre-fill, fallback to amount if totalPayable missing
+      // This matches the fallback logic used in render but simplified
+      const estimatedTotal = loan.totalPayable || loan.amount;
+      const currentBalance = Math.max(0, estimatedTotal - totalPaid);
+
+      paymentForm.setValue(
+        "amount",
+        Math.min(loan.monthlyPayment, currentBalance),
+      );
     }
-  }, [openPayment, loan.monthlyPayment, balance, paymentForm]);
+  }, [openPayment, loan, paymentForm]);
 
   const onPaymentSubmit = async (data: PaymentFormValues) => {
     try {
