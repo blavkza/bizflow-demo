@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
-import { format, addMonths } from "date-fns";
+import { format, addMonths, addDays, differenceInDays } from "date-fns";
 import {
   Plus,
   Pencil,
@@ -86,6 +86,7 @@ const paymentFormSchema = z.object({
   notes: z.string().optional().nullable().or(z.literal("")),
   type: z.enum(["REGULAR", "EXTRA", "INTEREST_ONLY", "EARLY_SETTLEMENT"]),
   attachments: z.array(z.any()).optional().default([]),
+  addInterest: z.boolean().optional().default(false),
 });
 
 const loanFormSchema = z.object({
@@ -175,11 +176,47 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
     },
   });
 
-  // Handled by LoanModal now
+  // Auto-fill amount with Monthly Payment when dialog opens
+  useEffect(() => {
+    if (openPayment && loan.monthlyPayment) {
+      paymentForm.setValue("amount", Math.min(loan.monthlyPayment, balance));
+    }
+  }, [openPayment, loan.monthlyPayment, balance, paymentForm]);
 
   const onPaymentSubmit = async (data: PaymentFormValues) => {
     try {
       setPaymentLoading(true);
+
+      // Add Interest Transaction first if requested
+      if (data.addInterest) {
+        // Calculate theoretical interest based on CURRENT balance (loan amount - total payments)
+        const currentPaid =
+          loan.payments?.reduce(
+            (acc: number, curr: any) => acc + curr.amount,
+            0,
+          ) || 0;
+        // Note: For Compound Interest model where Balance starts at Principal,
+        // Expected Balance = Principal - TotalPaid
+        // If interest was added (negative payment), TotalPaid is smaller, Balance is larger.
+        // Interest should be calculated on the OUTSTANDING Balance.
+
+        // Assuming loan.amount is Principal.
+        // But if loan type is Fixed, logic differs. User is Compound.
+        let outstanding = loan.amount - currentPaid;
+
+        // Calculate Interest
+        const interest = outstanding * ((loan.interestRate || 0) / 100);
+
+        await axios.post(`/api/loans/${loanId}/payments`, {
+          amount: -Math.abs(interest),
+          date: data.date,
+          notes: "Auto-Interest Added: " + (data.notes || ""),
+          type: "REGULAR",
+          skipTransaction: true,
+        });
+        toast.success("Interest added: R" + interest.toFixed(2));
+      }
+
       await axios.post(`/api/loans/${loanId}/payments`, data);
       toast.success(
         "Payment recorded with " +
@@ -224,7 +261,9 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
     0;
 
   // Prioritize stored persistent values, fallback to calc if missing
-  let finalTotalPayable = loan.totalPayable;
+  // Force recalculation for COMPOUND_INTEREST to use corrected monthly rate logic, ignoring stale DB values
+  let finalTotalPayable =
+    loan.calculationMethod === "COMPOUND_INTEREST" ? null : loan.totalPayable;
   let storedInterest = loan.interestAmount;
 
   if (finalTotalPayable === null || finalTotalPayable === undefined) {
@@ -248,6 +287,47 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
     Math.max(0, (totalPaid / finalTotalPayable) * 100),
   );
 
+  const lastPaymentDate =
+    loan.payments?.length > 0
+      ? new Date(
+          Math.max(
+            ...loan.payments.map((p: any) => new Date(p.date).getTime()),
+          ),
+        )
+      : null;
+
+  let nextPaymentDate = null;
+  if (loan.status === "ACTIVE" || loan.status === "PENDING") {
+    if (lastPaymentDate) {
+      nextPaymentDate = addMonths(lastPaymentDate, 1);
+    } else if (loan.firstPaymentDate) {
+      nextPaymentDate = new Date(loan.firstPaymentDate);
+    } else {
+      nextPaymentDate = addMonths(new Date(loan.startDate), 1);
+    }
+  }
+
+  // Grace Period Logic
+  const gracePeriodEnd = nextPaymentDate ? addDays(nextPaymentDate, 5) : null;
+  const daysLeftInGrace = gracePeriodEnd
+    ? differenceInDays(gracePeriodEnd, new Date())
+    : null;
+
+  // Calculate Running Balance for History
+  const sortedPaymentsAsc = [...(loan.payments || [])].sort(
+    (a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+  );
+  let runningBal = finalTotalPayable || loan.amount;
+  const displayPayments = sortedPaymentsAsc
+    .map((p: any) => {
+      runningBal -= p.amount; // Negative amount (Interest) increases balance
+      return { ...p, balanceAfter: runningBal };
+    })
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+
   return (
     <>
       <div className="flex items-center justify-between">
@@ -256,10 +336,14 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
           <Button variant="outline" onClick={() => router.back()}>
             <ArrowLeft className="h-3 w-3" /> Back
           </Button>
-          <Heading
-            title={`Loan: ${loan.lender}`}
-            description={`Details for ${loan.referenceNumber || "Unreferenced Loan"}`}
-          />
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">
+              Loan: {loan.lender}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Details for {loan.referenceNumber || "Unreferenced Loan"}
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-2">
@@ -305,14 +389,16 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Original Amount
+              Total Loan Amount
             </CardTitle>
             <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R{loan.amount.toFixed(2)}</div>
+            <div className="text-2xl font-bold">
+              R{(finalTotalPayable || loan.amount).toFixed(2)}
+            </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Principal Loan Value
+              Principal + Interest
             </p>
           </CardContent>
         </Card>
@@ -390,20 +476,40 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <Badge
-              variant={
-                loan.status === "ACTIVE"
-                  ? "default"
-                  : loan.status === "PAID_OFF"
-                    ? "secondary"
-                    : "destructive"
+            {(() => {
+              if (loan.status === "PAID_OFF")
+                return <Badge variant="secondary">Paid Off</Badge>;
+
+              // Check Overdue / Grace
+              if (nextPaymentDate && new Date() > nextPaymentDate) {
+                if (daysLeftInGrace !== null) {
+                  if (daysLeftInGrace < 0)
+                    return (
+                      <Badge variant="destructive">Interest Pending</Badge>
+                    );
+                  if (daysLeftInGrace >= 0 && daysLeftInGrace <= 5) {
+                    return (
+                      <Badge className="bg-amber-500 hover:bg-amber-600">
+                        Grace Window
+                      </Badge>
+                    );
+                  }
+                }
               }
-            >
-              {loan.status.replace("_", " ")}
-            </Badge>
-            <p className="text-xs text-muted-foreground mt-2">
-              Started: {format(new Date(loan.startDate), "MMM do, yyyy")}
-            </p>
+
+              return <Badge>{loan.status.replace("_", " ")}</Badge>;
+            })()}
+            <div className="flex flex-col gap-1 mt-2">
+              <p className="text-xs text-muted-foreground">
+                Started: {format(new Date(loan.startDate), "MMM do, yyyy")}
+              </p>
+              {nextPaymentDate && (
+                <p className="text-xs font-medium text-blue-600">
+                  Next Interest Review:{" "}
+                  {format(nextPaymentDate, "MMM do, yyyy")}
+                </p>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -429,6 +535,7 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
                     <TableHead>Type</TableHead>
                     <TableHead>Created By</TableHead>
                     <TableHead>Reference</TableHead>
+                    <TableHead className="text-right">Balance</TableHead>
                     <TableHead className="text-center w-10">
                       <Paperclip className="h-4 w-4 mx-auto" />
                     </TableHead>
@@ -437,7 +544,7 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loan.payments?.map((payment: any) => (
+                  {displayPayments.map((payment: any) => (
                     <TableRow
                       key={payment.id}
                       className="cursor-pointer hover:bg-slate-50"
@@ -457,6 +564,9 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
                         {payment.creator?.name || "-"}
                       </TableCell>
                       <TableCell>{payment.reference || "-"}</TableCell>
+                      <TableCell className="text-right font-mono text-xs">
+                        R{payment.balanceAfter.toFixed(2)}
+                      </TableCell>
 
                       <TableCell className="text-center">
                         {payment.documents && payment.documents.length > 0 ? (
@@ -591,6 +701,7 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
                     })}
                   </span>
                 </div>
+
                 {paymentForm.watch("amount") > 0 && (
                   <div className="flex justify-between items-center text-sm pt-2 border-t border-slate-200">
                     <span className="text-muted-foreground font-medium">
@@ -611,7 +722,6 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
                   </div>
                 )}
               </div>
-
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <FormField
@@ -645,11 +755,16 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
                                     onClick={() =>
                                       paymentForm.setValue(
                                         "amount",
-                                        Number(loan.monthlyPayment?.toFixed(2)),
+                                        Math.min(loan.monthlyPayment!, balance),
                                       )
                                     }
                                   >
-                                    Monthly (R{loan.monthlyPayment.toFixed(2)})
+                                    Monthly (R
+                                    {Math.min(
+                                      loan.monthlyPayment!,
+                                      balance,
+                                    ).toFixed(2)}
+                                    )
                                   </Button>
                                   <Button
                                     type="button"
@@ -659,14 +774,19 @@ export const LoanDetailClient = ({ loanId }: { loanId: string }) => {
                                     onClick={() =>
                                       paymentForm.setValue(
                                         "amount",
-                                        Number(
-                                          (loan.monthlyPayment! / 4).toFixed(2),
+                                        Math.min(
+                                          loan.monthlyPayment! / 4,
+                                          balance,
                                         ),
                                       )
                                     }
                                   >
                                     Weekly (R
-                                    {(loan.monthlyPayment! / 4).toFixed(2)})
+                                    {Math.min(
+                                      loan.monthlyPayment! / 4,
+                                      balance,
+                                    ).toFixed(2)}
+                                    )
                                   </Button>
                                 </>
                               )}

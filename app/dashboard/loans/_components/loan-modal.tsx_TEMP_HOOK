@@ -1,0 +1,20 @@
+  // Auto-switch Method based on Lender Support (Fixes stale state when only one method allowed)
+  useEffect(() => {
+    if (!selectedLender) return;
+
+    const availableMethods = selectedLender.loanCalculationMethods || [];
+    const currentMethod = form.getValues("calculationMethod");
+    
+    let validMethods = [...availableMethods];
+    if (validMethods.length === 0 && selectedLender.loanCalculationMethod) {
+       validMethods.push(selectedLender.loanCalculationMethod);
+    }
+    
+    // If we have strict constraints and current method is invalid
+    if (validMethods.length > 0 && !validMethods.includes(currentMethod)) {
+       const newMethod = validMethods[0];
+       if (newMethod && newMethod !== currentMethod) {
+          form.setValue("calculationMethod", newMethod);
+       }
+    }
+  }, [selectedLender, form, watchMethod]);

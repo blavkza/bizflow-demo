@@ -2676,6 +2676,7 @@ model Loan {
   amount            Float
   interestRate      Float
   startDate         DateTime
+  firstPaymentDate  DateTime?             // When the first repayment is due
   endDate           DateTime?
   termMonths        Int?
   description       String?
@@ -2683,7 +2684,7 @@ model Loan {
   status            LoanStatus            @default(ACTIVE)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
-  calculationMethod LoanCalculationMethod @default(AMORTIZED)
+  calculationMethod LoanCalculationMethod @default(COMPOUND_INTEREST)
   interestAmount    Float?
   totalPayable      Float?
   lenderId          String?
@@ -2730,14 +2731,38 @@ model Lender {
   description   String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  interestRate  Float?
-  termMonths    Int?
-  createdBy     String?
-  documents     Document[]
-  creator       User?      @relation(fields: [createdBy], references: [id])
-  loans         Loan[]
+  interestRate           Float?
+  termMonths             Int?
+  loanCalculationMethod  LoanCalculationMethod? // Deprecated: Use loanCalculationMethods
+  loanCalculationMethods LoanCalculationMethod[] @default([]) // Array of supported methods
+  
+  // Deprecated: Migrating to LenderInterestTier model
+  interestRate3Months    Float?                 
+  interestRate6Months    Float?                 
+  interestRate9Months    Float?                 
+  interestRate12Months   Float?                 
+  
+  interestTiers          LenderInterestTier[]   // Dynamic tiered rates for FIXED_INTEREST
+
+  createdBy              String?
+  documents              Document[]
+  creator                User?                  @relation(fields: [createdBy], references: [id])
+  loans                  Loan[]
 
   @@map("lenders")
+}
+
+model LenderInterestTier {
+  id           String   @id @default(cuid())
+  lenderId     String
+  lender       Lender   @relation(fields: [lenderId], references: [id], onDelete: Cascade)
+  termMonths   Int      // e.g. 3, 6, 9, 12, 18, 24...
+  interestRate Float    // The fixed interest rate for this term
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("lender_interest_tiers")
+  @@unique([lenderId, termMonths]) // Ensure unique tier per lender per term
 }
 
 model EmployeeTool {
@@ -3688,8 +3713,10 @@ enum LoanPaymentType {
 }
 
 enum LoanCalculationMethod {
-  AMORTIZED
-  FLAT
+  COMPOUND_INTEREST    // Monthly compound interest (reducing balance)
+  FIXED_INTEREST       // Long-term fixed interest (flat rate, total interest upfront)
+  AMORTIZED            // Deprecated
+  FLAT                 // Deprecated
 }
 
 enum InterestType {

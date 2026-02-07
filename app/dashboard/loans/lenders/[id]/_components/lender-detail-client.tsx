@@ -23,22 +23,10 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Heading } from "@/components/ui/heading";
 import { Separator } from "@/components/ui/separator";
 import {
   Card,
@@ -47,16 +35,6 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -68,25 +46,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/formatters";
 import { DocumentUpload } from "../../../_components/document-upload";
-
-const lenderFormSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  contactPerson: z.string().optional(),
-  email: z.string().email().optional().or(z.literal("")),
-  phone: z.string().optional(),
-  website: z.string().optional(),
-  address: z.string().optional(),
-  description: z.string().optional(),
-  interestRate: z.coerce.number().min(0).optional(),
-  termMonths: z.coerce.number().int().min(1).optional(),
-});
-
-type LenderFormValues = z.infer<typeof lenderFormSchema>;
+import { LenderModal } from "../../_components/lender-modal";
+import { LoanModal } from "../../../_components/loan-modal";
 
 export const LenderDetailClient = ({ lenderId }: { lenderId: string }) => {
   const router = useRouter();
   const [openEdit, setOpenEdit] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [openLoanModal, setOpenLoanModal] = useState(false);
 
   const {
     data: lender,
@@ -99,51 +65,6 @@ export const LenderDetailClient = ({ lenderId }: { lenderId: string }) => {
       return data;
     },
   });
-
-  const form = useForm<LenderFormValues>({
-    resolver: zodResolver(lenderFormSchema),
-    defaultValues: {
-      name: "",
-      contactPerson: "",
-      email: "",
-      phone: "",
-      website: "",
-      address: "",
-      description: "",
-      interestRate: 0,
-      termMonths: 12,
-    },
-  });
-
-  useEffect(() => {
-    if (lender) {
-      form.reset({
-        name: lender.name,
-        contactPerson: lender.contactPerson || "",
-        email: lender.email || "",
-        phone: lender.phone || "",
-        website: lender.website || "",
-        address: lender.address || "",
-        description: lender.description || "",
-        interestRate: lender.interestRate || 0,
-        termMonths: lender.termMonths || 12,
-      });
-    }
-  }, [lender, form]);
-
-  const onEditSubmit = async (data: LenderFormValues) => {
-    try {
-      setLoading(true);
-      await axios.patch(`/api/lenders/${lenderId}`, data);
-      toast.success("Lender updated successfully");
-      refetch();
-      setOpenEdit(false);
-    } catch (error) {
-      toast.error("Failed to update lender");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const onDelete = async () => {
     if (
@@ -195,10 +116,13 @@ export const LenderDetailClient = ({ lenderId }: { lenderId: string }) => {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Heading
-            title={lender.name}
-            description={`Financial partner since ${format(new Date(lender.createdAt), "MMMM yyyy")}`}
-          />
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">{lender.name}</h2>
+            <p className="text-sm text-muted-foreground">
+              Financial partner since{" "}
+              {format(new Date(lender.createdAt), "MMMM yyyy")}
+            </p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => setOpenEdit(true)}>
@@ -341,17 +265,122 @@ export const LenderDetailClient = ({ lenderId }: { lenderId: string }) => {
 
             <Separator className="my-2" />
 
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-sm font-medium">Default Term</span>
-                <Badge variant="outline">{lender.termMonths || 0} Months</Badge>
+            <div className="space-y-3">
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-medium">Calculation Methods</span>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    lender.loanCalculationMethods || [
+                      lender.loanCalculationMethod,
+                    ]
+                  ).includes("COMPOUND_INTEREST") && (
+                    <Badge variant="secondary">Compound Interest</Badge>
+                  )}
+                  {(
+                    lender.loanCalculationMethods || [
+                      lender.loanCalculationMethod,
+                    ]
+                  ).includes("FIXED_INTEREST") && (
+                    <Badge variant="secondary">Fixed Interest (Tiered)</Badge>
+                  )}
+                  {(!lender.loanCalculationMethods ||
+                    lender.loanCalculationMethods.length === 0) &&
+                    !lender.loanCalculationMethod && (
+                      <Badge variant="outline">Not Set</Badge>
+                    )}
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Default Rate</span>
-                <Badge variant="secondary">
-                  {lender.interestRate || 0}% p.a
-                </Badge>
-              </div>
+
+              {((lender.loanCalculationMethods || []).includes(
+                "FIXED_INTEREST",
+              ) ||
+                lender.loanCalculationMethod === "FIXED_INTEREST") && (
+                <div className="space-y-2 p-3 bg-muted/30 rounded-lg border">
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">
+                    Tiered Interest Rates
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(lender.interestTiers && lender.interestTiers.length > 0
+                      ? lender.interestTiers
+                      : [
+                          lender.interestRate3Months
+                            ? {
+                                termMonths: 3,
+                                interestRate: lender.interestRate3Months,
+                              }
+                            : null,
+                          lender.interestRate6Months
+                            ? {
+                                termMonths: 6,
+                                interestRate: lender.interestRate6Months,
+                              }
+                            : null,
+                          lender.interestRate9Months
+                            ? {
+                                termMonths: 9,
+                                interestRate: lender.interestRate9Months,
+                              }
+                            : null,
+                          lender.interestRate12Months
+                            ? {
+                                termMonths: 12,
+                                interestRate: lender.interestRate12Months,
+                              }
+                            : null,
+                        ].filter(Boolean)
+                    ).map((tier: any) => (
+                      <div
+                        key={tier.termMonths}
+                        className="flex justify-between items-center"
+                      >
+                        <span className="text-xs">
+                          {tier.termMonths} Months
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          {tier.interestRate}%
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {((lender.loanCalculationMethods || []).includes(
+                "COMPOUND_INTEREST",
+              ) ||
+                lender.loanCalculationMethod === "COMPOUND_INTEREST") && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Default Term</span>
+                    <Badge variant="outline">
+                      {lender.termMonths || 0} Months
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Default Rate</span>
+                    <Badge variant="secondary">
+                      {lender.interestRate || 0}% p.a
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
+              {!lender.loanCalculationMethod && (
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Default Term</span>
+                    <Badge variant="outline">
+                      {lender.termMonths || 0} Months
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium">Default Rate</span>
+                    <Badge variant="secondary">
+                      {lender.interestRate || 0}% p.a
+                    </Badge>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -365,7 +394,7 @@ export const LenderDetailClient = ({ lenderId }: { lenderId: string }) => {
                 Track every business loan active with {lender.name}
               </CardDescription>
             </div>
-            <Button size="sm" onClick={() => router.push("/dashboard/loans")}>
+            <Button size="sm" onClick={() => setOpenLoanModal(true)}>
               <Plus className="h-4 w-4 mr-2" /> New Loan
             </Button>
           </CardHeader>
@@ -376,13 +405,18 @@ export const LenderDetailClient = ({ lenderId }: { lenderId: string }) => {
                   <TableHead>Type</TableHead>
                   <TableHead>Start Date</TableHead>
                   <TableHead>Amount</TableHead>
+                  <TableHead>Total Payable</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loans.map((loan: any) => (
-                  <TableRow key={loan.id}>
+                  <TableRow
+                    key={loan.id}
+                    onClick={() => router.push(`/dashboard/loans/${loan.id}`)}
+                    className="cursor-pointer"
+                  >
                     <TableCell className="font-medium">
                       {loan.loanType || "Business Loan"}
                     </TableCell>
@@ -390,6 +424,7 @@ export const LenderDetailClient = ({ lenderId }: { lenderId: string }) => {
                       {format(new Date(loan.startDate), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                    <TableCell>{formatCurrency(loan.totalPayable)}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
@@ -478,166 +513,35 @@ export const LenderDetailClient = ({ lenderId }: { lenderId: string }) => {
         </Card>
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={openEdit} onOpenChange={setOpenEdit}>
-        <DialogContent className="sm:max-w-[550px] lg:min-w-[800px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Lender Profile</DialogTitle>
-            <DialogDescription>
-              Update corporate and contact information.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onEditSubmit)}
-              className="space-y-6"
-            >
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h4 className="font-medium text-sm text-muted-foreground border-b pb-1">
-                    Company Details
-                  </h4>
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Bank Name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="contactPerson"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contact Person</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Full Name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input placeholder="email@lender.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+27..." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
+      {/* Edit Modal */}
+      <LenderModal
+        isOpen={openEdit}
+        onClose={() => setOpenEdit(false)}
+        onSuccess={() => {
+          refetch();
+          setOpenEdit(false);
+        }}
+        initialData={lender}
+      />
 
-                <div className="space-y-4">
-                  <h4 className="font-medium text-sm text-muted-foreground border-b pb-1">
-                    Offering & Notes
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="interestRate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Rate (%)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="0.01" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="termMonths"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Term (Mo)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="website"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Website</FormLabel>
-                        <FormControl>
-                          <Input placeholder="https://..." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Physical Address" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Strategic Notes</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Specific terms, account manager details..."
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button disabled={loading} type="submit" className="w-full">
-                  {loading ? "Saving Changes..." : "Save Profile"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
+      {/* New Loan Modal */}
+      <LoanModal
+        isOpen={openLoanModal}
+        onClose={() => setOpenLoanModal(false)}
+        onSuccess={() => {
+          refetch();
+          setOpenLoanModal(false);
+        }}
+        lenders={[lender]}
+        initialData={{
+          lenderId: lender.id,
+          lender: lender.name,
+          interestRate: lender.interestRate || 0,
+          termMonths: lender.termMonths || 12,
+          calculationMethod:
+            lender.loanCalculationMethod || "COMPOUND_INTEREST",
+        }}
+      />
     </>
   );
 };

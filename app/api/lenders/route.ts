@@ -20,6 +20,8 @@ export async function POST(req: Request) {
       description,
       interestRate,
       termMonths,
+      loanCalculationMethods,
+      interestTiers,
     } = body;
 
     if (!name) {
@@ -47,6 +49,13 @@ export async function POST(req: Request) {
         interestRate: interestRate ? parseFloat(interestRate) : null,
         termMonths: termMonths ? parseInt(termMonths) : null,
         createdBy: user.id,
+        loanCalculationMethods: loanCalculationMethods || [],
+        interestTiers: {
+          create: (interestTiers || []).map((tier: any) => ({
+            termMonths: parseInt(tier.termMonths),
+            interestRate: parseFloat(tier.interestRate),
+          })),
+        },
       },
     });
 
@@ -69,6 +78,9 @@ export async function GET(req: Request) {
         name: "asc",
       },
       include: {
+        interestTiers: {
+          orderBy: { termMonths: "asc" },
+        },
         creator: true,
         loans: {
           include: {

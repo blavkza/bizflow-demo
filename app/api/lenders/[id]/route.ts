@@ -19,6 +19,9 @@ export async function GET(
         id: id,
       },
       include: {
+        interestTiers: {
+          orderBy: { termMonths: "asc" },
+        },
         loans: {
           include: {
             payments: true,
@@ -65,12 +68,40 @@ export async function PATCH(
         : null;
     }
 
+    const { loanCalculationMethods, interestTiers, ...rest } = updatedData;
+
+    // Update main lender fields
     const lender = await db.lender.update({
       where: {
         id: id,
       },
-      data: updatedData,
+      data: {
+        ...rest,
+        loanCalculationMethods: loanCalculationMethods || undefined,
+      },
     });
+
+    // Handle tiers update if provided
+    if (interestTiers) {
+      // Helper to process tiers
+      await db.$transaction(async (tx) => {
+        // Delete existing tiers
+        await tx.lenderInterestTier.deleteMany({
+          where: { lenderId: id },
+        });
+
+        // Create new ones
+        if (Array.isArray(interestTiers) && interestTiers.length > 0) {
+          await tx.lenderInterestTier.createMany({
+            data: interestTiers.map((tier: any) => ({
+              lenderId: id,
+              termMonths: parseInt(tier.termMonths),
+              interestRate: parseFloat(tier.interestRate),
+            })),
+          });
+        }
+      });
+    }
 
     return NextResponse.json(lender);
   } catch (error) {

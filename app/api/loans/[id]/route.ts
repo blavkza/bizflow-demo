@@ -127,6 +127,9 @@ export async function PATCH(
         endDate: updatedData.endDate
           ? new Date(updatedData.endDate)
           : undefined,
+        firstPaymentDate: updatedData.firstPaymentDate
+          ? new Date(updatedData.firstPaymentDate)
+          : undefined,
       },
     });
 

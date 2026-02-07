@@ -16,7 +16,7 @@ export async function POST(
     const { id } = await params;
     const body = await req.json();
 
-    const { amount, date, reference, notes, type } = body;
+    const { amount, date, reference, notes, type, skipTransaction } = body;
 
     const user = await db.user.findUnique({
       where: { userId },
@@ -85,21 +85,23 @@ export async function POST(
           }
         }
 
-        await tx.transaction.create({
-          data: {
-            amount: parseFloat(amount),
-            type: "EXPENSE",
-            status: "COMPLETED",
-            description: `Loan Repayment: ${loan.lender}`,
-            reference,
-            date: new Date(date),
-            method: "BANK_TRANSFER",
-            loanId: id, // Link to loan
-            loanPaymentId: newPayment.id, // Link to specific payment
-            createdBy: user.id,
-            categoryId: category.id,
-          },
-        });
+        if (!skipTransaction) {
+          await tx.transaction.create({
+            data: {
+              amount: parseFloat(amount),
+              type: "EXPENSE",
+              status: "COMPLETED",
+              description: `Loan Repayment: ${loan.lender}`,
+              reference,
+              date: new Date(date),
+              method: "BANK_TRANSFER",
+              loanId: id, // Link to loan
+              loanPaymentId: newPayment.id, // Link to specific payment
+              createdBy: user.id,
+              categoryId: category.id,
+            },
+          });
+        }
 
         // Check if loan should be marked as PAID_OFF
         const allPayments = await tx.loanPayment.findMany({

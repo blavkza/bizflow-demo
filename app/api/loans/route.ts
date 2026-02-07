@@ -26,6 +26,7 @@ export async function POST(req: Request) {
       lenderId,
       interestType,
       primeMargin,
+      firstPaymentDate,
     } = body;
 
     const user = await db.user.findUnique({
@@ -45,7 +46,7 @@ export async function POST(req: Request) {
       parsedAmount,
       parsedRate,
       parsedTerm,
-      calculationMethod || "AMORTIZED",
+      calculationMethod || "COMPOUND_INTEREST",
     );
 
     // If user provided a manual monthly payment, total payable might differ
@@ -85,13 +86,16 @@ export async function POST(req: Request) {
             amount: parsedAmount,
             interestRate: parsedRate,
             startDate: new Date(startDate),
+            firstPaymentDate: firstPaymentDate
+              ? new Date(firstPaymentDate)
+              : null,
             endDate: endDate ? new Date(endDate) : null,
             termMonths: parsedTerm,
             description,
             monthlyPayment: monthlyPayment ? parseFloat(monthlyPayment) : null,
             interestAmount: finalInterest,
             totalPayable: finalPayable,
-            calculationMethod: calculationMethod || "AMORTIZED",
+            calculationMethod: calculationMethod || "COMPOUND_INTEREST",
             lenderId: lenderId && lenderId !== "OTHER" ? lenderId : null,
             interestType: interestType || "FIXED",
             primeMargin: primeMargin ? parseFloat(primeMargin) : 0,
