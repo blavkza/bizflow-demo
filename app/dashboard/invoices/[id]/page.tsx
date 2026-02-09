@@ -55,13 +55,13 @@ export default function InvoiceDetailPage({
     ? hasRole(data?.role, fullAccessRoles)
     : false;
   const canViewInvoices = data?.permissions?.includes(
-    UserPermission.INVOICES_VIEW
+    UserPermission.INVOICES_VIEW,
   );
   const canEditInvoice = data?.permissions?.includes(
-    UserPermission.INVOICES_EDIT
+    UserPermission.INVOICES_EDIT,
   );
   const canDeleteInvoice = data?.permissions?.includes(
-    UserPermission.INVOICES_DELETE
+    UserPermission.INVOICES_DELETE,
   );
 
   useEffect(() => {
@@ -106,10 +106,10 @@ export default function InvoiceDetailPage({
         onToggleCombineServices={handleToggleCombineServices}
       />
 
-      <Tabs defaultValue="details" className="space-y-4">
+      <Tabs defaultValue="preview" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="details">Details & Items</TabsTrigger>
           <TabsTrigger value="preview">Preview PDF</TabsTrigger>
+          <TabsTrigger value="details">Details & Items</TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="space-y-6">

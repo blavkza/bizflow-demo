@@ -52,7 +52,9 @@ export function ToolHeader({ tool, onAllocate, onEdit }: ToolHeaderProps) {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold tracking-tight">{tool.name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight truncate">
+            {tool.name}
+          </h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{tool.serialNumber || "No Serial"}</span>
             <span>•</span>

@@ -39,11 +39,11 @@ export default function QuotationDetailPage({
   const { id } = use(params);
 
   const [quotation, setQuotation] = useState<QuotationWithRelations | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [combineServices, setCombineServices] = useState(true); 
+  const [combineServices, setCombineServices] = useState(true);
   const [hideItemPrices, setHideItemPrices] = useState(false);
 
   const router = useRouter();
@@ -63,23 +63,23 @@ export default function QuotationDetailPage({
     : false;
 
   const canViewQuotations = data?.permissions?.includes(
-    UserPermission.QUOTATIONS_VIEW || hasFullAccess
+    UserPermission.QUOTATIONS_VIEW || hasFullAccess,
   );
 
   const canEditQuotations = data?.permissions?.includes(
-    UserPermission.QUOTATIONS_EDIT || hasFullAccess
+    UserPermission.QUOTATIONS_EDIT || hasFullAccess,
   );
 
   const canCreateInvoice = data?.permissions?.includes(
-    UserPermission.INVOICES_CREATE || hasFullAccess
+    UserPermission.INVOICES_CREATE || hasFullAccess,
   );
 
   const canDeleteQuotations = data?.permissions?.includes(
-    UserPermission.QUOTATIONS_DELETE || hasFullAccess
+    UserPermission.QUOTATIONS_DELETE || hasFullAccess,
   );
 
   const canCreateQuotations = data?.permissions?.includes(
-    UserPermission.QUOTATIONS_CREATE || hasFullAccess
+    UserPermission.QUOTATIONS_CREATE || hasFullAccess,
   );
 
   useEffect(() => {
@@ -149,12 +149,12 @@ export default function QuotationDetailPage({
 
       <KeyMetrics quotation={quotation} />
 
-      <Tabs defaultValue="items" className="space-y-4">
+      <Tabs defaultValue="quotation-preview" className="space-y-4">
         <TabsList>
+          <TabsTrigger value="quotation-preview">Quotation Preview</TabsTrigger>
           <TabsTrigger value="items">Items & Totals</TabsTrigger>
           <TabsTrigger value="details">Details & Terms</TabsTrigger>
           <TabsTrigger value="client">Client Info</TabsTrigger>
-          <TabsTrigger value="quotation-preview">Quotation Preview</TabsTrigger>
           {/*           <TabsTrigger value="document-preview">Document Preview</TabsTrigger>
            */}{" "}
         </TabsList>
