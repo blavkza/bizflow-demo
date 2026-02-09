@@ -299,8 +299,8 @@ export function AllocationDetailClient({
                       {tool.serialNumber || "-"}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {tool.assignedDate
-                        ? format(new Date(tool.assignedDate), "PPP")
+                      {tool.allocatedDate
+                        ? format(new Date(tool.allocatedDate), "PPP")
                         : "-"}
                     </TableCell>
                     <TableCell>

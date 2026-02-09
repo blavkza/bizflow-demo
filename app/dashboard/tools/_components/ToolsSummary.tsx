@@ -8,13 +8,23 @@ interface ToolsSummaryProps {
 }
 
 export function ToolsSummary({ tools }: ToolsSummaryProps) {
-  const totalTools = tools.length;
-  const availableTools = tools.filter((t) => t.status === "AVAILABLE").length;
-  const toolsInMaintenance = tools.filter(
-    (t) => t.status === "MAINTENANCE"
-  ).length;
-  const toolsRented = tools.filter((t) => t.status === "RENTED").length;
-  const rentableTools = tools.filter(canToolBeRented).length;
+  const totalTools = tools.reduce((sum, t) => sum + (t.quantity || 0), 0);
+  const availableTools = tools.reduce(
+    (sum, t) => (t.status === "AVAILABLE" ? sum + (t.quantity || 0) : sum),
+    0,
+  );
+  const toolsInMaintenance = tools.reduce(
+    (sum, t) => (t.status === "MAINTENANCE" ? sum + (t.quantity || 0) : sum),
+    0,
+  );
+  const toolsRented = tools.reduce(
+    (sum, t) => (t.status === "RENTED" ? sum + (t.quantity || 0) : sum),
+    0,
+  );
+  const rentableTools = tools.reduce(
+    (sum, t) => (canToolBeRented(t) ? sum + (t.quantity || 0) : sum),
+    0,
+  );
 
   const totalRentalRevenue = tools.reduce((sum, tool) => {
     const toolRevenue =
@@ -53,10 +63,11 @@ export function ToolsSummary({ tools }: ToolsSummaryProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {formatCount(toolsRented)} rented
+            {formatCount(availableTools)} available
           </div>
           <p className="text-xs text-muted-foreground">
-            {formatCount(toolsInMaintenance)} in maintenance
+            {formatCount(toolsRented)} rented •{" "}
+            {formatCount(toolsInMaintenance)} maintenance
           </p>
         </CardContent>
       </Card>

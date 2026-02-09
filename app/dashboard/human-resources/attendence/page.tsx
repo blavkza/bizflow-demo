@@ -88,8 +88,8 @@ export default function AttendancePage() {
 
   // Fetch call-out history
   const { data: calloutHistory, isLoading: calloutsLoading } = useQuery({
-    queryKey: ["callout-history"],
-    queryFn: fetchCallOutHistory,
+    queryKey: ["callout-history", selectedDate],
+    queryFn: () => fetchCallOutHistory(selectedDate),
     enabled: !userLoading,
   });
 
@@ -107,18 +107,20 @@ export default function AttendancePage() {
 
   const attendanceRecords: AttendanceRecord[] = attendanceData?.records || [];
   const gpsCheckIns: CheckInRecord[] = checkInHistory?.checkins || [];
-  const callouts: EmergencyCallOut[] = Array.isArray(calloutHistory) ? calloutHistory : [];
+  const callouts: EmergencyCallOut[] = Array.isArray(calloutHistory)
+    ? calloutHistory
+    : [];
 
   const fullAccessRoles = [UserRole.CHIEF_EXECUTIVE_OFFICER];
   const hasFullAccess = userData?.role
     ? hasRole(userData.role, fullAccessRoles)
     : false;
   const canViewAttendance = userData?.permissions?.includes(
-    UserPermission.Attendence_VIEW
+    UserPermission.Attendence_VIEW,
   );
 
   const canCreateAttendance = userData?.permissions?.includes(
-    UserPermission.Attendence_CREATE
+    UserPermission.Attendence_CREATE,
   );
 
   if (userLoading) {

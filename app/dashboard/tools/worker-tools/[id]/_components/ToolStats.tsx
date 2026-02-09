@@ -19,13 +19,11 @@ export function ToolStats({ tool }: ToolStatsProps) {
   const allocatedQty =
     fleet.length > 0
       ? fleet
-          .filter((t: any) => t.status === "ASSIGNED")
+          .filter((t: any) => t.status === "ALLOCATED")
           .reduce((sum: number, t: any) => sum + (t.quantity || 1), 0)
-      : tool.status === "ASSIGNED"
+      : tool.status === "ALLOCATED"
         ? tool.quantity
         : 0;
-
-  const availableQty = totalQty - allocatedQty;
 
   const damagedQty =
     fleet.length > 0
@@ -35,6 +33,27 @@ export function ToolStats({ tool }: ToolStatsProps) {
       : tool.status === "DAMAGED"
         ? tool.quantity
         : 0;
+
+  const maintenanceQty =
+    fleet.length > 0
+      ? fleet
+          .filter((t: any) => t.status === "MAINTENANCE")
+          .reduce((sum: number, t: any) => sum + (t.quantity || 1), 0)
+      : tool.status === "MAINTENANCE"
+        ? tool.quantity
+        : 0;
+
+  const pendingReturnQty =
+    fleet.length > 0
+      ? fleet
+          .filter((t: any) => t.status === "PENDING_RETURN")
+          .reduce((sum: number, t: any) => sum + (t.quantity || 1), 0)
+      : tool.status === "PENDING_RETURN"
+        ? tool.quantity
+        : 0;
+
+  const availableQty =
+    totalQty - allocatedQty - damagedQty - maintenanceQty - pendingReturnQty;
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -80,23 +99,17 @@ export function ToolStats({ tool }: ToolStatsProps) {
         </CardContent>
       </Card>
 
-      {damagedQty > 0 && (
-        <Card className="border-destructive/50 bg-destructive/5">
-          <CardContent className="p-6 flex flex-row items-center justify-between space-y-0">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-destructive">
-                Damaged/Lost
-              </p>
-              <p className="text-2xl font-bold text-destructive">
-                {damagedQty}
-              </p>
-            </div>
-            <div className="h-10 w-10 bg-destructive/10 rounded-full flex items-center justify-center text-destructive">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Card className="border-destructive/50 bg-destructive/5">
+        <CardContent className="p-6 flex flex-row items-center justify-between space-y-0">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-destructive">Damaged/Lost</p>
+            <p className="text-2xl font-bold text-destructive">{damagedQty}</p>
+          </div>
+          <div className="h-10 w-10 bg-destructive/10 rounded-full flex items-center justify-center text-destructive">
+            <AlertTriangle className="h-5 w-5" />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

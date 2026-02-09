@@ -44,8 +44,8 @@ export async function GET(
     // @ts-ignore
     tools = worker.tools.sort(
       (a: any, b: any) =>
-        new Date(b.assignedDate || 0).getTime() -
-        new Date(a.assignedDate || 0).getTime(),
+        new Date(b.allocatedDate || 0).getTime() -
+        new Date(a.allocatedDate || 0).getTime(),
     );
 
     return NextResponse.json({

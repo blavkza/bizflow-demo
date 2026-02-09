@@ -62,8 +62,11 @@ model User {
   processedReturns     ToolReturn[]       @relation("ProcessedReturns")
   createdTransactions  Transaction[]
   employee             Employee?          @relation(fields: [employeeId], references: [id])
+  freeLancerId         String?            @unique
+  freeLancer           FreeLancer?        @relation(fields: [freeLancerId], references: [id])
   Vendor               Vendor[]
   workLogs             WorkLog[]
+  CallOutAssistant     CallOutAssistant[]
 
   @@map("users")
 }
@@ -82,7 +85,7 @@ model Session {
 }
 
 model GeneralSetting {
-  id                 String   @id @default(cuid())
+  id                 String       @id @default(cuid())
   userId             String
   companyName        String
   taxId              String
@@ -102,7 +105,7 @@ model GeneralSetting {
   city               String
   province           String
   postCode           String
-  createdAt          DateTime @default(now())
+  createdAt          DateTime     @default(now())
   creditNoteNote     String?
   creditNoteTerms    String?
   deliveryNoteNote   String?
@@ -113,7 +116,9 @@ model GeneralSetting {
   purchaseOrderTerms String?
   supplierListNote   String?
   supplierListTerms  String?
-  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Employee           Employee[]
+  FreeLancer         FreeLancer[]
 
   @@map("GeneralSettings")
 }
@@ -136,6 +141,8 @@ model HRSettings {
   maxCarryOverDays           Int      @default(5)
   workingHoursPerDay         Int      @default(8)
   overtimeHourRate           Float    @default(50.00)
+  callOutHourlyRate          Float    @default(0.00)
+  useCallOutHourlyRate       Boolean  @default(false)
   createdAt                  DateTime @default(now())
   updatedAt                  DateTime @updatedAt
   updatedBy                  String?
@@ -334,6 +341,7 @@ model Employee {
   avatar                   String?
   position                 String
   departmentId             String?
+  generalSettingId         String?
   currency                 String                 @default("ZAR")
   hireDate                 DateTime
   terminationDate          DateTime?
@@ -393,6 +401,7 @@ model Employee {
   emergencyCallOuts        EmergencyCallOut[]
   employeeNotification     EmployeeNotification[]
   department               Department?            @relation("DepartmentEmployees", fields: [departmentId], references: [id])
+  generalSetting           GeneralSetting?        @relation(fields: [generalSettingId], references: [id])
   kpiResults               KpiResult[]
   overtimeRequests         OvertimeRequest[]
   payments                 Payment[]
@@ -401,9 +410,12 @@ model Employee {
   toolReturns              ToolReturn[]
   user                     User?
   Warning                  Warning[]
-  tools                    EmployeeTool[]
+  tools                    Tool[]                 @relation("EmployeeTools")
   bypassRules              AttendanceBypassRule[] @relation("BypassRuleEmployees")
   assignedTasks            Task[]                 @relation("TaskAssignments")
+  CallOutAssistant         CallOutAssistant[]
+
+  toolMovements            ToolMovement[]
 
   @@index([departmentId])
   @@index([status])
@@ -420,6 +432,7 @@ model FreeLancer {
   avatar                   String?
   position                 String
   departmentId             String?
+  generalSettingId         String?
   salary                   Decimal                @db.Decimal(15, 2)
   currency                 String                 @default("ZAR")
   hireDate                 DateTime
@@ -474,6 +487,7 @@ model FreeLancer {
   documents                Document[]
   emergencyCallOuts        EmergencyCallOut[]
   department               Department?            @relation("DepartmentFreelancers", fields: [departmentId], references: [id])
+  generalSetting           GeneralSetting?        @relation(fields: [generalSettingId], references: [id])
   kpiResults               KpiResult[]
   overtimeRequests         OvertimeRequest[]
   payments                 Payment[]
@@ -481,9 +495,13 @@ model FreeLancer {
   toolRequests             ToolRequest[]
   toolReturns              ToolReturn[]
   warnings                 Warning[]
-  tools                    EmployeeTool[]
+  tools                    Tool[]                 @relation("FreelancerTools")
   bypassRules              AttendanceBypassRule[] @relation("BypassRuleFreelancers")
   assignedTasks            Task[]                 @relation("FreeLancerTaskAssignments")
+  user                     User?
+  CallOutAssistant         CallOutAssistant[]
+
+  toolMovements            ToolMovement[]
 
   @@index([departmentId])
   @@index([status])
@@ -565,7 +583,7 @@ model BreakRecord {
 
 model Warning {
   id              String      @id @default(cuid())
-  employeeId      String
+  employeeId      String?
   type            String
   severity        String
   reason          String
@@ -577,7 +595,7 @@ model Warning {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   freeLancerId    String?
-  employee        Employee    @relation(fields: [employeeId], references: [id])
+  employee        Employee?   @relation(fields: [employeeId], references: [id])
   freeLancer      FreeLancer? @relation(fields: [freeLancerId], references: [id])
 
   @@map("warnings")
@@ -585,7 +603,7 @@ model Warning {
 
 model LeaveRequest {
   id            String      @id @default(cuid())
-  employeeId    String
+  employeeId    String?
   leaveType     LeaveType
   startDate     DateTime
   endDate       DateTime
@@ -602,7 +620,7 @@ model LeaveRequest {
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   freeLancerId  String?
-  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee      Employee?   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   freeLancer    FreeLancer? @relation(fields: [freeLancerId], references: [id])
 
   @@index([employeeId])
@@ -963,6 +981,7 @@ model Client {
   recurringInvoices  RecurringInvoice[]
   toolRentals        ToolRental[]
   transactions       Transaction[]
+  emergencyCallOuts  EmergencyCallOut[]
 
   @@index([status])
   @@index([type])
@@ -1009,6 +1028,8 @@ model Project {
   timeEntries      TimeEntry[]
   toolInterUses    ToolInterUse[]
   workLogs         WorkLog[]
+
+  toolMovements      ToolMovement[]
 
   @@index([clientId])
   @@index([status])
@@ -2134,27 +2155,48 @@ model ChatSession {
 }
 
 model Tool {
-  id                String               @id @default(cuid())
+  id                String        @id @default(cuid())
   name              String
   description       String?
+  serialNumber      String?
+  code              String?
   category          String?
-  canBeRented       Boolean              @default(true)
-  purchasePrice     Decimal              @db.Decimal(12, 2)
-  purchaseDate      DateTime?            @db.Date
-  rentalRateDaily   Decimal?             @db.Decimal(10, 2)
-  rentalRateWeekly  Decimal?             @db.Decimal(10, 2)
-  rentalRateMonthly Decimal?             @db.Decimal(10, 2)
-  status            ToolStatus           @default(AVAILABLE)
-  condition         ToolCondition        @default(GOOD)
+  canBeRented       Boolean       @default(true)
+  purchasePrice     Decimal       @default(0) @db.Decimal(12, 2)
+  purchaseDate      DateTime?     @db.Date
+  rentalRateDaily   Decimal?      @db.Decimal(10, 2)
+  rentalRateWeekly  Decimal?      @db.Decimal(10, 2)
+  rentalRateMonthly Decimal?      @db.Decimal(10, 2)
+  quantity          Int           @default(1)
+  employeeId        String?
+  freelancerId      String?
+  returnDate        DateTime?
+  status            ToolStatus    @default(AVAILABLE)
+  condition         ToolCondition @default(GOOD)
+  damageCost        Decimal?      @default(0) @db.Decimal(10, 2)
+  damageDescription String?
   primaryImage      String?
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  createdBy         String
-  images            Json?
-  rentalRequests    RentalRequest[]
-  InterUse          ToolInterUse[]
-  maintenanceLogs   ToolMaintenanceLog[]
-  rentals           ToolRental[]
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  createdBy         String?
+  additionalInfo    String?
+  images            String[]
+  parentToolId      String?
+  allocatedDate     DateTime?
+
+  // Relations
+  rentalRequests        RentalRequest[]
+  InterUse              ToolInterUse[]
+  maintenanceLogs       ToolMaintenanceLog[]
+  rentals               ToolRental[]
+  workerMaintenanceLogs ToolMaintenance[]
+  returns               ToolReturn[]
+  employee              Employee?            @relation("EmployeeTools", fields: [employeeId], references: [id])
+  freelancer            FreeLancer?          @relation("FreelancerTools", fields: [freelancerId], references: [id])
+  parentTool            Tool?                @relation("ToolHierarchy", fields: [parentToolId], references: [id])
+  subTools              Tool[]               @relation("ToolHierarchy")
+
+  movements             ToolMovement[]
 
   @@map("tools")
 }
@@ -2211,6 +2253,34 @@ model ToolInterUse {
   tool              Tool               @relation(fields: [toolId], references: [id], onDelete: Cascade)
 
   @@map("tool_interUses")
+}
+
+model ToolMovement {
+  id           String           @id @default(cuid())
+  toolId       String
+  type         ToolMovementType
+  quantity     Int
+  employeeId   String?
+  freelancerId String?
+  projectId    String?
+  notes        String?
+  createdAt    DateTime         @default(now())
+  createdBy    String
+
+  tool       Tool        @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  employee   Employee?   @relation(fields: [employeeId], references: [id])
+  freelancer FreeLancer? @relation(fields: [freelancerId], references: [id])
+  project    Project?    @relation(fields: [projectId], references: [id])
+
+  @@map("tool_movements")
+}
+
+enum ToolMovementType {
+  CHECK_OUT
+  CHECK_IN
+  ADJUSTMENT
+  MAINTENANCE_OUT
+  MAINTENANCE_IN
 }
 
 model ToolMaintenanceLog {
@@ -2483,6 +2553,34 @@ model NotificationTemplate {
   @@map("notification_templates")
 }
 
+enum CallOutStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  COMPLETED
+  IN_PROGRESS
+  ASSISTANT_CONFIRMED
+}
+
+enum CallOutType {
+  MAINTENANCE
+  INVOICE
+}
+
+enum VehicleType {
+  COMPANY_VEHICLE
+  PERSONAL_VEHICLE
+  PUBLIC_TRANSPORT
+  E_HAILING
+}
+
+enum AssistantStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
 model EmergencyCallOut {
   id              String        @id @default(cuid())
   employeeId      String?
@@ -2506,12 +2604,43 @@ model EmergencyCallOut {
   checkOutLat     Float?
   checkOutLng     Float?
   duration        Float?
+  earnings        Decimal?      @db.Decimal(15, 2)
+  hourlyRateUsed  Float?
   notes           String?
-  employee        Employee?     @relation(fields: [employeeId], references: [id])
-  freeLancer      FreeLancer?   @relation(fields: [freeLancerId], references: [id])
-  requestedUser   User          @relation(fields: [requestedBy], references: [id])
+
+  // New Fields for Workflow
+  type         CallOutType?
+  destination  String?
+  vehicle      VehicleType?
+  description  String?
+  isTeamLeader Boolean      @default(false)
+
+  clientId      String?
+  client        Client?            @relation(fields: [clientId], references: [id])
+  employee      Employee?          @relation(fields: [employeeId], references: [id])
+  freeLancer    FreeLancer?        @relation(fields: [freeLancerId], references: [id])
+  requestedUser User               @relation(fields: [requestedBy], references: [id])
+  assistants    CallOutAssistant[]
 
   @@map("emergency_call_outs")
+}
+
+model CallOutAssistant {
+  id                 String          @id @default(cuid())
+  emergencyCallOutId String
+  userId             String?
+  employeeId         String?
+  freelancerId       String?
+  status             AssistantStatus @default(PENDING)
+  earnings           Decimal?        @db.Decimal(15, 2)
+  hourlyRateUsed     Float?
+
+  emergencyCallOut EmergencyCallOut @relation(fields: [emergencyCallOutId], references: [id], onDelete: Cascade)
+  user             User?            @relation(fields: [userId], references: [id])
+  employee         Employee?        @relation(fields: [employeeId], references: [id])
+  freelancer       FreeLancer?      @relation(fields: [freelancerId], references: [id])
+
+  @@map("call_out_assistants")
 }
 
 model ApiKey {
@@ -2676,7 +2805,7 @@ model Loan {
   amount            Float
   interestRate      Float
   startDate         DateTime
-  firstPaymentDate  DateTime?             // When the first repayment is due
+  firstPaymentDate  DateTime? // When the first repayment is due
   endDate           DateTime?
   termMonths        Int?
   description       String?
@@ -2721,33 +2850,33 @@ model LoanPayment {
 }
 
 model Lender {
-  id            String     @id @default(cuid())
-  name          String
-  contactPerson String?
-  email         String?
-  phone         String?
-  website       String?
-  address       String?
-  description   String?
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id                     String                  @id @default(cuid())
+  name                   String
+  contactPerson          String?
+  email                  String?
+  phone                  String?
+  website                String?
+  address                String?
+  description            String?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
   interestRate           Float?
   termMonths             Int?
   loanCalculationMethod  LoanCalculationMethod? // Deprecated: Use loanCalculationMethods
   loanCalculationMethods LoanCalculationMethod[] @default([]) // Array of supported methods
-  
-  // Deprecated: Migrating to LenderInterestTier model
-  interestRate3Months    Float?                 
-  interestRate6Months    Float?                 
-  interestRate9Months    Float?                 
-  interestRate12Months   Float?                 
-  
-  interestTiers          LenderInterestTier[]   // Dynamic tiered rates for FIXED_INTEREST
 
-  createdBy              String?
-  documents              Document[]
-  creator                User?                  @relation(fields: [createdBy], references: [id])
-  loans                  Loan[]
+  // Deprecated: Migrating to LenderInterestTier model
+  interestRate3Months  Float?
+  interestRate6Months  Float?
+  interestRate9Months  Float?
+  interestRate12Months Float?
+
+  interestTiers LenderInterestTier[] // Dynamic tiered rates for FIXED_INTEREST
+
+  createdBy String?
+  documents Document[]
+  creator   User?      @relation(fields: [createdBy], references: [id])
+  loans     Loan[]
 
   @@map("lenders")
 }
@@ -2756,47 +2885,13 @@ model LenderInterestTier {
   id           String   @id @default(cuid())
   lenderId     String
   lender       Lender   @relation(fields: [lenderId], references: [id], onDelete: Cascade)
-  termMonths   Int      // e.g. 3, 6, 9, 12, 18, 24...
-  interestRate Float    // The fixed interest rate for this term
+  termMonths   Int // e.g. 3, 6, 9, 12, 18, 24...
+  interestRate Float // The fixed interest rate for this term
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@map("lender_interest_tiers")
   @@unique([lenderId, termMonths]) // Ensure unique tier per lender per term
-}
-
-model EmployeeTool {
-  id                String            @id @default(cuid())
-  name              String
-  description       String?
-  serialNumber      String?
-  code              String?
-  category          String?
-  purchasePrice     Decimal           @default(0) @db.Decimal(10, 2)
-  purchaseDate      DateTime?
-  quantity          Int               @default(1)
-  employeeId        String?
-  freelancerId      String?
-  returnDate        DateTime?
-  condition         ToolCondition     @default(GOOD)
-  status            WorkerToolStatus  @default(AVAILABLE)
-  damageCost        Decimal?          @default(0) @db.Decimal(10, 2)
-  damageDescription String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdBy         String?
-  additionalInfo    String?
-  images            String[]
-  parentToolId      String?
-  allocatedDate     DateTime?
-  maintenanceLogs   ToolMaintenance[]
-  returns           ToolReturn[]
-  employee          Employee?         @relation(fields: [employeeId], references: [id])
-  freelancer        FreeLancer?       @relation(fields: [freelancerId], references: [id])
-  parentTool        EmployeeTool?     @relation("ToolHierarchy", fields: [parentToolId], references: [id])
-  subTools          EmployeeTool[]    @relation("ToolHierarchy")
-
-  @@map("worker_tools")
+  @@map("lender_interest_tiers")
 }
 
 model ToolRequest {
@@ -2824,25 +2919,25 @@ model ToolRequest {
 }
 
 model ToolReturn {
-  id                String           @id @default(cuid())
+  id                String        @id @default(cuid())
   toolId            String
   employeeId        String?
   freelancerId      String?
   quantity          Int
-  status            WorkerToolStatus
+  status            ToolStatus
   condition         ToolCondition
   damageDescription String?
-  damageCost        Decimal?         @default(0) @db.Decimal(10, 2)
-  returnedDate      DateTime         @default(now())
+  damageCost        Decimal?      @default(0) @db.Decimal(10, 2)
+  returnedDate      DateTime      @default(now())
   processedById     String?
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
   adminNotes        String?
-  isApproved        Boolean          @default(false)
-  employee          Employee?        @relation(fields: [employeeId], references: [id])
-  freelancer        FreeLancer?      @relation(fields: [freelancerId], references: [id])
-  processedBy       User?            @relation("ProcessedReturns", fields: [processedById], references: [id])
-  tool              EmployeeTool     @relation(fields: [toolId], references: [id])
+  isApproved        Boolean       @default(false)
+  employee          Employee?     @relation(fields: [employeeId], references: [id])
+  freelancer        FreeLancer?   @relation(fields: [freelancerId], references: [id])
+  processedBy       User?         @relation("ProcessedReturns", fields: [processedById], references: [id])
+  tool              Tool          @relation(fields: [toolId], references: [id])
 
   @@map("tool_returns")
 }
@@ -2865,7 +2960,7 @@ model ToolMaintenance {
   createdAt        DateTime            @default(now())
   updatedAt        DateTime            @updatedAt
   reportedBy       String?
-  tool             EmployeeTool?       @relation(fields: [toolId], references: [id])
+  tool             Tool?               @relation(fields: [toolId], references: [id])
 
   @@map("tool_maintenance")
 }
@@ -2943,14 +3038,6 @@ enum OvertimeStatus {
   APPROVED
   REJECTED
   CANCELLED
-}
-
-enum CallOutStatus {
-  PENDING
-  ACCEPTED
-  DECLINED
-  CANCELLED
-  COMPLETED
 }
 
 enum Gender {
@@ -3621,10 +3708,16 @@ enum RefundMethod {
 
 enum ToolStatus {
   AVAILABLE
+  ALLOCATED
   INTERUSE
   RENTED
   MAINTENANCE
   RETIRED
+  DAMAGED
+  LOST
+  RETURNED
+  PENDING_RETURN
+  NOT_AVAILABLE
 }
 
 enum ToolCondition {
@@ -3683,6 +3776,7 @@ enum SalaryType {
 enum UserType {
   ADMIN
   EMPLOYEE
+  FREELANCER
 }
 
 enum PackageType {
@@ -3713,25 +3807,13 @@ enum LoanPaymentType {
 }
 
 enum LoanCalculationMethod {
-  COMPOUND_INTEREST    // Monthly compound interest (reducing balance)
-  FIXED_INTEREST       // Long-term fixed interest (flat rate, total interest upfront)
-  AMORTIZED            // Deprecated
-  FLAT                 // Deprecated
+  COMPOUND_INTEREST // Monthly compound interest (reducing balance)
+  FIXED_INTEREST // Long-term fixed interest (flat rate, total interest upfront)
+  AMORTIZED // Deprecated
+  FLAT // Deprecated
 }
 
 enum InterestType {
   FIXED
   PRIME_LINKED
-}
-
-enum WorkerToolStatus {
-  AVAILABLE
-  ALLOCATED
-  DAMAGED
-  LOST
-  MAINTENANCE
-  RETIRED
-  RETURNED
-  PENDING_RETURN
-  NOT_AVAILABLE
 }

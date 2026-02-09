@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -25,9 +25,52 @@ export async function POST(
     const projectId = body.projectId === "no-project" ? null : body.projectId;
 
     const result = await db.$transaction(async (tx) => {
+      let targetToolId = params.id;
+
+      if (body.status === "ACTIVE") {
+        const parentTool = await tx.tool.findUnique({
+          where: { id: params.id },
+        });
+
+        if (!parentTool || parentTool.quantity < 1) {
+          throw new Error("Tool is out of stock");
+        }
+
+        // Decrement parent
+        await tx.tool.update({
+          where: { id: params.id },
+          data: { quantity: parentTool.quantity - 1 },
+        });
+
+        // Create subtool
+        const subTool = await tx.tool.create({
+          data: {
+            name: parentTool.name,
+            description: parentTool.description,
+            serialNumber: parentTool.serialNumber, // Copy serial
+            code: parentTool.code,
+            category: parentTool.category,
+            purchasePrice: parentTool.purchasePrice,
+            purchaseDate: parentTool.purchaseDate,
+            quantity: 1,
+            status: "INTERUSE",
+            condition: parentTool.condition,
+            images: parentTool.images,
+            parentToolId: parentTool.id,
+            canBeRented: true,
+            rentalRateDaily: parentTool.rentalRateDaily,
+            rentalRateWeekly: parentTool.rentalRateWeekly,
+            rentalRateMonthly: parentTool.rentalRateMonthly,
+            createdBy: user.id,
+            allocatedDate: new Date(),
+          },
+        });
+        targetToolId = subTool.id;
+      }
+
       const interUse = await tx.toolInterUse.create({
         data: {
-          toolId: params.id,
+          toolId: targetToolId,
           projectId: projectId,
           useStartDate: new Date(body.useStartDate),
           useEndDate: new Date(body.useEndDate),
@@ -39,15 +82,6 @@ export async function POST(
         },
       });
 
-      if (body.status === "ACTIVE") {
-        await tx.tool.update({
-          where: { id: params.id },
-          data: {
-            status: "INTERUSE",
-          },
-        });
-      }
-
       return interUse;
     });
 
@@ -56,14 +90,14 @@ export async function POST(
     console.error("Error creating internal use record:", error);
     return NextResponse.json(
       { error: "Failed to create internal use record" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -97,9 +131,11 @@ export async function PATCH(
         },
       });
 
+      const toolId = updatedInterUse.toolId;
+
       const activeInterUses = await tx.toolInterUse.findMany({
         where: {
-          toolId: params.id,
+          toolId: toolId,
           status: "ACTIVE",
         },
       });
@@ -111,7 +147,7 @@ export async function PATCH(
       } else {
         const pendingInterUses = await tx.toolInterUse.findMany({
           where: {
-            toolId: params.id,
+            toolId: toolId,
             status: "PENDING",
           },
         });
@@ -122,11 +158,28 @@ export async function PATCH(
       }
 
       await tx.tool.update({
-        where: { id: params.id },
+        where: { id: toolId },
         data: {
           status: newToolStatus,
         },
       });
+
+      // Auto-return subtool logic
+      if (newToolStatus === "AVAILABLE") {
+        const tool = await tx.tool.findUnique({ where: { id: toolId } });
+        if (tool && tool.parentToolId) {
+          // Merge back to parent
+          await tx.tool.update({
+            where: { id: tool.parentToolId },
+            data: { quantity: { increment: tool.quantity } },
+          });
+          // Mark subtool as returned (zero quantity)
+          await tx.tool.update({
+            where: { id: toolId },
+            data: { quantity: 0 },
+          });
+        }
+      }
 
       return updatedInterUse;
     });
@@ -136,14 +189,14 @@ export async function PATCH(
     console.error("Error updating internal use record:", error);
     return NextResponse.json(
       { error: "Failed to update internal use record" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -154,7 +207,9 @@ export async function GET(
 
     const interUses = await db.toolInterUse.findMany({
       where: {
-        toolId: params.id,
+        tool: {
+          OR: [{ id: params.id }, { parentToolId: params.id }],
+        },
       },
       include: {
         Project: {
@@ -175,7 +230,7 @@ export async function GET(
     console.error("Error fetching internal use records:", error);
     return NextResponse.json(
       { error: "Failed to fetch internal use records" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

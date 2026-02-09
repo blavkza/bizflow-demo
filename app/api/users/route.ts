@@ -21,6 +21,7 @@ export async function POST(req: Request) {
       userName,
       userType,
       employeeId,
+      freelancerId,
       permissions,
       phone,
       status,
@@ -29,14 +30,21 @@ export async function POST(req: Request) {
     if (permissions && !Array.isArray(permissions)) {
       return NextResponse.json(
         { error: "Permissions must be an array" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (userType === UserType.EMPLOYEE && !employeeId) {
       return NextResponse.json(
         { error: "Employee must be selected for employee users" },
-        { status: 400 }
+        { status: 400 },
+      );
+    }
+
+    if (userType === UserType.FREELANCER && !freelancerId) {
+      return NextResponse.json(
+        { error: "Freelancer must be selected for freelancer users" },
+        { status: 400 },
       );
     }
 
@@ -49,7 +57,21 @@ export async function POST(req: Request) {
       if (existingEmployeeUser) {
         return NextResponse.json(
           { error: "This employee is already linked to another user" },
-          { status: 400 }
+          { status: 400 },
+        );
+      }
+    }
+
+    // Check if freelancer is already linked to a user (only if freelancerId is provided)
+    if (freelancerId) {
+      const existingFreelancerUser = await db.user.findFirst({
+        where: { freeLancerId: freelancerId },
+      });
+
+      if (existingFreelancerUser) {
+        return NextResponse.json(
+          { error: "This freelancer is already linked to another user" },
+          { status: 400 },
         );
       }
     }
@@ -82,6 +104,11 @@ export async function POST(req: Request) {
       userData.employeeId = employeeId;
     }
 
+    // Link freelancer if provided
+    if (freelancerId) {
+      userData.freeLancerId = freelancerId;
+    }
+
     const user = await db.user.create({
       data: userData,
       include: {
@@ -91,6 +118,15 @@ export async function POST(req: Request) {
             firstName: true,
             lastName: true,
             employeeNumber: true,
+            position: true,
+          },
+        },
+        freeLancer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            freeLancerNumber: true,
             position: true,
           },
         },
@@ -104,13 +140,13 @@ export async function POST(req: Request) {
     if (error?.errors?.[0]?.code === "form_identifier_exists") {
       return NextResponse.json(
         { error: "A user with this email or username already exists" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -120,6 +156,26 @@ export async function GET() {
     const user = await db.user.findMany({
       where: {
         status: "ACTIVE",
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+            avatar: true,
+          },
+        },
+        freeLancer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+            avatar: true, // Assuming avatar exists on Freelancer model too, if not remove or check schema
+          },
+        },
       },
       orderBy: {
         updatedAt: "asc",

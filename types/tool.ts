@@ -2,16 +2,32 @@ export interface Tool {
   id: string;
   name: string;
   description?: string | null;
+  serialNumber?: string | null;
+  code?: string | null;
   category?: string | null;
   purchasePrice: number | string | null;
   purchaseDate?: string | null;
+  salePrice?: number | string | null;
+  quantity?: number;
   rentalRateDaily?: number | string | null;
   rentalRateWeekly?: number | string | null;
   rentalRateMonthly?: number | string | null;
-  status: "AVAILABLE" | "RENTED" | "MAINTENANCE" | "RETIRED";
+  status:
+    | "AVAILABLE"
+    | "RENTED"
+    | "MAINTENANCE"
+    | "RETIRED"
+    | "ALLOCATED"
+    | "DAMAGED"
+    | "LOST"
+    | "RETURNED"
+    | "PENDING_RETURN"
+    | "NOT_AVAILABLE"
+    | "INTERUSE";
   condition: "EXCELLENT" | "GOOD" | "FAIR" | "POOR";
   primaryImage?: string | null;
   images?: string[] | null;
+  parentToolId?: string | null;
   createdBy: string;
   createdAt: string;
   updatedAt: string;

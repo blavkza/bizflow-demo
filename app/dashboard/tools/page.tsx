@@ -94,8 +94,9 @@ export default function ToolsPage() {
     const matchesStatus =
       selectedStatus === "All Status" ||
       tool.status === selectedStatus.toUpperCase();
+    const isMainTool = !tool.parentToolId;
 
-    return matchesSearch && matchesCategory && matchesStatus;
+    return matchesSearch && matchesCategory && matchesStatus && isMainTool;
   });
 
   if (loading) {

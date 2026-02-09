@@ -7,13 +7,33 @@ export async function GET() {
       orderBy: {
         updatedAt: "desc",
       },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            employeeNumber: true,
+            position: true,
+          },
+        },
+        freeLancer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            freeLancerNumber: true,
+            position: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json(users);
   } catch (error) {
     return NextResponse.json(
       { message: "Failed to fetch users", error },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

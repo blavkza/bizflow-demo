@@ -14,6 +14,7 @@ import { QuickActions } from "@/components/quick-actions";
 import { UserPermission, UserRole } from "@prisma/client";
 import Loader from "./_components/loader";
 import AlertsHorizontal from "./_components/alerts-horizontal";
+import CallOutsAlert from "./_components/callouts-alert";
 import FinancialSummary from "./_components/financial-summary";
 import ProjectSummary from "./_components/project-summary";
 import TaskSummary from "./_components/task-summary";
@@ -35,7 +36,7 @@ export default function DashboardPage() {
     : false;
 
   const canViewDashboard = data?.currentUser?.permissions?.includes(
-    UserPermission.SYSTEMS_DASHBOARD
+    UserPermission.SYSTEMS_DASHBOARD,
   );
 
   // Check for granular dashboard permissions

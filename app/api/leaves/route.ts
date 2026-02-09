@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       employeeId,
+      freelancerId,
       leaveType,
       startDate,
       endDate,
@@ -14,23 +15,47 @@ export async function POST(request: NextRequest) {
       contactInfo,
     } = body;
 
-    // Find employee by employee number
-    const employee = await db.employee.findFirst({
-      where: {
-        OR: [{ id: employeeId }, { employeeNumber: employeeId }],
-      },
-    });
+    let employee = null;
+    let freelancer = null;
 
-    if (!employee) {
+    if (employeeId) {
+      // Find employee by employee number
+      employee = await db.employee.findFirst({
+        where: {
+          OR: [{ id: employeeId }, { employeeNumber: employeeId }],
+        },
+      });
+    }
+
+    if (!employee && freelancerId) {
+      // Find freelancer
+      freelancer = await db.freeLancer.findFirst({
+        where: {
+          OR: [{ id: freelancerId }, { freeLancerNumber: freelancerId }],
+        },
+      });
+    }
+
+    // Try finding via employeeId passed as freelancerId (fallback)
+    if (!employee && !freelancer && employeeId) {
+      freelancer = await db.freeLancer.findFirst({
+        where: {
+          OR: [{ id: employeeId }, { freeLancerNumber: employeeId }],
+        },
+      });
+    }
+
+    if (!employee && !freelancer) {
       return NextResponse.json(
-        { error: "Employee not found" },
+        { error: "Employee or Freelancer not found" },
         { status: 404 },
       );
     }
 
     const leaveRequest = await db.leaveRequest.create({
       data: {
-        employeeId: employee.id,
+        employeeId: employee?.id,
+        freeLancerId: freelancer?.id,
         leaveType,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
@@ -87,6 +112,20 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        freeLancer: {
+          select: {
+            id: true,
+            freeLancerNumber: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            department: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy: {
         requestedDate: "desc",
@@ -94,25 +133,36 @@ export async function GET(request: NextRequest) {
     });
 
     // Transform the data to match the frontend format
-    const formattedRequests = leaveRequests.map((request) => ({
-      id: request.id,
-      employeeId: request.employee.employeeNumber,
-      employeeName: `${request.employee.firstName} ${request.employee.lastName}`,
-      employeeAvatar: request.employee.avatar,
-      leaveType: request.leaveType,
-      startDate: request.startDate.toISOString().split("T")[0],
-      endDate: request.endDate.toISOString().split("T")[0],
-      days: request.days,
-      reason: request.reason,
-      status: request.status,
-      requestedDate: request.requestedDate.toISOString().split("T")[0],
-      approvedBy: request.approvedBy,
-      approvedDate: request.approvedDate?.toISOString().split("T")[0],
-      rejectedBy: request.rejectedBy,
-      rejectedDate: request.rejectedDate?.toISOString().split("T")[0],
-      comments: request.comments,
-      department: request.employee.department?.name || "No Department",
-    }));
+    const formattedRequests = leaveRequests.map((request) => {
+      const person = request.employee || request.freeLancer;
+      const isFreelancer = !!request.freeLancer;
+
+      return {
+        id: request.id,
+        employeeId:
+          (person as any)?.employeeNumber ||
+          (person as any)?.freeLancerNumber ||
+          "N/A",
+        employeeName: person
+          ? `${person.firstName} ${person.lastName}`
+          : "Unknown",
+        employeeAvatar: person?.avatar,
+        leaveType: request.leaveType,
+        startDate: request.startDate.toISOString().split("T")[0],
+        endDate: request.endDate.toISOString().split("T")[0],
+        days: request.days,
+        reason: request.reason,
+        status: request.status,
+        requestedDate: request.requestedDate.toISOString().split("T")[0],
+        approvedBy: request.approvedBy,
+        approvedDate: request.approvedDate?.toISOString().split("T")[0],
+        rejectedBy: request.rejectedBy,
+        rejectedDate: request.rejectedDate?.toISOString().split("T")[0],
+        comments: request.comments,
+        department: person?.department?.name || "No Department",
+        isFreelancer,
+      };
+    });
 
     return NextResponse.json(formattedRequests);
   } catch (error) {

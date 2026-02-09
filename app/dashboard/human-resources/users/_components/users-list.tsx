@@ -67,7 +67,29 @@ export default function UsersList({
     const matchesSearch =
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchTerm.toLowerCase());
+      user.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.userType &&
+        user.userType.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (user.employee &&
+        (user.employee.firstName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+          user.employee.lastName
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          user.employee.employeeNumber
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()))) ||
+      (user.freelancer &&
+        (user.freelancer.firstName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+          user.freelancer.lastName
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          user.freelancer.freeLancerNumber
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())));
 
     if (selectedTab === "all") return matchesSearch;
     if (selectedTab === "active")
@@ -81,13 +103,13 @@ export default function UsersList({
   });
 
   const activeUsers = users.filter(
-    (u) => u.status === UserStatus.ACTIVE
+    (u) => u.status === UserStatus.ACTIVE,
   ).length;
   const inactiveUsers = users.filter(
-    (u) => u.status === UserStatus.INACTIVE
+    (u) => u.status === UserStatus.INACTIVE,
   ).length;
   const suspendedUsers = users.filter(
-    (u) => u.status === UserStatus.SUSPENDED
+    (u) => u.status === UserStatus.SUSPENDED,
   ).length;
   const totalUsers = users.length;
 
@@ -161,9 +183,8 @@ export default function UsersList({
                           </Badge>
                           {user.userType && (
                             <Badge variant="outline">
-                              {user.userType === UserType.ADMIN
-                                ? "Admin"
-                                : "Employee"}
+                              {user.userType.charAt(0) +
+                                user.userType.slice(1).toLowerCase()}
                             </Badge>
                           )}
                         </div>
@@ -191,6 +212,14 @@ export default function UsersList({
                             <strong>Linked Employee:</strong>{" "}
                             {user.employee.firstName} {user.employee.lastName} (
                             {user.employee.employeeNumber})
+                          </div>
+                        )}
+                        {user.freelancer && (
+                          <div className="text-xs text-muted-foreground">
+                            <strong>Linked Freelancer:</strong>{" "}
+                            {user.freelancer.firstName}{" "}
+                            {user.freelancer.lastName} (
+                            {user.freelancer.freeLancerNumber})
                           </div>
                         )}
                         <div className="text-xs text-muted-foreground">
@@ -291,6 +320,7 @@ export default function UsersList({
                 status: currentUser.status,
                 userType: currentUser.userType,
                 employeeId: currentUser.employeeId,
+                freelancerId: currentUser.freelancerId,
                 permissions: currentUser.permissions,
               }}
               onCancel={() => setIsEditDialogOpen(false)}

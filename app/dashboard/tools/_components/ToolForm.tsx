@@ -29,17 +29,37 @@ import { Loader2 } from "lucide-react";
 import { categories, safeNumber } from "../utils";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { ImageUpload } from "../../shop/products/components/ImageUpload";
+import { Switch } from "@/components/ui/switch";
 
 const toolSchema = z.object({
   name: z.string().min(1, "Name is required"),
   description: z.string().optional().default(""),
   category: z.string().optional().default(""),
+  serialNumber: z.string().optional().default(""),
+  code: z.string().optional().default(""),
   purchasePrice: z.coerce.number().min(0, "Purchase price must be positive"),
+  quantity: z.coerce
+    .number()
+    .int()
+    .min(1, "Quantity must be at least 1")
+    .default(1),
   purchaseDate: z.string().optional().default(""),
   rentalRateDaily: z.coerce.number().min(0).optional().default(0),
   rentalRateWeekly: z.coerce.number().min(0).optional().default(0),
   rentalRateMonthly: z.coerce.number().min(0).optional().default(0),
-  status: z.enum(["AVAILABLE", "RENTED", "MAINTENANCE", "RETIRED", "INTERUSE"]),
+  status: z.enum([
+    "AVAILABLE",
+    "RENTED",
+    "MAINTENANCE",
+    "RETIRED",
+    "INTERUSE",
+    "ALLOCATED",
+    "DAMAGED",
+    "LOST",
+    "RETURNED",
+    "PENDING_RETURN",
+    "NOT_AVAILABLE",
+  ]),
   condition: z.enum(["EXCELLENT", "GOOD", "FAIR", "POOR"]),
   primaryImage: z.string().optional().default(""),
   images: z.array(z.string()).default([]),
@@ -49,7 +69,7 @@ const toolSchema = z.object({
 type ToolFormData = z.infer<typeof toolSchema>;
 
 interface ToolFormProps {
-  tool?: Tool;
+  tool?: Partial<Tool>;
   onSubmit: (data: ToolFormData) => Promise<void>;
   onCancel: () => void;
   loading?: boolean;
@@ -69,7 +89,7 @@ export function ToolForm({
       type: "IMAGE" as const,
       size: 0,
       mimeType: "image/jpeg",
-    })) || []
+    })) || [],
   );
 
   const form = useForm<ToolFormData>({
@@ -78,12 +98,15 @@ export function ToolForm({
       name: tool?.name || "",
       description: tool?.description || "",
       category: tool?.category || "",
+      serialNumber: tool?.serialNumber || "",
+      code: tool?.code || "",
       purchasePrice: safeNumber(tool?.purchasePrice),
+      quantity: tool?.quantity || 1,
       purchaseDate: tool?.purchaseDate?.split("T")[0] || "",
       rentalRateDaily: safeNumber(tool?.rentalRateDaily),
       rentalRateWeekly: safeNumber(tool?.rentalRateWeekly),
       rentalRateMonthly: safeNumber(tool?.rentalRateMonthly),
-      status: tool?.status || "AVAILABLE",
+      status: tool?.status,
       condition: tool?.condition || "GOOD",
       primaryImage: tool?.primaryImage || "",
       images: tool?.images || [],
@@ -112,7 +135,7 @@ export function ToolForm({
     const currentImages = form.getValues("images") || [];
     form.setValue(
       "images",
-      currentImages.filter((img) => img !== url)
+      currentImages.filter((img) => img !== url),
     );
 
     // Update primary image if it was removed
@@ -132,7 +155,7 @@ export function ToolForm({
 
       await onSubmit(values);
       toast.success(
-        tool ? "Tool updated successfully" : "Tool created successfully"
+        tool ? "Tool updated successfully" : "Tool created successfully",
       );
     } catch (error) {
       toast.error("Failed to save tool");
@@ -158,7 +181,6 @@ export function ToolForm({
               </FormItem>
             )}
           />
-
           {/* Description */}
           <FormField
             control={form.control}
@@ -177,7 +199,6 @@ export function ToolForm({
               </FormItem>
             )}
           />
-
           {/* Category Selector */}
           <FormField
             control={form.control}
@@ -204,33 +225,61 @@ export function ToolForm({
             )}
           />
 
+          {/* Identifiers */}
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="serialNumber"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>Serial Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="SN-12345" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="code"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>Code</FormLabel>
+                  <FormControl>
+                    <Input placeholder="T-001" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
           {/* Rental Availability */}
           <FormField
             control={form.control}
             name="canBeRented"
             render={({ field }) => (
-              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                <FormControl>
-                  <input
-                    type="checkbox"
-                    checked={field.value}
-                    onChange={field.onChange}
-                    className="mt-1 rounded border-gray-300"
-                  />
-                </FormControl>
-                <div className="space-y-1 leading-none">
-                  <FormLabel>Available for Rental</FormLabel>
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">
+                    Available for Rental
+                  </FormLabel>
                   <p className="text-sm text-muted-foreground">
                     Enable this tool to be rented out to customers
                   </p>
                 </div>
-                <FormMessage />
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
               </FormItem>
             )}
           />
-
-          {/* Pricing */}
-          <div className="grid grid-cols-2 gap-4">
+          {/* Pricing and Quantity */}
+          <div className="grid grid-cols-3 gap-4">
             <FormField
               control={form.control}
               name="purchasePrice"
@@ -253,6 +302,20 @@ export function ToolForm({
 
             <FormField
               control={form.control}
+              name="quantity"
+              render={({ field }) => (
+                <FormItem className="space-y-2">
+                  <FormLabel>Quantity *</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="1" min="1" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="purchaseDate"
               render={({ field }) => (
                 <FormItem className="space-y-2">
@@ -265,7 +328,6 @@ export function ToolForm({
               )}
             />
           </div>
-
           {/* Rental Rates - Only show if tool can be rented */}
           {canBeRented && (
             <div className="space-y-4">
@@ -339,7 +401,6 @@ export function ToolForm({
               </div>
             </div>
           )}
-
           {/* Status and Condition */}
           <div className="grid grid-cols-2 gap-4">
             <FormField
@@ -364,6 +425,16 @@ export function ToolForm({
                       <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
                       <SelectItem value="RETIRED">Retired</SelectItem>
                       <SelectItem value="INTERUSE">Internal Use</SelectItem>
+                      <SelectItem value="ALLOCATED">Allocated</SelectItem>
+                      <SelectItem value="DAMAGED">Damaged</SelectItem>
+                      <SelectItem value="LOST">Lost</SelectItem>
+                      <SelectItem value="RETURNED">Returned</SelectItem>
+                      <SelectItem value="PENDING_RETURN">
+                        Pending Return
+                      </SelectItem>
+                      <SelectItem value="NOT_AVAILABLE">
+                        Not Available
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -399,7 +470,6 @@ export function ToolForm({
               )}
             />
           </div>
-
           {/* Tool Images */}
           <div className="space-y-2">
             <FormLabel>Tool Images</FormLabel>
@@ -415,7 +485,6 @@ export function ToolForm({
             />
             <FormMessage />
           </div>
-
           {/* Primary Image Selection */}
           {images.length > 0 && (
             <FormField

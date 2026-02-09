@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { ToolStatus } from "@prisma/client";
 
 export async function GET(req: Request) {
   try {
@@ -11,10 +12,10 @@ export async function GET(req: Request) {
     }
 
     // Fetch all tools that are currently ALLOCATED to someone
-    const assignedTools = await db.employeeTool.findMany({
+    const assignedTools = await db.tool.findMany({
       where: {
         OR: [{ NOT: { employeeId: null } }, { NOT: { freelancerId: null } }],
-        status: "ALLOCATED",
+        status: ToolStatus.ALLOCATED,
         quantity: { gt: 0 },
       },
       include: {

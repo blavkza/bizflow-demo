@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { WorkerToolStatus, ToolCondition } from "@prisma/client";
+import { ToolStatus, ToolCondition } from "@prisma/client";
 import { sendPushNotification } from "@/lib/expo";
 
 export async function POST(req: Request) {
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       return new NextResponse("Invalid request data", { status: 400 });
     }
 
-    const assignedTool = await db.employeeTool.findUnique({
+    const assignedTool = await db.tool.findUnique({
       where: { id: toolId },
       include: {
         employee: true,
@@ -50,23 +50,60 @@ export async function POST(req: Request) {
 
     // Start Transaction
     const result = await db.$transaction(async (tx) => {
-      // 1. Update the assigned tool record status to show it's awaiting return approval
-      const updatedAssignedTool = await tx.employeeTool.update({
-        where: { id: toolId },
-        data: {
-          status: "PENDING_RETURN" as WorkerToolStatus,
-        },
-      });
+      let targetToolId = toolId;
+      const isPartial = quantity < assignedTool.quantity;
+
+      if (isPartial) {
+        // 1a. Decrement original tool quantity
+        await tx.tool.update({
+          where: { id: toolId },
+          data: {
+            quantity: { decrement: quantity },
+          },
+        });
+
+        // 1b. Create new tool record for the returning portion
+        const newTool = await tx.tool.create({
+          data: {
+            name: assignedTool.name,
+            description: assignedTool.description,
+            serialNumber: assignedTool.serialNumber,
+            code: assignedTool.code,
+            category: assignedTool.category,
+            purchasePrice: assignedTool.purchasePrice,
+            purchaseDate: assignedTool.purchaseDate,
+            quantity: quantity,
+            status: ToolStatus.PENDING_RETURN,
+            condition: condition || assignedTool.condition,
+            images: assignedTool.images,
+            parentToolId: assignedTool.parentToolId || assignedTool.id,
+            employeeId: assignedTool.employeeId,
+            freelancerId: assignedTool.freelancerId,
+            allocatedDate: assignedTool.allocatedDate,
+            createdBy: user?.id, // Tracker
+            additionalInfo: assignedTool.additionalInfo,
+          },
+        });
+        targetToolId = newTool.id;
+      } else {
+        // 1. Full Return: Update the assigned tool record status
+        await tx.tool.update({
+          where: { id: toolId },
+          data: {
+            status: ToolStatus.PENDING_RETURN,
+          },
+        });
+      }
 
       // 2. Create the pending return log
       const toolReturn = await tx.toolReturn.create({
         data: {
-          toolId,
+          toolId: targetToolId,
           employeeId: assignedTool.employeeId,
           freelancerId: assignedTool.freelancerId,
           quantity,
-          status: "PENDING_RETURN" as WorkerToolStatus,
-          condition: condition || ("GOOD" as ToolCondition),
+          status: ToolStatus.PENDING_RETURN,
+          condition: condition || ToolCondition.GOOD,
           damageDescription,
           isApproved: false,
           processedById: null,

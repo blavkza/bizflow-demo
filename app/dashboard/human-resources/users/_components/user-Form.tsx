@@ -35,6 +35,7 @@ import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PERMISSION_GROUPS } from "@/types/user";
 import { EmployeeForUserLinking } from "@/types/employee";
+import { FreelancerForUserLinking } from "@/types/freelancer";
 
 interface UserFormProps {
   type: "create" | "update";
@@ -48,6 +49,7 @@ interface UserFormProps {
     status: UserStatus;
     userType?: UserType;
     employeeId?: string;
+    freelancerId?: string;
     permissions?: UserPermission[];
   };
   onCancel?: () => void;
@@ -70,10 +72,17 @@ export default function UserForm({
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   const [availableEmployees, setAvailableEmployees] = useState<
     EmployeeForUserLinking[]
   >([]);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+
+  const [availableFreelancers, setAvailableFreelancers] = useState<
+    FreelancerForUserLinking[]
+  >([]);
+  const [isLoadingFreelancers, setIsLoadingFreelancers] = useState(false);
+
   const [hasAutoFilled, setHasAutoFilled] = useState(false);
 
   const formSchema = type === "update" ? updateUserSchema : createUserSchema;
@@ -91,6 +100,7 @@ export default function UserForm({
             status: data?.status ?? UserStatus.ACTIVE,
             userType: data?.userType ?? UserType.ADMIN,
             employeeId: data?.employeeId ?? "",
+            freelancerId: data?.freelancerId ?? "",
             permissions: data?.permissions ?? [],
           }
         : {
@@ -102,6 +112,7 @@ export default function UserForm({
             status: UserStatus.ACTIVE,
             userType: UserType.ADMIN,
             employeeId: "",
+            freelancerId: "",
             password: "",
             confirmPassword: "",
             permissions: [],
@@ -111,6 +122,8 @@ export default function UserForm({
   const { isSubmitting } = form.formState;
   const selectedUserType = form.watch("userType");
   const selectedEmployeeId = form.watch("employeeId");
+  const selectedFreelancerId = form.watch("freelancerId");
+
   const currentName = form.watch("name");
   const currentEmail = form.watch("email");
   const currentPhone = form.watch("phone");
@@ -121,7 +134,6 @@ export default function UserForm({
     const fetchAvailableEmployees = async () => {
       setIsLoadingEmployees(true);
       try {
-        // For update, include currently linked employee
         const url =
           type === "update" && data?.employeeId
             ? `/api/employees/available?includeCurrent=true&currentEmployeeId=${data.employeeId}`
@@ -140,9 +152,37 @@ export default function UserForm({
     fetchAvailableEmployees();
   }, [type, data?.employeeId]);
 
+  // Fetch available freelancers
+  useEffect(() => {
+    const fetchAvailableFreelancers = async () => {
+      setIsLoadingFreelancers(true);
+      try {
+        const url =
+          type === "update" && data?.freelancerId
+            ? `/api/freelancers/available?includeCurrent=true&currentFreelancerId=${data.freelancerId}`
+            : "/api/freelancers/available";
+
+        const response = await axios.get(url);
+        setAvailableFreelancers(response.data);
+      } catch (error) {
+        console.error("Error fetching freelancers:", error);
+        toast.error("Failed to load available freelancers");
+      } finally {
+        setIsLoadingFreelancers(false);
+      }
+    };
+
+    fetchAvailableFreelancers();
+  }, [type, data?.freelancerId]);
+
   // Get selected employee details
   const selectedEmployee = availableEmployees.find(
-    (emp) => emp.id === selectedEmployeeId
+    (emp) => emp.id === selectedEmployeeId,
+  );
+
+  // Get selected freelancer details
+  const selectedFreelancer = availableFreelancers.find(
+    (fl) => fl.id === selectedFreelancerId,
   );
 
   // Get currently linked employee for update
@@ -151,15 +191,26 @@ export default function UserForm({
       ? availableEmployees.find((emp) => emp.id === data.employeeId)
       : null;
 
-  // Auto-fill user details from employee when employee is selected
+  // Get currently linked freelancer for update
+  const currentLinkedFreelancer =
+    type === "update" && data?.freelancerId
+      ? availableFreelancers.find((fl) => fl.id === data.freelancerId)
+      : null;
+
+  // Auto-fill user details from employee/freelancer
   useEffect(() => {
+    const entity = selectedEmployee || selectedFreelancer;
+    const entityId = selectedEmployee
+      ? selectedEmployeeId
+      : selectedFreelancerId;
+
     if (
-      selectedEmployee &&
-      selectedEmployeeId !== "no-employee" &&
+      entity &&
+      entityId !== "no-employee" &&
+      entityId !== "no-freelancer" &&
       !hasAutoFilled
     ) {
       const shouldAutoFill = () => {
-        // Only auto-fill if all fields are empty
         const isNameEmpty = !currentName || currentName.trim() === "";
         const isEmailEmpty = !currentEmail || currentEmail.trim() === "";
         const isPhoneEmpty = !currentPhone || currentPhone.trim() === "";
@@ -176,36 +227,39 @@ export default function UserForm({
       };
 
       if (shouldAutoFill()) {
-        const employeeFullName = `${selectedEmployee.firstName} ${selectedEmployee.lastName}`;
+        const fullName = `${entity.firstName} ${entity.lastName}`;
 
-        // Auto-fill only empty fields
         if (!currentName || currentName.trim() === "") {
-          form.setValue("name", employeeFullName);
+          form.setValue("name", fullName);
         }
 
         if (!currentEmail || currentEmail.trim() === "") {
-          form.setValue("email", selectedEmployee.email || "");
+          form.setValue("email", entity.email || "");
         }
 
         if (!currentPhone || currentPhone.trim() === "") {
-          form.setValue("phone", selectedEmployee.phone || "");
+          form.setValue("phone", entity.phone || "");
         }
 
-        // Only auto-fill username for new users
         if (
           type === "create" &&
           (!currentUserName || currentUserName.trim() === "")
         ) {
-          form.setValue("userName", selectedEmployee.employeeNumber);
+          const idNum = selectedEmployee
+            ? selectedEmployee.employeeNumber
+            : (selectedFreelancer as any).freelancerNumber; // Assuming interface match
+          form.setValue("userName", idNum);
         }
 
         setHasAutoFilled(true);
-        toast.info("User details auto-filled from employee information");
+        toast.info("User details auto-filled from selected identity");
       }
     }
   }, [
     selectedEmployee,
+    selectedFreelancer,
     selectedEmployeeId,
+    selectedFreelancerId,
     currentName,
     currentEmail,
     currentPhone,
@@ -215,23 +269,26 @@ export default function UserForm({
     hasAutoFilled,
   ]);
 
-  // Reset auto-fill flag when employee is deselected
+  // Reset auto-fill flag
   useEffect(() => {
-    if (selectedEmployeeId === "no-employee" || !selectedEmployeeId) {
+    if (
+      (selectedEmployeeId === "no-employee" || !selectedEmployeeId) &&
+      (selectedFreelancerId === "no-freelancer" || !selectedFreelancerId)
+    ) {
       setHasAutoFilled(false);
     }
-  }, [selectedEmployeeId]);
+  }, [selectedEmployeeId, selectedFreelancerId]);
 
   const onSubmit = async (values: FormValues) => {
     try {
       console.log("Submitting form data:", values);
 
-      // Prepare data for API
       const submitData = {
         ...values,
-        // If employeeId is "no-employee", send null instead
         employeeId:
           values.employeeId === "no-employee" ? null : values.employeeId,
+        freelancerId:
+          values.freelancerId === "no-freelancer" ? null : values.freelancerId,
       };
 
       if (type === "create") {
@@ -256,7 +313,7 @@ export default function UserForm({
 
   const toggleAllPermissions = (
     categoryPermissions: UserPermission[],
-    value: boolean
+    value: boolean,
   ) => {
     const currentPermissions = [...form.getValues("permissions")];
     let updatedPermissions: UserPermission[];
@@ -267,7 +324,7 @@ export default function UserForm({
       ];
     } else {
       updatedPermissions = currentPermissions.filter(
-        (permission) => !categoryPermissions.includes(permission)
+        (permission) => !categoryPermissions.includes(permission),
       );
     }
 
@@ -277,33 +334,37 @@ export default function UserForm({
   const areAllPermissionsEnabled = (categoryPermissions: UserPermission[]) => {
     const currentPermissions = form.watch("permissions");
     return categoryPermissions.every((permission) =>
-      currentPermissions.includes(permission)
+      currentPermissions.includes(permission),
     );
   };
 
-  // Manual fill function
-  const fillFromEmployee = () => {
-    if (selectedEmployee && selectedEmployeeId !== "no-employee") {
-      const employeeFullName = `${selectedEmployee.firstName} ${selectedEmployee.lastName}`;
+  const fillFromEntity = () => {
+    const entity = selectedEmployee || selectedFreelancer;
+    if (entity) {
+      const fullName = `${entity.firstName} ${entity.lastName}`;
+      form.setValue("name", fullName);
 
-      form.setValue("name", employeeFullName);
-
-      if (selectedEmployee.email) {
-        form.setValue("email", selectedEmployee.email);
+      if (entity.email) {
+        form.setValue("email", entity.email);
       }
 
-      if (selectedEmployee.phone) {
-        form.setValue("phone", selectedEmployee.phone);
+      if (entity.phone) {
+        form.setValue("phone", entity.phone);
       }
 
       if (type === "create") {
+        const idNum = selectedEmployee
+          ? selectedEmployee.employeeNumber
+          : (selectedFreelancer as any).freelancerNumber;
+
         const username =
-          selectedEmployee.email?.split("@")[0] ||
-          `${selectedEmployee.firstName.toLowerCase()}.${selectedEmployee.lastName.toLowerCase()}`;
+          entity.email?.split("@")[0] ||
+          idNum ||
+          `${entity.firstName.toLowerCase()}.${entity.lastName.toLowerCase()}`;
         form.setValue("userName", username);
       }
 
-      toast.success("User details filled from employee information");
+      toast.success("User details filled");
     }
   };
 
@@ -319,7 +380,14 @@ export default function UserForm({
               <FormItem>
                 <FormLabel>User Type *</FormLabel>
                 <Select
-                  onValueChange={field.onChange}
+                  onValueChange={(val) => {
+                    field.onChange(val);
+                    // Reset identity fields on type change
+                    if (val === "FREELANCER")
+                      form.setValue("employeeId", "no-employee");
+                    if (val === "EMPLOYEE")
+                      form.setValue("freelancerId", "no-freelancer");
+                  }}
                   value={field.value}
                   defaultValue={field.value}
                 >
@@ -329,11 +397,9 @@ export default function UserForm({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {Object.values(UserType).map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type.charAt(0) + type.slice(1).toLowerCase()}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                    <SelectItem value="EMPLOYEE">Employee</SelectItem>
+                    <SelectItem value="FREELANCER">Freelancer</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -341,141 +407,213 @@ export default function UserForm({
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="employeeId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  Link to Employee{" "}
-                  {selectedUserType === UserType.EMPLOYEE && "*"}
-                </FormLabel>
-                <Select
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  defaultValue={field.value}
-                  disabled={isLoadingEmployees}
-                >
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          isLoadingEmployees
-                            ? "Loading employees..."
-                            : "Select an employee (optional)"
-                        }
-                      />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="no-employee">
-                      No employee linked
-                    </SelectItem>
-                    {availableEmployees.map((employee) => (
-                      <SelectItem
-                        key={employee.id}
-                        value={employee.id}
-                        disabled={
-                          employee.isLinked && employee.id !== data?.employeeId
-                        }
-                      >
-                        {employee.firstName} {employee.lastName} (
-                        {employee.employeeNumber})
-                        {employee.email && ` - ${employee.email}`}
-                        {employee.isLinked &&
-                          employee.id !== data?.employeeId &&
-                          " (Already linked)"}
+          {/* Employee Link Field */}
+          {(selectedUserType === "EMPLOYEE" ||
+            selectedUserType === "ADMIN") && (
+            <FormField
+              control={form.control}
+              name="employeeId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Link to Employee {selectedUserType === "EMPLOYEE" && "*"}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    defaultValue={field.value}
+                    disabled={isLoadingEmployees}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            isLoadingEmployees
+                              ? "Loading employees..."
+                              : "Select an employee (optional)"
+                          }
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="no-employee">
+                        No employee linked
                       </SelectItem>
-                    ))}
-                    {availableEmployees.length === 0 && !isLoadingEmployees && (
-                      <SelectItem value="no-available-employees" disabled>
-                        No available employees found
+                      {availableEmployees.map((employee) => (
+                        <SelectItem
+                          key={employee.id}
+                          value={employee.id}
+                          disabled={
+                            employee.isLinked &&
+                            employee.id !== data?.employeeId
+                          }
+                        >
+                          {employee.firstName} {employee.lastName} (
+                          {employee.employeeNumber})
+                          {employee.email && ` - ${employee.email}`}
+                          {employee.isLinked &&
+                            employee.id !== data?.employeeId &&
+                            " (Already linked)"}
+                        </SelectItem>
+                      ))}
+                      {availableEmployees.length === 0 &&
+                        !isLoadingEmployees && (
+                          <SelectItem value="no-available-employees" disabled>
+                            No available employees found
+                          </SelectItem>
+                        )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          {/* Freelancer Link Field */}
+          {(selectedUserType === "FREELANCER" ||
+            selectedUserType === "ADMIN") && (
+            <FormField
+              control={form.control}
+              name="freelancerId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    Link to Freelancer{" "}
+                    {selectedUserType === "FREELANCER" && "*"}
+                  </FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    defaultValue={field.value}
+                    disabled={isLoadingFreelancers}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            isLoadingFreelancers
+                              ? "Loading freelancers..."
+                              : "Select a freelancer (optional)"
+                          }
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="no-freelancer">
+                        No freelancer linked
                       </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-                <p className="text-sm text-muted-foreground">
-                  {selectedUserType === UserType.EMPLOYEE
-                    ? "Employee users must be linked to an employee record"
-                    : "Optionally link this admin user to an employee record"}
-                </p>
-              </FormItem>
-            )}
-          />
+                      {availableFreelancers.map((freelancer) => (
+                        <SelectItem
+                          key={freelancer.id}
+                          value={freelancer.id}
+                          disabled={
+                            freelancer.isLinked &&
+                            freelancer.id !== data?.freelancerId
+                          }
+                        >
+                          {freelancer.firstName} {freelancer.lastName} (
+                          {freelancer.freelancerNumber})
+                          {freelancer.email && ` - ${freelancer.email}`}
+                          {freelancer.isLinked &&
+                            freelancer.id !== data?.freelancerId &&
+                            " (Already linked)"}
+                        </SelectItem>
+                      ))}
+                      {availableFreelancers.length === 0 &&
+                        !isLoadingFreelancers && (
+                          <SelectItem value="no-available-freelancers" disabled>
+                            No available freelancers found
+                          </SelectItem>
+                        )}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
-          {/* Show currently linked employee info for update */}
-          {type === "update" &&
-            currentLinkedEmployee &&
-            !selectedEmployeeId && (
-              <div className="md:col-span-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <h4 className="font-medium text-amber-900">
-                  Currently Linked Employee:
-                </h4>
-                <p className="text-sm text-amber-800">
-                  <strong>Name:</strong> {currentLinkedEmployee.firstName}{" "}
-                  {currentLinkedEmployee.lastName}
-                  <br />
-                  <strong>Employee #:</strong>{" "}
-                  {currentLinkedEmployee.employeeNumber}
-                  <br />
-                  <strong>Position:</strong> {currentLinkedEmployee.position}
-                  <br />
-                  {currentLinkedEmployee.department && (
-                    <>
-                      <strong>Department:</strong>{" "}
-                      {currentLinkedEmployee.department.name}
-                    </>
-                  )}
-                </p>
-                <p className="text-xs text-amber-700 mt-2">
-                  This employee is currently linked to this user. Select "No
-                  employee linked" to unlink.
-                </p>
-              </div>
-            )}
+          {/* Show currently linked employee/freelancer info for update */}
+          {type === "update" && (
+            <>
+              {currentLinkedEmployee && !selectedEmployeeId && (
+                <div className="md:col-span-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <h4 className="font-medium text-amber-900">
+                    Currently Linked Employee:
+                  </h4>
+                  <p className="text-sm text-amber-800">
+                    <strong>Name:</strong> {currentLinkedEmployee.firstName}{" "}
+                    {currentLinkedEmployee.lastName}
+                    <br />
+                    <strong>Employee #:</strong>{" "}
+                    {currentLinkedEmployee.employeeNumber}
+                    <br />
+                  </p>
+                </div>
+              )}
+              {currentLinkedFreelancer && !selectedFreelancerId && (
+                <div className="md:col-span-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <h4 className="font-medium text-amber-900">
+                    Currently Linked Freelancer:
+                  </h4>
+                  <p className="text-sm text-amber-800">
+                    <strong>Name:</strong> {currentLinkedFreelancer.firstName}{" "}
+                    {currentLinkedFreelancer.lastName}
+                    <br />
+                    <strong>Freelancer #:</strong>{" "}
+                    {currentLinkedFreelancer.freelancerNumber}
+                    <br />
+                  </p>
+                </div>
+              )}
+            </>
+          )}
 
-          {/* Show selected employee info */}
-          {selectedEmployee && selectedEmployeeId !== "no-employee" && (
+          {/* Show selected entity info */}
+          {(selectedEmployee && selectedEmployeeId !== "no-employee") ||
+          (selectedFreelancer && selectedFreelancerId !== "no-freelancer") ? (
             <div className="md:col-span-2 p-3 bg-blue-50 dark:bg-zinc-600 border border-blue-200  rounded-lg">
               <div className="flex justify-between items-start">
                 <div>
                   <h4 className="font-medium text-blue-900 dark:text-zinc-300">
-                    Selected Employee:
+                    Selected {selectedEmployee ? "Employee" : "Freelancer"}:
                   </h4>
-                  <p className="text-sm text-blue-800 dark:text-zinc-300">
-                    <strong>Name:</strong> {selectedEmployee.firstName}{" "}
-                    {selectedEmployee.lastName}
-                    <br />
-                    <strong>Employee #:</strong>{" "}
-                    {selectedEmployee.employeeNumber}
-                    <br />
-                    <strong>Position:</strong> {selectedEmployee.position}
-                    <br />
-                    {selectedEmployee.department && (
-                      <>
-                        <strong>Department:</strong>{" "}
-                        {selectedEmployee.department.name}
-                      </>
-                    )}
-                  </p>
+                  {selectedEmployee && (
+                    <p className="text-sm text-blue-800 dark:text-zinc-300">
+                      <strong>Name:</strong> {selectedEmployee.firstName}{" "}
+                      {selectedEmployee.lastName}
+                      <br />
+                      <strong>Employee #:</strong>{" "}
+                      {selectedEmployee.employeeNumber}
+                      <br />
+                      <strong>Position:</strong> {selectedEmployee.position}
+                    </p>
+                  )}
+                  {selectedFreelancer && (
+                    <p className="text-sm text-blue-800 dark:text-zinc-300">
+                      <strong>Name:</strong> {selectedFreelancer.firstName}{" "}
+                      {selectedFreelancer.lastName}
+                      <br />
+                      <strong>Freelancer #:</strong>{" "}
+                      {selectedFreelancer.freelancerNumber}
+                      <br />
+                      <strong>Position:</strong> {selectedFreelancer.position}
+                    </p>
+                  )}
                 </div>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={fillFromEmployee}
+                  onClick={fillFromEntity}
                   className="bg-white dark:bg-zinc-600  hover:bg-blue-100 dark:hover:bg-zinc-400"
                 >
                   Fill User Details
                 </Button>
               </div>
-              <p className="text-xs text-blue-700 dark:text-white mt-2">
-                User details will be automatically filled when fields are empty,
-                or click "Fill User Details" to manually fill all fields.
-              </p>
             </div>
-          )}
+          ) : null}
 
           <FormField
             control={form.control}
@@ -707,14 +845,25 @@ export default function UserForm({
             </div>
           )}
 
-          {selectedUserType === UserType.ADMIN && selectedEmployee && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <p className="text-amber-800 text-sm">
-                <strong>Admin with Employee Link:</strong> This admin user is
-                also linked to an employee record.
+          {selectedUserType === UserType.FREELANCER && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-blue-800 text-sm">
+                <strong>Freelancer User:</strong> This user is linked to a
+                freelancer record but can still have system permissions.
               </p>
             </div>
           )}
+
+          {selectedUserType === UserType.ADMIN &&
+            (selectedEmployee || selectedFreelancer) && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-amber-800 text-sm">
+                  <strong>Admin with Identity Link:</strong> This admin user is
+                  also linked to an{" "}
+                  {selectedEmployee ? "employee" : "freelancer"} record.
+                </p>
+              </div>
+            )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {PERMISSION_GROUPS.map((group) => (
@@ -749,8 +898,8 @@ export default function UserForm({
                                       ])
                                     : field.onChange(
                                         field.value?.filter(
-                                          (value) => value !== permission
-                                        )
+                                          (value) => value !== permission,
+                                        ),
                                       );
                                 }}
                               />

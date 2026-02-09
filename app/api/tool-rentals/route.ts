@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching tool rentals:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -94,16 +94,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { userId } = await auth();
-
-    if (!userId) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
     const user = await db.user.findUnique({
-      where: { userId },
+      where: { userId: userId! },
     });
 
-    if (!user) {
-      return new NextResponse("User Not Found", { status: 401 });
+    if (!userId || !user) {
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const body = await request.json();
@@ -123,18 +119,13 @@ export async function POST(request: NextRequest) {
     const startDate = new Date(rentalStartDate);
     const endDate = new Date(rentalEndDate);
     const rentalDays = Math.ceil(
-      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     // Get tools with their rental rates
     const tools = await db.tool.findMany({
       where: {
         id: { in: toolIds },
-      },
-      select: {
-        id: true,
-        name: true,
-        rentalRateDaily: true,
       },
     });
 
@@ -173,26 +164,82 @@ export async function POST(request: NextRequest) {
               parseFloat(tool.rentalRateDaily?.toString() || "0") * rentalDays,
           })),
         },
-        createdBy: user?.id,
+        createdBy: user.id,
       },
     });
 
-    // Create tool rentals
-    const toolRentals = await Promise.all(
-      tools.map((tool) =>
-        db.toolRental.create({
+    // Create tool rentals and sub-tools
+    const toolRentals = [];
+
+    for (const tool of tools) {
+      const rental = await db.$transaction(async (tx) => {
+        // Fetch fresh tool data to check quantity and get full details
+        const freshTool = await tx.tool.findUnique({
+          where: { id: tool.id },
+        });
+
+        if (!freshTool || freshTool.quantity < 1) {
+          throw new Error(`Tool ${tool.name} is out of stock`);
+        }
+
+        // Decrement parent tool quantity
+        await tx.tool.update({
+          where: { id: tool.id },
+          data: { quantity: { decrement: 1 } },
+        });
+
+        // Create Sub-tool for the rented item
+        const subTool = await tx.tool.create({
           data: {
-            toolId: tool.id,
+            name: freshTool.name,
+            description: freshTool.description,
+            serialNumber: freshTool.serialNumber, // Copy serial
+            code: freshTool.code,
+            category: freshTool.category,
+            purchasePrice: freshTool.purchasePrice,
+            purchaseDate: freshTool.purchaseDate,
+            quantity: 1, // Single rented unit
+            status: "RENTED",
+            condition: freshTool.condition,
+            images: freshTool.images,
+            parentToolId: freshTool.parentToolId || freshTool.id, // Flatten chain
+            canBeRented: true,
+            rentalRateDaily: freshTool.rentalRateDaily,
+            rentalRateWeekly: freshTool.rentalRateWeekly,
+            rentalRateMonthly: freshTool.rentalRateMonthly,
+            createdBy: user.id,
+            allocatedDate: new Date(),
+          },
+        });
+
+        // Log Movement
+        await tx.toolMovement.create({
+          data: {
+            toolId: subTool.parentToolId || subTool.id, // Log against Parent
+            type: "CHECK_OUT",
+            quantity: 1,
+            notes: `Rented to ${businessName}`,
+            createdBy: user.id,
+          },
+        });
+
+        // Create Rental Record linked to the SUB-TOOL
+        return await tx.toolRental.create({
+          data: {
+            toolId: subTool.id,
             businessName,
             renterContact,
             renterEmail,
             renterPhone,
             rentalStartDate: startDate,
             rentalEndDate: endDate,
-            rentalRate: parseFloat(tool.rentalRateDaily?.toString() || "0"),
+            rentalRate: parseFloat(
+              freshTool.rentalRateDaily?.toString() || "0",
+            ),
             rentalDays,
             totalCost:
-              parseFloat(tool.rentalRateDaily?.toString() || "0") * rentalDays,
+              parseFloat(freshTool.rentalRateDaily?.toString() || "0") *
+              rentalDays,
             notes,
             quotationId: quotation.id,
             status: "PENDING",
@@ -201,25 +248,17 @@ export async function POST(request: NextRequest) {
             tool: true,
             quotation: true,
           },
-        })
-      )
-    );
-
-    await db.tool.updateMany({
-      where: {
-        id: { in: toolIds },
-      },
-      data: {
-        status: "RENTED",
-      },
-    });
+        });
+      });
+      toolRentals.push(rental);
+    }
 
     return NextResponse.json({ toolRentals, quotation });
   } catch (error) {
     console.error("Error creating tool rental:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

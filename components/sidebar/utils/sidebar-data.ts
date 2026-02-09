@@ -35,6 +35,7 @@ import {
   ClipboardList,
   RefreshCcw,
   Bolt,
+  Siren,
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
 import { CgArrowsExchange } from "react-icons/cg";
@@ -409,7 +410,7 @@ export const getSidebarData = (
     hasPermission(permissions, UserPermission.WORKER_TOOLS_VIEW)
       ? [
           {
-            title: "Worker Tools",
+            title: "Tools Allocation",
             url: "/dashboard/tools/worker-tools",
             icon: Hammer,
             color: "text-orange-500",
@@ -499,6 +500,16 @@ export const getSidebarData = (
             url: "/dashboard/human-resources/attendence",
             icon: Calendar,
             color: "text-cyan-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess
+      ? [
+          {
+            title: "Emergency Call-Outs",
+            url: "/dashboard/emergency-callouts",
+            icon: Siren,
+            color: "text-red-500",
           },
         ]
       : []),

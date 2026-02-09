@@ -73,6 +73,9 @@ export async function POST(request: NextRequest) {
         images: body.images || [],
         createdBy: user.name || "system",
         canBeRented: body.canBeRented,
+        quantity: body.quantity,
+        code: body.code,
+        serialNumber: body.serialNumber,
       },
     });
 

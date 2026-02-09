@@ -251,6 +251,7 @@ export interface User {
   role: UserRole;
   userType: UserType;
   employeeId?: string;
+  freelancerId?: string;
   permissions: UserPermission[];
   avatar: string | null;
   status: UserStatus;
@@ -261,6 +262,13 @@ export interface User {
     firstName: string;
     lastName: string;
     employeeNumber: string;
+    position: string;
+  };
+  freelancer?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    freeLancerNumber: string;
     position: string;
   };
 }

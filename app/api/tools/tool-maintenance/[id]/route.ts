@@ -5,7 +5,7 @@ import { MaintenanceStatus } from "@prisma/client";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -43,7 +43,7 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -57,7 +57,8 @@ export async function PATCH(
     // If status is changing to COMPLETED, ensure completionDate is set
     // If status is changing to IN_PROGRESS, ensure startDate is set (if not already)
 
-    let updateData = { ...values };
+    const { condition, ...otherValues } = values;
+    let updateData = { ...otherValues };
 
     if (values.status === "COMPLETED" && !values.completionDate) {
       updateData.completionDate = new Date();
@@ -69,19 +70,47 @@ export async function PATCH(
       updateData.startDate = new Date();
     }
 
-    const maintenanceLog = await db.toolMaintenance.update({
-      where: {
-        id: id,
-      },
-      data: {
-        ...updateData,
-      },
-    });
+    const maintenanceLog = await db.$transaction(async (tx) => {
+      const updatedLog = await tx.toolMaintenance.update({
+        where: { id },
+        data: updateData,
+      });
 
-    // Optional: If maintenance is completed, we might want to update the tool's status back to AVAILABLE
-    // efficiently if that is the workflow. For now, assuming manual return to stock via another process or just tracking maintenance.
-    // But if the tool was returned solely for maintenance, it might still be "in maintenance" or "available" depending on business logic.
-    // Let's keep it simple: just update the log for now.
+      // If status is completed and there's an associated tool, return it to stock
+      if (updatedLog.toolId) {
+        const toolUpdate: any = {};
+
+        if (values.status === "COMPLETED") {
+          toolUpdate.status = "AVAILABLE";
+        }
+
+        if (values.condition) {
+          toolUpdate.condition = values.condition;
+        }
+
+        if (Object.keys(toolUpdate).length > 0) {
+          await tx.tool.update({
+            where: { id: updatedLog.toolId },
+            data: toolUpdate,
+          });
+        }
+
+        // Create a movement record for returning from maintenance or updating state if status changed
+        if (values.status === "COMPLETED") {
+          await tx.toolMovement.create({
+            data: {
+              toolId: updatedLog.toolId,
+              type: "MAINTENANCE_IN",
+              quantity: updatedLog.quantity || 1,
+              notes: `Auto-returned to stock upon maintenance completion: ${id}. Condition set to: ${values.condition || "unchanged"}`,
+              createdBy: userId,
+            },
+          });
+        }
+      }
+
+      return updatedLog;
+    });
 
     return NextResponse.json(maintenanceLog);
   } catch (error) {

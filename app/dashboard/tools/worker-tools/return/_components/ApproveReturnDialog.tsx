@@ -67,7 +67,7 @@ export function ApproveReturnDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px] lg:min-w-[600px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Process Return: {record.toolName}

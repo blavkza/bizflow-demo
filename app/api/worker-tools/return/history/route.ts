@@ -10,7 +10,20 @@ export async function GET(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
+    const { searchParams } = new URL(req.url);
+    const employeeId = searchParams.get("employeeId");
+    const freelancerId = searchParams.get("freelancerId");
+
+    const where: any = {};
+    if (employeeId) {
+      where.employeeId = employeeId;
+    }
+    if (freelancerId) {
+      where.freelancerId = freelancerId;
+    }
+
     const returns = await db.toolReturn.findMany({
+      where,
       include: {
         tool: {
           select: {

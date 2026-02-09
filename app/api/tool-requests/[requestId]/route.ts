@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sendPushNotification } from "@/lib/expo";
 import { getUserAuth } from "@/lib/auth";
+import { ToolStatus } from "@prisma/client";
 
 export async function GET(
   req: Request,
@@ -32,7 +33,7 @@ export async function GET(
     const workerId = request.employeeId || request.freelancerId;
     const workerField = request.employeeId ? "employeeId" : "freelancerId";
 
-    const history = await db.employeeTool.findMany({
+    const history = await db.tool.findMany({
       where: {
         [workerField]: workerId,
         name: {
@@ -46,10 +47,10 @@ export async function GET(
     });
 
     // 3. Fetch Available Quantity in Inventory
-    const availableTools = await db.employeeTool.findMany({
+    const availableTools = await db.tool.findMany({
       where: {
         name: request.toolName,
-        status: "AVAILABLE",
+        status: ToolStatus.AVAILABLE,
       },
       select: { quantity: true },
     });
@@ -80,14 +81,14 @@ export async function PATCH(
     const { status, notes, reason } = body;
 
     const { userId: clerkUserId } = await getUserAuth();
-    let dbUserId = null;
+    let dbUserId = "system";
 
     if (clerkUserId) {
       const user = await db.user.findUnique({
         where: { userId: clerkUserId },
         select: { id: true },
       });
-      dbUserId = user?.id;
+      if (user) dbUserId = user.id;
     }
 
     // Check if status is valid
@@ -110,110 +111,123 @@ export async function PATCH(
       return new NextResponse("Request not found", { status: 404 });
     }
 
-    if (status === "APPROVED") {
-      // Check inventory if it's an existing tool
-      const availableTools = await db.employeeTool.findMany({
-        where: {
-          name: currentRequest.toolName,
-          status: "AVAILABLE",
-        },
-      });
+    const updatedRequest = await db.$transaction(async (tx) => {
+      if (status === "APPROVED") {
+        // Check inventory if it's an existing tool
+        const availableTools = await tx.tool.findMany({
+          where: {
+            name: currentRequest.toolName,
+            status: ToolStatus.AVAILABLE,
+          },
+          orderBy: { quantity: "desc" }, // Prioritize larger piles
+        });
 
-      const totalAvailable = availableTools.reduce(
-        (sum: number, t: any) => sum + (t.quantity || 1),
-        0,
-      );
-
-      if (totalAvailable < currentRequest.quantity) {
-        return new NextResponse(
-          `Insufficient inventory. Only ${totalAvailable} available.`,
-          { status: 400 },
+        const totalAvailable = availableTools.reduce(
+          (sum: number, t: any) => sum + (t.quantity || 1),
+          0,
         );
-      }
 
-      // Perform Allocation
-      let remainingToAssign = currentRequest.quantity;
+        if (totalAvailable < currentRequest.quantity) {
+          throw new Error(
+            `Insufficient inventory. Only ${totalAvailable} available.`,
+          );
+        }
 
-      for (const toolRecord of availableTools) {
-        if (remainingToAssign <= 0) break;
+        // Perform Allocation
+        let remainingToAssign = currentRequest.quantity;
 
-        const recordQty = toolRecord.quantity || 1;
+        for (const toolRecord of availableTools) {
+          if (remainingToAssign <= 0) break;
 
-        if (recordQty > remainingToAssign) {
-          // Split the record: keep some available, allocate some
-          const newAvailableQty = recordQty - remainingToAssign;
+          const recordQty = toolRecord.quantity || 1;
 
-          await db.employeeTool.update({
-            where: { id: toolRecord.id },
-            data: {
-              quantity: newAvailableQty,
-              // Update status to NOT_AVAILABLE if new quantity is 0
-              status: newAvailableQty === 0 ? "NOT_AVAILABLE" : "AVAILABLE",
-            },
-          });
+          if (recordQty > remainingToAssign) {
+            // Split the record: keep some available, allocate some
+            await tx.tool.update({
+              where: { id: toolRecord.id },
+              data: {
+                quantity: { decrement: remainingToAssign },
+              },
+            });
 
-          await db.employeeTool.create({
-            data: {
-              name: toolRecord.name,
-              description: toolRecord.description,
-              serialNumber: toolRecord.serialNumber,
-              code: toolRecord.code,
-              images: toolRecord.images,
-              category: toolRecord.category,
-              purchasePrice: toolRecord.purchasePrice,
-              purchaseDate: toolRecord.purchaseDate,
-              quantity: remainingToAssign,
-              status: "ALLOCATED",
-              employeeId: currentRequest.employeeId,
-              freelancerId: currentRequest.freelancerId,
-              allocatedDate: new Date(),
-              createdBy: dbUserId,
-              parentToolId: toolRecord.id,
-            },
-          });
-          remainingToAssign = 0;
-        } else {
-          // Allocate the whole record
-          const newQty = 0; // Entire record is allocated
+            const newTool = await tx.tool.create({
+              data: {
+                name: toolRecord.name,
+                description: toolRecord.description,
+                serialNumber: toolRecord.serialNumber,
+                code: toolRecord.code,
+                images: toolRecord.images,
+                category: toolRecord.category,
+                purchasePrice: toolRecord.purchasePrice,
+                purchaseDate: toolRecord.purchaseDate,
+                quantity: remainingToAssign,
+                status: ToolStatus.ALLOCATED,
+                employeeId: currentRequest.employeeId,
+                freelancerId: currentRequest.freelancerId,
+                allocatedDate: new Date(),
+                createdBy: dbUserId,
+                parentToolId: toolRecord.parentToolId || toolRecord.id,
+                condition: toolRecord.condition,
+                additionalInfo: toolRecord.additionalInfo,
+              },
+            });
 
-          await db.employeeTool.update({
-            where: { id: toolRecord.id },
-            data: {
-              quantity: newQty,
-              status: newQty === 0 ? "NOT_AVAILABLE" : "AVAILABLE",
-              employeeId: currentRequest.employeeId,
-              freelancerId: currentRequest.freelancerId,
-              allocatedDate: new Date(),
-            },
-          });
-          remainingToAssign -= recordQty;
+            // Log Movement
+            await tx.toolMovement.create({
+              data: {
+                toolId: toolRecord.id, // Log against parent
+                type: "CHECK_OUT",
+                quantity: remainingToAssign,
+                employeeId: currentRequest.employeeId,
+                freelancerId: currentRequest.freelancerId,
+                createdBy: dbUserId,
+                notes: `Request Approved: ${requestId}`,
+              },
+            });
+
+            remainingToAssign = 0;
+          } else {
+            // Allocate the whole record
+            await tx.tool.update({
+              where: { id: toolRecord.id },
+              data: {
+                status: ToolStatus.ALLOCATED,
+                employeeId: currentRequest.employeeId,
+                freelancerId: currentRequest.freelancerId,
+                allocatedDate: new Date(),
+              },
+            });
+
+            // Log Movement
+            await tx.toolMovement.create({
+              data: {
+                toolId: toolRecord.id,
+                type: "CHECK_OUT",
+                quantity: recordQty,
+                employeeId: currentRequest.employeeId,
+                freelancerId: currentRequest.freelancerId,
+                createdBy: dbUserId,
+                notes: `Request Approved: ${requestId}`,
+              },
+            });
+
+            remainingToAssign -= recordQty;
+          }
         }
       }
 
-      // After allocation, also check if any parent tools have 0 quantity
-      // and update their status to NOT_AVAILABLE
-      await db.employeeTool.updateMany({
-        where: {
-          name: currentRequest.toolName,
-          quantity: 0,
-        },
+      return await tx.toolRequest.update({
+        where: { id: requestId },
         data: {
-          status: "NOT_AVAILABLE",
+          status,
+          reason,
+          notes: notes || undefined,
+          resolvedById: dbUserId,
+          resolvedDate: ["APPROVED", "REJECTED", "COMPLETED"].includes(status)
+            ? new Date()
+            : undefined,
         },
       });
-    }
-
-    const updatedRequest = await db.toolRequest.update({
-      where: { id: requestId },
-      data: {
-        status,
-        reason,
-        notes: notes || undefined,
-        resolvedById: dbUserId,
-        resolvedDate: ["APPROVED", "REJECTED", "COMPLETED"].includes(status)
-          ? new Date()
-          : undefined,
-      },
     });
 
     // Notify Employee
@@ -228,12 +242,16 @@ export async function PATCH(
         message = `Your tool request for ${updatedRequest.toolName} has been added to the waitlist.`;
       }
 
-      await sendPushNotification({
-        employeeId: updatedRequest.employeeId,
-        title,
-        body: message,
-        data: { type: "TOOL_REQUEST", id: updatedRequest.id, status },
-      });
+      try {
+        await sendPushNotification({
+          employeeId: updatedRequest.employeeId,
+          title,
+          body: message,
+          data: { type: "TOOL_REQUEST", id: updatedRequest.id, status },
+        });
+      } catch (e) {
+        console.error("Failed to send push notification", e);
+      }
 
       await db.employeeNotification.create({
         data: {
@@ -247,8 +265,10 @@ export async function PATCH(
     }
 
     return NextResponse.json(updatedRequest);
-  } catch (error) {
+  } catch (error: any) {
     console.error("[TOOL_REQUEST_PATCH]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return new NextResponse(error.message || "Internal Error", {
+      status: error.message.includes("Insufficient") ? 400 : 500,
+    });
   }
 }

@@ -9,7 +9,7 @@ export async function PUT(
     params,
   }: {
     params: Promise<{ id: string }>;
-  }
+  },
 ) {
   try {
     const { id } = await params;
@@ -27,6 +27,7 @@ export async function PUT(
       role,
       userType,
       employeeId,
+      freelancerId,
       permissions,
     } = await req.json();
 
@@ -36,6 +37,7 @@ export async function PUT(
       email,
       userType,
       employeeId,
+      freelancerId,
       role,
       status,
     });
@@ -43,7 +45,7 @@ export async function PUT(
     if (permissions && !Array.isArray(permissions)) {
       return NextResponse.json(
         { error: "Permissions must be an array" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -54,7 +56,18 @@ export async function PUT(
     ) {
       return NextResponse.json(
         { error: "Employee must be selected for employee users" },
-        { status: 400 }
+        { status: 400 },
+      );
+    }
+
+    // Validate freelancer linking for FREELANCER users
+    if (
+      userType === UserType.FREELANCER &&
+      (!freelancerId || freelancerId === "no-freelancer")
+    ) {
+      return NextResponse.json(
+        { error: "Freelancer must be selected for freelancer users" },
+        { status: 400 },
       );
     }
 
@@ -69,7 +82,23 @@ export async function PUT(
       if (existingEmployeeUser) {
         return NextResponse.json(
           { error: "This employee is already linked to another user" },
-          { status: 400 }
+          { status: 400 },
+        );
+      }
+    }
+
+    if (freelancerId && freelancerId !== "no-freelancer") {
+      const existingFreelancerUser = await db.user.findFirst({
+        where: {
+          freeLancerId: freelancerId,
+          id: { not: id },
+        },
+      });
+
+      if (existingFreelancerUser) {
+        return NextResponse.json(
+          { error: "This freelancer is already linked to another user" },
+          { status: 400 },
         );
       }
     }
@@ -90,6 +119,26 @@ export async function PUT(
       updateData.employeeId = null;
     } else {
       updateData.employeeId = employeeId;
+      // If linking employee, ensure freelancer is unlinked (mutually exclusive usually, but schema allows both?)
+      // Schema has separate fields, userType dictates primary role.
+      // But typically a user is one or the other.
+      // If userType is EMPLOYEE, let's clear freelancerId?
+      if (userType === UserType.EMPLOYEE) {
+        updateData.freeLancerId = null;
+      }
+    }
+
+    // Handle freelancer linking/unlinking
+    if (freelancerId === "no-freelancer" || !freelancerId) {
+      // Only clear if we are not setting it (handled above by default null if not passed? No, existing data remains)
+      // If explicit "no-freelancer" passed, clear it.
+      if (freelancerId === "no-freelancer") updateData.freeLancerId = null;
+    } else {
+      updateData.freeLancerId = freelancerId;
+      // If linking freelancer, ensure employee is unlinked
+      if (userType === UserType.FREELANCER) {
+        updateData.employeeId = null;
+      }
     }
 
     const updatedUser = await db.user.update({
@@ -102,6 +151,15 @@ export async function PUT(
             firstName: true,
             lastName: true,
             employeeNumber: true,
+            position: true,
+          },
+        },
+        freeLancer: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            freeLancerNumber: true,
             position: true,
           },
         },
@@ -118,6 +176,7 @@ export async function PUT(
         status: updatedUser.status,
         userType: updatedUser.userType,
         employee: updatedUser.employee,
+        freelancer: updatedUser.freeLancer,
         permissions: updatedUser.permissions,
         phone: updatedUser.phone,
         createdAt: updatedUser.createdAt,
@@ -128,14 +187,14 @@ export async function PUT(
     console.error("Error updating User:", error);
     return NextResponse.json(
       { error: "Internal Server Error: " + error.message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   const { id } = params;
 
@@ -149,7 +208,7 @@ export async function DELETE(
     console.error("Error deleting User:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

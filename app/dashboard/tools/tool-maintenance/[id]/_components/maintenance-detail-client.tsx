@@ -122,6 +122,14 @@ export function MaintenanceDetailClient({
               >
                 {log.status.replace("_", " ")}
               </Badge>
+              {log.status === "COMPLETED" && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-blue-50 text-blue-700 border-blue-100"
+                >
+                  Returned to Stock
+                </Badge>
+              )}
             </div>
             <p className="text-muted-foreground">
               Created on {format(new Date(log.createdAt), "PPP")} at{" "}

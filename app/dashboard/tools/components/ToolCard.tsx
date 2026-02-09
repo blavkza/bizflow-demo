@@ -80,6 +80,10 @@ export function ToolCard({ tool, onDeleteTool, view }: ToolCardProps) {
               </Badge>
             </div>
             <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Available Quantity:</span>
+              <span className="font-medium">{formatCount(tool.quantity)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Daily Rate:</span>
               <span className="font-medium">
                 {isRentable
@@ -154,6 +158,10 @@ export function ToolCard({ tool, onDeleteTool, view }: ToolCardProps) {
               <span className="font-medium">
                 {formatCurrency(tool.purchasePrice)}
               </span>
+            </span>
+            <span>
+              <span className="text-muted-foreground">Available:</span>{" "}
+              <span className="font-medium">{formatCount(tool.quantity)}</span>
             </span>
             <span>
               <span className="text-muted-foreground">Daily Rate:</span>{" "}

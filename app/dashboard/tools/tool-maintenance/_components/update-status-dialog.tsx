@@ -22,6 +22,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import {
   Select,
@@ -37,6 +38,9 @@ import { useQueryClient } from "@tanstack/react-query";
 
 const formSchema = z.object({
   status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]),
+  condition: z
+    .enum(["EXCELLENT", "GOOD", "FAIR", "POOR", "DAMAGED"])
+    .optional(),
   technician: z.string().optional(),
   cost: z.coerce.number().min(0).optional(),
   notes: z.string().optional(),
@@ -61,6 +65,7 @@ export function UpdateStatusDialog({
     resolver: zodResolver(formSchema),
     defaultValues: {
       status: record?.status || "PENDING",
+      condition: record?.tool?.condition || "GOOD",
       technician: record?.technician || "",
       cost: record?.cost || 0,
       notes: record?.notes || "",
@@ -71,7 +76,13 @@ export function UpdateStatusDialog({
     try {
       setLoading(true);
       await axios.patch(`/api/tools/tool-maintenance/${record.id}`, values);
-      toast.success("Maintenance status updated");
+
+      if (values.status === "COMPLETED") {
+        toast.success("Maintenance completed and tool returned to stock");
+      } else {
+        toast.success("Maintenance status updated");
+      }
+
       queryClient.invalidateQueries({ queryKey: ["maintenance-logs"] });
       queryClient.invalidateQueries({
         queryKey: ["maintenance-log", record.id],
@@ -119,6 +130,37 @@ export function UpdateStatusDialog({
                       <SelectItem value="CANCELLED">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="condition"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Update Tool Condition</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select condition" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="EXCELLENT">Excellent</SelectItem>
+                      <SelectItem value="GOOD">Good</SelectItem>
+                      <SelectItem value="FAIR">Fair</SelectItem>
+                      <SelectItem value="POOR">Poor</SelectItem>
+                      <SelectItem value="DAMAGED">Damaged</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription className="text-[10px]">
+                    Updating this will change the actual tool's condition in the
+                    inventory.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

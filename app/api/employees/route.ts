@@ -91,6 +91,7 @@ export async function POST(req: Request) {
         contractType,
         workingDays,
         createdBy: creater?.name,
+        generalSettingId: campany?.id,
       },
     });
 
@@ -129,8 +130,7 @@ export async function GET() {
     }
 
     const hasFullAccess =
-      user.role === "CHIEF_EXECUTIVE_OFFICER" ||
-      user.role === "ADMIN_MANAGER";
+      user.role === "CHIEF_EXECUTIVE_OFFICER" || user.role === "ADMIN_MANAGER";
 
     const employeeWhere: any = {};
     if (!hasFullAccess && user.employee?.departmentId) {
@@ -205,7 +205,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       { message: "Failed to fetch employees", error },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -41,6 +41,7 @@ export async function sendPushNotification({
         body: body,
         data: data || {},
         priority: "high" as const,
+        channelId: "default_v4",
       },
     ];
 
@@ -57,5 +58,52 @@ export async function sendPushNotification({
     }
   } catch (error) {
     console.error("Error in sendPushNotification:", error);
+  }
+}
+export async function sendPushToUser({
+  userId,
+  title,
+  body,
+  data,
+}: {
+  userId: string;
+  title: string;
+  body: string;
+  data?: any;
+}) {
+  try {
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      include: {
+        employee: { select: { expoPushToken: true } },
+        // freeLancer: { select: { expoPushToken: true } } // TODO: Add to FreeLancer schema if needed
+      },
+    });
+
+    const token = user?.employee?.expoPushToken;
+
+    if (!token || !Expo.isExpoPushToken(token)) {
+      console.log(`No valid push token for user ${userId}`);
+      return;
+    }
+
+    const messages = [
+      {
+        to: token,
+        sound: "default" as const,
+        title,
+        body,
+        data: data || {},
+        priority: "high" as const,
+        channelId: "default_v4",
+      },
+    ];
+
+    const chunks = expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+      await expo.sendPushNotificationsAsync(chunk);
+    }
+  } catch (error) {
+    console.error("Error in sendPushToUser:", error);
   }
 }

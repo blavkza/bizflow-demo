@@ -201,6 +201,156 @@ export async function GET(
           },
         },
 
+        freeLancer: {
+          include: {
+            department: {
+              include: {
+                manager: true,
+                parent: true,
+                children: true,
+              },
+            },
+            attendanceRecords: {
+              include: {
+                overtimeRequest: true,
+              },
+              orderBy: {
+                date: "desc",
+              },
+              take: 60,
+            },
+            overtimeRequests: {
+              orderBy: {
+                requestedAt: "desc",
+              },
+              take: 10,
+            },
+            assignedTasks: {
+              include: {
+                project: {
+                  include: {
+                    client: true,
+                    manager: true,
+                    teamMembers: {
+                      include: {
+                        user: true,
+                      },
+                    },
+                    Folder: {
+                      include: {
+                        Document: true,
+                        Note: true,
+                      },
+                    },
+                    comment: {
+                      include: {
+                        commentReply: true,
+                      },
+                    },
+                    toolInterUses: {
+                      include: {
+                        tool: true,
+                      },
+                    },
+                    workLogs: {
+                      orderBy: {
+                        date: "desc",
+                      },
+                      take: 50,
+                    },
+                    Expense: true,
+                    tasks: {
+                      include: {
+                        assignees: true,
+                        freeLancerAssignees: true,
+                        timeEntries: {
+                          where: {
+                            userId: userId,
+                          },
+                        },
+                        subtask: true,
+                      },
+                    },
+                  },
+                },
+                subtask: {
+                  orderBy: {
+                    order: "asc",
+                  },
+                },
+                timeEntries: {
+                  orderBy: {
+                    date: "desc",
+                  },
+                  take: 50,
+                },
+                assignees: {
+                  include: {
+                    department: true,
+                  },
+                },
+                freeLancerAssignees: true,
+                documents: true,
+                comment: {
+                  include: {
+                    commentReply: true,
+                  },
+                },
+              },
+              orderBy: {
+                createdAt: "desc",
+              },
+            },
+            warnings: {
+              orderBy: {
+                date: "desc",
+              },
+            },
+            payments: {
+              include: {
+                transaction: {
+                  include: {
+                    category: true,
+                  },
+                },
+                paymentBonuses: true,
+                paymentDeductions: true,
+              },
+              orderBy: {
+                createdAt: "desc",
+              },
+            },
+            leaveRequests: {
+              orderBy: {
+                requestedDate: "desc",
+              },
+            },
+            documents: {
+              orderBy: {
+                createdAt: "desc",
+              },
+            },
+            notes: {
+              orderBy: {
+                createdAt: "desc",
+              },
+            },
+            kpiResults: {
+              take: 1,
+              orderBy: { createdAt: "desc" },
+            },
+            tools: {
+              include: {
+                parentTool: true,
+                subTools: true,
+              },
+              orderBy: {
+                allocatedDate: "desc",
+              },
+            },
+          },
+        },
+
         timeEntries: {
           include: {
             project: true,
@@ -355,6 +505,23 @@ export async function GET(
 
         // General settings linked to the user
         GeneralSetting: true,
+
+        // Call-Out Assistant records
+        CallOutAssistant: {
+          include: {
+            emergencyCallOut: {
+              include: {
+                requestedUser: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+          orderBy: {
+            id: "desc",
+          },
+          take: 10,
+        },
       },
     });
 

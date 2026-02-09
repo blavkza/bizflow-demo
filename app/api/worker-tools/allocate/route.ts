@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { ToolStatus } from "@prisma/client";
 import { sendPushNotification } from "@/lib/expo";
 
 export async function POST(req: Request) {
@@ -33,7 +34,7 @@ export async function POST(req: Request) {
     // Start Transaction
     const result = await db.$transaction(async (tx) => {
       // 1. Fetch Source Tool
-      const sourceTool = await tx.employeeTool.findUnique({
+      const sourceTool = await tx.tool.findUnique({
         where: { id: sourceToolId },
       });
 
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
       }
 
       // 2. Decrement Source Quantity
-      await tx.employeeTool.update({
+      await tx.tool.update({
         where: { id: sourceToolId },
         data: {
           quantity: sourceTool.quantity - totalRequested,
@@ -72,8 +73,8 @@ export async function POST(req: Request) {
           purchaseDate: sourceTool.purchaseDate,
           quantity: quantity,
           condition: sourceTool.condition,
-          status: "ASSIGNED",
-          assignedDate: now,
+          status: ToolStatus.ALLOCATED,
+          allocatedDate: now,
           createdBy: userId, // Tracking who assigned it
           images: sourceTool.images, // Copy images
           additionalInfo: sourceTool.additionalInfo,
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
           newToolData.freelancerId = workerId;
         }
 
-        const newTool = await tx.employeeTool.create({
+        const newTool = await tx.tool.create({
           data: newToolData,
         });
         createdTools.push(newTool);
@@ -98,16 +99,21 @@ export async function POST(req: Request) {
     // 4. Send Notifications
     for (const tool of result) {
       if (tool.employeeId) {
+        // Parse notifications
         const title = "New Tool Allocated";
         const message = `You have been allocated ${tool.quantity} unit(s) of ${tool.name}.`;
 
         // Push Notification
-        await sendPushNotification({
-          employeeId: tool.employeeId,
-          title: title,
-          body: message,
-          data: { type: "TOOL_ALLOCATION", toolId: tool.id },
-        });
+        try {
+          await sendPushNotification({
+            employeeId: tool.employeeId,
+            title: title,
+            body: message,
+            data: { type: "TOOL_ALLOCATION", toolId: tool.id },
+          });
+        } catch (e) {
+          console.error("Failed to send push notification", e);
+        }
 
         // In-App Notification
         await db.employeeNotification.create({
@@ -115,7 +121,9 @@ export async function POST(req: Request) {
             employeeId: tool.employeeId,
             title: title,
             message: message,
-            type: "SYSTEM",
+            type: "TOOLS",
+            priority: "MEDIUM",
+            channels: ["IN_APP", "PUSH"],
             isRead: false,
           },
         });

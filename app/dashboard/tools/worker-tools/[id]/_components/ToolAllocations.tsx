@@ -18,7 +18,7 @@ interface ToolAllocationsProps {
 
 export function ToolAllocations({ tool }: ToolAllocationsProps) {
   const fleet = tool.fleet || [];
-  const assignedTools = fleet.filter((t: any) => t.status === "ASSIGNED");
+  const assignedTools = fleet.filter((t: any) => t.status === "ALLOCATED");
 
   if (assignedTools.length === 0) {
     return (
@@ -70,8 +70,8 @@ export function ToolAllocations({ tool }: ToolAllocationsProps) {
                 </TableCell>
                 <TableCell>{t.quantity}</TableCell>
                 <TableCell>
-                  {t.assignedDate
-                    ? format(new Date(t.assignedDate), "PPP")
+                  {t.allocatedDate
+                    ? format(new Date(t.allocatedDate), "PPP")
                     : "N/A"}
                 </TableCell>
                 <TableCell>{t.condition}</TableCell>

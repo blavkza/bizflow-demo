@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -67,14 +67,14 @@ export async function GET(
     console.error("Error fetching rental details:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -93,18 +93,67 @@ export async function PATCH(
     const rentalId = params.id;
     const body = await request.json();
 
-    const updatedRental = await db.toolRental.update({
+    const existingRental = await db.toolRental.findUnique({
       where: { id: rentalId },
-      data: body,
-      include: {
-        tool: true,
-        quotation: {
-          include: {
-            client: true,
+      include: { tool: true },
+    });
+
+    if (!existingRental) {
+      return NextResponse.json({ error: "Rental not found" }, { status: 404 });
+    }
+
+    const updatedRental = await db.$transaction(async (tx) => {
+      // Handle Return Logic if Status Changed to COMPLETED
+      if (
+        body.status === "COMPLETED" &&
+        existingRental.status !== "COMPLETED"
+      ) {
+        // Return to Inventory
+        const subTool = existingRental.tool;
+        if (subTool && subTool.parentToolId) {
+          // Increment Parent
+          await tx.tool.update({
+            where: { id: subTool.parentToolId },
+            data: { quantity: { increment: 1 } },
+          });
+
+          // Log Check In
+          await tx.toolMovement.create({
+            data: {
+              toolId: subTool.parentToolId,
+              type: "CHECK_IN",
+              quantity: 1,
+              createdBy: user.id,
+              notes: `Rental Returned: ${existingRental.businessName}`,
+            },
+          });
+
+          // Mark SubTool as Returned (Empty)
+          await tx.tool.update({
+            where: { id: subTool.id },
+            data: {
+              status: "AVAILABLE", // Or specific STATUS causing it to be hidden?
+              quantity: 0,
+              condition: body.returnCondition || subTool.condition,
+              returnDate: new Date(),
+            },
+          });
+        }
+      }
+
+      return await tx.toolRental.update({
+        where: { id: rentalId },
+        data: body,
+        include: {
+          tool: true,
+          quotation: {
+            include: {
+              client: true,
+            },
           },
+          invoice: true,
         },
-        invoice: true,
-      },
+      });
     });
 
     return NextResponse.json(updatedRental);
@@ -112,7 +161,7 @@ export async function PATCH(
     console.error("Error updating rental:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

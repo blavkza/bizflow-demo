@@ -12,7 +12,7 @@ export async function fetchUserData(userId: string) {
 export async function fetchAttendanceRecords(
   date: string,
   department?: string,
-  status?: string
+  status?: string,
 ) {
   const params = new URLSearchParams({ date });
   if (department && department !== "All Departments")
@@ -28,7 +28,7 @@ export async function fetchAttendanceRecords(
 
 export async function fetchCheckInHistory(
   startDate?: string,
-  endDate?: string
+  endDate?: string,
 ) {
   const params = new URLSearchParams();
   if (startDate) params.append("startDate", startDate);
@@ -49,8 +49,11 @@ export async function fetchDepartments(): Promise<Department[]> {
   return response.json();
 }
 
-export async function fetchCallOutHistory() {
-  const response = await fetch("/api/attendance/callout");
+export async function fetchCallOutHistory(date?: string) {
+  const params = new URLSearchParams();
+  if (date) params.append("date", date);
+
+  const response = await fetch(`/api/attendance/callout?${params}`);
   if (!response.ok) {
     throw new Error("Failed to fetch call out history");
   }

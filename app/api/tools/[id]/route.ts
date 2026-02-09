@@ -93,6 +93,9 @@ export async function PUT(
         primaryImage: body.primaryImage,
         images: body.images,
         canBeRented: body.canBeRented,
+        quantity: body.quantity,
+        code: body.code,
+        serialNumber: body.serialNumber,
       },
     });
 

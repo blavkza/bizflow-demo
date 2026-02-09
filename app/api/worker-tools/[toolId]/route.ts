@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { UserPermission, UserRole } from "@prisma/client";
+import { UserPermission, UserRole, ToolStatus } from "@prisma/client";
 
 export async function GET(
   req: Request,
@@ -16,7 +16,7 @@ export async function GET(
 
     const { toolId } = params;
 
-    const tool = await db.employeeTool.findUnique({
+    const tool = await db.tool.findUnique({
       where: { id: toolId },
       include: {
         employee: true,
@@ -36,7 +36,7 @@ export async function GET(
     const masterId = (tool as any).parentToolId || tool.id;
 
     // Fetch "Fleet" - the Master Tool and all its Sub-Tools (Allocations)
-    const fleet = await db.employeeTool.findMany({
+    const fleet = await db.tool.findMany({
       where: {
         OR: [
           { id: masterId }, // The Master Tool itself
@@ -86,15 +86,26 @@ export async function PATCH(
       name,
       description,
       serialNumber,
+      code,
+      category,
       purchasePrice,
       quantity,
+      purchaseDate: purchaseDateString,
       employeeId,
       freelancerId,
       condition,
       images,
+      canBeRented,
+      rentalRateDaily,
+      rentalRateWeekly,
+      rentalRateMonthly,
     } = body;
 
-    const existingTool = await db.employeeTool.findUnique({
+    const purchaseDate = purchaseDateString
+      ? new Date(purchaseDateString)
+      : null;
+
+    const existingTool = await db.tool.findUnique({
       where: { id: toolId },
     });
 
@@ -110,10 +121,10 @@ export async function PATCH(
     const wasAssigned = existingTool.employeeId || existingTool.freelancerId;
 
     if (isAssigned && !wasAssigned) {
-      status = "ALLOCATED";
+      status = ToolStatus.ALLOCATED;
       allocatedDate = new Date();
     } else if (!isAssigned && wasAssigned) {
-      status = "AVAILABLE";
+      status = ToolStatus.AVAILABLE;
       allocatedDate = null;
     }
 
@@ -122,7 +133,7 @@ export async function PATCH(
       if (existingTool.parentToolId) {
         // Handle full unassignment (Manual Return via Edit Modal)
         if (!isAssigned && wasAssigned) {
-          await tx.employeeTool.update({
+          await tx.tool.update({
             where: { id: existingTool.parentToolId },
             data: {
               quantity: {
@@ -130,22 +141,41 @@ export async function PATCH(
               },
             },
           });
+
+          // Log Check In
+          await tx.toolMovement.create({
+            data: {
+              toolId: existingTool.parentToolId,
+              type: "CHECK_IN",
+              quantity: existingTool.quantity,
+              createdBy: user.id,
+              notes: "Manual unassignment via edit",
+            },
+          });
+
           // This specific record becomes AVAILABLE with 0 quantity (returned)
-          return await tx.employeeTool.update({
+          return await tx.tool.update({
             where: { id: toolId },
             data: {
               name,
               description,
               serialNumber,
+              code,
+              category,
               purchasePrice,
+              purchaseDate,
               quantity: 0,
               employeeId: null,
               freelancerId: null,
               condition: condition || existingTool.condition,
               images: images || existingTool.images,
-              status: "AVAILABLE",
+              status: ToolStatus.AVAILABLE,
               allocatedDate: null,
               returnDate: new Date(),
+              canBeRented,
+              rentalRateDaily,
+              rentalRateWeekly,
+              rentalRateMonthly,
             },
           });
         }
@@ -156,7 +186,7 @@ export async function PATCH(
 
           // Verify master has enough if incrementing
           if (diff > 0) {
-            const master = await tx.employeeTool.findUnique({
+            const master = await tx.tool.findUnique({
               where: { id: existingTool.parentToolId },
             });
             if (master && master.quantity < diff) {
@@ -164,7 +194,8 @@ export async function PATCH(
             }
           }
 
-          await tx.employeeTool.update({
+          // Adjust Parent (Decrement diff. If diff negative, it increments)
+          await tx.tool.update({
             where: { id: existingTool.parentToolId },
             data: {
               quantity: {
@@ -172,23 +203,44 @@ export async function PATCH(
               },
             },
           });
+
+          // Log Movement
+          await tx.toolMovement.create({
+            data: {
+              toolId: existingTool.parentToolId,
+              type: diff > 0 ? "CHECK_OUT" : "CHECK_IN",
+              quantity: Math.abs(diff),
+              createdBy: user.id,
+              notes:
+                diff > 0
+                  ? "Quantity increased via edit"
+                  : "Quantity decreased via edit",
+            },
+          });
         }
       }
 
-      return await tx.employeeTool.update({
+      return await tx.tool.update({
         where: { id: toolId },
         data: {
           name,
           description,
           serialNumber,
+          code,
+          category,
           purchasePrice,
           quantity,
+          purchaseDate,
           employeeId,
           freelancerId,
           condition,
           images,
           status,
           allocatedDate,
+          canBeRented,
+          rentalRateDaily,
+          rentalRateWeekly,
+          rentalRateMonthly,
         },
       });
     });
@@ -225,7 +277,7 @@ export async function DELETE(
 
     const { toolId } = params;
 
-    const existingTool = await db.employeeTool.findUnique({
+    const existingTool = await db.tool.findUnique({
       where: { id: toolId },
     });
 
@@ -236,7 +288,7 @@ export async function DELETE(
     const tool = await db.$transaction(async (tx) => {
       // If deleting an allocation, return its quantity back to parent
       if (existingTool.parentToolId) {
-        await tx.employeeTool.update({
+        await tx.tool.update({
           where: { id: existingTool.parentToolId },
           data: {
             quantity: {
@@ -244,9 +296,20 @@ export async function DELETE(
             },
           },
         });
+
+        // Log Check In
+        await tx.toolMovement.create({
+          data: {
+            toolId: existingTool.parentToolId,
+            type: "CHECK_IN",
+            quantity: existingTool.quantity,
+            createdBy: user.id,
+            notes: "Allocation deleted",
+          },
+        });
       }
 
-      return await tx.employeeTool.delete({
+      return await tx.tool.delete({
         where: { id: toolId },
       });
     });

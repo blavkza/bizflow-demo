@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     if (!month) {
       return NextResponse.json(
         { error: "Month parameter is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
     if (!hrSettings) {
       return NextResponse.json(
         { error: "HR settings not configured" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -50,8 +50,7 @@ export async function GET(request: Request) {
     }
 
     const hasFullAccess =
-      user.role === "CHIEF_EXECUTIVE_OFFICER" ||
-      user.role === "ADMIN_MANAGER";
+      user.role === "CHIEF_EXECUTIVE_OFFICER" || user.role === "ADMIN_MANAGER";
 
     const payrollId = searchParams.get("payrollId");
 
@@ -86,7 +85,7 @@ export async function GET(request: Request) {
     const paidWorkerIds = new Set(
       existingPayments
         .flatMap((p) => [p.employeeId, p.freeLancerId])
-        .filter(Boolean) as string[]
+        .filter(Boolean) as string[],
     );
 
     // --- STEP 2: Fetch and Filter Workers ---
@@ -184,7 +183,7 @@ export async function GET(request: Request) {
 
       // Filter out those who are already paid
       freelancers = allFreelancers.filter(
-        (free) => !paidWorkerIds.has(free.id)
+        (free) => !paidWorkerIds.has(free.id),
       );
     }
 
@@ -199,9 +198,9 @@ export async function GET(request: Request) {
           workingDaysInMonth,
           hrSettings,
           startDate,
-          endDate
+          endDate,
         );
-      })
+      }),
     );
 
     // Process freelancers
@@ -213,9 +212,9 @@ export async function GET(request: Request) {
           workingDaysInMonth,
           hrSettings,
           startDate,
-          endDate
+          endDate,
         );
-      })
+      }),
     );
 
     const allCalculations = [
@@ -228,7 +227,7 @@ export async function GET(request: Request) {
     console.error("Failed to fetch payroll calculations:", error);
     return NextResponse.json(
       { message: "Failed to fetch payroll calculations", error },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -239,7 +238,7 @@ async function calculateWorkerPayroll(
   workingDaysInMonth: number,
   hrSettings: any,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
 ) {
   const attendanceRecords = isFreelancer
     ? worker.attendanceRecords
@@ -274,41 +273,73 @@ async function calculateWorkerPayroll(
   // PROACTIVE: Fetch all approved overtime requests for this worker in the date range
   const approvedOvertimeRequests = await db.overtimeRequest.findMany({
     where: {
-      OR: [
-        { employeeId: worker.id },
-        { freeLancerId: worker.id }
-      ],
+      OR: [{ employeeId: worker.id }, { freeLancerId: worker.id }],
       status: "APPROVED",
       // date filter is handled by matching records, but we could add it here too
     },
-    select: { date: true }
+    select: { date: true },
   });
 
   const approvedDates = new Set(
-    approvedOvertimeRequests.map(req => req.date.toISOString().split('T')[0])
+    approvedOvertimeRequests.map((req) => req.date.toISOString().split("T")[0]),
   );
 
-  // Fetch completed Emergency Call Outs for this worker in the date range
-  const completedCallOuts = await db.emergencyCallOut.findMany({
+  // Fetch completed Emergency Call Outs where worker was the requester (Team Leader)
+  const completedCallOutsAsLeader = await db.emergencyCallOut.findMany({
     where: {
-      OR: [
-        { employeeId: worker.id },
-        { freeLancerId: worker.id }
-      ],
+      OR: [{ employeeId: worker.id }, { freeLancerId: worker.id }],
       status: "COMPLETED",
       checkIn: {
         gte: startDate,
         lte: endDate,
       },
-      duration: { not: null }
-    }
+    },
   });
 
-  const callOutHours = completedCallOuts.reduce((acc, curr) => acc + (curr.duration || 0), 0);
+  // Fetch completed Emergency Call Outs where worker was an Assistant
+  const completedCallOutsAsAssistant = await db.callOutAssistant.findMany({
+    where: {
+      OR: [{ employeeId: worker.id }, { freelancerId: worker.id }],
+      emergencyCallOut: {
+        status: "COMPLETED",
+        checkIn: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+    },
+    include: {
+      emergencyCallOut: {
+        select: {
+          duration: true,
+        },
+      },
+    },
+  });
+
+  const callOutHours =
+    completedCallOutsAsLeader.reduce(
+      (acc, curr) => acc + (curr.duration || 0),
+      0,
+    ) +
+    completedCallOutsAsAssistant.reduce(
+      (acc, curr) => acc + (curr.emergencyCallOut?.duration || 0),
+      0,
+    );
+
+  const callOutEarnings =
+    completedCallOutsAsLeader.reduce(
+      (acc, curr) => acc + Number(curr.earnings || 0),
+      0,
+    ) +
+    completedCallOutsAsAssistant.reduce(
+      (acc, curr) => acc + Number(curr.earnings || 0),
+      0,
+    );
 
   let totalRegularHours = 0;
   let totalOvertimeHours = callOutHours;
-  let totalOvertimeAmount = callOutHours * overtimeHourRate;
+  let totalOvertimeAmount = callOutEarnings;
 
   const paidDays = attendanceRecords.filter((record: any) => {
     const isPaidDay =
@@ -316,8 +347,8 @@ async function calculateWorkerPayroll(
       record.status !== AttendanceStatus.UNPAID_LEAVE;
 
     if (isPaidDay && record.overtimeHours) {
-      const recordDateStr = new Date(record.date).toISOString().split('T')[0];
-      
+      const recordDateStr = new Date(record.date).toISOString().split("T")[0];
+
       // Only count overtime if it was approved for this date
       if (approvedDates.has(recordDateStr)) {
         const overtimeHours = Number(record.overtimeHours);
@@ -327,7 +358,9 @@ async function calculateWorkerPayroll(
         const overtimeAmount = overtimeHours * overtimeHourRate;
         totalOvertimeAmount += overtimeAmount;
       } else {
-        console.log(`Overtime for ${worker.firstName} on ${recordDateStr} ignored because not approved.`);
+        console.log(
+          `Overtime for ${worker.firstName} on ${recordDateStr} ignored because not approved.`,
+        );
       }
     }
 
@@ -347,7 +380,7 @@ async function calculateWorkerPayroll(
   } else {
     // Monthly employees: full monthly salary minus unpaid leave deduction only
     const unpaidLeaveDays = attendanceRecords.filter(
-      (record: any) => record.status === AttendanceStatus.UNPAID_LEAVE
+      (record: any) => record.status === AttendanceStatus.UNPAID_LEAVE,
     ).length;
 
     // Only deduct for unpaid leave days
@@ -386,7 +419,7 @@ async function calculateWorkerPayroll(
     isFreelancer ? "FREELANCER" : "EMPLOYEE",
     performanceMetrics, // Pass metrics to the engine
     attendanceBreakdown,
-    0 // existingLoans placeholder
+    0, // existingLoans placeholder
   );
 
   return {
@@ -443,25 +476,25 @@ function calculateAttendanceBreakdown(records: any[]) {
   const presentDays = records.filter(
     (record) =>
       record.status === AttendanceStatus.PRESENT ||
-      record.status === AttendanceStatus.LATE
+      record.status === AttendanceStatus.LATE,
   ).length;
 
   const halfDays = records.filter(
-    (record) => record.status === AttendanceStatus.HALF_DAY
+    (record) => record.status === AttendanceStatus.HALF_DAY,
   ).length;
 
   const leaveDays = records.filter(
     (record) =>
       record.status === AttendanceStatus.ANNUAL_LEAVE ||
-      record.status === AttendanceStatus.SICK_LEAVE
+      record.status === AttendanceStatus.SICK_LEAVE,
   ).length;
 
   const absentDays = records.filter(
-    (record) => record.status === AttendanceStatus.ABSENT
+    (record) => record.status === AttendanceStatus.ABSENT,
   ).length;
 
   const unpaidLeaveDays = records.filter(
-    (record) => record.status === AttendanceStatus.UNPAID_LEAVE
+    (record) => record.status === AttendanceStatus.UNPAID_LEAVE,
   ).length;
 
   return {

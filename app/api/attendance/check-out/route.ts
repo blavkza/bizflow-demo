@@ -121,19 +121,17 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // 4. FIND ACTIVE ATTENDANCE RECORD
     // ---------------------------------------------------------
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-
-    // Find active records from today OR yesterday (for night shifts)
-    const attendanceRecords = await db.attendanceRecord.findMany({
+    // Find the LATEST attendance record that doesn't have a checkout
+    // This handles overnight shifts, late checkouts, and multi-day scenarios
+    const attendanceRecord = await db.attendanceRecord.findFirst({
       where: {
         ...(personType === "employee"
           ? { employeeId: person.id }
           : { freeLancerId: person.id }),
-        OR: [{ date: today }, { date: yesterday, checkOut: null }],
+        checkIn: { not: null }, // Must have checked in
         checkOut: null, // Must not be checked out already
       },
-      orderBy: { date: "desc" },
+      orderBy: { date: "desc" }, // Get the most recent one
       include: {
         employee:
           personType === "employee"
@@ -160,21 +158,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Find the most recent record that hasn't been checked out
-    let attendanceRecord = null;
-    for (const record of attendanceRecords) {
-      if (!record.checkOut) {
-        attendanceRecord = record;
-        break;
-      }
-    }
-
     if (!attendanceRecord) {
+      console.log(`No active check-in found for ${personType} ${person.id}`);
       return NextResponse.json(
         { error: "No active check-in found" },
         { status: 400 },
       );
     }
+
+    console.log(
+      `Found attendance record: ${attendanceRecord.id}, date: ${attendanceRecord.date}, checkIn: ${attendanceRecord.checkIn}`,
+    );
 
     // Determine if this is a night shift
     const isNightShift =
@@ -189,7 +183,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const checkInTime = attendanceRecord.checkIn!;
+    // Ensure the record has a check-in time
+    if (!attendanceRecord.checkIn) {
+      return NextResponse.json(
+        { error: "Invalid attendance record: missing check-in time" },
+        { status: 400 },
+      );
+    }
+
+    const checkInTime = attendanceRecord.checkIn;
 
     // ---------------------------------------------------------
     // 5. DETERMINE SCHEDULE (PRIORITY: BYPASS > WEEKEND > NORMAL)
@@ -288,13 +290,41 @@ export async function POST(request: NextRequest) {
       console.log("Generic Bypass: Forcing PRESENT status");
     }
 
-    // Calculate overtime pay if applicable
+    // ---------------------------------------------------------
+    // CHECK FOR APPROVED OVERTIME REQUEST
+    // ---------------------------------------------------------
+    // Only count overtime hours if there's an approved overtime request
+    let finalOvertimeHours = 0;
     let overtimePay = 0;
-    if (overtimeHours > 0 && personType === "employee") {
-      overtimePay = overtimeHours * overtimeHourRate;
-      console.log(
-        `Overtime pay: ${overtimeHours}h * R${overtimeHourRate} = R${overtimePay}`,
-      );
+
+    if (overtimeHours > 0) {
+      // Check if there's an approved overtime request for this attendance record
+      const overtimeRequest = await db.overtimeRequest.findFirst({
+        where: {
+          ...(personType === "employee"
+            ? { employeeId: person.id }
+            : { freelancerId: person.id }),
+          date: attendanceRecord.date,
+          status: "APPROVED",
+        },
+      });
+
+      if (overtimeRequest) {
+        // Overtime is approved, calculate it
+        finalOvertimeHours = overtimeHours;
+        if (personType === "employee") {
+          overtimePay = overtimeHours * overtimeHourRate;
+          console.log(
+            `Overtime APPROVED: ${overtimeHours}h * R${overtimeHourRate} = R${overtimePay}`,
+          );
+        }
+      } else {
+        // No approved overtime, those hours won't be counted as overtime
+        console.log(
+          `Overtime NOT APPROVED: ${overtimeHours}h will not be counted as overtime`,
+        );
+        // finalOvertimeHours stays 0
+      }
     }
 
     // Prepare Notes
@@ -324,9 +354,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (overtimeHours > 0) {
+    if (finalOvertimeHours > 0) {
       statusNotes +=
-        (statusNotes ? " | " : "") + `Overtime: ${overtimeHours.toFixed(1)}h`;
+        (statusNotes ? " | " : "") +
+        `Overtime: ${finalOvertimeHours.toFixed(1)}h`;
       if (overtimePay > 0) {
         statusNotes += ` (Pay: R${overtimePay.toFixed(2)})`;
       }
@@ -366,7 +397,7 @@ export async function POST(request: NextRequest) {
         return isNaN(p) ? null : p;
       })(),
       regularHours,
-      overtimeHours,
+      overtimeHours: finalOvertimeHours, // Use approved overtime hours only
       status: finalStatus,
       notes: statusNotes,
       bypassApplied: bypassApplied || attendanceRecord.bypassApplied,
@@ -379,7 +410,7 @@ export async function POST(request: NextRequest) {
       updateData.scheduledKnockOut = scheduledKnockOutTime;
     }
 
-    attendanceRecord = await db.attendanceRecord.update({
+    const updatedRecord = await db.attendanceRecord.update({
       where: { id: attendanceRecord.id },
       data: updateData,
       include: {
@@ -411,13 +442,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: "Check-out recorded successfully",
-      record: attendanceRecord,
+      record: updatedRecord,
       regularHours,
-      overtimeHours,
+      overtimeHours: finalOvertimeHours,
       overtimePay: overtimePay > 0 ? overtimePay : null,
       status: finalStatus,
       workedPercentage: Math.round(workedPercentage),
-      hasOvertime: overtimeHours > 0,
+      hasOvertime: finalOvertimeHours > 0,
       warning: warningCreated,
       triggeredAbsentCreation: shouldCreateAbsentRecords,
       personType,

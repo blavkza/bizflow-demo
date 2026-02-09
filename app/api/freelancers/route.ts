@@ -22,6 +22,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const campany = await db.generalSetting.findFirst();
+
     const body = await req.json();
     const {
       firstName,
@@ -63,7 +65,9 @@ export async function POST(req: Request) {
         lastName,
         position,
         phone,
-        email: email || "No Email",
+        email:
+          email ||
+          `${freeLancerNumber}@${campany?.companyName?.replace(/\s+/g, "")}.com`,
         departmentId,
         salary,
         overtimeHourRate: overtimeHourRate || 0,
@@ -82,6 +86,7 @@ export async function POST(req: Request) {
         scheduledWeekendKnockOut,
         scheduledWeekendKnockIn,
         terminationDate,
+        generalSettingId: campany?.id,
       },
     });
 
@@ -120,8 +125,7 @@ export async function GET() {
     }
 
     const hasFullAccess =
-      user.role === "CHIEF_EXECUTIVE_OFFICER" ||
-      user.role === "ADMIN_MANAGER";
+      user.role === "CHIEF_EXECUTIVE_OFFICER" || user.role === "ADMIN_MANAGER";
 
     const freelancerWhere: any = {};
     if (!hasFullAccess && user.employee?.departmentId) {
@@ -188,7 +192,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       { message: "Failed to fetch Freelancer", error },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

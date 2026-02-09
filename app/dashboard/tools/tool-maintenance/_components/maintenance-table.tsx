@@ -79,7 +79,11 @@ export function MaintenanceFilterTable({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "COMPLETED":
-        return <Badge variant="outline">COMPLETED</Badge>;
+        return (
+          <Badge className="bg-emerald-500 hover:bg-emerald-600">
+            COMPLETED
+          </Badge>
+        );
       case "IN_PROGRESS":
         return <Badge variant="secondary">IN PROGRESS</Badge>;
       case "PENDING":

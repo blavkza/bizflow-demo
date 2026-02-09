@@ -43,7 +43,7 @@ export async function GET(req: Request) {
     const toolNames = Array.from(
       new Set(requests.map((r: any) => r.toolName as string)),
     );
-    const tools = await db.employeeTool.findMany({
+    const tools = await db.tool.findMany({
       where: {
         name: { in: toolNames },
         NOT: {

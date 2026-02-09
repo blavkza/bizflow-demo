@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { UserPermission, UserRole } from "@prisma/client";
+import { UserPermission, UserRole, ToolStatus } from "@prisma/client";
 
 export async function POST(req: Request) {
   try {
@@ -28,36 +28,99 @@ export async function POST(req: Request) {
       name,
       description,
       serialNumber,
+      code,
+      category,
       purchasePrice,
       quantity,
+      purchaseDate: purchaseDateString,
       employeeId,
       freelancerId,
       condition,
       images,
+      canBeRented,
+      rentalRateDaily,
+      rentalRateWeekly,
+      rentalRateMonthly,
+      parentToolId, // Extract parentToolId
     } = body;
 
-    const tool = await db.employeeTool.create({
-      data: {
-        name,
-        description,
-        serialNumber,
-        purchasePrice,
-        quantity,
-        employeeId,
-        freelancerId,
-        condition,
-        images,
-        // Automatically set status based on allocation
-        status: employeeId || freelancerId ? "ALLOCATED" : "AVAILABLE",
-        allocatedDate: employeeId || freelancerId ? new Date() : null,
-        createdBy: user.id,
-      },
+    const purchaseDate = purchaseDateString
+      ? new Date(purchaseDateString)
+      : null;
+
+    const tool = await db.$transaction(async (tx) => {
+      // If allocating from a parent tool
+      if (parentToolId) {
+        const parent = await tx.tool.findUnique({
+          where: { id: parentToolId },
+        });
+
+        if (!parent) {
+          throw new Error("Parent tool not found");
+        }
+
+        if (parent.quantity < quantity) {
+          throw new Error("Insufficient quantity in main inventory");
+        }
+
+        // Decrement parent quantity
+        await tx.tool.update({
+          where: { id: parentToolId },
+          data: {
+            quantity: {
+              decrement: quantity,
+            },
+          },
+        });
+
+        // Log the movement (Check Out from Main Inventory)
+        await tx.toolMovement.create({
+          data: {
+            toolId: parentToolId,
+            type: "CHECK_OUT",
+            quantity: quantity,
+            employeeId,
+            freelancerId,
+            createdBy: user.id,
+            notes: "Allocated to worker/freelancer",
+          },
+        });
+      }
+
+      // Create the new tool (allocation record)
+      return await tx.tool.create({
+        data: {
+          name,
+          description,
+          serialNumber,
+          code,
+          category,
+          purchasePrice,
+          quantity,
+          purchaseDate,
+          employeeId,
+          freelancerId,
+          condition,
+          images,
+          canBeRented,
+          rentalRateDaily,
+          rentalRateWeekly,
+          rentalRateMonthly,
+          parentToolId, // Link to parent
+          status:
+            employeeId || freelancerId
+              ? ToolStatus.ALLOCATED
+              : ToolStatus.AVAILABLE,
+          allocatedDate: employeeId || freelancerId ? new Date() : null,
+          createdBy: user.id,
+        },
+      });
     });
 
     return NextResponse.json(tool);
-  } catch (error) {
+  } catch (error: any) {
     console.log("[WORKER_TOOLS_POST]", error);
-    return new NextResponse("Internal Error", { status: 500 });
+    return new NextResponse(error.message || "Internal Error", { status: 500 });
   }
 }
 
@@ -69,10 +132,7 @@ export async function GET(req: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const tools = await db.employeeTool.findMany({
-      where: {
-        parentToolId: null,
-      },
+    const tools = await db.tool.findMany({
       include: {
         employee: true,
         freelancer: true,
@@ -88,11 +148,24 @@ export async function GET(req: Request) {
       name: tool.name,
       description: tool.description,
       serialNumber: tool.serialNumber || "-",
+      code: tool.code || "-",
+      category: tool.category,
+      purchaseDate: tool.purchaseDate,
       status: tool.status,
       condition: tool.condition,
       purchasePrice: parseFloat(tool.purchasePrice.toString()),
       quantity: tool.quantity,
       images: tool.images,
+      canBeRented: tool.canBeRented,
+      rentalRateDaily: tool.rentalRateDaily
+        ? parseFloat(tool.rentalRateDaily.toString())
+        : null,
+      rentalRateWeekly: tool.rentalRateWeekly
+        ? parseFloat(tool.rentalRateWeekly.toString())
+        : null,
+      rentalRateMonthly: tool.rentalRateMonthly
+        ? parseFloat(tool.rentalRateMonthly.toString())
+        : null,
       allocatedDate: tool.allocatedDate,
       allocatedTo: tool.employee
         ? `${tool.employee.firstName} ${tool.employee.lastName}`

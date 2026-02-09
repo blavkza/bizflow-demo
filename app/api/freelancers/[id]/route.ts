@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { id } = params;
@@ -62,7 +62,7 @@ export async function GET(
     if (!freelancer) {
       return NextResponse.json(
         { error: "Freelancer not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -71,7 +71,7 @@ export async function GET(
     console.error("Error fetching Freelancer:", error);
     return NextResponse.json(
       { error: "Failed to fetch Freelancer" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -82,7 +82,7 @@ export async function PUT(
     params,
   }: {
     params: Promise<{ id: string }>;
-  }
+  },
 ) {
   try {
     const { id } = await params;
@@ -130,6 +130,8 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const campany = await db.generalSetting.findFirst();
+
     const updatedFreelancer = await db.freeLancer.update({
       where: { id },
       data: {
@@ -154,6 +156,7 @@ export async function PUT(
         scheduledWeekendKnockOut,
         scheduledWeekendKnockIn,
         terminationDate,
+        generalSettingId: campany?.id,
       },
     });
 
@@ -173,14 +176,14 @@ export async function PUT(
     console.error("Error updating Freelancer:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   const { id } = params;
 
@@ -215,7 +218,7 @@ export async function DELETE(
     if (!freeLancer) {
       return NextResponse.json(
         { error: "Freelancer not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -236,13 +239,13 @@ export async function DELETE(
 
     return NextResponse.json(
       { message: "Freelancer deleted successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error deleting Freelancer:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

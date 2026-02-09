@@ -17,8 +17,15 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { employeeIds, title, message, startTime } = body;
 
-    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
-      return NextResponse.json({ error: "At least one employee ID is required" }, { status: 400 });
+    if (
+      !employeeIds ||
+      !Array.isArray(employeeIds) ||
+      employeeIds.length === 0
+    ) {
+      return NextResponse.json(
+        { error: "At least one employee ID is required" },
+        { status: 400 },
+      );
     }
 
     const results = [];
@@ -51,7 +58,9 @@ export async function POST(request: Request) {
       await sendPushNotification({
         employeeId,
         title: `Emergency Call Out: ${title}`,
-        body: message || "You have an emergency call out request. Please accept or decline in the app.",
+        body:
+          message ||
+          "You have an emergency call out request. Please accept or decline in the app.",
         data: { type: "EMERGENCY_CALL_OUT", callOutId: callOut.id },
       });
 
@@ -71,14 +80,29 @@ export async function GET(request: Request) {
     const employeeId = searchParams.get("employeeId");
     const status = searchParams.get("status");
     const active = searchParams.get("active"); // Filter for accepted but not completed
+    const date = searchParams.get("date"); // Filter by check-in date
 
     const where: any = {};
     if (employeeId) where.employeeId = employeeId;
     if (status) where.status = status;
-    
+
     if (active === "true") {
       where.status = "ACCEPTED";
       where.checkOut = null; // Still active if not checked out
+    }
+
+    // Filter by date if provided (check-in date)
+    if (date) {
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      where.checkIn = {
+        gte: startOfDay,
+        lte: endOfDay,
+      };
     }
 
     const callOuts = await db.emergencyCallOut.findMany({
@@ -86,7 +110,30 @@ export async function GET(request: Request) {
       orderBy: { requestedAt: "desc" },
       include: {
         employee: {
-          select: { firstName: true, lastName: true },
+          select: {
+            id: true,
+            employeeNumber: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            position: true,
+            department: {
+              select: { name: true },
+            },
+          },
+        },
+        freeLancer: {
+          select: {
+            id: true,
+            freeLancerNumber: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            position: true,
+            department: {
+              select: { name: true },
+            },
+          },
         },
         requestedUser: {
           select: { name: true },
@@ -103,14 +150,27 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
-    const { callOutId, status, declinedReason, checkIn, checkOut, lat, lng, address, notes } = body;
+    const {
+      callOutId,
+      status,
+      declinedReason,
+      checkIn,
+      checkOut,
+      lat,
+      lng,
+      address,
+      notes,
+    } = body;
 
     if (!callOutId) {
-      return NextResponse.json({ error: "CallOut ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "CallOut ID is required" },
+        { status: 400 },
+      );
     }
 
     const updateData: any = {};
-    
+
     if (status) updateData.status = status;
 
     if (status === "ACCEPTED") {
@@ -127,30 +187,41 @@ export async function PATCH(request: Request) {
       // Fetch the call-out to check the start time
       const callOut = await db.emergencyCallOut.findUnique({
         where: { id: callOutId },
-        select: { startTime: true, status: true }
+        select: { startTime: true, status: true },
       });
 
       if (!callOut) {
-        return NextResponse.json({ error: "Call-out not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Call-out not found" },
+          { status: 404 },
+        );
       }
 
       // Validate that the call-out has been accepted
       if (callOut.status !== "ACCEPTED") {
-        return NextResponse.json({ 
-          error: "Cannot check in to a call-out that hasn't been accepted" 
-        }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: "Cannot check in to a call-out that hasn't been accepted",
+          },
+          { status: 400 },
+        );
       }
 
       // Validate that the current time is at or after the scheduled start time
       const now = new Date();
       const startTime = new Date(callOut.startTime);
-      
+
       if (now < startTime) {
-        const minutesUntilStart = Math.ceil((startTime.getTime() - now.getTime()) / (1000 * 60));
-        return NextResponse.json({ 
-          error: `Cannot check in before the scheduled start time. Please wait ${minutesUntilStart} minute(s).`,
-          startTime: startTime.toISOString()
-        }, { status: 400 });
+        const minutesUntilStart = Math.ceil(
+          (startTime.getTime() - now.getTime()) / (1000 * 60),
+        );
+        return NextResponse.json(
+          {
+            error: `Cannot check in before the scheduled start time. Please wait ${minutesUntilStart} minute(s).`,
+            startTime: startTime.toISOString(),
+          },
+          { status: 400 },
+        );
       }
 
       updateData.checkIn = new Date();
@@ -163,7 +234,7 @@ export async function PATCH(request: Request) {
     // Handle check-out
     if (checkOut === true) {
       const current = await db.emergencyCallOut.findUnique({
-        where: { id: callOutId }
+        where: { id: callOutId },
       });
 
       if (current && current.checkIn) {

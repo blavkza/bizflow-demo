@@ -39,6 +39,7 @@ export const createUserSchema = z
     status: z.nativeEnum(UserStatus),
     userType: z.nativeEnum(UserType),
     employeeId: z.string().optional(),
+    freelancerId: z.string().optional(),
     password: z
       .string()
       .min(8, { message: "Password must be at least 8 characters long!" })
@@ -68,6 +69,14 @@ export const createUserSchema = z
         path: ["employeeId"],
       });
     }
+    // Freelancer users must be linked to a freelancer
+    if (data.userType === UserType.FREELANCER && !data.freelancerId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Freelancer must be selected when user type is Freelancer",
+        path: ["freelancerId"],
+      });
+    }
   });
 
 export type createUserSchemaType = z.infer<typeof createUserSchema>;
@@ -81,6 +90,7 @@ export const updateUserSchema = z
     status: z.nativeEnum(UserStatus),
     userType: z.nativeEnum(UserType),
     employeeId: z.string().optional(),
+    freelancerId: z.string().optional(),
     permissions: z.array(z.nativeEnum(UserPermission)).default([]),
   })
   .superRefine((data, ctx) => {
@@ -90,6 +100,14 @@ export const updateUserSchema = z
         code: z.ZodIssueCode.custom,
         message: "Employee must be selected when user type is Employee",
         path: ["employeeId"],
+      });
+    }
+    // Freelancer users must be linked to a freelancer
+    if (data.userType === UserType.FREELANCER && !data.freelancerId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Freelancer must be selected when user type is Freelancer",
+        path: ["freelancerId"],
       });
     }
   });
@@ -158,7 +176,7 @@ export const clientSchema = z
     {
       message: "Company full name is required for company type",
       path: ["companyFullName"],
-    }
+    },
   );
 
 export type clientSchemaType = z.infer<typeof clientSchema>;
@@ -330,7 +348,7 @@ export const employeeSchema = z
     {
       message: "Salary is required for the selected salary type",
       path: ["salaryType"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -347,7 +365,7 @@ export const employeeSchema = z
     {
       message: "Termination date must be after hire date",
       path: ["terminationDate"],
-    }
+    },
   );
 
 export type employeeSchemaType = z.infer<typeof employeeSchema>;
@@ -467,7 +485,7 @@ const payrollSchema = z.object({
         .transform((val) => Number(val)),
       description: z.string().optional(),
       departmentId: z.string().optional(),
-    })
+    }),
   ),
   totalAmount: z
     .union([z.number(), z.string()])
@@ -510,7 +528,7 @@ export const InvoiceSchema = z.object({
         itemDiscountType: z.nativeEnum(DiscountType).optional().nullable(),
         itemDiscountAmount: z.number().optional().nullable(),
         details: z.string().optional(),
-      })
+      }),
     )
     .min(1, "At least one item is required"),
 
@@ -567,7 +585,7 @@ export const RecurringInvoiceSchema = z.object({
         itemDiscountType: z.nativeEnum(DiscountType).optional().nullable(),
         itemDiscountAmount: z.number().optional().nullable(),
         details: z.string().optional(),
-      })
+      }),
     )
     .min(1, "At least one item is required"),
 
@@ -594,7 +612,7 @@ export const invoicePaymentSchema = z.object({
     .min(1, "Amount is required")
     .refine(
       (val) => !isNaN(parseFloat(val)) && parseFloat(val) > 0,
-      "Amount must be a positive number"
+      "Amount must be a positive number",
     )
     .transform((val) => parseFloat(val)),
   currency: z.string().default("ZAR"),

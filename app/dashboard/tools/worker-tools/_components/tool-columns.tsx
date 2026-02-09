@@ -16,6 +16,9 @@ export type ToolColumn = {
   id: string;
   name: string;
   serialNumber: string;
+  code: string;
+  category: string;
+  purchaseDate: string | null;
   status: string;
   condition: string;
   assignedTo: string;
@@ -25,6 +28,11 @@ export type ToolColumn = {
   description?: string;
   employeeId?: string | null;
   freelancerId?: string | null;
+  canBeRented: boolean;
+  rentalRateDaily: number | null;
+  rentalRateWeekly: number | null;
+  rentalRateMonthly: number | null;
+  allocatedDate: string | null;
 };
 
 import { CellAction } from "./cell-action";
