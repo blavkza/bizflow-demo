@@ -11,13 +11,31 @@ import {
   Briefcase,
   Users,
   Clock,
+  Hammer,
+  RefreshCcw,
+  Bolt,
+  Siren,
+  CalendarX,
+  Timer,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 
 interface Alert {
   id: string;
-  type: "invoice" | "expense" | "quotation" | "project" | "payroll" | "task";
+  type:
+    | "invoice"
+    | "expense"
+    | "quotation"
+    | "project"
+    | "payroll"
+    | "task"
+    | "tool-request"
+    | "tool-return"
+    | "tool-maintenance"
+    | "emergency-callout"
+    | "leave-request"
+    | "overtime-request";
   title: string;
   description: string;
   dueDate?: string;
@@ -59,10 +77,28 @@ export default function AlertsHorizontal({
         router.push(`/dashboard/projects/${actualId}`);
         break;
       case "task":
-        router.push(`/dashboard/projects?taskId=${actualId}`); // Navigate to projects with task ID as query param
+        router.push(`/dashboard/projects?taskId=${actualId}`);
         break;
       case "payroll":
         router.push(`/dashboard/payroll`);
+        break;
+      case "tool-request":
+        router.push(`/dashboard/tools/tool-request`);
+        break;
+      case "tool-return":
+        router.push(`/dashboard/tools/worker-tools/return`);
+        break;
+      case "tool-maintenance":
+        router.push(`/dashboard/tools/tool-maintenance`);
+        break;
+      case "emergency-callout":
+        router.push(`/dashboard/emergency-callouts`);
+        break;
+      case "leave-request":
+        router.push(`/dashboard/human-resources/leaves`);
+        break;
+      case "overtime-request":
+        router.push(`/dashboard/human-resources/attendence`);
         break;
       default:
         break;
@@ -87,6 +123,18 @@ export default function AlertsHorizontal({
         return <Users className="h-4 w-4" />;
       case "task":
         return <Clock className="h-4 w-4" />;
+      case "tool-request":
+        return <Hammer className="h-4 w-4" />;
+      case "tool-return":
+        return <RefreshCcw className="h-4 w-4" />;
+      case "tool-maintenance":
+        return <Bolt className="h-4 w-4" />;
+      case "emergency-callout":
+        return <Siren className="h-4 w-4 text-red-500" />;
+      case "leave-request":
+        return <CalendarX className="h-4 w-4" />;
+      case "overtime-request":
+        return <Timer className="h-4 w-4" />;
       default:
         return <AlertTriangle className="h-4 w-4" />;
     }
@@ -135,7 +183,9 @@ export default function AlertsHorizontal({
                     {getAlertIcon(alert.type)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{alert.title}</p>
+                    <p className="text-sm font-medium truncate">
+                      {alert.title}
+                    </p>
                   </div>
                   <div className="flex-shrink-0">
                     <Badge

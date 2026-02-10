@@ -55,9 +55,9 @@ export const WorkerToolsClient = () => {
     <>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">Tool Management</h2>
-        <Button onClick={() => setOpen(true)}>
+        {/* <Button onClick={() => setOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> Add Tool
-        </Button>
+        </Button> */}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -211,11 +211,11 @@ export const WorkerToolsClient = () => {
         </Card>
       </div>
 
-      <Tabs defaultValue="overall" className="space-y-4">
+      <Tabs defaultValue="employees" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overall">Overall Tools</TabsTrigger>
           <TabsTrigger value="employees">Employees</TabsTrigger>
           <TabsTrigger value="freelancers">Freelancers</TabsTrigger>
+          <TabsTrigger value="overall">Overall Tools</TabsTrigger>
         </TabsList>
         <TabsContent value="overall" className="space-y-4">
           <Card>

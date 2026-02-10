@@ -50,6 +50,20 @@ export default function AppSidebar() {
     enabled: !!userId,
   });
 
+  const {
+    data: stats,
+    isLoading: isLoadingStats,
+    error: statsError,
+  } = useQuery({
+    queryKey: ["sidebar-stats"],
+    queryFn: async () => {
+      const response = await fetch("/api/sidebar/stats");
+      if (!response.ok) throw new Error("Failed to fetch sidebar stats");
+      return response.json();
+    },
+    refetchInterval: 30000,
+  });
+
   React.useEffect(() => {
     if (userError) {
       console.error("Failed to fetch user data:", userError);
@@ -60,7 +74,11 @@ export default function AppSidebar() {
       console.error("Failed to fetch projects:", projectsError);
       toast.error("Failed to fetch projects");
     }
-  }, [userError, projectsError]);
+
+    if (statsError) {
+      console.error("Failed to fetch sidebar stats:", statsError);
+    }
+  }, [userError, projectsError, statsError]);
 
   if (!userId || isLoadingUser || isLoadingProjects) {
     return <SidebarItermsSkeleton />;
@@ -78,6 +96,12 @@ export default function AppSidebar() {
         permissions={userData?.permissions || []}
         unreadCount={unreadCount}
         userId={userData?.id}
+        pendingToolRequests={stats?.toolRequests || 0}
+        pendingToolReturns={stats?.toolReturns || 0}
+        pendingToolMaintenance={stats?.toolMaintenance || 0}
+        pendingEmergencyCallOuts={stats?.emergencyCallOuts || 0}
+        pendingLeaveRequests={stats?.leaveRequests || 0}
+        pendingOvertimeRequests={stats?.overtimeRequests || 0}
       />
     </div>
   );

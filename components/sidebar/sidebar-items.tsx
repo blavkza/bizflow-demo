@@ -40,6 +40,12 @@ interface AppSidebarProps {
   projects?: Project[];
   userId?: string | null;
   permissions?: UserPermission[];
+  pendingToolRequests?: number;
+  pendingToolReturns?: number;
+  pendingToolMaintenance?: number;
+  pendingEmergencyCallOuts?: number;
+  pendingLeaveRequests?: number;
+  pendingOvertimeRequests?: number;
 }
 
 export function SidebarItems({
@@ -48,15 +54,31 @@ export function SidebarItems({
   unreadCount = 0,
   projects = [],
   userId,
+  pendingToolRequests = 0,
+  pendingToolReturns = 0,
+  pendingToolMaintenance = 0,
+  pendingEmergencyCallOuts = 0,
+  pendingLeaveRequests = 0,
+  pendingOvertimeRequests = 0,
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
-  const data = getSidebarData(role, unreadCount, permissions);
+  const data = getSidebarData(
+    role,
+    unreadCount,
+    permissions,
+    pendingToolRequests,
+    pendingToolReturns,
+    pendingToolMaintenance,
+    pendingEmergencyCallOuts,
+    pendingLeaveRequests,
+    pendingOvertimeRequests,
+  );
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [localProjects, setLocalProjects] = useState<Project[]>([]);
   const [collapsedSections, setCollapsedSections] = useState<
@@ -122,8 +144,8 @@ export function SidebarItems({
 
     setLocalProjects((prev) =>
       prev.map((p) =>
-        p.id === projectId ? { ...p, starred: newStarredState } : p
-      )
+        p.id === projectId ? { ...p, starred: newStarredState } : p,
+      ),
     );
 
     try {
@@ -140,8 +162,8 @@ export function SidebarItems({
 
       setLocalProjects((prev) =>
         prev.map((p) =>
-          p.id === projectId ? { ...p, starred: previousStarredState } : p
-        )
+          p.id === projectId ? { ...p, starred: previousStarredState } : p,
+        ),
       );
     }
   };
@@ -160,7 +182,7 @@ export function SidebarItems({
               <div
                 className={clsx(
                   "text-md font-bold uppercase tracking-wider px-1",
-                  "text-gray-900 dark:text-gray-100"
+                  "text-gray-900 dark:text-gray-100",
                 )}
               >
                 {section.title}
@@ -199,7 +221,7 @@ export function SidebarItems({
               <div
                 className={clsx(
                   "text-xs font-bold uppercase tracking-wider px-1",
-                  "text-gray-900 dark:text-gray-100"
+                  "text-gray-900 dark:text-gray-100",
                 )}
               >
                 {section.title}
@@ -228,7 +250,7 @@ export function SidebarItems({
                     className={clsx(
                       "w-full hover:bg-accent/50",
                       isActive(pathname, item.url) &&
-                        "bg-accent/90 hover:bg-accent"
+                        "bg-accent/90 hover:bg-accent",
                     )}
                   >
                     {item.icon && (
@@ -250,7 +272,7 @@ export function SidebarItems({
                               isActive(pathname, subItem.url) &&
                                 "bg-accent/90 hover:bg-accent",
                               subItem.title === "Favourite" &&
-                                "bg-amber-50 dark:bg-amber-900/20"
+                                "bg-amber-50 dark:bg-amber-900/20",
                             )}
                           >
                             {subItem.icon && (
@@ -269,7 +291,7 @@ export function SidebarItems({
                                 className={clsx(
                                   "ml-auto h-5 w-5 shrink-0 items-center justify-center p-0 text-xs",
                                   subItem.title === "Favourite" &&
-                                    "bg-amber-100 text-amber-800 dark:bg-amber-800/30 dark:text-amber-200"
+                                    "bg-amber-100 text-amber-800 dark:bg-amber-800/30 dark:text-amber-200",
                                 )}
                               >
                                 {starredCount}
@@ -289,7 +311,7 @@ export function SidebarItems({
             .sort(
               (a, b) =>
                 new Date(b.updatedAt).getTime() -
-                new Date(a.updatedAt).getTime()
+                new Date(a.updatedAt).getTime(),
             )
             .slice(0, 3)
             .map((project) => (
@@ -318,7 +340,7 @@ export function SidebarItems({
                   className={clsx(
                     "w-full hover:bg-accent/50",
                     isActive(pathname, item.url) &&
-                      "bg-accent/90 hover:bg-accent"
+                      "bg-accent/90 hover:bg-accent",
                   )}
                 >
                   {item.icon && (
@@ -338,7 +360,7 @@ export function SidebarItems({
                           className={clsx(
                             "hover:bg-accent/30",
                             isActive(pathname, subItem.url) &&
-                              "bg-accent/90 hover:bg-accent"
+                              "bg-accent/90 hover:bg-accent",
                           )}
                         >
                           {subItem.icon && (
@@ -365,7 +387,7 @@ export function SidebarItems({
             className={clsx(
               "hover:bg-accent/50",
               isActive(pathname, item.url, item.alwaysActive) &&
-                "bg-accent/90 hover:bg-accent"
+                "bg-accent/90 hover:bg-accent",
             )}
           >
             <Link href={item.url || "#"}>

@@ -129,7 +129,19 @@ export interface DashboardTransaction {
 
 export interface Alert {
   id: string;
-  type: "invoice" | "expense" | "quotation" | "project" | "payroll" | "task";
+  type:
+    | "invoice"
+    | "expense"
+    | "quotation"
+    | "project"
+    | "payroll"
+    | "task"
+    | "tool-request"
+    | "tool-return"
+    | "tool-maintenance"
+    | "emergency-callout"
+    | "leave-request"
+    | "overtime-request";
   title: string;
   description: string;
   dueDate?: string;

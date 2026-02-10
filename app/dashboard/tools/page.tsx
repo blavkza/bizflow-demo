@@ -4,14 +4,14 @@ import { useState, useEffect } from "react";
 import { Tool } from "@/types/tool";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LoadingState } from "./components/LoadingState";
-import { ToolsHeader } from "./components/ToolsHeader";
-import { ToolsSummary } from "./components/ToolsSummary";
-import { ToolsFilters } from "./components/ToolsFilters";
-import { ToolsGrid } from "./components/ToolsGrid";
-import { ToolsList } from "./components/ToolsList";
-import { EmptyState } from "./components/EmptyState";
-import { AddToolDialog } from "./components/AddToolDialog";
+import { LoadingState } from "./_components/LoadingState";
+import { ToolsHeader } from "./_components/ToolsHeader";
+import { ToolsSummary } from "./_components/ToolsSummary";
+import { ToolsFilters } from "./_components/ToolsFilters";
+import { ToolsGrid } from "./_components/ToolsGrid";
+import { ToolsList } from "./_components/ToolsList";
+import { EmptyState } from "./_components/EmptyState";
+import { AddToolDialog } from "./_components/AddToolDialog";
 
 export default function ToolsPage() {
   const [tools, setTools] = useState<Tool[]>([]);

@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MaintenanceForm } from "../../components/MaintenanceForm";
+import { MaintenanceForm } from "../../_components/MaintenanceForm";
 import { Tool } from "@/types/tool";
 
 interface MaintenanceDialogProps {

@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { InterUseForm } from "../../components/InterUseForm";
+import { InterUseForm } from "../../_components/InterUseForm";
 import { Tool } from "@/types/tool";
 
 interface InterUseDialogProps {

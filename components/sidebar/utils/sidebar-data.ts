@@ -61,6 +61,12 @@ export const getSidebarData = (
   role: string,
   unreadCount: number = 0,
   permissions: UserPermission[],
+  pendingToolRequests: number = 0,
+  pendingToolReturns: number = 0,
+  pendingToolMaintenance: number = 0,
+  pendingEmergencyCallOuts: number = 0,
+  pendingLeaveRequests: number = 0,
+  pendingOvertimeRequests: number = 0,
 ): SidebarData => {
   const fullAccessRoles = [
     UserRole.CHIEF_EXECUTIVE_OFFICER,
@@ -420,6 +426,10 @@ export const getSidebarData = (
             url: "/dashboard/tools/worker-tools/return",
             icon: RefreshCcw,
             color: "text-emerald-500",
+            badge:
+              pendingToolReturns > 0
+                ? pendingToolReturns.toString()
+                : undefined,
           },
         ]
       : []),
@@ -431,6 +441,10 @@ export const getSidebarData = (
             url: "/dashboard/tools/tool-request",
             icon: ClipboardList,
             color: "text-blue-500",
+            badge:
+              pendingToolRequests > 0
+                ? pendingToolRequests.toString()
+                : undefined,
           },
         ]
       : []),
@@ -442,6 +456,10 @@ export const getSidebarData = (
             url: "/dashboard/tools/tool-maintenance",
             icon: Bolt,
             color: "text-gray-500",
+            badge:
+              pendingToolMaintenance > 0
+                ? pendingToolMaintenance.toString()
+                : undefined,
           },
         ]
       : []),
@@ -500,6 +518,10 @@ export const getSidebarData = (
             url: "/dashboard/human-resources/attendence",
             icon: Calendar,
             color: "text-cyan-500",
+            badge:
+              pendingOvertimeRequests > 0
+                ? pendingOvertimeRequests.toString()
+                : undefined,
           },
         ]
       : []),
@@ -510,6 +532,10 @@ export const getSidebarData = (
             url: "/dashboard/emergency-callouts",
             icon: Siren,
             color: "text-red-500",
+            badge:
+              pendingEmergencyCallOuts > 0
+                ? pendingEmergencyCallOuts.toString()
+                : undefined,
           },
         ]
       : []),
@@ -520,6 +546,10 @@ export const getSidebarData = (
             url: "/dashboard/human-resources/leaves",
             icon: CalendarClockIcon,
             color: "text-yellow-500",
+            badge:
+              pendingLeaveRequests > 0
+                ? pendingLeaveRequests.toString()
+                : undefined,
           },
         ]
       : []),

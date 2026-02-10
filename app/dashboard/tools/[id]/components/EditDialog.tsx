@@ -5,7 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ToolForm } from "../../components/ToolForm";
+import { ToolForm } from "../../_components/ToolForm";
 import { Tool } from "@/types/tool";
 
 interface EditDialogProps {

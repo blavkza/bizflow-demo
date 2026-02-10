@@ -63,10 +63,10 @@ async function getCashFlowForecast() {
 
   const quarterDaysTotal = Math.floor(
     (quarterEndDate.getTime() - quarterStartDate.getTime()) /
-      (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24),
   );
   const quarterDaysElapsed = Math.floor(
-    (now.getTime() - quarterStartDate.getTime()) / (1000 * 60 * 60 * 24)
+    (now.getTime() - quarterStartDate.getTime()) / (1000 * 60 * 60 * 24),
   );
   const quarterProgress = (quarterDaysElapsed / quarterDaysTotal) * 100;
 
@@ -75,10 +75,10 @@ async function getCashFlowForecast() {
   const yearEndDate = new Date(currentYear, 11, 31);
 
   const yearDaysTotal = Math.floor(
-    (yearEndDate.getTime() - yearStartDate.getTime()) / (1000 * 60 * 60 * 24)
+    (yearEndDate.getTime() - yearStartDate.getTime()) / (1000 * 60 * 60 * 24),
   );
   const yearDaysElapsed = Math.floor(
-    (now.getTime() - yearStartDate.getTime()) / (1000 * 60 * 60 * 24)
+    (now.getTime() - yearStartDate.getTime()) / (1000 * 60 * 60 * 24),
   );
   const yearProgress = (yearDaysElapsed / yearDaysTotal) * 100;
 
@@ -185,7 +185,13 @@ function generateAlerts(
   quotations: DashboardQuotation[],
   projects: DashboardProject[],
   tasks: DashboardTask[],
-  hrSettings: any
+  hrSettings: any,
+  toolRequests: any[],
+  toolReturns: any[],
+  toolMaintenance: any[],
+  emergencyCallOuts: any[],
+  leaveRequests: any[],
+  overtimeRequests: any[],
 ): Alert[] {
   const alerts: Alert[] = [];
   const now = new Date();
@@ -197,7 +203,7 @@ function generateAlerts(
 
     const dueDate = new Date(invoice.dueDate);
     const daysUntilDue = Math.ceil(
-      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
     return daysUntilDue <= 3 && isNotFullyPaid;
   });
@@ -205,7 +211,7 @@ function generateAlerts(
   dueInvoices.forEach((invoice: any) => {
     const dueDate = new Date(invoice.dueDate!);
     const daysRemaining = Math.ceil(
-      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     alerts.push({
@@ -229,7 +235,7 @@ function generateAlerts(
     if (!expense.dueDate || expense.status === "PAID") return false;
     const dueDate = new Date(expense.dueDate);
     const daysUntilDue = Math.ceil(
-      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
     return daysUntilDue <= 3;
   });
@@ -237,7 +243,7 @@ function generateAlerts(
   dueExpenses.forEach((expense: DashboardExpense) => {
     const dueDate = new Date(expense.dueDate!);
     const daysRemaining = Math.ceil(
-      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     alerts.push({
@@ -262,16 +268,16 @@ function generateAlerts(
       if (quotation.status !== "SENT") return false;
       const validUntil = new Date(quotation.validUntil);
       const daysUntilExpiry = Math.ceil(
-        (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+        (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
       );
       return daysUntilExpiry <= 3;
-    }
+    },
   );
 
   expiringQuotations.forEach((quotation: DashboardQuotation) => {
     const validUntil = new Date(quotation.validUntil);
     const daysRemaining = Math.ceil(
-      (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (validUntil.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     alerts.push({
@@ -290,7 +296,7 @@ function generateAlerts(
     if (!project.endDate || project.status === "COMPLETED") return false;
     const endDate = new Date(project.endDate);
     const daysUntilEnd = Math.ceil(
-      (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
     return daysUntilEnd <= 7;
   });
@@ -298,7 +304,7 @@ function generateAlerts(
   endingProjects.forEach((project: DashboardProject) => {
     const endDate = new Date(project.endDate!);
     const daysRemaining = Math.ceil(
-      (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     alerts.push({
@@ -318,7 +324,7 @@ function generateAlerts(
     if (!task.dueDate || task.status === "COMPLETED") return false;
     const dueDate = new Date(task.dueDate);
     const daysUntilDue = Math.ceil(
-      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
     return daysUntilDue <= 1;
   });
@@ -326,7 +332,7 @@ function generateAlerts(
   dueTasks.forEach((task: DashboardTask) => {
     const dueDate = new Date(task.dueDate!);
     const daysRemaining = Math.ceil(
-      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     alerts.push({
@@ -368,7 +374,7 @@ function generateAlerts(
     }
 
     const daysUntilPayroll = Math.ceil(
-      (nextPayrollDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+      (nextPayrollDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
     );
 
     // Only show alert if payroll is within next 7 days
@@ -405,6 +411,78 @@ function generateAlerts(
     }
   }
 
+  // Tool Requests
+  toolRequests.forEach((request) => {
+    alerts.push({
+      id: `tool-request-${request.id}`,
+      type: "tool-request",
+      title: "New Tool Request",
+      description: `${request.toolName} requested by ${request.employee?.firstName || request.freelancer?.firstName || "Unknown"}`,
+      daysRemaining: 0,
+      priority: "medium",
+    });
+  });
+
+  // Tool Returns
+  toolReturns.forEach((ret) => {
+    alerts.push({
+      id: `tool-return-${ret.id}`,
+      type: "tool-return",
+      title: "Tool Return Pending",
+      description: `${ret.tool?.name} returned by ${ret.employee?.firstName || ret.freelancer?.firstName || "Unknown"}`,
+      daysRemaining: 0,
+      priority: "medium",
+    });
+  });
+
+  // Tool Maintenance
+  toolMaintenance.forEach((maint) => {
+    alerts.push({
+      id: `tool-maintenance-${maint.id}`,
+      type: "tool-maintenance",
+      title: "Tool Maintenance Required",
+      description: `${maint.tool?.name} - ${maint.issueDescription || "No description"}`,
+      daysRemaining: 0,
+      priority: "high",
+    });
+  });
+
+  // Emergency Call-Outs
+  emergencyCallOuts.forEach((callout) => {
+    alerts.push({
+      id: `emergency-callout-${callout.id}`,
+      type: "emergency-callout",
+      title: "New Emergency Call-Out",
+      description: `${callout.title} - Requested by ${callout.requestedUser?.name || "Unknown"}`,
+      daysRemaining: 0,
+      priority: "critical",
+    });
+  });
+
+  // Leave Requests
+  leaveRequests.forEach((leave) => {
+    alerts.push({
+      id: `leave-request-${leave.id}`,
+      type: "leave-request",
+      title: "New Leave Request",
+      description: `${leave.leaveType} requested by ${leave.employee?.firstName || leave.freeLancer?.firstName || "Unknown"}`,
+      daysRemaining: 0,
+      priority: "medium",
+    });
+  });
+
+  // Overtime Requests
+  overtimeRequests.forEach((overtime) => {
+    alerts.push({
+      id: `overtime-request-${overtime.id}`,
+      type: "overtime-request",
+      title: "Overtime Request",
+      description: `Date: ${new Date(overtime.date).toLocaleDateString()} - ${overtime.employee?.firstName || overtime.freeLancer?.firstName || "Unknown"}`,
+      daysRemaining: 0,
+      priority: "medium",
+    });
+  });
+
   // Sort alerts by priority and due date
   const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
   return alerts.sort((a, b) => {
@@ -431,12 +509,12 @@ export async function GET(request: NextRequest) {
     const todayStart = new Date(
       now.getFullYear(),
       now.getMonth(),
-      now.getDate()
+      now.getDate(),
     );
     const todayEnd = new Date(
       now.getFullYear(),
       now.getMonth(),
-      now.getDate() + 1
+      now.getDate() + 1,
     );
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
@@ -469,6 +547,12 @@ export async function GET(request: NextRequest) {
       cashFlowForecast,
       recentTransactionsData,
       allTimeExpenseTransactions, // <--- ADDED ALL TIME EXPENSE TRANSACTIONS
+      pendingToolRequests,
+      pendingToolReturns,
+      pendingToolMaintenance,
+      pendingEmergencyCallOuts,
+      pendingLeaveRequests,
+      pendingOvertimeRequests,
     ] = await Promise.all([
       // Current month invoices
       db.invoice.findMany({
@@ -722,7 +806,31 @@ export async function GET(request: NextRequest) {
           type: TransactionType.EXPENSE, // Filter by EXPENSE type
         },
       }),
-      // <--- END NEW QUERY --->
+
+      db.toolRequest.findMany({
+        where: { status: "PENDING" },
+        include: { employee: true, freelancer: true },
+      }),
+      db.toolReturn.findMany({
+        where: { isApproved: false },
+        include: { tool: true, employee: true, freelancer: true },
+      }),
+      db.toolMaintenance.findMany({
+        where: { status: "PENDING" },
+        include: { tool: true },
+      }),
+      db.emergencyCallOut.findMany({
+        where: { status: "PENDING" },
+        include: { requestedUser: true },
+      }),
+      db.leaveRequest.findMany({
+        where: { status: "PENDING" },
+        include: { employee: true, freeLancer: true },
+      }),
+      db.overtimeRequest.findMany({
+        where: { status: "PENDING" },
+        include: { employee: true, freeLancer: true },
+      }),
     ]);
 
     // Type the results
@@ -774,7 +882,7 @@ export async function GET(request: NextRequest) {
       .reduce(
         (sum: number, transaction: DashboardTransaction) =>
           sum + convertDecimalToNumber(transaction.amount),
-        0
+        0,
       );
 
     const currentMonthExpensesFromTransactions = typedAllTransactions
@@ -789,27 +897,27 @@ export async function GET(request: NextRequest) {
       .reduce(
         (sum: number, transaction: DashboardTransaction) =>
           sum + convertDecimalToNumber(transaction.amount),
-        0
+        0,
       );
 
     const allTimeIncomeFromTransactions = typedAllTransactions
       .filter(
-        (transaction: DashboardTransaction) => transaction.type === "INCOME"
+        (transaction: DashboardTransaction) => transaction.type === "INCOME",
       )
       .reduce(
         (sum: number, transaction: DashboardTransaction) =>
           sum + convertDecimalToNumber(transaction.amount),
-        0
+        0,
       );
 
     const allTimeExpensesFromTransactions = typedAllTransactions
       .filter(
-        (transaction: DashboardTransaction) => transaction.type === "EXPENSE"
+        (transaction: DashboardTransaction) => transaction.type === "EXPENSE",
       )
       .reduce(
         (sum: number, transaction: DashboardTransaction) =>
           sum + convertDecimalToNumber(transaction.amount),
-        0
+        0,
       );
 
     const lastMonthIncomeFromTransactions = typedAllTransactions
@@ -824,7 +932,7 @@ export async function GET(request: NextRequest) {
       .reduce(
         (sum: number, transaction: DashboardTransaction) =>
           sum + convertDecimalToNumber(transaction.amount),
-        0
+        0,
       );
 
     const lastMonthExpensesFromTransactions = typedAllTransactions
@@ -839,95 +947,95 @@ export async function GET(request: NextRequest) {
       .reduce(
         (sum: number, transaction: DashboardTransaction) =>
           sum + convertDecimalToNumber(transaction.amount),
-        0
+        0,
       );
 
     // Calculate current month metrics (KEEP ORIGINAL FOR OTHER COMPONENTS)
     const currentMonthTotalInvoicesAmount = typedCurrentMonthInvoices.reduce(
       (sum: number, invoice: DashboardInvoice) =>
         sum + convertDecimalToNumber(invoice.totalAmount),
-      0
+      0,
     );
 
     const currentMonthTotalPaidInvoicesAmount =
       typedCurrentMonthInvoicePayments.reduce(
         (sum, payment) => sum + convertDecimalToNumber(payment.amount),
-        0
+        0,
       );
 
     const currentMonthTotalExpensesAmount = typedCurrentMonthExpenses.reduce(
       (sum: number, expense: DashboardExpense) =>
         sum + convertDecimalToNumber(expense.totalAmount),
-      0
+      0,
     );
 
     const currentMonthTotalPaidExpensesAmount =
       typedCurrentMonthExpensePayments.reduce(
         (sum, payment) => sum + convertDecimalToNumber(payment.amount),
-        0
+        0,
       );
 
     const currentMonthRevenue = typedCurrentMonthTransactions.reduce(
       (sum: number, transaction: DashboardTransaction) =>
         sum + convertDecimalToNumber(transaction.amount),
-      0
+      0,
     );
 
     // Calculate last month metrics (KEEP ORIGINAL FOR OTHER COMPONENTS)
     const lastMonthTotalInvoicesAmount = typedLastMonthInvoices.reduce(
       (sum: number, invoice: DashboardInvoice) =>
         sum + convertDecimalToNumber(invoice.totalAmount),
-      0
+      0,
     );
 
     const lastMonthTotalPaidInvoicesAmount =
       typedLastMonthInvoicePayments.reduce(
         (sum, payment) => sum + convertDecimalToNumber(payment.amount),
-        0
+        0,
       );
 
     const lastMonthTotalExpensesAmount = typedLastMonthExpenses.reduce(
       (sum: number, expense: DashboardExpense) =>
         sum + convertDecimalToNumber(expense.totalAmount),
-      0
+      0,
     );
 
     const lastMonthTotalPaidExpensesAmount =
       typedLastMonthExpensePayments.reduce(
         (sum, payment) => sum + convertDecimalToNumber(payment.amount),
-        0
+        0,
       );
 
     const lastMonthRevenue = typedLastMonthTransactions.reduce(
       (sum: number, transaction: DashboardTransaction) =>
         sum + convertDecimalToNumber(transaction.amount),
-      0
+      0,
     );
 
     // Calculate real changes (USE TRANSACTIONS FOR WELCOMEHEADER)
     const invoiceChange = calculateChange(
       currentMonthTotalInvoicesAmount,
-      lastMonthTotalInvoicesAmount
+      lastMonthTotalInvoicesAmount,
     );
 
     const paidInvoiceChange = calculateChange(
       currentMonthTotalPaidInvoicesAmount,
-      lastMonthTotalPaidInvoicesAmount
+      lastMonthTotalPaidInvoicesAmount,
     );
 
     const expenseChange = calculateChange(
       currentMonthTotalExpensesAmount,
-      lastMonthTotalExpensesAmount
+      lastMonthTotalExpensesAmount,
     );
 
     const paidExpenseChange = calculateChange(
       currentMonthTotalPaidExpensesAmount,
-      lastMonthTotalPaidExpensesAmount
+      lastMonthTotalPaidExpensesAmount,
     );
 
     const revenueChange = calculateChange(
       currentMonthIncomeFromTransactions, // USE TRANSACTIONS FOR WELCOMEHEADER
-      lastMonthIncomeFromTransactions
+      lastMonthIncomeFromTransactions,
     );
 
     // Calculate current month net profit (USE TRANSACTIONS FOR WELCOMEHEADER)
@@ -942,7 +1050,7 @@ export async function GET(request: NextRequest) {
 
     const profitChangeFromTransactions = calculateChange(
       currentMonthNetProfitFromTransactions,
-      lastMonthNetProfitFromTransactions
+      lastMonthNetProfitFromTransactions,
     );
 
     // KEEP ORIGINAL FOR OTHER COMPONENTS
@@ -951,7 +1059,7 @@ export async function GET(request: NextRequest) {
     const lastMonthNetProfit = lastMonthRevenue - lastMonthTotalExpensesAmount;
     const profitChange = calculateChange(
       currentMonthNetProfit,
-      lastMonthNetProfit
+      lastMonthNetProfit,
     );
 
     // Get all invoices and expenses for detailed calculations
@@ -986,7 +1094,7 @@ export async function GET(request: NextRequest) {
         acc[invoiceId].push(payment);
         return acc;
       },
-      {} as Record<string, DashboardPayment[]>
+      {} as Record<string, DashboardPayment[]>,
     );
 
     const invoicesWithActualPayments = typedAllInvoices.map(
@@ -1009,7 +1117,7 @@ export async function GET(request: NextRequest) {
             new Date(invoice.dueDate) < now &&
             remainingAmount > 0,
         };
-      }
+      },
     );
 
     const paymentsByExpense = typedAllExpensePayments.reduce(
@@ -1021,7 +1129,7 @@ export async function GET(request: NextRequest) {
         acc[expenseId].push(payment);
         return acc;
       },
-      {} as Record<string, any[]>
+      {} as Record<string, any[]>,
     );
 
     const expensesWithActualPayments = typedAllExpenses.map(
@@ -1031,7 +1139,7 @@ export async function GET(request: NextRequest) {
           (sum: any, payment: any) => {
             return sum + convertDecimalToNumber(payment.amount);
           },
-          0
+          0,
         );
 
         const totalAmount = convertDecimalToNumber(expense.totalAmount);
@@ -1049,109 +1157,109 @@ export async function GET(request: NextRequest) {
                 ? "PARTIALLY_PAID"
                 : "UNPAID",
         };
-      }
+      },
     );
 
     // Calculate overall totals
     const totalInvoicesAmount = invoicesWithActualPayments.reduce(
       (sum: number, invoice: any) =>
         sum + convertDecimalToNumber(invoice.totalAmount),
-      0
+      0,
     );
 
     const totalPaidInvoicesAmount = invoicesWithActualPayments.reduce(
       (sum: number, invoice: any) => sum + invoice.actualPaidAmount,
-      0
+      0,
     );
 
     const paidInvoices = invoicesWithActualPayments.filter(
-      (invoice: any) => invoice.remainingAmount <= 0
+      (invoice: any) => invoice.remainingAmount <= 0,
     );
 
     const paidInvoicesCount = paidInvoices.length;
 
     const overdueInvoices = invoicesWithActualPayments.filter(
-      (invoice: any) => invoice.isOverdue
+      (invoice: any) => invoice.isOverdue,
     );
 
     const overdueInvoicesAmount = overdueInvoices.reduce(
       (sum: number, invoice: any) => sum + invoice.remainingAmount,
-      0
+      0,
     );
 
     const outstandingInvoices = invoicesWithActualPayments.filter(
-      (invoice: any) => invoice.remainingAmount > 0
+      (invoice: any) => invoice.remainingAmount > 0,
     );
 
     const outstandingInvoicesAmount = outstandingInvoices.reduce(
       (sum: number, invoice: any) => sum + invoice.remainingAmount,
-      0
+      0,
     );
 
     const partiallyPaidInvoices = invoicesWithActualPayments.filter(
       (invoice: any) =>
-        invoice.actualPaidAmount > 0 && invoice.remainingAmount > 0
+        invoice.actualPaidAmount > 0 && invoice.remainingAmount > 0,
     );
 
     const partiallyPaidInvoicesCount = partiallyPaidInvoices.length;
     const partiallyPaidInvoicesAmount = partiallyPaidInvoices.reduce(
       (sum: number, invoice: any) => sum + invoice.actualPaidAmount,
-      0
+      0,
     );
 
     const totalExpensesAmount = expensesWithActualPayments.reduce(
       (sum: number, expense: any) =>
         sum + convertDecimalToNumber(expense.totalAmount),
-      0
+      0,
     );
 
     const paidExpenses = expensesWithActualPayments.filter(
-      (expense: any) => expense.isFullyPaid
+      (expense: any) => expense.isFullyPaid,
     );
 
     const paidExpensesCount = paidExpenses.length;
     const paidExpensesAmount = expensesWithActualPayments.reduce(
       (sum: number, expense: any) => sum + expense.actualPaidAmount,
-      0
+      0,
     );
 
     const pendingExpenses = expensesWithActualPayments.filter(
-      (expense: any) => !expense.isFullyPaid
+      (expense: any) => !expense.isFullyPaid,
     );
 
     const pendingExpensesCount = pendingExpenses.length;
     const pendingExpensesAmount = pendingExpenses.reduce(
       (sum: number, expense: any) =>
         sum + convertDecimalToNumber(expense.totalAmount),
-      0
+      0,
     );
 
     const partiallyPaidExpenses = expensesWithActualPayments.filter(
-      (expense: any) => expense.actualPaidAmount > 0 && !expense.isFullyPaid
+      (expense: any) => expense.actualPaidAmount > 0 && !expense.isFullyPaid,
     );
 
     const partiallyPaidExpensesCount = partiallyPaidExpenses.length;
     const partiallyPaidExpensesAmount = partiallyPaidExpenses.reduce(
       (sum: number, expense: any) => sum + expense.actualPaidAmount,
-      0
+      0,
     );
 
     // Calculate overall revenue from all transactions (USE TRANSACTIONS)
     const overallRevenueFromTransactions = typedAllTransactions
       .filter(
-        (transaction: DashboardTransaction) => transaction.type === "INCOME"
+        (transaction: DashboardTransaction) => transaction.type === "INCOME",
       )
       .reduce(
         (sum: number, transaction: DashboardTransaction) =>
           sum + convertDecimalToNumber(transaction.amount),
-        0
+        0,
       );
 
     // <--- NEW CALCULATION FOR ALL-TIME EXPENSE TRANSACTIONS --->
     const allTimeTotalExpensesAmount = typedAllTimeExpenseTransactions.reduce(
       (sum: number, transaction: DashboardTransaction) =>
         sum + convertDecimalToNumber(transaction.amount),
-      0
+      0,
     );
     // <--- END NEW CALCULATION --->
 
@@ -1175,18 +1283,18 @@ export async function GET(request: NextRequest) {
 
     // --- EMPLOYEE METRICS ---
     const activeEmployees = typedEmployees.filter(
-      (employee: DashboardEmployee) => employee.status === "ACTIVE"
+      (employee: DashboardEmployee) => employee.status === "ACTIVE",
     );
 
     // 1. On Duty: Has checked in today
     const onDutyEmployees = activeEmployees.filter(
       (employee) =>
-        employee.AttendanceRecord && employee.AttendanceRecord.length > 0
+        employee.AttendanceRecord && employee.AttendanceRecord.length > 0,
     );
 
     // 2. On Leave: Strictly verified against today's date
     const employeesOnLeave = activeEmployees.filter((employee) =>
-      checkIsOnLeaveToday(employee)
+      checkIsOnLeaveToday(employee),
     ).length;
 
     // 3. Off Duty: Active AND No Check-in AND Not On Leave
@@ -1201,18 +1309,18 @@ export async function GET(request: NextRequest) {
 
     // --- FREELANCER METRICS ---
     const activeFreelancers = typedFreelancers.filter(
-      (freelancer: DashboardFreeLancer) => freelancer.status === "ACTIVE"
+      (freelancer: DashboardFreeLancer) => freelancer.status === "ACTIVE",
     );
 
     // 1. On Duty
     const onDutyFreelancers = activeFreelancers.filter(
       (freelancer) =>
-        freelancer.attendanceRecords && freelancer.attendanceRecords.length > 0
+        freelancer.attendanceRecords && freelancer.attendanceRecords.length > 0,
     );
 
     // 2. On Leave
     const freelancersOnLeave = activeFreelancers.filter((freelancer) =>
-      checkIsOnLeaveToday(freelancer)
+      checkIsOnLeaveToday(freelancer),
     ).length;
 
     // 3. Off Duty
@@ -1225,44 +1333,44 @@ export async function GET(request: NextRequest) {
     });
 
     const reliableFreelancers = activeFreelancers.filter(
-      (freelancer: DashboardFreeLancer) => freelancer.reliable
+      (freelancer: DashboardFreeLancer) => freelancer.reliable,
     );
 
     // Project metrics
     const activeProjects = typedProjects.filter(
-      (project: DashboardProject) => project.status === ProjectStatus.ACTIVE
+      (project: DashboardProject) => project.status === ProjectStatus.ACTIVE,
     );
     const completedProjects = typedProjects.filter(
-      (project: DashboardProject) => project.status === ProjectStatus.COMPLETED
+      (project: DashboardProject) => project.status === ProjectStatus.COMPLETED,
     );
     const pendingProjects = typedProjects.filter(
-      (project: DashboardProject) => project.status === ProjectStatus.PLANNING
+      (project: DashboardProject) => project.status === ProjectStatus.PLANNING,
     );
     const overdueProjects = typedProjects.filter(
       (project: DashboardProject) =>
         project.endDate &&
         new Date(project.endDate) < now &&
-        project.status !== ProjectStatus.COMPLETED
+        project.status !== ProjectStatus.COMPLETED,
     );
 
     const totalProjectValue = typedProjects.reduce(
       (sum: number, project: DashboardProject) =>
         sum + convertDecimalToNumber(project.budget),
-      0
+      0,
     );
 
     // Task metrics
     const completedTasks = typedTasks.filter(
-      (task: DashboardTask) => task.status === "COMPLETED"
+      (task: DashboardTask) => task.status === "COMPLETED",
     );
     const inProgressTasks = typedTasks.filter(
-      (task: DashboardTask) => task.status === "IN_PROGRESS"
+      (task: DashboardTask) => task.status === "IN_PROGRESS",
     );
     const overdueTasks = typedTasks.filter(
       (task: DashboardTask) =>
         task.dueDate &&
         new Date(task.dueDate) < now &&
-        task.status !== "COMPLETED"
+        task.status !== "COMPLETED",
     );
 
     // Use the new recent transactions function instead of the old one
@@ -1276,7 +1384,7 @@ export async function GET(request: NextRequest) {
         status: "completed",
         client: transaction.client?.name,
         category: transaction.category?.name,
-      })
+      }),
     );
 
     // Performance metrics
@@ -1292,7 +1400,7 @@ export async function GET(request: NextRequest) {
         : 0;
     const convertedQuotations = typedQuotations.filter(
       (quotation: DashboardQuotation) =>
-        quotation.status === QuotationStatus.CONVERTED
+        quotation.status === QuotationStatus.CONVERTED,
     );
     const conversionRate =
       typedQuotations.length > 0
@@ -1307,7 +1415,7 @@ export async function GET(request: NextRequest) {
     for (let i = 5; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       chartLabels.push(
-        date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+        date.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
       );
 
       const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -1325,7 +1433,7 @@ export async function GET(request: NextRequest) {
         .reduce(
           (sum: number, transaction: DashboardTransaction) =>
             sum + convertDecimalToNumber(transaction.amount),
-          0
+          0,
         );
 
       const monthExpenses = typedAllTransactions
@@ -1340,7 +1448,7 @@ export async function GET(request: NextRequest) {
         .reduce(
           (sum: number, transaction: DashboardTransaction) =>
             sum + convertDecimalToNumber(transaction.amount),
-          0
+          0,
         );
 
       incomeData.push(monthIncome);
@@ -1354,14 +1462,20 @@ export async function GET(request: NextRequest) {
       typedQuotations,
       typedProjects,
       typedTasks,
-      hrSettings
+      hrSettings,
+      pendingToolRequests,
+      pendingToolReturns,
+      pendingToolMaintenance,
+      pendingEmergencyCallOuts,
+      pendingLeaveRequests,
+      pendingOvertimeRequests,
     );
 
     // Recent tasks
     const recentTasks = typedTasks
       .sort(
         (a: DashboardTask, b: DashboardTask) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       )
       .slice(0, 20)
       .map((task: DashboardTask) => ({
@@ -1383,7 +1497,7 @@ export async function GET(request: NextRequest) {
     const recentInvoices = invoicesWithActualPayments
       .sort(
         (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       )
       .slice(0, 15)
       .map((invoice: any) => ({
@@ -1410,7 +1524,7 @@ export async function GET(request: NextRequest) {
     const recentExpenses = expensesWithActualPayments
       .sort(
         (a: any, b: any) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       )
       .slice(0, 15)
       .map((expense: any) => ({
@@ -1429,7 +1543,7 @@ export async function GET(request: NextRequest) {
     const topProjects = typedProjects
       .sort(
         (a: DashboardProject, b: DashboardProject) =>
-          convertDecimalToNumber(b.budget) - convertDecimalToNumber(a.budget)
+          convertDecimalToNumber(b.budget) - convertDecimalToNumber(a.budget),
       )
       .slice(0, 10)
       .map((project: DashboardProject) => ({
@@ -1578,14 +1692,14 @@ export async function GET(request: NextRequest) {
             acc[task.status] = (acc[task.status] || 0) + 1;
             return acc;
           },
-          {}
+          {},
         ),
         priorityDistribution: typedTasks.reduce(
           (acc: Record<string, number>, task: DashboardTask) => {
             acc[task.priority] = (acc[task.priority] || 0) + 1;
             return acc;
           },
-          {}
+          {},
         ),
         avgCompletionTime: 7.5,
         onTimeCompletionRate: 78.3,
@@ -1634,7 +1748,7 @@ export async function GET(request: NextRequest) {
           invoiceChange,
           dueChange: calculateChange(
             totalInvoicesAmount - totalPaidInvoicesAmount,
-            lastMonthTotalInvoicesAmount - lastMonthTotalPaidInvoicesAmount
+            lastMonthTotalInvoicesAmount - lastMonthTotalPaidInvoicesAmount,
           ),
           paidChange: paidInvoiceChange,
           overdueChange: calculateChange(overdueInvoicesAmount, 0),
@@ -1649,7 +1763,7 @@ export async function GET(request: NextRequest) {
           paidChange: paidExpenseChange,
           monthlyChange: calculateChange(
             currentMonthExpensesFromTransactions,
-            lastMonthExpensesFromTransactions
+            lastMonthExpensesFromTransactions,
           ),
         },
         quotation: {
@@ -1659,7 +1773,7 @@ export async function GET(request: NextRequest) {
           totalValue: typedQuotations.reduce(
             (sum: number, q: DashboardQuotation) =>
               sum + convertDecimalToNumber(q.totalAmount),
-            0
+            0,
           ),
           quoteChange: 0,
           convertedChange: 0,
@@ -1684,7 +1798,7 @@ export async function GET(request: NextRequest) {
               100,
             (lastMonthNetProfitFromTransactions /
               lastMonthIncomeFromTransactions) *
-              100
+              100,
           ),
           growthChange: revenueChange,
         },
@@ -1707,8 +1821,8 @@ export async function GET(request: NextRequest) {
           typedQuotations.reduce(
             (sum: number, q: DashboardQuotation) =>
               sum + convertDecimalToNumber(q.totalAmount),
-            0
-          ) / 6
+            0,
+          ) / 6,
         ),
         expensesData: Array(6).fill(0),
       },
@@ -1727,7 +1841,7 @@ export async function GET(request: NextRequest) {
     console.error("Dashboard API error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
