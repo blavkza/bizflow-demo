@@ -208,7 +208,7 @@ export default function EmergencyCallOutsPage() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">
-                        {item.type.replace("_", " ")}
+                        {item.type?.replace("_", " ") || "Standard"}
                       </Badge>
                     </TableCell>
                     <TableCell
@@ -254,7 +254,9 @@ export default function EmergencyCallOutsPage() {
                             <Eye className="h-3.5 w-3.5 text-green-600" />
                           </Button>
                         ) : (
-                          <span className="text-muted-foreground text-xs">-</span>
+                          <span className="text-muted-foreground text-xs">
+                            -
+                          </span>
                         )}
                         {item.checkOutLat && item.checkOutLng ? (
                           <Button
@@ -267,13 +269,15 @@ export default function EmergencyCallOutsPage() {
                             <Eye className="h-3.5 w-3.5 text-blue-600" />
                           </Button>
                         ) : item.checkInLat && item.checkInLng ? (
-                          <span className="text-muted-foreground text-xs">-</span>
+                          <span className="text-muted-foreground text-xs">
+                            -
+                          </span>
                         ) : null}
                       </div>
                     </TableCell>
                     <TableCell>
                       <Badge className={getStatusColor(item.status)}>
-                        {item.status.replace("_", " ")}
+                        {item.status?.replace("_", " ") || "Unknown"}
                       </Badge>
                     </TableCell>
                     <TableCell>
