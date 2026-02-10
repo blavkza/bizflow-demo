@@ -11,6 +11,9 @@ export async function GET() {
       pendingEmergencyCallOuts,
       pendingLeaveRequests,
       pendingOvertimeRequests,
+      pendingInvoices,
+      pendingQuotations,
+      pendingRefunds,
     ] = await Promise.all([
       db.toolRequest.count({
         where: {
@@ -42,6 +45,23 @@ export async function GET() {
           status: "PENDING",
         },
       }),
+      db.invoice.count({
+        where: {
+          dueDate: { lt: new Date() },
+          status: { not: "PAID" },
+        },
+      }),
+      db.quotation.count({
+        where: {
+          validUntil: { lt: new Date() },
+          status: { not: "ACCEPTED" },
+        },
+      }),
+      db.refund.count({
+        where: {
+          status: "PENDING",
+        },
+      }),
     ]);
 
     return NextResponse.json({
@@ -51,6 +71,9 @@ export async function GET() {
       emergencyCallOuts: pendingEmergencyCallOuts,
       leaveRequests: pendingLeaveRequests,
       overtimeRequests: pendingOvertimeRequests,
+      overdueInvoices: pendingInvoices,
+      overdueQuotations: pendingQuotations,
+      pendingRefunds: pendingRefunds,
     });
   } catch (error) {
     console.error("Error fetching sidebar stats:", error);

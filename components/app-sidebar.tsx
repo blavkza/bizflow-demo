@@ -102,6 +102,9 @@ export default function AppSidebar() {
         pendingEmergencyCallOuts={stats?.emergencyCallOuts || 0}
         pendingLeaveRequests={stats?.leaveRequests || 0}
         pendingOvertimeRequests={stats?.overtimeRequests || 0}
+        overdueInvoices={stats?.overdueInvoices || 0}
+        overdueQuotations={stats?.overdueQuotations || 0}
+        pendingRefunds={stats?.pendingRefunds || 0}
       />
     </div>
   );

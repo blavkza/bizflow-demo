@@ -27,14 +27,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { Loader2, Search, Filter, Eye, MapPin } from "lucide-react";
+import {
+  Loader2,
+  Search,
+  Filter,
+  Eye,
+  Siren,
+  Clock,
+  Activity,
+  CheckCircle,
+} from "lucide-react";
 import { CallOutStatus, CallOutType } from "@prisma/client";
 
 interface CallOut {
@@ -138,6 +141,62 @@ export default function EmergencyCallOutsPage() {
         <h1 className="text-3xl font-bold tracking-tight">
           Emergency Call-Outs
         </h1>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Total Requests
+            </CardTitle>
+            <Siren className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{callOuts.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {
+                callOuts.filter((c) => c.status === CallOutStatus.PENDING)
+                  .length
+              }
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {
+                callOuts.filter((c) => c.status === CallOutStatus.IN_PROGRESS)
+                  .length
+              }
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {
+                callOuts.filter((c) => c.status === CallOutStatus.COMPLETED)
+                  .length
+              }
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="flex items-center gap-4">

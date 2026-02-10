@@ -17,6 +17,7 @@ import {
   Siren,
   CalendarX,
   Timer,
+  HandCoins,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
@@ -35,7 +36,8 @@ interface Alert {
     | "tool-maintenance"
     | "emergency-callout"
     | "leave-request"
-    | "overtime-request";
+    | "overtime-request"
+    | "refund-request";
   title: string;
   description: string;
   dueDate?: string;
@@ -100,6 +102,9 @@ export default function AlertsHorizontal({
       case "overtime-request":
         router.push(`/dashboard/human-resources/attendence`);
         break;
+      case "refund-request":
+        router.push(`/dashboard/refunds`);
+        break;
       default:
         break;
     }
@@ -135,6 +140,8 @@ export default function AlertsHorizontal({
         return <CalendarX className="h-4 w-4" />;
       case "overtime-request":
         return <Timer className="h-4 w-4" />;
+      case "refund-request":
+        return <HandCoins className="h-4 w-4" />;
       default:
         return <AlertTriangle className="h-4 w-4" />;
     }

@@ -192,6 +192,9 @@ function generateAlerts(
   emergencyCallOuts: any[],
   leaveRequests: any[],
   overtimeRequests: any[],
+  overdueInvoicesList: any[],
+  overdueQuotationsList: any[],
+  pendingRefundsList: any[],
 ): Alert[] {
   const alerts: Alert[] = [];
   const now = new Date();
@@ -483,6 +486,64 @@ function generateAlerts(
     });
   });
 
+  // Overtime Requests
+  overtimeRequests.forEach((overtime) => {
+    alerts.push({
+      id: `overtime-request-${overtime.id}`,
+      type: "overtime-request",
+      title: "Overtime Request",
+      description: `Date: ${new Date(overtime.date).toLocaleDateString()} - ${overtime.employee?.firstName || overtime.freeLancer?.firstName || "Unknown"}`,
+      daysRemaining: 0,
+      priority: "medium",
+    });
+  });
+
+  // Overdue Invoices
+  overdueInvoicesList.forEach((invoice) => {
+    const dueDate = new Date(invoice.dueDate!);
+    const daysOverdue = Math.ceil(
+      (now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    alerts.push({
+      id: `overdue-invoice-${invoice.id}`,
+      type: "invoice",
+      title: `Overdue Invoice ${invoice.invoiceNumber}`,
+      description: `Client: ${invoice.client?.name || "Unknown"} - Amount: R ${convertDecimalToNumber(invoice.totalAmount).toLocaleString()}`,
+      dueDate: invoice.dueDate?.toISOString(),
+      daysRemaining: -daysOverdue,
+      priority: "critical",
+    });
+  });
+
+  // Overdue Quotations
+  overdueQuotationsList.forEach((quotation) => {
+    const validUntil = new Date(quotation.validUntil);
+    const daysOverdue = Math.ceil(
+      (now.getTime() - validUntil.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    alerts.push({
+      id: `overdue-quotation-${quotation.id}`,
+      type: "quotation",
+      title: `Expired Quotation ${quotation.quotationNumber}`,
+      description: `Client: ${quotation.client?.name || "Unknown"}`,
+      dueDate: quotation.validUntil.toISOString(),
+      daysRemaining: -daysOverdue,
+      priority: "medium",
+    });
+  });
+
+  // Pending Refunds
+  pendingRefundsList.forEach((refund) => {
+    alerts.push({
+      id: `pending-refund-${refund.id}`,
+      type: "refund-request",
+      title: `Refund Request ${refund.refundNumber}`,
+      description: `Amount: R ${refund.amount.toLocaleString()} - Reason: ${refund.reason}`,
+      daysRemaining: 0,
+      priority: "high",
+    });
+  });
+
   // Sort alerts by priority and due date
   const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
   return alerts.sort((a, b) => {
@@ -553,6 +614,9 @@ export async function GET(request: NextRequest) {
       pendingEmergencyCallOuts,
       pendingLeaveRequests,
       pendingOvertimeRequests,
+      overdueInvoicesList,
+      overdueQuotationsList,
+      pendingRefundsList,
     ] = await Promise.all([
       // Current month invoices
       db.invoice.findMany({
@@ -830,6 +894,18 @@ export async function GET(request: NextRequest) {
       db.overtimeRequest.findMany({
         where: { status: "PENDING" },
         include: { employee: true, freeLancer: true },
+      }),
+      db.invoice.findMany({
+        where: { dueDate: { lt: new Date() }, status: { not: "PAID" } },
+        include: { client: true },
+      }),
+      db.quotation.findMany({
+        where: { validUntil: { lt: new Date() }, status: { not: "ACCEPTED" } },
+        include: { client: true },
+      }),
+      db.refund.findMany({
+        where: { status: "PENDING" },
+        include: { sale: true },
       }),
     ]);
 
@@ -1469,6 +1545,9 @@ export async function GET(request: NextRequest) {
       pendingEmergencyCallOuts,
       pendingLeaveRequests,
       pendingOvertimeRequests,
+      overdueInvoicesList,
+      overdueQuotationsList,
+      pendingRefundsList,
     );
 
     // Recent tasks

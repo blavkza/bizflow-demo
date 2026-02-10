@@ -67,6 +67,9 @@ export const getSidebarData = (
   pendingEmergencyCallOuts: number = 0,
   pendingLeaveRequests: number = 0,
   pendingOvertimeRequests: number = 0,
+  overdueInvoices: number = 0,
+  overdueQuotations: number = 0,
+  pendingRefunds: number = 0,
 ): SidebarData => {
   const fullAccessRoles = [
     UserRole.CHIEF_EXECUTIVE_OFFICER,
@@ -106,6 +109,8 @@ export const getSidebarData = (
             url: "/dashboard/quotations",
             icon: FileText,
             color: "text-purple-500",
+            badge:
+              overdueQuotations > 0 ? overdueQuotations.toString() : undefined,
           },
         ]
       : []),
@@ -117,6 +122,7 @@ export const getSidebarData = (
             url: "/dashboard/invoices",
             icon: FaFileInvoice,
             color: "text-pink-500",
+            badge: overdueInvoices > 0 ? overdueInvoices.toString() : undefined,
           },
         ]
       : []),
@@ -183,6 +189,7 @@ export const getSidebarData = (
             url: "/dashboard/refunds",
             icon: HandCoins,
             color: "text-green-500",
+            badge: pendingRefunds > 0 ? pendingRefunds.toString() : undefined,
           },
         ]
       : []),
@@ -525,7 +532,8 @@ export const getSidebarData = (
           },
         ]
       : []),
-    ...(hasFullAccess
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.Attendence_VIEW)
       ? [
           {
             title: "Emergency Call-Outs",

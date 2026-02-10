@@ -141,7 +141,8 @@ export interface Alert {
     | "tool-maintenance"
     | "emergency-callout"
     | "leave-request"
-    | "overtime-request";
+    | "overtime-request"
+    | "refund-request";
   title: string;
   description: string;
   dueDate?: string;

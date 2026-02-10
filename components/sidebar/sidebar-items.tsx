@@ -46,6 +46,9 @@ interface AppSidebarProps {
   pendingEmergencyCallOuts?: number;
   pendingLeaveRequests?: number;
   pendingOvertimeRequests?: number;
+  overdueInvoices?: number;
+  overdueQuotations?: number;
+  pendingRefunds?: number;
 }
 
 export function SidebarItems({
@@ -60,6 +63,9 @@ export function SidebarItems({
   pendingEmergencyCallOuts = 0,
   pendingLeaveRequests = 0,
   pendingOvertimeRequests = 0,
+  overdueInvoices = 0,
+  overdueQuotations = 0,
+  pendingRefunds = 0,
   ...props
 }: AppSidebarProps & React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
@@ -73,6 +79,9 @@ export function SidebarItems({
     pendingEmergencyCallOuts,
     pendingLeaveRequests,
     pendingOvertimeRequests,
+    overdueInvoices,
+    overdueQuotations,
+    pendingRefunds,
   );
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     new Set(),
