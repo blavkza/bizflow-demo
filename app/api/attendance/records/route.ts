@@ -100,6 +100,9 @@ export async function GET(request: NextRequest) {
             date: targetDate,
           },
           take: 1,
+          include: {
+            breaks: true,
+          },
         },
       },
       orderBy: {
@@ -117,6 +120,9 @@ export async function GET(request: NextRequest) {
             date: targetDate,
           },
           take: 1,
+          include: {
+            breaks: true,
+          },
         },
       },
       orderBy: {
@@ -184,6 +190,10 @@ export async function GET(request: NextRequest) {
         regularHours: todayRecord?.regularHours,
         overtimeHours: todayRecord?.overtimeHours,
         notes: todayRecord?.notes,
+        breakStart: todayRecord?.breakStart,
+        breakEnd: todayRecord?.breakEnd,
+        breakDuration: todayRecord?.breakDuration,
+        breaks: todayRecord?.breaks || [],
         status,
         displayStatus,
         isVirtualRecord: !todayRecord,
@@ -252,6 +262,10 @@ export async function GET(request: NextRequest) {
         regularHours: todayRecord?.regularHours,
         overtimeHours: todayRecord?.overtimeHours,
         notes: todayRecord?.notes,
+        breakStart: todayRecord?.breakStart,
+        breakEnd: todayRecord?.breakEnd,
+        breakDuration: todayRecord?.breakDuration,
+        breaks: todayRecord?.breaks || [],
         status,
         displayStatus,
         isVirtualRecord: !todayRecord,

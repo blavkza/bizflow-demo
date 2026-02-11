@@ -49,13 +49,23 @@ export function AttendanceTabs({
 }: AttendanceTabsProps) {
   const filteredCallouts = callouts.filter((c) => {
     const person = c.employee || c.freeLancer;
-    const name = person ? `${person.firstName || ""} ${person.lastName || ""}`.trim().toLowerCase() : "";
-    const id = (c.employee?.employeeNumber || c.freeLancer?.freeLancerNumber || "").toLowerCase();
+    const name = person
+      ? `${person.firstName || ""} ${person.lastName || ""}`
+          .trim()
+          .toLowerCase()
+      : "";
+    const id = (
+      c.employee?.employeeNumber ||
+      c.freeLancer?.freeLancerNumber ||
+      ""
+    ).toLowerCase();
     const title = (c.title || "").toLowerCase();
-    
-    return name.includes(searchTerm.toLowerCase()) || 
-           id.includes(searchTerm.toLowerCase()) ||
-           title.includes(searchTerm.toLowerCase());
+
+    return (
+      name.includes(searchTerm.toLowerCase()) ||
+      id.includes(searchTerm.toLowerCase()) ||
+      title.includes(searchTerm.toLowerCase())
+    );
   });
 
   return (
@@ -107,9 +117,15 @@ export function AttendanceTabs({
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">Employee Overtime Requests</h3>
-            <p className="text-sm text-muted-foreground">Manage and approve extra working hours</p>
+            <p className="text-sm text-muted-foreground">
+              Manage and approve extra working hours
+            </p>
           </div>
-          <OvertimeRequestsList />
+          <OvertimeRequestsList
+            selectedDate={selectedDate}
+            searchTerm={searchTerm}
+            selectedDepartment={selectedDepartment}
+          />
         </div>
       </TabsContent>
     </Tabs>

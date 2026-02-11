@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
         days: request.days,
         reason: request.reason,
         status: request.status,
-        requestedDate: request.requestedDate.toISOString().split("T")[0],
+        requestedDate: request.requestedDate.toISOString(),
         approvedBy: request.approvedBy,
         approvedDate: request.approvedDate?.toISOString().split("T")[0],
         rejectedBy: request.rejectedBy,

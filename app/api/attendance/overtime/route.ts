@@ -65,6 +65,12 @@ export async function GET(request: NextRequest) {
         ];
       }
 
+      if (dateStr) {
+        const date = new Date(dateStr);
+        date.setUTCHours(0, 0, 0, 0);
+        where.date = date;
+      }
+
       // Fetch all requests, typically for admin view
       const requests = await db.overtimeRequest.findMany({
         where,

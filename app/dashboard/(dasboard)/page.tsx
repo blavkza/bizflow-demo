@@ -171,9 +171,7 @@ export default function DashboardPage() {
               {canViewFinances && (
                 <CashFlowCard isLoading={isLoading} data={data} />
               )}
-              {data?.currentUser?.employeeId && (
-                <BreakControl employeeId={data.currentUser.employeeId} />
-              )}
+
               <QuickActions isLoading={isLoading} data={data} />
             </div>
           </div>

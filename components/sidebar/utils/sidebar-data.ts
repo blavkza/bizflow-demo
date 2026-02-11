@@ -657,6 +657,12 @@ export const getSidebarData = (
             color: "text-blue-500",
             alwaysActive: true,
           },
+          /*   {
+            title: "Analysis",
+            url: "/dashboard/analysis",
+            icon: TrendingUp,
+            color: "text-purple-500",
+          }, */
         ]
       : []),
   ]);

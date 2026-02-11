@@ -143,6 +143,12 @@ export default function LeaveRequestCard({
                     </Badge>
                   </div>
                 )}
+                <div className="mt-1">
+                  <Badge variant="secondary" className="text-xs">
+                    Requested on:{" "}
+                    {new Date(request.requestedDate).toLocaleString()}
+                  </Badge>
+                </div>
               </div>
             </div>
             {/* ALWAYS SHOW APPROVE/REJECT BUTTONS FOR PENDING REQUESTS */}

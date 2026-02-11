@@ -50,7 +50,7 @@ export function AttendanceList({
   useEffect(() => {
     setMounted(true);
     setNow(new Date());
-    
+
     // Optional: update now every minute if needed for live overdue timers
     const interval = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(interval);
@@ -130,10 +130,10 @@ export function AttendanceList({
 
     if (record.notes) {
       const checkInMatch = record.notes.match(
-        /(?:custom|bypass|schedule changed).*?(?:check.in|time|to).*?(\d{1,2}:\d{2})/i
+        /(?:custom|bypass|schedule changed).*?(?:check.in|time|to).*?(\d{1,2}:\d{2})/i,
       );
       const checkOutMatch = record.notes.match(
-        /(?:custom|bypass).*?(?:check.out|time).*?(\d{1,2}:\d{2})/i
+        /(?:custom|bypass).*?(?:check.out|time).*?(\d{1,2}:\d{2})/i,
       );
 
       if (checkInMatch) customTimes.checkIn = checkInMatch[1];
@@ -150,7 +150,7 @@ export function AttendanceList({
     person: any,
     date: Date,
     record?: AttendanceRecord,
-    customTimes?: { checkIn: string | null; checkOut: string | null }
+    customTimes?: { checkIn: string | null; checkOut: string | null },
   ) => {
     const weekend = isWeekend(date);
     let knockIn = null;
@@ -186,10 +186,10 @@ export function AttendanceList({
 
         // Person Check
         const hasEmployee = rule.employees?.some(
-          (e: any) => e.id === person.id
+          (e: any) => e.id === person.id,
         );
         const hasFreelancer = rule.freelancers?.some(
-          (f: any) => f.id === person.id
+          (f: any) => f.id === person.id,
         );
 
         return isDateInRange && (hasEmployee || hasFreelancer);
@@ -289,7 +289,7 @@ export function AttendanceList({
       person,
       recordDate,
       record,
-      extractCustomTimes(record)
+      extractCustomTimes(record),
     );
 
     if (!isValidScheduledTime(scheduledKnockIn)) return false;
@@ -301,7 +301,7 @@ export function AttendanceList({
         scheduledTime.getHours(),
         scheduledTime.getMinutes(),
         0,
-        0
+        0,
       );
       const gracePeriod = new Date(todayScheduled.getTime() + 30 * 60000);
       return now <= gracePeriod;
@@ -318,7 +318,7 @@ export function AttendanceList({
         person,
         recordDate,
         record,
-        extractCustomTimes(record)
+        extractCustomTimes(record),
       );
 
       if (isValidScheduledTime(scheduledKnockIn)) {
@@ -329,7 +329,7 @@ export function AttendanceList({
             scheduledTime.getHours(),
             scheduledTime.getMinutes(),
             0,
-            0
+            0,
           );
           if (!now) return "Not Checked In";
           if (now < todayScheduled) return "Not Checked In";
@@ -394,7 +394,9 @@ export function AttendanceList({
 
         if (!person) return null;
 
-        const personName = `${person.firstName || ""} ${person.lastName || ""}`.trim() || "Unknown";
+        const personName =
+          `${person.firstName || ""} ${person.lastName || ""}`.trim() ||
+          "Unknown";
         const regularHours = safeDecimalToNumber(record.regularHours);
         const overtimeHours = safeDecimalToNumber(record.overtimeHours);
         const overtimePay = calculateOvertimePay(record);
@@ -605,14 +607,14 @@ export function AttendanceList({
                             {(() => {
                               try {
                                 const scheduledTime = new Date(
-                                  `1970-01-01T${scheduledKnockIn}`
+                                  `1970-01-01T${scheduledKnockIn}`,
                                 );
                                 const todayScheduled = new Date();
                                 todayScheduled.setHours(
                                   scheduledTime.getHours(),
                                   scheduledTime.getMinutes(),
                                   0,
-                                  0
+                                  0,
                                 );
                                 const now = new Date();
                                 if (now < todayScheduled) {
@@ -690,6 +692,37 @@ export function AttendanceList({
                       )}
                     </p>
                   </div>
+                  {/* Breaks Column */}
+                  {((record.breaks && record.breaks.length > 0) ||
+                    (record.breakDuration && record.breakDuration > 0)) && (
+                    <div className="text-center">
+                      <p className="text-sm text-muted-foreground">Breaks</p>
+                      <div className="flex flex-col items-center text-sm">
+                        {record.breaks && record.breaks.length > 0 ? (
+                          record.breaks.map((brk: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className="flex flex-col text-xs text-orange-600 mb-1 last:mb-0"
+                            >
+                              <span className="whitespace-nowrap">
+                                {formatTime(brk.startTime)} -{" "}
+                                {brk.endTime ? formatTime(brk.endTime) : "..."}
+                              </span>
+                              {brk.duration && (
+                                <span className="text-[10px] text-muted-foreground">
+                                  ({brk.duration}m)
+                                </span>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-orange-600">
+                            {record.breakDuration}m
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   {(record.regularHours || record.overtimeHours) && (
                     <div className="text-center">
                       <p className="text-sm text-muted-foreground">Hours</p>
@@ -711,7 +744,7 @@ export function AttendanceList({
                               <span className="text-xs text-gray-500 ml-1">
                                 @ R
                                 {safeDecimalToNumber(
-                                  person.overtimeHourRate
+                                  person.overtimeHourRate,
                                 ).toFixed(2)}
                                 /hr
                               </span>
@@ -749,7 +782,7 @@ export function AttendanceList({
                         <Badge
                           variant="outline"
                           className={getCheckInMethodColor(
-                            record.checkInMethod
+                            record.checkInMethod,
                           )}
                         >
                           {record.checkInMethod}
@@ -789,7 +822,7 @@ export function AttendanceList({
                       <span>
                         {isLeaveStatus(record.status)
                           ? `On ${getStatusDisplayName(
-                              record.status
+                              record.status,
                             ).toLowerCase()}`
                           : showNotCheckedIn
                             ? "Not checked in yet"
