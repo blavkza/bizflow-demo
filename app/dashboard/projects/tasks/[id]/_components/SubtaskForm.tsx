@@ -30,7 +30,7 @@ import { TaskStatus } from "@prisma/client";
 const SubtaskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
-  estimatedHours: z.number().optional(),
+  estimatedHours: z.coerce.number().optional(),
   status: z.nativeEnum(TaskStatus),
 });
 
@@ -64,7 +64,7 @@ export default function SubtaskForm({
     defaultValues: {
       title: data?.title || "",
       description: data?.description || "",
-      estimatedHours: data?.estimatedHours,
+      estimatedHours: data?.estimatedHours || undefined,
       status: data?.status || TaskStatus.TODO,
     },
   });
@@ -73,14 +73,16 @@ export default function SubtaskForm({
 
   const onSubmit = async (values: SubtaskSchemaType) => {
     try {
+      const payload = {
+        ...values,
+        taskId,
+      };
+
       if (type === "create") {
-        await axios.post("/api/subtasks", {
-          ...values,
-          taskId,
-        });
+        await axios.post("/api/subtasks", payload);
         toast.success("Subtask created successfully");
       } else if (type === "update" && data?.id) {
-        await axios.patch(`/api/subtasks/${data.id}`, values);
+        await axios.patch(`/api/subtasks/${data.id}`, payload);
         toast.success("Subtask updated successfully");
       }
 
@@ -155,6 +157,14 @@ export default function SubtaskForm({
                     step="0.5"
                     min="0"
                     {...field}
+                    value={field.value || ""}
+                    onChange={(e) => {
+                      const value =
+                        e.target.value === ""
+                          ? undefined
+                          : Number(e.target.value);
+                      field.onChange(value);
+                    }}
                   />
                 </FormControl>
                 <FormMessage />
