@@ -1,5 +1,6 @@
 import db from "@/lib/db";
 import { auth } from "@clerk/nextjs/server";
+import { UserRole } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 export async function PUT(
@@ -21,12 +22,17 @@ export async function PUT(
       select: {
         id: true,
         name: true,
+        role: true,
       },
     });
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const isSuperAdmin =
+      user.role === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+      user.role === UserRole.ADMIN_MANAGER;
 
     if (!projectId) {
       return NextResponse.json(
@@ -35,20 +41,29 @@ export async function PUT(
       );
     }
 
-    const manager = await db.project.findUnique({
-      where: {
-        id: projectId,
-        managerId: user.id,
-      },
+    // Check if project exists
+    const project = await db.project.findUnique({
+      where: { id: projectId },
       select: {
+        id: true,
         managerId: true,
+        title: true,
       },
     });
 
-    if (!manager) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
+    // Check authorization: Super admins can update any project, managers can only update their own
+    if (!isSuperAdmin && project.managerId !== user.id) {
+      return NextResponse.json(
+        { error: "You are not authorized to update this project" },
+        { status: 403 }
+      );
+    }
+
+    // If archiving, remove from starred
     if (data.archived === true) {
       data.starred = false;
     }
@@ -65,6 +80,30 @@ export async function PUT(
           data.budgetSpent !== undefined ? data.budgetSpent : undefined,
       },
     });
+
+    // Create notification for significant changes
+    if (data.archived !== undefined || data.status !== undefined) {
+      await db.notification.create({
+        data: {
+          title: "Project Updated",
+          message: `Project ${project.title} has been updated by ${user.name}.${
+            data.archived !== undefined
+              ? data.archived
+                ? " Project archived."
+                : " Project unarchived."
+              : ""
+          }${
+            data.status !== undefined
+              ? ` Status changed to ${data.status}.`
+              : ""
+          }`,
+          type: "PROJECT",
+          isRead: false,
+          actionUrl: `/dashboard/projects/${project.id}`,
+          userId: user.id,
+        },
+      });
+    }
 
     return NextResponse.json(updatedProject);
   } catch (error) {

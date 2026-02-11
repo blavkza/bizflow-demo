@@ -18,12 +18,16 @@ export async function POST(
 
     const user = await db.user.findUnique({
       where: { userId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, role: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const isSuperAdmin =
+      user.role === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+      user.role === UserRole.ADMIN_MANAGER;
 
     const body = await req.json();
     const { date, hours, description } = body;
@@ -36,19 +40,21 @@ export async function POST(
       );
     }
 
-    // Check if project exists and user has access
+    // Check if project exists and user has access (super admins can create work logs on any project)
     const project = await db.project.findFirst({
-      where: {
-        id: projectId,
-        OR: [
-          { managerId: user.id },
-          {
-            teamMembers: {
-              some: { userId: user.id },
-            },
+      where: isSuperAdmin
+        ? { id: projectId }
+        : {
+            id: projectId,
+            OR: [
+              { managerId: user.id },
+              {
+                teamMembers: {
+                  some: { userId: user.id },
+                },
+              },
+            ],
           },
-        ],
-      },
     });
 
     if (!project) {
@@ -109,26 +115,32 @@ export async function GET(
 
     const user = await db.user.findUnique({
       where: { userId },
-      select: { id: true },
+      select: { id: true, role: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if project exists and user has access
+    const isSuperAdmin =
+      user.role === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+      user.role === UserRole.ADMIN_MANAGER;
+
+    // Check if project exists and user has access (super admins can view work logs of any project)
     const project = await db.project.findFirst({
-      where: {
-        id: params.projectId,
-        OR: [
-          { managerId: user.id },
-          {
-            teamMembers: {
-              some: { userId: user.id },
-            },
+      where: isSuperAdmin
+        ? { id: params.projectId }
+        : {
+            id: params.projectId,
+            OR: [
+              { managerId: user.id },
+              {
+                teamMembers: {
+                  some: { userId: user.id },
+                },
+              },
+            ],
           },
-        ],
-      },
     });
 
     if (!project) {
@@ -164,7 +176,6 @@ export async function GET(
   }
 }
 
-// Add this to the same route.ts file
 export async function DELETE(
   req: Request,
   { params }: { params: { projectId: string } }
@@ -178,12 +189,16 @@ export async function DELETE(
 
     const user = await db.user.findUnique({
       where: { userId },
-      select: { id: true, name: true },
+      select: { id: true, name: true, role: true },
     });
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const isSuperAdmin =
+      user.role === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+      user.role === UserRole.ADMIN_MANAGER;
 
     // Extract workLogId from URL search params
     const url = new URL(req.url);
@@ -196,39 +211,54 @@ export async function DELETE(
       );
     }
 
+    // Check if project exists
+    const project = await db.project.findUnique({
+      where: { id: params.projectId },
+    });
+
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Find the work log
     const workLog = await db.workLog.findFirst({
-      where: {
-        id: workLogId,
-        OR: [
-          { userId: user.id },
-          {
-            project: {
-              OR: [
-                { managerId: user.id },
-                {
-                  teamMembers: {
-                    some: {
-                      userId: user.id,
-                      role: UserRole.CHIEF_EXECUTIVE_OFFICER,
-                    },
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      },
+      where: { id: workLogId },
     });
 
     if (!workLog) {
       return NextResponse.json(
-        { error: "Work log not found or access denied" },
+        { error: "Work log not found" },
         { status: 404 }
+      );
+    }
+
+    // Check authorization:
+    // - Super admins can delete any work log
+    // - Project managers can delete any work log on their projects
+    // - Team members can only delete their own work logs
+    const isProjectManager = project.managerId === user.id;
+
+    if (!isSuperAdmin && !isProjectManager && workLog.userId !== user.id) {
+      return NextResponse.json(
+        { error: "You are not authorized to delete this work log" },
+        { status: 403 }
       );
     }
 
     await db.workLog.delete({
       where: { id: workLogId },
+    });
+
+    // Create notification
+    await db.notification.create({
+      data: {
+        title: "Work Log Deleted",
+        message: `Work Log from ${new Date(workLog.date).toLocaleDateString()} for Project ${project.title} has been deleted by ${user.name}.`,
+        type: "PROJECT",
+        isRead: false,
+        actionUrl: `/dashboard/projects/${project.id}`,
+        userId: user.id,
+      },
     });
 
     return NextResponse.json({ message: "Work log deleted successfully" });

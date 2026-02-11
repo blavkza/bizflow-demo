@@ -1,6 +1,7 @@
 import db from "@/lib/db";
 import { projectSchema } from "@/lib/formValidationSchemas";
 import { auth } from "@clerk/nextjs/server";
+import { UserRole } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(
@@ -23,17 +24,22 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const currentUser = await db.user.findUnique({
+    const user = await db.user.findUnique({
       where: { userId },
       select: {
         id: true,
         name: true,
+        role: true,
       },
     });
 
-    if (!currentUser) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const isSuperAdmin =
+      user.role === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+      user.role === UserRole.ADMIN_MANAGER;
 
     const body = await req.json();
 
@@ -57,26 +63,37 @@ export async function PUT(
       deadline,
     } = validation.data;
 
-    // Check if project exists and user has access
-    const existingProject = await db.project.findFirst({
-      where: {
-        id,
-        OR: [
-          { managerId: currentUser.id },
-          {
-            teamMembers: {
-              some: { userId: currentUser.id },
-            },
-          },
-        ],
-      },
+    // Check if project exists
+    const existingProject = await db.project.findUnique({
+      where: { id },
     });
 
     if (!existingProject) {
-      return NextResponse.json(
-        { error: "Project not found or no access" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Check access: Super admins can update any project, regular users need manager/team access
+    if (!isSuperAdmin) {
+      const hasAccess = await db.project.findFirst({
+        where: {
+          id,
+          OR: [
+            { managerId: user.id },
+            {
+              teamMembers: {
+                some: { userId: user.id },
+              },
+            },
+          ],
+        },
+      });
+
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: "You don't have permission to update this project" },
+          { status: 403 }
+        );
+      }
     }
 
     if (managerId) {
@@ -112,20 +129,20 @@ export async function PUT(
     const notification = await db.notification.create({
       data: {
         title: "Project Update",
-        message: `Project ${project.title} has been updated by ${currentUser.name}.`,
+        message: `Project ${project.title} has been updated by ${user.name}.`,
         type: "PROJECT",
         isRead: false,
         actionUrl: `/dashboard/projects/${project.id}`,
-        userId: currentUser.id,
+        userId: user.id,
       },
     });
 
     if (project.manager?.employeeId) {
       await db.employeeNotification.create({
         data: {
-          employeeId: project.manager?.employeeId,
+          employeeId: project.manager.employeeId,
           title: "Project Updated",
-          message: `Project ${project.title} : ${project.projectNumber} have be Updated b by ${currentUser.name}. `,
+          message: `Project ${project.title} : ${project.projectNumber} has been updated by ${user.name}.`,
           type: "EMPLOYEE",
           isRead: false,
           actionUrl: `/dashboard/profile`,
@@ -172,18 +189,27 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const project = await db.project.findFirst({
-      where: {
-        id,
-        OR: [
-          { managerId: user.id },
-          {
-            teamMembers: {
-              some: { userId: user.id },
+    const isSuperAdmin =
+      user.role === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+      user.role === UserRole.ADMIN_MANAGER;
+
+    // Super admins can view any project without access restrictions
+    const whereClause = isSuperAdmin
+      ? { id }
+      : {
+          id,
+          OR: [
+            { managerId: user.id },
+            {
+              teamMembers: {
+                some: { userId: user.id },
+              },
             },
-          },
-        ],
-      },
+          ],
+        };
+
+    const project = await db.project.findFirst({
+      where: whereClause,
       include: {
         client: {
           select: {
@@ -228,7 +254,6 @@ export async function GET(
             Expense: true,
           },
         },
-
         Folder: {
           include: {
             Document: true,
@@ -270,10 +295,7 @@ export async function GET(
     });
 
     if (!project) {
-      return NextResponse.json(
-        { error: "No access to this project or project not found" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
     return NextResponse.json(project);
@@ -311,6 +333,7 @@ export async function DELETE(
       select: {
         id: true,
         name: true,
+        role: true,
       },
     });
 
@@ -318,17 +341,23 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check if project exists and user is the manager
-    const project = await db.project.findFirst({
-      where: {
-        id,
-        managerId: user.id,
-      },
+    const isSuperAdmin =
+      user.role === UserRole.CHIEF_EXECUTIVE_OFFICER ||
+      user.role === UserRole.ADMIN_MANAGER;
+
+    // Check if project exists
+    const project = await db.project.findUnique({
+      where: { id },
     });
 
     if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+
+    // Check authorization: Super admins can delete any project, managers can only delete their own
+    if (!isSuperAdmin && project.managerId !== user.id) {
       return NextResponse.json(
-        { error: "Project not found or you are not authorized to delete it" },
+        { error: "You are not authorized to delete this project" },
         { status: 403 }
       );
     }
