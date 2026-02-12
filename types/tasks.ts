@@ -30,6 +30,9 @@ export interface Task {
   isAIGenerated: boolean;
   createdAt: Date;
   updatedAt: Date;
+  startTime: Date | string | null;
+  endTime: Date | string | null;
+  allocatedTime: string | null;
   project: {
     id: string;
     title: string;

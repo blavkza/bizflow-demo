@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -14,7 +14,7 @@ export async function PUT(
     if (!id) {
       return NextResponse.json(
         { error: "Project ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -48,7 +48,7 @@ export async function PUT(
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.errors },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -61,6 +61,10 @@ export async function PUT(
       priority,
       endDate,
       deadline,
+      scheduledStartTime,
+      assistantEmployeeIds,
+      assistantFreelancerIds,
+      toolIds,
     } = validation.data;
 
     // Check if project exists
@@ -91,7 +95,7 @@ export async function PUT(
       if (!hasAccess) {
         return NextResponse.json(
           { error: "You don't have permission to update this project" },
-          { status: 403 }
+          { status: 403 },
         );
       }
     }
@@ -104,7 +108,7 @@ export async function PUT(
       if (!managerExists) {
         return NextResponse.json(
           { error: "Specified manager does not exist" },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -120,11 +124,57 @@ export async function PUT(
         startDate,
         endDate,
         deadline,
+        scheduledStartTime,
+        assistantEmployees: {
+          set: assistantEmployeeIds?.map((id: string) => ({ id })) || [],
+        },
+        assistantFreelancers: {
+          set: assistantFreelancerIds?.map((id: string) => ({ id })) || [],
+        },
+        tools: {
+          set: toolIds?.map((id: string) => ({ id })) || [],
+        },
       },
       include: {
         manager: true,
+        assistantEmployees: { include: { user: true } },
+        assistantFreelancers: { include: { user: true } },
       },
     });
+
+    // Automatically create ProjectTeam members for assistants
+    const assistantUsers = new Set<string>();
+
+    project.assistantEmployees.forEach((emp) => {
+      if (emp.user) assistantUsers.add(emp.user.id);
+    });
+
+    project.assistantFreelancers.forEach((free) => {
+      if (free.user) assistantUsers.add(free.user.id);
+    });
+
+    // Also include the manager
+    if (project.managerId) assistantUsers.add(project.managerId);
+
+    if (assistantUsers.size > 0) {
+      await db.projectTeam.createMany({
+        data: Array.from(assistantUsers).map((uId) => ({
+          projectId: project.id,
+          userId: uId,
+          role: uId === project.managerId ? "LEADER" : "MEMBER",
+          canEditTask: true,
+          canCreateTask: true,
+          canViewFinancial: false,
+          canUploadFiles: true,
+          canDeleteFiles: false,
+          canDeleteTask: false,
+          canEditFile: true,
+          canAddInvoice: false,
+          canAddWorkLog: true,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     const notification = await db.notification.create({
       data: {
@@ -155,14 +205,14 @@ export async function PUT(
     console.error("[PROJECT_UPDATE_ERROR]", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -170,7 +220,7 @@ export async function GET(
     if (!id) {
       return NextResponse.json(
         { error: "Project ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -224,6 +274,9 @@ export async function GET(
         manager: {
           select: { id: true, name: true, email: true, avatar: true },
         },
+        assistantEmployees: true,
+        assistantFreelancers: true,
+        tools: true,
         tasks: {
           include: {
             assignees: {
@@ -303,14 +356,14 @@ export async function GET(
     console.error("Error fetching project:", error);
     return NextResponse.json(
       { error: "Failed to fetch project" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
@@ -318,7 +371,7 @@ export async function DELETE(
     if (!id) {
       return NextResponse.json(
         { error: "Project ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -358,7 +411,7 @@ export async function DELETE(
     if (!isSuperAdmin && project.managerId !== user.id) {
       return NextResponse.json(
         { error: "You are not authorized to delete this project" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -411,13 +464,13 @@ export async function DELETE(
 
     return NextResponse.json(
       { message: "Project deleted successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error deleting project:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

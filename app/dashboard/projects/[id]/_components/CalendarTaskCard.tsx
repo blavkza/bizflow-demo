@@ -75,8 +75,8 @@ export const CalendarTaskCard = ({
   const priorityVariant =
     priorityVariantMap[priorityKey] || priorityVariantMap.default;
 
-  const isCreatedToday =
-    task.createdAt && isSameDay(parseISO(task.createdAt), currentDate);
+  const isStartedToday =
+    task.startTime && isSameDay(parseISO(task.startTime), currentDate);
   const isDueToday =
     task.dueDate && isSameDay(parseISO(task.dueDate), currentDate);
 
@@ -95,8 +95,8 @@ export const CalendarTaskCard = ({
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             statusVariant.border,
             isDragging && "opacity-70 scale-105 rotate-1 z-50 shadow-lg",
-            isCreatedToday && "border-l-[3px] border-l-blue-500",
-            isDueToday && "border-r-[3px] border-r-rose-500"
+            isStartedToday && "border-l-[3px] border-l-blue-500",
+            isDueToday && "border-r-[3px] border-r-rose-500",
           )}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -109,7 +109,7 @@ export const CalendarTaskCard = ({
               <h4
                 className={cn(
                   "text-sm font-medium line-clamp-1 flex-1",
-                  statusVariant.text
+                  statusVariant.text,
                 )}
               >
                 {task.title}
@@ -122,7 +122,7 @@ export const CalendarTaskCard = ({
                       "border bg-background/80 backdrop-blur-sm",
                       "hover:scale-100 hover:shadow-xs",
                       priorityVariant.text,
-                      priorityVariant.border
+                      priorityVariant.border,
                     )}
                     variant="outline"
                   >
@@ -137,13 +137,13 @@ export const CalendarTaskCard = ({
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                {task.createdAt && (
+                {task.startTime && (
                   <span
                     className={
-                      isCreatedToday ? "text-blue-500 font-medium" : ""
+                      isStartedToday ? "text-blue-500 font-medium" : ""
                     }
                   >
-                    {format(parseISO(task.createdAt), "MMM d")}
+                    {format(parseISO(task.startTime), "MMM d")}
                   </span>
                 )}
                 {task.dueDate && (
@@ -165,7 +165,7 @@ export const CalendarTaskCard = ({
                       "border bg-background/80 backdrop-blur-sm",
                       "hover:scale-100 hover:shadow-xs",
                       statusVariant.text,
-                      statusVariant.border
+                      statusVariant.border,
                     )}
                     variant="outline"
                   >
@@ -178,12 +178,12 @@ export const CalendarTaskCard = ({
               </Tooltip>
             </div>
 
-            {(isCreatedToday || isDueToday) && (
+            {(isStartedToday || isDueToday) && (
               <div className="flex items-center gap-2 text-xs">
-                {isCreatedToday && (
+                {isStartedToday && (
                   <span className="inline-flex items-center gap-1 text-blue-500 font-medium">
                     <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    Created
+                    Start
                   </span>
                 )}
                 {isDueToday && (
@@ -206,10 +206,10 @@ export const CalendarTaskCard = ({
           )}
           <div className="grid grid-cols-2 gap-2 pt-1">
             <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Created</p>
+              <p className="text-xs text-muted-foreground">Start</p>
               <p className="text-xs font-medium">
-                {task.createdAt
-                  ? format(parseISO(task.createdAt), "MMM d, yyyy")
+                {task.startTime
+                  ? format(parseISO(task.startTime), "MMM d, yyyy")
                   : "N/A"}
               </p>
             </div>
@@ -218,7 +218,7 @@ export const CalendarTaskCard = ({
               <p
                 className={cn(
                   "text-xs font-medium",
-                  isDueToday && "text-rose-500"
+                  isDueToday && "text-rose-500",
                 )}
               >
                 {task.dueDate

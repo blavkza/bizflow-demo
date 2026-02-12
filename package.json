@@ -1,6 +1,6 @@
 {
-  "name": "finance-flow",
-  "version": "0.1.0",
+  "name": "biz-flow-management-system",
+  "version": "4.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

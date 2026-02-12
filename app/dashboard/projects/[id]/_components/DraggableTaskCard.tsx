@@ -94,7 +94,7 @@ export const DraggableTaskCard = ({
   const visibleAssignees = allAssignees.slice(0, maxVisibleAssignees);
   const extraAssigneesCount = Math.max(
     allAssignees.length - maxVisibleAssignees,
-    0
+    0,
   );
 
   return (
@@ -171,6 +171,17 @@ export const DraggableTaskCard = ({
             {task.priority}
           </Badge>
         </div>
+
+        {task.startTime && (
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-1 text-muted-foreground">
+              <Calendar size={14} />
+              <span>
+                Start: {format(new Date(task.startTime), "MMM d, yyyy")}
+              </span>
+            </div>
+          </div>
+        )}
 
         {task.dueDate && (
           <div className="flex items-center justify-between text-sm">

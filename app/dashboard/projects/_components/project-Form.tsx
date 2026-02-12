@@ -3,7 +3,7 @@
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axios from "axios";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,7 +17,13 @@ import {
 import { projectSchema, projectSchemaType } from "@/lib/formValidationSchemas";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import {
+  CalendarIcon,
+  Loader2,
+  Plus,
+  Trash2,
+  User as UserIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import {
@@ -26,6 +32,7 @@ import {
   User,
   ProjectType,
   BillingType,
+  TaskStatus,
 } from "@prisma/client";
 import { Combobox } from "@/components/ui/combobox";
 import {
@@ -36,6 +43,8 @@ import {
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 interface ProjectFormProps {
   type: "create" | "update";
@@ -51,6 +60,7 @@ interface ProjectFormProps {
     startDate?: Date;
     endDate?: Date;
     deadline?: Date;
+    scheduledStartTime?: string | null;
   };
   onCancel?: () => void;
   onSubmitSuccess?: () => void;
@@ -69,8 +79,14 @@ export default function ProjectForm({
 }: ProjectFormProps) {
   const [usersOptions, setUsersOptions] = useState<ComboboxOption[]>([]);
   const [clientsOptions, setClientsOptions] = useState<ComboboxOption[]>([]);
+  const [employeeOptions, setEmployeeOptions] = useState<ComboboxOption[]>([]);
+  const [freelancerOptions, setFreelancerOptions] = useState<ComboboxOption[]>(
+    [],
+  );
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+  const [isLoadingFreelancers, setIsLoadingFreelancers] = useState(false);
   const router = useRouter();
 
   const form = useForm<projectSchemaType>({
@@ -86,10 +102,35 @@ export default function ProjectForm({
       startDate: data?.startDate ? new Date(data.startDate) : new Date(),
       endDate: data?.endDate ? new Date(data.endDate) : new Date(),
       deadline: data?.deadline ? new Date(data.deadline) : new Date(),
+      scheduledStartTime: data?.scheduledStartTime || "",
+      assistantEmployeeIds: [],
+      assistantFreelancerIds: [],
+      tasks: [],
     },
   });
 
-  const { isSubmitting } = form.formState;
+  const {
+    control,
+    handleSubmit,
+    formState: { isSubmitting },
+    watch,
+  } = form;
+
+  const assistantEmployeeIds = watch("assistantEmployeeIds") || [];
+  const assistantFreelancerIds = watch("assistantFreelancerIds") || [];
+
+  // Filter options for tasks based on project assistants
+  const taskEmployeeOptions = employeeOptions.filter((opt) =>
+    assistantEmployeeIds.includes(opt.value),
+  );
+  const taskFreelancerOptions = freelancerOptions.filter((opt) =>
+    assistantFreelancerIds.includes(opt.value),
+  );
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "tasks",
+  });
 
   const onSubmit = async (values: projectSchemaType) => {
     try {
@@ -149,20 +190,58 @@ export default function ProjectForm({
     }
   };
 
+  const fetchEmployees = async () => {
+    setIsLoadingEmployees(true);
+    try {
+      const response = await axios.get("/api/employees");
+      const employees = response?.data?.employees || [];
+      const options = employees.map((emp: any) => ({
+        label: emp.name,
+        value: emp.id,
+      }));
+      setEmployeeOptions(options);
+    } catch (err) {
+      console.error("Error fetching employees:", err);
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  };
+
+  const fetchFreelancers = async () => {
+    setIsLoadingFreelancers(true);
+    try {
+      const response = await axios.get("/api/freelancers");
+      const freelancers = response?.data?.freelancers || [];
+      const options = freelancers.map((free: any) => ({
+        label: `${free.firstName} ${free.lastName}`,
+        value: free.id,
+      }));
+      setFreelancerOptions(options);
+    } catch (err) {
+      console.error("Error fetching freelancers:", err);
+    } finally {
+      setIsLoadingFreelancers(false);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchClients();
-  }, []);
+    if (type === "create") {
+      fetchEmployees();
+      fetchFreelancers();
+    }
+  }, [type]);
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <FormField
             control={form.control}
             name="title"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="md:col-span-2">
                 <FormLabel>Project Title</FormLabel>
                 <FormControl>
                   <Input placeholder="Enter Project Title" {...field} />
@@ -313,10 +392,11 @@ export default function ProjectForm({
                         variant={"outline"}
                         className={cn(
                           "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
+                          !field.value && "text-muted-foreground",
                         )}
                       >
-                        {field.value ? (
+                        {field.value instanceof Date &&
+                        !isNaN(field.value.getTime()) ? (
                           format(field.value, "PPP")
                         ) : (
                           <span>Pick a date</span>
@@ -342,6 +422,20 @@ export default function ProjectForm({
 
           <FormField
             control={form.control}
+            name="scheduledStartTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Scheduled Time to Start</FormLabel>
+                <FormControl>
+                  <Input type="time" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name="endDate"
             render={({ field }) => (
               <FormItem className="">
@@ -353,10 +447,11 @@ export default function ProjectForm({
                         variant={"outline"}
                         className={cn(
                           "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
+                          !field.value && "text-muted-foreground",
                         )}
                       >
-                        {field.value ? (
+                        {field.value instanceof Date &&
+                        !isNaN(field.value.getTime()) ? (
                           format(field.value, "PPP")
                         ) : (
                           <span>Pick a date</span>
@@ -397,10 +492,11 @@ export default function ProjectForm({
                         variant={"outline"}
                         className={cn(
                           "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
+                          !field.value && "text-muted-foreground",
                         )}
                       >
-                        {field.value ? (
+                        {field.value instanceof Date &&
+                        !isNaN(field.value.getTime()) ? (
                           format(field.value, "PPP")
                         ) : (
                           <span>Pick a date</span>
@@ -426,7 +522,309 @@ export default function ProjectForm({
               </FormItem>
             )}
           />
+
+          <FormField
+            control={control}
+            name="assistantEmployeeIds"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Assistant of Employees</FormLabel>
+                <FormControl>
+                  <MultiSelect
+                    options={employeeOptions}
+                    onChange={field.onChange}
+                    selected={field.value || []}
+                    placeholder="Select employee assistants"
+                    maxCount={3}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={control}
+            name="assistantFreelancerIds"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Assistant of Freelancers</FormLabel>
+                <FormControl>
+                  <MultiSelect
+                    options={freelancerOptions}
+                    onChange={field.onChange}
+                    selected={field.value || []}
+                    placeholder="Select freelancer assistants"
+                    maxCount={3}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
+
+        {type === "create" && (
+          <div className="space-y-4 pt-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium">Project Tasks</h3>
+            </div>
+            <Separator />
+
+            {fields.map((field, index) => (
+              <div
+                key={field.id}
+                className="rounded-lg border p-4 space-y-4 bg-muted/20 relative"
+              >
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"
+                  onClick={() => remove(index)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.title`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Task Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter task title" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.priority`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Priority</FormLabel>
+                        <FormControl>
+                          <select
+                            {...field}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {Object.values(Priority).map((priority) => (
+                              <option key={priority} value={priority}>
+                                {priority}
+                              </option>
+                            ))}
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.description`}
+                    render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Task Description</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter task description"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.assigneeIds`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Allocate (Employees)</FormLabel>
+                        <FormControl>
+                          <MultiSelect
+                            options={
+                              assistantEmployeeIds.length > 0
+                                ? taskEmployeeOptions
+                                : employeeOptions
+                            }
+                            onChange={field.onChange}
+                            selected={field.value || []}
+                            placeholder="Select employees"
+                            maxCount={3}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.freelancerIds`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Allocate (Freelancers)</FormLabel>
+                        <FormControl>
+                          <MultiSelect
+                            options={
+                              assistantFreelancerIds.length > 0
+                                ? taskFreelancerOptions
+                                : freelancerOptions
+                            }
+                            onChange={field.onChange}
+                            selected={field.value || []}
+                            placeholder="Select freelancers"
+                            maxCount={3}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.allocatedTime`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Time Allocated</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. 4 hours" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.startTime`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Task Start Time</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            value={
+                              field.value
+                                ? format(field.value, "yyyy-MM-dd'T'HH:mm")
+                                : ""
+                            }
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value
+                                  ? new Date(e.target.value)
+                                  : null,
+                              )
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.endTime`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Task End Time</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="datetime-local"
+                            value={
+                              field.value
+                                ? format(field.value, "yyyy-MM-dd'T'HH:mm")
+                                : ""
+                            }
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value
+                                  ? new Date(e.target.value)
+                                  : null,
+                              )
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.dueDate`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Due Date</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full pl-3 text-left font-normal",
+                                  !field.value && "text-muted-foreground",
+                                )}
+                              >
+                                {field.value instanceof Date &&
+                                !isNaN(field.value.getTime()) ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                              mode="single"
+                              selected={field.value || undefined}
+                              onSelect={field.onChange}
+                              disabled={(date) => date < new Date("1900-01-01")}
+                              initialFocus
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+            ))}
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full border-dashed"
+              onClick={() =>
+                append({
+                  title: "",
+                  status: TaskStatus.TODO,
+                  priority: Priority.MEDIUM,
+                  dueDate: null,
+                  startTime: null,
+                  endTime: null,
+                  allocatedTime: "",
+                })
+              }
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Task
+            </Button>
+          </div>
+        )}
 
         <div className="flex justify-end gap-4 pt-6">
           <Button

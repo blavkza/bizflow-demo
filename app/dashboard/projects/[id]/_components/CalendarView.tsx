@@ -36,7 +36,7 @@ interface CalendarViewProps {
   onTaskUpdate: (
     taskId: string,
     updateType: "dueDate",
-    newValue: string
+    newValue: string,
   ) => Promise<void>;
 }
 
@@ -61,11 +61,11 @@ export const CalendarView = ({
   const getTasksForDay = (date: Date) => {
     return tasks.filter((task) => {
       const dueDate = task.dueDate ? parseISO(task.dueDate) : null;
-      const createdAt = task.createdAt ? parseISO(task.createdAt) : null;
+      const startTime = task.startTime ? parseISO(task.startTime) : null;
 
       return (
         (dueDate && isSameDay(dueDate, date)) ||
-        (createdAt && isSameDay(createdAt, date))
+        (startTime && isSameDay(startTime, date))
       );
     });
   };
@@ -100,8 +100,8 @@ export const CalendarView = ({
         // This might not trigger a re-render if the reference is the same
         setTasks((prevTasks) =>
           prevTasks.map((task) =>
-            task.id === taskId ? { ...task, dueDate: newDueDateString } : task
-          )
+            task.id === taskId ? { ...task, dueDate: newDueDateString } : task,
+          ),
         );
 
         try {
@@ -112,8 +112,8 @@ export const CalendarView = ({
           // Revert on error
           setTasks((prevTasks) =>
             prevTasks.map((task) =>
-              task.id === taskId ? { ...task, dueDate: originalDueDate } : task
-            )
+              task.id === taskId ? { ...task, dueDate: originalDueDate } : task,
+            ),
           );
           toast.error("Failed to update task due date");
         }
@@ -146,7 +146,7 @@ export const CalendarView = ({
       <div className="flex gap-4 mb-4">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-          <span className="text-sm">Created Date</span>
+          <span className="text-sm">Start Date</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-red-500"></div>
@@ -191,7 +191,10 @@ export const CalendarView = ({
               isDragging
               currentDate={
                 new Date(
-                  activeTask.dueDate || activeTask.createdAt || new Date()
+                  activeTask.dueDate ||
+                    activeTask.startTime ||
+                    activeTask.createdAt ||
+                    new Date(),
                 )
               }
             />

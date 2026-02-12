@@ -128,7 +128,7 @@ export default function ProjectsDetailsPage({
   const handleTaskUpdate = async (
     id: string,
     updateType: "status" | "dueDate",
-    newValue: string
+    newValue: string,
   ) => {
     try {
       const endpoint = updateType === "status" ? "status" : "due-date";
@@ -194,7 +194,7 @@ export default function ProjectsDetailsPage({
   const taskStats = calculateTaskStats(tasks);
   const invoiceTotal = project.invoices.reduce(
     (sum, invoice) => sum + Number(invoice.totalAmount || 0),
-    0
+    0,
   );
 
   const budgetUsedPercentage = calculateBudgetUsedPercentage(project);
@@ -211,7 +211,7 @@ export default function ProjectsDetailsPage({
     user?.role === UserRole.CHIEF_EXECUTIVE_OFFICER;
 
   const currentMember = project.teamMembers?.find(
-    (member) => member.userId === currentUserId
+    (member) => member.userId === currentUserId,
   );
 
   const currentUserRole = currentMember?.role || null;
@@ -551,6 +551,11 @@ export default function ProjectsDetailsPage({
               deadline: project.deadline
                 ? new Date(project.deadline)
                 : undefined,
+              scheduledStartTime: project.scheduledStartTime || undefined,
+              assistantEmployeeIds:
+                project.assistantEmployees?.map((e) => e.id) || [],
+              assistantFreelancerIds:
+                project.assistantFreelancers?.map((f) => f.id) || [],
             }}
             onSubmitSuccess={() => {
               setIsEditProjectDialogOpen(false);

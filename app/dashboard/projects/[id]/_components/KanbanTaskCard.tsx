@@ -79,7 +79,7 @@ export const KanbanTaskCard = ({
   const visibleAssignees = allAssignees.slice(0, maxVisibleAssignees);
   const extraAssigneesCount = Math.max(
     allAssignees.length - maxVisibleAssignees,
-    0
+    0,
   );
 
   return (
@@ -157,6 +157,17 @@ export const KanbanTaskCard = ({
         )}
       </div>
 
+      {task.startTime && (
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Calendar size={12} />
+            <span>
+              Start: {format(new Date(task.startTime), "MMM d, yyyy")}
+            </span>
+          </div>
+        </div>
+      )}
+
       {task.dueDate && (
         <div className="flex items-center justify-between">
           <div
@@ -165,7 +176,7 @@ export const KanbanTaskCard = ({
             }`}
           >
             <Calendar size={12} />
-            <span>{format(new Date(task.dueDate), "MMM d, yyyy")}</span>
+            <span>Due: {format(new Date(task.dueDate), "MMM d, yyyy")}</span>
           </div>
           {isOverdue && (
             <Badge variant="destructive" className="text-[10px] px-1 py-0">

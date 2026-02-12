@@ -44,6 +44,9 @@ export interface Task {
   }[];
   taskNumber: string;
   dueDate: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  allocatedTime?: string | null;
   createdAt: string;
 }
 
@@ -181,7 +184,16 @@ export interface Project {
   comment: Comment[];
   Expense: Expense[];
   toolInterUses: ToolInterUse[];
+  assistantEmployees?: { id: string; name: string; avatar: string | null }[];
+  assistantFreelancers?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar: string | null;
+  }[];
+  scheduledStartTime?: string | null;
   workLogs: WorkLog[];
+  tools?: Tool[];
 }
 
 export enum ProjectType {

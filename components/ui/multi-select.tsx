@@ -33,7 +33,7 @@ interface MultiSelectProps {
 
 export function MultiSelect({
   options,
-  selected,
+  selected = [],
   onChange,
   placeholder = "Select...",
   disabled = false,
@@ -58,11 +58,13 @@ export function MultiSelect({
     }
   };
 
-  const selectedOptions = React.useMemo(() => 
-    options.filter((option) => selected.includes(option.value)), 
-  [options, selected]);
+  const selectedOptions = React.useMemo(
+    () => options.filter((option) => selected.includes(option.value)),
+    [options, selected],
+  );
 
-  const isAllSelected = options.length > 0 && selected.length === options.length;
+  const isAllSelected =
+    options.length > 0 && selected.length === options.length;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -80,16 +82,27 @@ export function MultiSelect({
             ) : selected.length > 0 ? (
               <>
                 {isAllSelected ? (
-                   <Badge variant="secondary">All {selected.length} Selected</Badge>
+                  <Badge variant="secondary">
+                    All {selected.length} Selected
+                  </Badge>
                 ) : (
                   <>
                     {selectedOptions.slice(0, maxCount).map((option) => (
-                      <Badge key={option.value} variant="secondary" className="max-w-[calc(100%-8px)]">
-                        <span className="truncate max-w-[150px] block">{option.label}</span>
+                      <Badge
+                        key={option.value}
+                        variant="secondary"
+                        className="max-w-[calc(100%-8px)]"
+                      >
+                        <span className="truncate max-w-[150px] block">
+                          {option.label}
+                        </span>
                       </Badge>
                     ))}
                     {selected.length > maxCount && (
-                      <Badge variant="secondary" className="bg-muted-foreground/20 hover:bg-muted-foreground/30">
+                      <Badge
+                        variant="secondary"
+                        className="bg-muted-foreground/20 hover:bg-muted-foreground/30"
+                      >
                         +{selected.length - maxCount} more
                       </Badge>
                     )}
@@ -107,7 +120,11 @@ export function MultiSelect({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start" style={{ width: "var(--radix-popover-trigger-width)" }}>
+      <PopoverContent
+        className="w-full p-0"
+        align="start"
+        style={{ width: "var(--radix-popover-trigger-width)" }}
+      >
         <Command>
           <CommandInput placeholder="Search..." />
           {loading ? (
@@ -128,7 +145,7 @@ export function MultiSelect({
                       "mr-2 h-4 w-4",
                       selected.length === options.length
                         ? "opacity-100"
-                        : "opacity-0"
+                        : "opacity-0",
                     )}
                   />
                   Select All
@@ -143,10 +160,12 @@ export function MultiSelect({
                         "mr-2 h-4 w-4",
                         selected.includes(option.value)
                           ? "opacity-100"
-                          : "opacity-0"
+                          : "opacity-0",
                       )}
                     />
-                    <span className="truncate" title={option.label}>{option.label}</span>
+                    <span className="truncate" title={option.label}>
+                      {option.label}
+                    </span>
                   </CommandItem>
                 ))}
               </CommandGroup>

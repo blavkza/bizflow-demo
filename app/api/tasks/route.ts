@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     console.error("[TASK_CREATE_ERROR]", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -44,7 +44,7 @@ async function createSingleTask(data: any, creator: any) {
   if (!validation.success) {
     return NextResponse.json(
       { error: validation.error.errors },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -58,7 +58,7 @@ async function createSingleTask(data: any, creator: any) {
   if (!project) {
     return NextResponse.json(
       { error: "Specified project does not exist" },
-      { status: 404 }
+      { status: 404 },
     );
   }
 
@@ -91,11 +91,11 @@ async function createSingleTask(data: any, creator: any) {
 
     if (existingAssignees.length !== validatedData?.assigneeIds?.length) {
       const missingIds = validatedData?.assigneeIds?.filter(
-        (id: string) => !existingAssignees.some((a) => a.id === id)
+        (id: string) => !existingAssignees.some((a) => a.id === id),
       );
       return NextResponse.json(
         { error: `Employees not found: ${missingIds?.join(", ")}` },
-        { status: 404 }
+        { status: 404 },
       );
     }
   } // Validate freelancers exist
@@ -107,11 +107,11 @@ async function createSingleTask(data: any, creator: any) {
 
     if (existingFreelancers.length !== validatedData?.freelancerIds?.length) {
       const missingIds = validatedData?.freelancerIds?.filter(
-        (id: string) => !existingFreelancers.some((f) => f.id === id)
+        (id: string) => !existingFreelancers.some((f) => f.id === id),
       );
       return NextResponse.json(
         { error: `Freelancers not found: ${missingIds?.join(", ")}` },
-        { status: 404 }
+        { status: 404 },
       );
     }
   }
@@ -137,6 +137,9 @@ async function createSingleTask(data: any, creator: any) {
           status: validatedData.status,
           priority: validatedData.priority,
           dueDate: validatedData.dueDate || null,
+          startTime: validatedData.startTime || null,
+          endTime: validatedData.endTime || null,
+          allocatedTime: validatedData.allocatedTime || null,
           estimatedHours: validatedData.estimatedHours,
           taskNumber,
           isAIGenerated: validatedData.isAIGenerated || false,
@@ -173,7 +176,7 @@ async function createSingleTask(data: any, creator: any) {
     },
     {
       timeout: 10000,
-    }
+    },
   ); // Create notification for CREATOR
 
   await db.notification.create({
@@ -196,7 +199,7 @@ async function createSingleTask(data: any, creator: any) {
         type: NotificationType.Task,
         isRead: false,
         actionUrl: `/dashboard/projects/${result.projectId}/tasks/${result.id}`,
-      })
+      }),
     );
 
     // 1. Send Push Notifications
@@ -210,15 +213,15 @@ async function createSingleTask(data: any, creator: any) {
             taskId: result.id,
             url: `/dashboard/projects/${result.projectId}/tasks/${result.id}`,
           },
-        })
-      )
+        }),
+      ),
     ); // 2. Create Database Notifications (History)
 
     await db.employeeNotification.createMany({
       data: employeeNotifications,
     });
     console.log(
-      `Notifications sent to ${employeeNotifications.length} employees.`
+      `Notifications sent to ${employeeNotifications.length} employees.`,
     );
   }
 
@@ -231,7 +234,7 @@ async function createAITasks(tasks: any[], creator: any) {
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error.errors },
-        { status: 400 }
+        { status: 400 },
       );
     }
   }
@@ -240,7 +243,7 @@ async function createAITasks(tasks: any[], creator: any) {
   if (!projectId) {
     return NextResponse.json(
       { error: "Project ID is required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -252,7 +255,7 @@ async function createAITasks(tasks: any[], creator: any) {
   if (!project) {
     return NextResponse.json(
       { error: "Specified project does not exist" },
-      { status: 404 }
+      { status: 404 },
     );
   } // If project was completed, change it back to active when adding new tasks
 
@@ -285,7 +288,7 @@ async function createAITasks(tasks: any[], creator: any) {
       const result = await createSingleTaskInBatch(
         taskData,
         projectId,
-        creator
+        creator,
       );
       allResults.push(result);
     } catch (error) {
@@ -300,7 +303,7 @@ async function createAITasks(tasks: any[], creator: any) {
 async function createSingleTaskInBatch(
   taskData: any,
   projectId: string,
-  creator: any
+  creator: any,
 ) {
   const lastTask = await db.task.findFirst({
     orderBy: { createdAt: "desc" },
@@ -323,6 +326,9 @@ async function createSingleTaskInBatch(
           status: taskData.status || "TODO",
           priority: taskData.priority || "MEDIUM",
           dueDate: taskData.dueDate || null,
+          startTime: taskData.startTime || null,
+          endTime: taskData.endTime || null,
+          allocatedTime: taskData.allocatedTime || null,
           estimatedHours: taskData.estimatedHours || null,
           taskNumber,
           isAIGenerated: taskData.isAIGenerated || false,
@@ -377,7 +383,7 @@ async function createSingleTaskInBatch(
             type: NotificationType.Task,
             isRead: false,
             actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
-          })
+          }),
         );
 
         // 1. Send Push Notifications
@@ -391,8 +397,8 @@ async function createSingleTaskInBatch(
                 taskId: task.id,
                 url: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
               },
-            })
-          )
+            }),
+          ),
         ); // 2. Create Database Notifications (History)
 
         await prisma.employeeNotification.createMany({
@@ -407,7 +413,7 @@ async function createSingleTaskInBatch(
     },
     {
       timeout: 15000,
-    }
+    },
   );
 }
 
@@ -490,7 +496,7 @@ export async function GET() {
       stats: {
         totalTasks: project.tasks.length,
         completedTasks: project.tasks.filter(
-          (task) => task.status === "COMPLETED"
+          (task) => task.status === "COMPLETED",
         ).length,
         timeEntries: project.timeEntries.length,
       },

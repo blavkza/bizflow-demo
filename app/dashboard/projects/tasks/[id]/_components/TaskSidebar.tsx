@@ -119,6 +119,34 @@ export default function TaskSidebar({ task }: TaskSidebarProps) {
             </Badge>
           </div>
 
+          {task.startTime && (
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">
+                Start Time
+              </Label>
+              <div className="flex items-center space-x-2 mt-1 font-mono">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">
+                  {new Date(task.startTime).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {task.endTime && (
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">
+                End Time
+              </Label>
+              <div className="flex items-center space-x-2 mt-1 font-mono">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">
+                  {new Date(task.endTime).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+
           {task.dueDate && (
             <div>
               <Label className="text-sm font-medium text-muted-foreground">
@@ -150,6 +178,17 @@ export default function TaskSidebar({ task }: TaskSidebarProps) {
               </Link>
             </div>
           </div>
+
+          {task.allocatedTime && (
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">
+                Time Allocated
+              </Label>
+              <p className="text-sm mt-1 font-medium text-blue-600">
+                {task.allocatedTime}
+              </p>
+            </div>
+          )}
 
           {task.estimatedHours && (
             <div>

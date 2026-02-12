@@ -73,6 +73,17 @@ export const taskSchema = z.object({
     .nullable()
     .transform((val) => (val instanceof Date ? val : null)),
   estimatedHours: z.number().optional(),
+  startTime: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable()
+    .transform((val) => (val instanceof Date ? val : null)),
+  endTime: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable()
+    .transform((val) => (val instanceof Date ? val : null)),
+  allocatedTime: z.string().optional(),
   assigneeIds: z.array(z.string()).optional(),
   freelancerIds: z.array(z.string()).optional(),
   isAIGenerated: z.boolean().optional().default(false),
@@ -112,6 +123,9 @@ interface TaskFormProps {
     status?: TaskStatus;
     priority?: Priority;
     dueDate?: Date;
+    startTime?: Date;
+    endTime?: Date;
+    allocatedTime?: string;
     estimatedHours?: number;
     assignees?: { id: string }[];
     freeLancerAssignees?: { id: string }[];
@@ -132,6 +146,11 @@ export default function TaskForm({
 }: TaskFormProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
+  const [projectAssistantEmployees, setProjectAssistantEmployees] = useState<
+    any[]
+  >([]);
+  const [projectAssistantFreelancers, setProjectAssistantFreelancers] =
+    useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isMultiTaskMode, setIsMultiTaskMode] = useState(false);
@@ -148,6 +167,9 @@ export default function TaskForm({
       status: data?.status || TaskStatus.TODO,
       priority: data?.priority || Priority.MEDIUM,
       dueDate: data?.dueDate || null,
+      startTime: data?.startTime || null,
+      endTime: data?.endTime || null,
+      allocatedTime: data?.allocatedTime || "",
       estimatedHours: data?.estimatedHours,
       assigneeIds: data?.assignees?.map((a) => a.id) || [],
       freelancerIds: data?.freeLancerAssignees?.map((f) => f.id) || [],
@@ -168,6 +190,9 @@ export default function TaskForm({
           status: TaskStatus.TODO,
           priority: Priority.MEDIUM,
           dueDate: null,
+          startTime: null,
+          endTime: null,
+          allocatedTime: "",
           estimatedHours: undefined,
           assigneeIds: [],
           freelancerIds: [],
@@ -198,7 +223,7 @@ export default function TaskForm({
 
   const toggleTaskExpansion = (index: number) => {
     setExpandedTasks((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
     );
   };
 
@@ -262,7 +287,7 @@ export default function TaskForm({
 
       // Validate that at least one task has a title
       const validTasks = processedTasks.filter(
-        (task) => task.title && task.title.trim() !== ""
+        (task) => task.title && task.title.trim() !== "",
       );
 
       if (validTasks.length === 0) {
@@ -366,10 +391,21 @@ export default function TaskForm({
       setIsLoading(false);
     }
   };
+  const fetchProjectAssistants = async () => {
+    if (!projectId) return;
+    try {
+      const response = await axios.get(`/api/projects/${projectId}`);
+      setProjectAssistantEmployees(response.data.assistantEmployees || []);
+      setProjectAssistantFreelancers(response.data.assistantFreelancers || []);
+    } catch (err) {
+      console.error("Error fetching project assistants:", err);
+    }
+  };
 
   useEffect(() => {
     fetchAssignees();
-  }, []);
+    fetchProjectAssistants();
+  }, [projectId]);
 
   // Don't allow multi-task mode for updates
   useEffect(() => {
@@ -391,12 +427,18 @@ export default function TaskForm({
   }, [projectId, isMultiTaskMode, multiTaskForm]);
 
   // Combine employees and freelancers for the assignee options
-  const employeeOptions = employees.map((employee) => ({
+  const employeeOptions = (
+    projectAssistantEmployees.length > 0 ? projectAssistantEmployees : employees
+  ).map((employee) => ({
     label: `${employee.name} (Employee)`,
     value: employee.id,
   }));
 
-  const freelancerOptions = freelancers.map((freelancer) => ({
+  const freelancerOptions = (
+    projectAssistantFreelancers.length > 0
+      ? projectAssistantFreelancers
+      : freelancers
+  ).map((freelancer) => ({
     label: `${freelancer.firstName} ${freelancer.lastName} (Freelancer)`,
     value: freelancer.id,
   }));
@@ -406,7 +448,7 @@ export default function TaskForm({
   // Get combined selected IDs for display in multi-select
   const getCombinedSelectedIds = (
     assigneeIds: string[] = [],
-    freelancerIds: string[] = []
+    freelancerIds: string[] = [],
   ) => {
     return [...assigneeIds, ...freelancerIds];
   };
@@ -550,7 +592,7 @@ export default function TaskForm({
                             variant={"outline"}
                             className={cn(
                               "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
+                              !field.value && "text-muted-foreground",
                             )}
                           >
                             {field.value ? (
@@ -594,12 +636,78 @@ export default function TaskForm({
                           field.onChange(
                             e.target.value === ""
                               ? undefined
-                              : Number(e.target.value)
+                              : Number(e.target.value),
                           )
                         }
                         value={field.value || ""}
                         min="0"
                         step="0.5"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={singleTaskForm.control}
+                name="allocatedTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Time Allocated</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 4 hours" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={singleTaskForm.control}
+                name="startTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Time</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="datetime-local"
+                        value={
+                          field.value
+                            ? format(field.value, "yyyy-MM-dd'T'HH:mm")
+                            : ""
+                        }
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value ? new Date(e.target.value) : null,
+                          )
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={singleTaskForm.control}
+                name="endTime"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>End Time</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="datetime-local"
+                        value={
+                          field.value
+                            ? format(field.value, "yyyy-MM-dd'T'HH:mm")
+                            : ""
+                        }
+                        onChange={(e) =>
+                          field.onChange(
+                            e.target.value ? new Date(e.target.value) : null,
+                          )
+                        }
                       />
                     </FormControl>
                     <FormMessage />
@@ -614,7 +722,7 @@ export default function TaskForm({
                     options={allAssigneeOptions}
                     selected={getCombinedSelectedIds(
                       singleTaskForm.watch("assigneeIds"),
-                      singleTaskForm.watch("freelancerIds")
+                      singleTaskForm.watch("freelancerIds"),
                     )}
                     onChange={handleSingleMultiSelectChange}
                     placeholder="Select assignees..."
@@ -694,7 +802,7 @@ export default function TaskForm({
                                   field.onChange(
                                     e.target.value === ""
                                       ? undefined
-                                      : Number(e.target.value)
+                                      : Number(e.target.value),
                                   )
                                 }
                                 value={field.value || ""}
@@ -908,7 +1016,7 @@ export default function TaskForm({
                                   variant={"outline"}
                                   className={cn(
                                     "w-full pl-3 text-left font-normal",
-                                    !field.value && "text-muted-foreground"
+                                    !field.value && "text-muted-foreground",
                                   )}
                                 >
                                   {field.value ? (
@@ -956,12 +1064,82 @@ export default function TaskForm({
                                 field.onChange(
                                   e.target.value === ""
                                     ? undefined
-                                    : Number(e.target.value)
+                                    : Number(e.target.value),
                                 )
                               }
                               value={field.value || ""}
                               min="0"
                               step="0.5"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={multiTaskForm.control}
+                      name={`tasks.${index}.allocatedTime`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Time Allocated</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. 4 hours" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={multiTaskForm.control}
+                      name={`tasks.${index}.startTime`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Start Time</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="datetime-local"
+                              value={
+                                field.value
+                                  ? format(field.value, "yyyy-MM-dd'T'HH:mm")
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value
+                                    ? new Date(e.target.value)
+                                    : null,
+                                )
+                              }
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={multiTaskForm.control}
+                      name={`tasks.${index}.endTime`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>End Time</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="datetime-local"
+                              value={
+                                field.value
+                                  ? format(field.value, "yyyy-MM-dd'T'HH:mm")
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.value
+                                    ? new Date(e.target.value)
+                                    : null,
+                                )
+                              }
                             />
                           </FormControl>
                           <FormMessage />
@@ -976,7 +1154,7 @@ export default function TaskForm({
                           options={allAssigneeOptions}
                           selected={getCombinedSelectedIds(
                             multiTaskForm.watch(`tasks.${index}.assigneeIds`),
-                            multiTaskForm.watch(`tasks.${index}.freelancerIds`)
+                            multiTaskForm.watch(`tasks.${index}.freelancerIds`),
                           )}
                           onChange={(selectedIds) =>
                             handleMultiSelectChange(index, selectedIds)
@@ -1001,7 +1179,7 @@ export default function TaskForm({
                             onClick={() => {
                               const currentSubtasks =
                                 multiTaskForm.getValues(
-                                  `tasks.${index}.subtasks`
+                                  `tasks.${index}.subtasks`,
                                 ) || [];
                               multiTaskForm.setValue(
                                 `tasks.${index}.subtasks`,
@@ -1013,7 +1191,7 @@ export default function TaskForm({
                                     estimatedHours: undefined,
                                     status: TaskStatus.TODO,
                                   },
-                                ]
+                                ],
                               );
                             }}
                           >
@@ -1084,7 +1262,7 @@ export default function TaskForm({
                                           field.onChange(
                                             e.target.value === ""
                                               ? undefined
-                                              : Number(e.target.value)
+                                              : Number(e.target.value),
                                           )
                                         }
                                         value={field.value || ""}
@@ -1122,7 +1300,7 @@ export default function TaskForm({
                                             >
                                               {status}
                                             </SelectItem>
-                                          )
+                                          ),
                                         )}
                                       </SelectContent>
                                     </Select>
@@ -1138,13 +1316,13 @@ export default function TaskForm({
                               onClick={() => {
                                 const currentSubtasks =
                                   multiTaskForm.getValues(
-                                    `tasks.${index}.subtasks`
+                                    `tasks.${index}.subtasks`,
                                   ) || [];
                                 multiTaskForm.setValue(
                                   `tasks.${index}.subtasks`,
                                   currentSubtasks.filter(
-                                    (_, i) => i !== subtaskIndex
-                                  )
+                                    (_, i) => i !== subtaskIndex,
+                                  ),
                                 );
                               }}
                               className="mt-6"
@@ -1170,6 +1348,9 @@ export default function TaskForm({
                     status: TaskStatus.TODO,
                     priority: Priority.MEDIUM,
                     dueDate: null,
+                    startTime: null,
+                    endTime: null,
+                    allocatedTime: "",
                     estimatedHours: undefined,
                     assigneeIds: [],
                     freelancerIds: [],

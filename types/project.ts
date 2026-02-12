@@ -84,6 +84,9 @@ export interface Task {
   }[];
   taskNumber: string;
   dueDate: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  allocatedTime?: string | null;
   createdAt: string;
 }
 export interface TeamMember {

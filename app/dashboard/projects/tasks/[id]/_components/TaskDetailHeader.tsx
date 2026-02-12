@@ -87,11 +87,18 @@ export default function TaskDetailHeader({
               data={{
                 ...task,
                 description: task.description || undefined,
-                dueDate: task.dueDate || undefined,
+                dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
+                startTime: task.startTime
+                  ? new Date(task.startTime)
+                  : undefined,
+                endTime: task.endTime ? new Date(task.endTime) : undefined,
+                allocatedTime: task.allocatedTime || undefined,
                 estimatedHours: task.estimatedHours
                   ? Number(task.estimatedHours)
                   : undefined,
                 assignees: task?.assignees?.map((a) => ({ id: a?.id })) || [],
+                freeLancerAssignees:
+                  task?.freeLancerAssignees?.map((f) => ({ id: f?.id })) || [],
               }}
               onCancel={() => setIsDialogOpen(false)}
               onSubmitSuccess={() => {

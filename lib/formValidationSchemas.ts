@@ -208,6 +208,32 @@ export const departmentSchema = z.object({
 
 export type departmentSchemaType = z.infer<typeof departmentSchema>;
 
+export const projectTaskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  status: z.nativeEnum(TaskStatus).default(TaskStatus.TODO),
+  priority: z.nativeEnum(Priority).default(Priority.MEDIUM),
+  dueDate: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable()
+    .transform((val) => (val instanceof Date ? val : null)),
+  startTime: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable()
+    .transform((val) => (val instanceof Date ? val : null)),
+  endTime: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable()
+    .transform((val) => (val instanceof Date ? val : null)),
+  allocatedTime: z.string().optional(),
+  estimatedHours: z.number().optional(),
+  assigneeIds: z.array(z.string()).optional(),
+  freelancerIds: z.array(z.string()).optional(),
+});
+
 export const projectSchema = z.object({
   title: z.string().min(1, { message: "Name is required!" }),
   description: z.string().min(1, { message: "Description is required!" }),
@@ -219,9 +245,15 @@ export const projectSchema = z.object({
   startDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
   endDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
   deadline: z.union([z.date(), z.string().transform((str) => new Date(str))]),
+  scheduledStartTime: z.string().optional(),
+  assistantEmployeeIds: z.array(z.string()).optional(),
+  assistantFreelancerIds: z.array(z.string()).optional(),
+  toolIds: z.array(z.string()).optional(),
+  tasks: z.array(projectTaskSchema).optional(),
 });
 
 export type projectSchemaType = z.infer<typeof projectSchema>;
+export type ProjectTaskSchemaType = z.infer<typeof projectTaskSchema>;
 
 export const subtaskSchema = z.object({
   title: z.string().min(1, "Subtask title is required"),
@@ -241,6 +273,17 @@ export const taskSchema = z.object({
     .optional()
     .nullable()
     .transform((val) => (val instanceof Date ? val : null)),
+  startTime: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable()
+    .transform((val) => (val instanceof Date ? val : null)),
+  endTime: z
+    .union([z.date(), z.string().transform((str) => new Date(str))])
+    .optional()
+    .nullable()
+    .transform((val) => (val instanceof Date ? val : null)),
+  allocatedTime: z.string().optional(),
   estimatedHours: z.number().optional(),
   assigneeIds: z.array(z.string()).optional(),
   freelancerIds: z.array(z.string()).optional(),

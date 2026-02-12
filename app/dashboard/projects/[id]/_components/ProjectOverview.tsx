@@ -13,6 +13,7 @@ import {
   TrendingUp,
   AlertTriangle,
   FileText,
+  Wrench,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Project } from "../type";
@@ -136,110 +137,153 @@ export function ProjectOverview({
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 p-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 p-4">
           {/* Client */}
-          <div className="flex items-center gap-3">
-            <div>
-              <p className="text-sm text-muted-foreground">Client</p>
-
-              <div className="text-sm flex flex-col">
-                {project.client?.company && (
-                  <span>{project.client.company}</span>
-                )}
-
-                <span className="font-medium">
-                  {project.client?.name || "No client"}
-                </span>
-
-                {project.client?.email && <span>{project.client.email}</span>}
-
-                {(project.client?.phone || project.client?.phone2) && (
-                  <div className="flex items-center gap-2">
-                    {project.client?.phone && (
-                      <span>{project.client.phone}</span>
-                    )}
-                    {project.client?.phone && project.client?.phone2 && (
-                      <span>,</span>
-                    )}
-                    {project.client?.phone2 && (
-                      <span>{project.client.phone2}</span>
-                    )}
-                  </div>
-                )}
-              </div>
+          {/* Client Info */}
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Building2 size={16} className="text-primary" />
+              Client
+            </p>
+            <div className="pl-6 text-sm">
+              <p className="font-semibold truncate">
+                {project.client?.company || "No Company"}
+              </p>
+              <p className="text-muted-foreground text-xs truncate">
+                {project.client?.name || "No Client"}
+              </p>
+              {project.client?.email && (
+                <p className="text-[10px] text-muted-foreground truncate italic">
+                  {project.client.email}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Project Manager */}
-          <div className="flex items-center gap-3">
-            <Avatar className="w-8 h-8 border-2 border-background">
-              {project.manager?.avatar ? (
-                <AvatarImage
-                  src={project.manager?.avatar}
-                  alt={`${project.manager?.name}`}
-                />
-              ) : (
-                <AvatarFallback className="text-xs bg-primary text-primary-foreground">
-                  <User className="w-4 h-4" />
+          {/* Project Manager/Lead */}
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <User size={16} className="text-primary" />
+              Lead
+            </p>
+            <div className="pl-6 flex items-center gap-2">
+              <Avatar className="w-6 h-6 border">
+                <AvatarImage src={project.manager?.avatar || ""} />
+                <AvatarFallback className="text-[10px]">
+                  {project.manager?.name?.[0]}
                 </AvatarFallback>
-              )}
-            </Avatar>
-            <div>
-              <p className="text-sm text-muted-foreground">Team Leader</p>
-              <p className="text-sm font-medium">
+              </Avatar>
+              <p className="text-sm font-medium truncate">
                 {project.manager?.name || "Unassigned"}
               </p>
             </div>
           </div>
 
-          {/* Team Size */}
-          <div className="flex items-center gap-3">
-            <Users className="text-primary" size={20} />
-            <div>
-              <p className="text-sm text-muted-foreground">Team Size</p>
-              <p className="text-sm font-medium">
-                {(project?.teamMembers?.length || 0) + 1}{" "}
-                {project?.teamMembers?.length === 0 ? "Member" : "Members"}
+          {/* Team Stack */}
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Users size={16} className="text-primary" />
+              Team
+            </p>
+            <div className="pl-6 flex items-center gap-3">
+              <div className="flex -space-x-2">
+                {project.teamMembers?.slice(0, 3).map((member, idx) => (
+                  <Avatar
+                    key={`mem-${idx}`}
+                    className="w-6 h-6 border border-background"
+                  >
+                    <AvatarImage src={member.user?.avatar || ""} />
+                    <AvatarFallback className="text-[8px]">
+                      {member.user?.name?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+                {[
+                  ...(project.assistantEmployees || []),
+                  ...(project.assistantFreelancers || []),
+                ]
+                  .slice(0, 2)
+                  .map((assistant, idx) => (
+                    <Avatar
+                      key={`ast-${idx}`}
+                      className="w-6 h-6 border border-background"
+                    >
+                      <AvatarImage src={assistant.avatar || ""} />
+                      <AvatarFallback className="text-[8px]">
+                        {"name" in assistant
+                          ? assistant.name[0]
+                          : assistant.firstName[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+              </div>
+              <p className="text-xs font-medium text-muted-foreground">
+                +
+                {(project?.teamMembers?.length || 0) +
+                  (project?.assistantEmployees?.length || 0) +
+                  (project?.assistantFreelancers?.length || 0)}
               </p>
             </div>
           </div>
 
-          {/* Timeline */}
-          <div className="flex items-center gap-3">
-            <Calendar className="text-primary" size={20} />
-            <div>
-              <p className="text-sm text-muted-foreground">Timeline</p>
+          {/* Timeline Info */}
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Calendar size={16} className="text-primary" />
+              Timeline
+            </p>
+            <div className="pl-6">
               <p className="text-sm font-medium">
                 {startDate} - {endDate}
               </p>
+              {project.scheduledStartTime && (
+                <p className="text-[10px] text-blue-600 font-semibold bg-blue-50 px-1 inline-block rounded">
+                  Scheduled: {project.scheduledStartTime}
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Total Budget */}
-          {project.budget && (
-            <div className="flex items-center gap-3">
-              <DollarSign className="text-green-600" size={20} />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Budget</p>
-                <p className="text-sm font-medium">
-                  R {project.budget?.toLocaleString() || "0"}
+          {/* Financials in one group or separate columns */}
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <DollarSign size={16} className="text-green-600" />
+              Budget & Billing
+            </p>
+            <div className="pl-6 space-y-1">
+              <p className="text-sm font-semibold">
+                R {project.budget?.toLocaleString() || "0"}
+              </p>
+              {invoiceTotal > 0 && (
+                <p className="text-[10px] text-blue-600 flex items-center gap-1">
+                  <Receipt size={10} />
+                  Invoiced: R{invoiceTotal.toLocaleString()}
                 </p>
-              </div>
+              )}
             </div>
-          )}
+          </div>
 
-          {/* Total Invoiced */}
-          {project.invoices && project.invoices.length > 0 && (
-            <div className="flex items-center gap-3">
-              <Receipt className="text-blue-600" size={20} />
-              <div>
-                <p className="text-sm text-muted-foreground">Total Invoiced</p>
-                <p className="text-sm font-medium">
-                  R {invoiceTotal?.toLocaleString() || "0"}
+          {/* Tools Pillar */}
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Wrench size={16} className="text-primary" />
+              Tools
+            </p>
+            <div className="pl-6">
+              <p className="text-sm font-medium">
+                {project.tools?.length || 0} Tools Assigned
+              </p>
+              {project.tools && project.tools.length > 0 && (
+                <p className="text-[10px] text-muted-foreground truncate">
+                  {project.tools
+                    .slice(0, 2)
+                    .map((t) => t.name)
+                    .join(", ")}
+                  {project.tools.length > 2 ? "..." : ""}
                 </p>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
@@ -355,7 +399,7 @@ export function ProjectOverview({
             <p className="text-2xl font-bold text-orange-600">
               {project.invoices?.reduce(
                 (count, invoice) => count + (invoice.Expense?.length || 0),
-                0
+                0,
               ) || 0}
             </p>
             <p className="text-sm text-muted-foreground">Total Expenses</p>
