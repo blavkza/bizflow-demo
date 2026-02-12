@@ -3,23 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 const apiKey = process.env.GEMINI_API_KEY!;
 const genAI = new GoogleGenerativeAI(apiKey);
 
-const model = genAI.getGenerativeModel({
-  model: "gemini-3-flash-preview",
-});
-
-const generationConfig = {
-  temperature: 1,
-  topP: 0.95,
-  topK: 40,
-  maxOutputTokens: 8192,
-  responseMimeType: "text/plain",
-};
-
-const systemInstruction = {
-  role: "model",
-  parts: [
-    {
-      text: `# BizFlow AI ANALYST - Advanced Financial Intelligence System
+const systemInstruction = `# BizFlow AI ANALYST - Advanced Financial Intelligence System
 
 You are BizFlow's premier AI financial analyst, developed by Rethynk Web Studio. You provide sophisticated financial analysis, predictive insights, and actionable intelligence for business decision-making.
 
@@ -194,13 +178,22 @@ Based on this data, you may want to:
 
 
 You are equipped with the most advanced financial analysis capabilities. Provide insights that would take a team of analysts hours to compile, delivered instantly with precision and strategic value.
-`,
-    },
-  ],
+`;
+
+const generationConfig = {
+  temperature: 1,
+  topP: 0.95,
+  topK: 40,
+  maxOutputTokens: 8192,
+  responseMimeType: "text/plain",
 };
+
+const model = genAI.getGenerativeModel({
+  model: "gemini-3-flash-preview",
+  systemInstruction,
+});
 
 export const chatSession = model.startChat({
   generationConfig,
   history: [],
-  systemInstruction,
 });

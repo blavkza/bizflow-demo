@@ -72,9 +72,9 @@ export default function TaskSidebar({ task }: TaskSidebarProps) {
                 <Label className="text-sm font-medium text-muted-foreground">
                   Task Leader
                 </Label>
-                <span className="text-sm">
-                  {task.taskLeader.firstName} {task.taskLeader.lastName}
-                </span>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="text-sm">{task.taskLeader.name}</span>
+                </div>
               </>
             )}
 

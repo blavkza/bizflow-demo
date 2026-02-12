@@ -64,13 +64,13 @@ export async function POST(req: Request) {
 
     // Check if user has AI system permission
     const hasAIPermission = user.permissions.some(
-      (permission) => permission === "SYSTEMS_AI"
+      (permission) => permission === "SYSTEMS_AI",
     );
 
     if (!hasAIPermission && user.role !== "CHIEF_EXECUTIVE_OFFICER") {
       return NextResponse.json(
         { error: "Insufficient permissions" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -88,7 +88,7 @@ export async function POST(req: Request) {
       if (!chatSessionRecord) {
         return NextResponse.json(
           { error: "Session not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
     } else {
@@ -137,7 +137,7 @@ export async function POST(req: Request) {
 
     // Helper function to check project access
     const hasProjectAccess = (
-      projectId: string | null | undefined
+      projectId: string | null | undefined,
     ): boolean => {
       if (!projectId) return false;
       if (user.role === "CHIEF_EXECUTIVE_OFFICER") return true;
@@ -146,7 +146,7 @@ export async function POST(req: Request) {
 
     // Helper function to check department access
     const hasDepartmentAccess = (
-      departmentId: string | null | undefined
+      departmentId: string | null | undefined,
     ): boolean => {
       if (!departmentId) return false;
       if (user.role === "CHIEF_EXECUTIVE_OFFICER") return true;
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
     const hasPermission = (requiredPermission: string): boolean => {
       if (user.role === "CHIEF_EXECUTIVE_OFFICER") return true;
       return user.permissions.some(
-        (permission) => permission === requiredPermission
+        (permission) => permission === requiredPermission,
       );
     };
 
@@ -175,6 +175,23 @@ export async function POST(req: Request) {
     let categories: any[] = [];
     let products: any[] = [];
     let projects: any[] = [];
+    let tools: any[] = [];
+    let loans: any[] = [];
+    let lenders: any[] = [];
+    let refunds: any[] = [];
+    let expenses: any[] = [];
+    let payrolls: any[] = [];
+    let attendance: any[] = [];
+    let leaves: any[] = [];
+    let kpis: any[] = [];
+    let targets: any[] = [];
+    let shopProducts: any[] = [];
+    let orders: any[] = [];
+    let sales: any[] = [];
+    let vendors: any[] = [];
+    let callouts: any[] = [];
+    let freelancers: any[] = [];
+    let tasks: any[] = [];
 
     // Data fetching promises
     const dataFetchers: Promise<any>[] = [];
@@ -196,27 +213,49 @@ export async function POST(req: Request) {
     const fetchClients = /client|customer|account/i.test(promptLower);
     const fetchInvoices =
       /invoice|billing|payment|revenue|income|overdue|outstanding/i.test(
-        promptLower
+        promptLower,
       );
     const fetchTransactions =
       /transaction|expense|financial|revenue|income|expense/i.test(promptLower);
     const fetchQuotations = /quotation|quote|proposal|estimate/i.test(
-      promptLower
+      promptLower,
     );
     const fetchDepartments = /department|team|division|unit/i.test(promptLower);
     const fetchEmployees = /employee|staff|personnel|team member|salary/i.test(
-      promptLower
+      promptLower,
     );
     const fetchEmployeePayments = /payment|salary|payroll|compensation/i.test(
-      promptLower
+      promptLower,
     );
     const fetchCategories = /category|classification|type|group/i.test(
-      promptLower
+      promptLower,
     );
     const fetchProducts = /product|item|inventory|stock/i.test(promptLower);
     const fetchProjects = /project|task|milestone|deliverable/i.test(
-      promptLower
+      promptLower,
     );
+    const fetchTools = /tool|equipment|asset|maintenance/i.test(promptLower);
+    const fetchLoans = /loan|lending|borrow|debt|lender/i.test(promptLower);
+    const fetchRefunds = /refund|return|reimbursement/i.test(promptLower);
+    const fetchExpenses = /expense|spending|cost|expenditure/i.test(
+      promptLower,
+    );
+    const fetchPayroll = /payroll|salary|wage|compensation/i.test(promptLower);
+    const fetchAttendance =
+      /attendance|check-in|check-out|present|absent/i.test(promptLower);
+    const fetchLeaves = /leave|vacation|absence|time off/i.test(promptLower);
+    const fetchPerformance = /performance|kpi|target|goal|metric/i.test(
+      promptLower,
+    );
+    const fetchShop = /shop|pos|sale|order|customer order/i.test(promptLower);
+    const fetchVendors = /vendor|supplier|provider/i.test(promptLower);
+    const fetchCallouts = /callout|emergency|urgent|call-out/i.test(
+      promptLower,
+    );
+    const fetchFreelancers = /freelancer|contractor|consultant/i.test(
+      promptLower,
+    );
+    const fetchTasks = /task|todo|assignment|subtask/i.test(promptLower);
 
     // If no specific data is requested, fetch a basic set
     const fetchAllData =
@@ -229,7 +268,20 @@ export async function POST(req: Request) {
       !fetchEmployeePayments &&
       !fetchCategories &&
       !fetchProducts &&
-      !fetchProjects;
+      !fetchProjects &&
+      !fetchTools &&
+      !fetchLoans &&
+      !fetchRefunds &&
+      !fetchExpenses &&
+      !fetchPayroll &&
+      !fetchAttendance &&
+      !fetchLeaves &&
+      !fetchPerformance &&
+      !fetchShop &&
+      !fetchVendors &&
+      !fetchCallouts &&
+      !fetchFreelancers &&
+      !fetchTasks;
 
     // CLIENTS
     if (fetchClients || fetchAllData) {
@@ -302,7 +354,7 @@ export async function POST(req: Request) {
             .then((result) => {
               clients = result;
               return result;
-            })
+            }),
         );
       }
     }
@@ -337,7 +389,7 @@ export async function POST(req: Request) {
             .then((result) => {
               invoices = result;
               return result;
-            })
+            }),
         );
       }
     }
@@ -374,7 +426,7 @@ export async function POST(req: Request) {
             .then((result) => {
               transactions = result;
               return result;
-            })
+            }),
         );
       }
     }
@@ -403,7 +455,7 @@ export async function POST(req: Request) {
             .then((result) => {
               quotations = result;
               return result;
-            })
+            }),
         );
       }
     }
@@ -435,7 +487,7 @@ export async function POST(req: Request) {
             .then((result) => {
               departments = result;
               return result;
-            })
+            }),
         );
       }
     }
@@ -465,7 +517,7 @@ export async function POST(req: Request) {
             .then((result) => {
               employees = result;
               return result;
-            })
+            }),
         );
       }
     }
@@ -502,7 +554,7 @@ export async function POST(req: Request) {
             .then((result) => {
               employeePayments = result;
               return result;
-            })
+            }),
         );
       }
     }
@@ -538,7 +590,7 @@ export async function POST(req: Request) {
             .then((result) => {
               categories = result;
               return result;
-            })
+            }),
         );
       }
     }
@@ -553,7 +605,7 @@ export async function POST(req: Request) {
           db.product.findMany().then((result) => {
             products = result;
             return result;
-          })
+          }),
         );
       }
     }
@@ -612,7 +664,7 @@ export async function POST(req: Request) {
             .then((result) => {
               projects = result;
               return result;
-            })
+            }),
         );
       }
     }
@@ -630,46 +682,46 @@ export async function POST(req: Request) {
       fetchAllData
     ) {
       const invoicePayments = transactions.flatMap(
-        (t: any) => t.invoice?.payments ?? []
+        (t: any) => t.invoice?.payments ?? [],
       );
       const totalEmployeePayments = employeePayments.reduce(
         (sum: number, p: any) => sum + Number(p.amount),
-        0
+        0,
       );
 
       const incomeTransactions = transactions.filter(
-        (t: any) => t.type === "INCOME"
+        (t: any) => t.type === "INCOME",
       );
       const totalIncome = incomeTransactions.reduce(
         (sum: number, t: any) => sum + Number(t.amount),
-        0
+        0,
       );
       const expenseTransactions = transactions.filter(
-        (t: any) => t.type === "EXPENSE"
+        (t: any) => t.type === "EXPENSE",
       );
       const totalExpenses = expenseTransactions.reduce(
         (sum: number, t: any) => sum + Number(t.amount),
-        0
+        0,
       );
       const totalRevenue = totalIncome - totalExpenses;
 
       const overdueInvoices = invoices.filter(
         (inv: any) =>
           inv.status === "OVERDUE" ||
-          (new Date(inv.dueDate) < currentDate && inv.status !== "PAID")
+          (new Date(inv.dueDate) < currentDate && inv.status !== "PAID"),
       );
 
       const totalOverdueAmount = overdueInvoices.reduce(
         (sum: number, inv: any) =>
           sum + (Number(inv.totalAmount) - Number(inv.amount)),
-        0
+        0,
       );
 
       const recentPayments = invoicePayments.filter((p: any) => {
         const paymentDate = new Date(p.paidAt ?? "");
         const diffDays = Math.ceil(
           Math.abs(currentDate.getTime() - paymentDate.getTime()) /
-            (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24),
         );
         return diffDays <= 30;
       });
@@ -678,7 +730,7 @@ export async function POST(req: Request) {
         const paymentDate = new Date(p.payDate ?? "");
         const diffDays = Math.ceil(
           Math.abs(currentDate.getTime() - paymentDate.getTime()) /
-            (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24),
         );
         return diffDays <= 30;
       });
@@ -694,11 +746,11 @@ export async function POST(req: Request) {
         totalOverdueAmount,
         recentPaymentsTotal: recentPayments.reduce(
           (sum: number, p: any) => sum + Number(p.amount),
-          0
+          0,
         ),
         recentEmployeePaymentsTotal: recentEmployeePayments.reduce(
           (sum: number, p: any) => sum + Number(p.amount),
-          0
+          0,
         ),
       };
 
@@ -727,7 +779,7 @@ export async function POST(req: Request) {
         if (!tasks || tasks.length === 0) return 0;
 
         const completedTasks = tasks.filter(
-          (task: any) => task.status === "COMPLETED"
+          (task: any) => task.status === "COMPLETED",
         );
         return Math.round((completedTasks.length / tasks.length) * 100);
       };
@@ -746,7 +798,7 @@ export async function POST(req: Request) {
       Budget: R${p.budget || "0.00"} (Spent: R${p.budgetSpent || "0.00"})
       Progress: ${calculateProjectProgress(p.tasks)}%
       Timeline: ${p.startDate ? new Date(p.startDate).toLocaleDateString() : "No start date"} - ${p.endDate ? new Date(p.endDate).toLocaleDateString() : "No end date"}
-      `
+      `,
         )
         .join("\n")}
       `;
@@ -756,7 +808,7 @@ export async function POST(req: Request) {
       const overdueInvoices = invoices.filter(
         (inv: any) =>
           inv.status === "OVERDUE" ||
-          (new Date(inv.dueDate) < currentDate && inv.status !== "PAID")
+          (new Date(inv.dueDate) < currentDate && inv.status !== "PAID"),
       );
 
       contextData += `
@@ -787,7 +839,7 @@ export async function POST(req: Request) {
       - Items: ${inv.items.length} line items
       - Payments: ${inv.payments.length} payments
       ${inv.status === "OVERDUE" ? `- OVERDUE BY: ${Math.ceil((currentDate.getTime() - new Date(inv.dueDate).getTime()) / (1000 * 60 * 60 * 24))} days` : ""}
-      `
+      `,
         )
         .join("\n")}
       `;
@@ -820,7 +872,7 @@ export async function POST(req: Request) {
       - Items: ${quote.items.length} line items
       - Conversion: ${quote.convertedToInvoice ? "Converted to invoice" : "Not converted"}
       ${quote.convertedToProjectId ? `- Converted to Project ID: ${quote.convertedToProjectId}` : ""}
-      `
+      `,
         )
         .join("\n")}
       `;
@@ -831,14 +883,14 @@ export async function POST(req: Request) {
         const paymentDate = new Date(p.payDate ?? "");
         const diffDays = Math.ceil(
           Math.abs(currentDate.getTime() - paymentDate.getTime()) /
-            (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24),
         );
         return diffDays <= 30;
       });
 
       const totalEmployeePayments = employeePayments.reduce(
         (sum: number, p: any) => sum + Number(p.amount),
-        0
+        0,
       );
 
       contextData += `
@@ -865,7 +917,7 @@ export async function POST(req: Request) {
       - Currency: ${p.currency}
       - Transaction: ${p.transactionId ? `Linked to transaction ${p.transactionId}` : "No linked transaction"}
       - Created By: User ${p.createdBy}
-      `
+      `,
         )
         .join("\n")}
       `;
@@ -885,7 +937,7 @@ export async function POST(req: Request) {
         .map(
           (c: any) => `- ${c.name} (${c.type})  
       • Transactions: ${c.transactions.length}  
-      • Amounts: ${c.transactions.map((i: any) => i.amount).join(", ")}`
+      • Amounts: ${c.transactions.map((i: any) => i.amount).join(", ")}`,
         )
         .join("\n\n")}
       `;
@@ -914,7 +966,7 @@ export async function POST(req: Request) {
       Quotations: ${c.quotations.length}
       Projects: ${c.projects.length}
       Credit Limit: R${c.creditLimit?.toFixed(2) || "0.00"}
-      `
+      `,
         )
         .join("\n")}`;
     }
@@ -924,7 +976,7 @@ export async function POST(req: Request) {
         if (!tasks || tasks.length === 0) return 0;
 
         const completedTasks = tasks.filter(
-          (task: any) => task.status === "COMPLETED"
+          (task: any) => task.status === "COMPLETED",
         );
         return Math.round((completedTasks.length / tasks.length) * 100);
       };
@@ -944,7 +996,7 @@ export async function POST(req: Request) {
       Timeline: ${p.startDate ? new Date(p.startDate).toLocaleDateString() : "No start date"} - ${p.endDate ? new Date(p.endDate).toLocaleDateString() : "No end date"}
       Invoices: ${p.invoices.length}
       Time Entries: ${p.timeEntries.length}
-      `
+      `,
         )
         .join("\n")}`;
     }
@@ -960,7 +1012,7 @@ export async function POST(req: Request) {
             (t: any) => `
         - ${t.id}: R${t.amount} (${t.type}) for ${t.description || "No description"} on ${new Date(t.payDate).toLocaleDateString()}
           Category: ${t.category?.name || "None"}, Department: ${t.department?.name || "None"}
-        `
+        `,
           )
           .join("")}`;
       }
@@ -976,7 +1028,7 @@ export async function POST(req: Request) {
       Date: ${new Date(p.payDate).toLocaleDateString()}
       Description: ${p.description || "No description"}
       Employee Department: ${p.employee?.department?.name || "None"}
-      `
+      `,
         )
         .join("\n")}`;
     }
@@ -1033,7 +1085,7 @@ export async function POST(req: Request) {
         error: "Failed to process request",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

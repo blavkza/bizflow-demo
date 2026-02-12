@@ -1,0 +1,373 @@
+// ADD THIS CODE AFTER LINE 670 in ai-chat/route.ts (after the PROJECTS section)
+
+    // TOOLS & EQUIPMENT
+    if (fetchTools || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("TOOLS_VIEW")
+      ) {
+        dataFetchers.push(
+          db.tool
+            .findMany({
+              include: {
+                employee: true,
+                freelancer: true,
+                subTools: true,
+                maintenanceRecords: true,
+                movements: true,
+              },
+            })
+            .then((result) => {
+              tools = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // LOANS & LENDERS
+    if (fetchLoans || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("LOANS_VIEW")
+      ) {
+        dataFetchers.push(
+          db.loan
+            .findMany({
+              include: {
+                lender: true,
+                payments: true,
+              },
+            })
+            .then((result) => {
+              loans = result;
+              return result;
+            })
+        );
+
+        dataFetchers.push(
+          db.lender
+            .findMany({
+              include: {
+                loans: true,
+              },
+            })
+            .then((result) => {
+              lenders = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // REFUNDS
+    if (fetchRefunds || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("REFUNDS_VIEW")
+      ) {
+        dataFetchers.push(
+          db.refund
+            .findMany({
+              include: {
+                transaction: true,
+              },
+            })
+            .then((result) => {
+              refunds = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // EXPENSES
+    if (fetchExpenses || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("EXPENSES_VIEW")
+      ) {
+        dataFetchers.push(
+          db.expense
+            .findMany({
+              include: {
+                payments: true,
+              },
+            })
+            .then((result) => {
+              expenses = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // PAYROLL
+    if (fetchPayroll || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("PAYROLL_VIEW")
+      ) {
+        dataFetchers.push(
+          db.payroll
+            .findMany({
+              include: {
+                payments: {
+                  include: {
+                    employee: true,
+                    freeLancer: true,
+                  },
+                },
+                payrollBonuses: true,
+                payrollDeductions: true,
+              },
+            })
+            .then((result) => {
+              payrolls = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // ATTENDANCE RECORDS
+    if (fetchAttendance || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("ATTENDANCE_VIEW")
+      ) {
+        dataFetchers.push(
+          db.attendanceRecord
+            .findMany({
+              include: {
+                employee: true,
+                freeLancer: true,
+                breaks: true,
+              },
+              orderBy: { date: "desc" },
+              take: 100, // Limit to recent records
+            })
+            .then((result) => {
+              attendance = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // LEAVE REQUESTS
+    if (fetchLeaves || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("LEAVES_VIEW")
+      ) {
+        dataFetchers.push(
+          db.leaveRequest
+            .findMany({
+              include: {
+                employee: true,
+                freeLancer: true,
+              },
+            })
+            .then((result) => {
+              leaves = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // PERFORMANCE METRICS (KPIs & TARGETS)
+    if (fetchPerformance || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("PERFORMANCE_VIEW")
+      ) {
+        dataFetchers.push(
+          db.kpiResult
+            .findMany({
+              include: {
+                employee: true,
+                freeLancer: true,
+              },
+            })
+            .then((result) => {
+              kpis = result;
+              return result;
+            })
+        );
+
+        dataFetchers.push(
+          db.target
+            .findMany({
+              include: {
+                employee: true,
+                freeLancer: true,
+                department: true,
+              },
+            })
+            .then((result) => {
+              targets = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // SHOP/POS DATA
+    if (fetchShop || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("SHOP_VIEW")
+      ) {
+        dataFetchers.push(
+          db.shopProduct
+            .findMany({
+              include: {
+                category: true,
+              },
+            })
+            .then((result) => {
+              shopProducts = result;
+              return result;
+            })
+        );
+
+        dataFetchers.push(
+          db.order
+            .findMany({
+              include: {
+                items: true,
+              },
+              orderBy: { createdAt: "desc" },
+              take: 50,
+            })
+            .then((result) => {
+              orders = result;
+              return result;
+            })
+        );
+
+        dataFetchers.push(
+          db.sale
+            .findMany({
+              include: {
+                items: true,
+                coupon: true,
+              },
+              orderBy: { createdAt: "desc" },
+              take: 50,
+            })
+            .then((result) => {
+              sales = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // VENDORS
+    if (fetchVendors || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("VENDORS_VIEW")
+      ) {
+        dataFetchers.push(
+          db.vendor
+            .findMany({})
+            .then((result) => {
+              vendors = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // EMERGENCY CALLOUTS
+    if (fetchCallouts || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("CALLOUTS_VIEW")
+      ) {
+        dataFetchers.push(
+          db.emergencyCallOut
+            .findMany({
+              include: {
+                employee: true,
+                freeLancer: true,
+                assistants: {
+                  include: {
+                    employee: true,
+                    freeLancer: true,
+                  },
+                },
+              },
+            })
+            .then((result) => {
+              callouts = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // FREELANCERS
+    if (fetchFreelancers || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("FREELANCERS_VIEW")
+      ) {
+        dataFetchers.push(
+          db.freeLancer
+            .findMany({
+              include: {
+                department: true,
+                assignedTasks: true,
+                payments: true,
+                targets: true,
+                kpiResults: true,
+              },
+            })
+            .then((result) => {
+              freelancers = result;
+              return result;
+            })
+        );
+      }
+    }
+
+    // TASKS
+    if (fetchTasks || fetchAllData) {
+      if (
+        user.role === "CHIEF_EXECUTIVE_OFFICER" ||
+        hasPermission("TASKS_VIEW")
+      ) {
+        dataFetchers.push(
+          db.task
+            .findMany({
+              include: {
+                project: true,
+                assignees: true,
+                freeLancerAssignees: true,
+                taskLeader: true,
+                subtasks: true,
+                timeEntries: true,
+              },
+              where:
+                user.role !== "CHIEF_EXECUTIVE_OFFICER"
+                  ? {
+                      OR: [
+                        { projectId: { in: userProjectIds } },
+                        { assignees: { some: { id: user.employeeId || "" } } },
+                        { taskLeaderId: user.id },
+                      ],
+                    }
+                  : undefined,
+            })
+            .then((result) => {
+              tasks = result;
+              return result;
+            })
+        );
+      }
+    }

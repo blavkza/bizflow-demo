@@ -39,6 +39,7 @@ export async function PUT(
       estimatedHours,
       assigneeIds = [],
       freelancerIds = [],
+      taskLeaderId,
     } = body;
 
     if (!title) {
@@ -102,6 +103,7 @@ export async function PUT(
       priority: priority,
       dueDate: dueDate ? new Date(dueDate) : null,
       estimatedHours: estimatedHours || null,
+      taskLeaderId: taskLeaderId || null,
     };
 
     if (status === "COMPLETED" && existingTask.status !== "COMPLETED") {
@@ -193,6 +195,13 @@ export async function PUT(
             id: true,
           },
         },
+        taskLeader: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
       },
     });
 
@@ -201,34 +210,39 @@ export async function PUT(
       await db.notification.create({
         data: {
           title: "Task Updated",
-          message: `Task "${fullUpdatedTask.title}" has been updated by ${updater.name}.`,
+          message: `Task "${(fullUpdatedTask as any).title}" has been updated by ${updater.name}.`,
           type: "PROJECT",
           isRead: false,
-          actionUrl: `/dashboard/projects/${fullUpdatedTask.projectId}/tasks/${fullUpdatedTask.id}`,
+          actionUrl: `/dashboard/projects/${(fullUpdatedTask as any).projectId}/tasks/${(fullUpdatedTask as any).id}`,
           userId: updater.id,
         },
       });
 
-      if (fullUpdatedTask.assignees && fullUpdatedTask.assignees.length > 0) {
-        const detailMessage = `Task: ${fullUpdatedTask.title}\nProject: ${fullUpdatedTask.project?.title}\nStatus: ${fullUpdatedTask.status}\nPriority: ${fullUpdatedTask.priority || "N/A"}\nDue: ${fullUpdatedTask.dueDate ? new Date(fullUpdatedTask.dueDate).toLocaleDateString() : "N/A"}\nUpdated by: ${updater.name}`;
+      if (
+        (fullUpdatedTask as any).assignees &&
+        (fullUpdatedTask as any).assignees.length > 0
+      ) {
+        const detailMessage = `Task: ${(fullUpdatedTask as any).title}\nProject: ${(fullUpdatedTask as any).project?.title}\nStatus: ${(fullUpdatedTask as any).status}\nPriority: ${(fullUpdatedTask as any).priority || "N/A"}\nDue: ${(fullUpdatedTask as any).dueDate ? new Date((fullUpdatedTask as any).dueDate).toLocaleDateString() : "N/A"}\nUpdated by: ${updater.name}`;
 
-        const employeeNotifications = fullUpdatedTask.assignees.map((emp) => ({
-          employeeId: emp.id,
-          title: "Task Updated",
-          message: detailMessage,
-          type: NotificationType.Task,
-          isRead: false,
-          actionUrl: `/dashboard/projects/${fullUpdatedTask.projectId}/tasks/${fullUpdatedTask.id}`,
-        }));
+        const employeeNotifications = (fullUpdatedTask as any).assignees.map(
+          (emp: any) => ({
+            employeeId: emp.id,
+            title: "Task Updated",
+            message: detailMessage,
+            type: NotificationType.Task,
+            isRead: false,
+            actionUrl: `/dashboard/projects/${(fullUpdatedTask as any).projectId}/tasks/${(fullUpdatedTask as any).id}`,
+          }),
+        );
 
-        for (const employee of fullUpdatedTask.assignees) {
+        for (const employee of (fullUpdatedTask as any).assignees) {
           await sendPushNotification({
             employeeId: employee.id,
             title: "Task Updated",
-            body: `Task "${fullUpdatedTask.title}" details updated in project "${fullUpdatedTask.project?.title}".`,
+            body: `Task "${(fullUpdatedTask as any).title}" details updated in project "${(fullUpdatedTask as any).project?.title}".`,
             data: {
-              taskId: fullUpdatedTask.id,
-              projectId: fullUpdatedTask.projectId,
+              taskId: (fullUpdatedTask as any).id,
+              projectId: (fullUpdatedTask as any).projectId,
             },
           });
         }
@@ -239,30 +253,30 @@ export async function PUT(
       }
 
       if (
-        fullUpdatedTask.freeLancerAssignees &&
-        fullUpdatedTask.freeLancerAssignees.length > 0
+        (fullUpdatedTask as any).freeLancerAssignees &&
+        (fullUpdatedTask as any).freeLancerAssignees.length > 0
       ) {
-        const detailMessage = `Task: ${fullUpdatedTask.title}\nProject: ${fullUpdatedTask.project?.title}\nStatus: ${fullUpdatedTask.status}\nPriority: ${fullUpdatedTask.priority || "N/A"}\nDue: ${fullUpdatedTask.dueDate ? new Date(fullUpdatedTask.dueDate).toLocaleDateString() : "N/A"}\nUpdated by: ${updater.name}`;
+        const detailMessage = `Task: ${(fullUpdatedTask as any).title}\nProject: ${(fullUpdatedTask as any).project?.title}\nStatus: ${(fullUpdatedTask as any).status}\nPriority: ${(fullUpdatedTask as any).priority || "N/A"}\nDue: ${(fullUpdatedTask as any).dueDate ? new Date((fullUpdatedTask as any).dueDate).toLocaleDateString() : "N/A"}\nUpdated by: ${updater.name}`;
 
-        const freelancerNotifications = fullUpdatedTask.freeLancerAssignees.map(
-          (free) => ({
-            freeLancerId: free.id,
-            title: "Task Updated",
-            message: detailMessage,
-            type: NotificationType.Task,
-            isRead: false,
-            actionUrl: `/dashboard/projects/${fullUpdatedTask.projectId}/tasks/${fullUpdatedTask.id}`,
-          }),
-        );
+        const freelancerNotifications = (
+          fullUpdatedTask as any
+        ).freeLancerAssignees.map((free: any) => ({
+          freeLancerId: free.id,
+          title: "Task Updated",
+          message: detailMessage,
+          type: NotificationType.Task,
+          isRead: false,
+          actionUrl: `/dashboard/projects/${(fullUpdatedTask as any).projectId}/tasks/${(fullUpdatedTask as any).id}`,
+        }));
 
-        for (const freelancer of fullUpdatedTask.freeLancerAssignees) {
+        for (const freelancer of (fullUpdatedTask as any).freeLancerAssignees) {
           await sendPushFreelancer({
             freelancerId: freelancer.id,
             title: "Task Updated",
-            body: `Task "${fullUpdatedTask.title}" details updated in project "${fullUpdatedTask.project?.title}".`,
+            body: `Task "${(fullUpdatedTask as any).title}" details updated in project "${(fullUpdatedTask as any).project?.title}".`,
             data: {
-              taskId: fullUpdatedTask.id,
-              projectId: fullUpdatedTask.projectId,
+              taskId: (fullUpdatedTask as any).id,
+              projectId: (fullUpdatedTask as any).projectId,
             },
           });
         }
@@ -442,6 +456,13 @@ export async function GET(
           },
         },
         documents: true,
+        taskLeader: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+          },
+        },
         timeEntries: {
           orderBy: {
             date: "desc",

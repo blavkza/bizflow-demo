@@ -149,12 +149,14 @@ export default function TaskForm({
 }: TaskFormProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [projectAssistantEmployees, setProjectAssistantEmployees] = useState<
     any[]
   >([]);
   const [projectAssistantFreelancers, setProjectAssistantFreelancers] =
     useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [isMultiTaskMode, setIsMultiTaskMode] = useState(false);
   const [expandedTasks, setExpandedTasks] = useState<number[]>([]);
@@ -406,9 +408,24 @@ export default function TaskForm({
     }
   };
 
+  const fetchUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const response = await axios.get("/api/users");
+      const usersData = response?.data || [];
+      setUsers(usersData);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      toast.error("Failed to load users");
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
   useEffect(() => {
     fetchAssignees();
     fetchProjectAssistants();
+    fetchUsers();
   }, [projectId]);
 
   // Don't allow multi-task mode for updates
@@ -446,6 +463,13 @@ export default function TaskForm({
     label: `${freelancer.firstName} ${freelancer.lastName} (Freelancer)`,
     value: freelancer.id,
   }));
+
+  const usersOptions = users
+    .filter((user) => user.id && user.name)
+    .map((user) => ({
+      label: user.name || "",
+      value: user.id,
+    }));
 
   const allAssigneeOptions = [...employeeOptions, ...freelancerOptions];
 
@@ -562,9 +586,10 @@ export default function TaskForm({
                     <FormLabel>Task Leader</FormLabel>
                     <FormControl>
                       <Combobox
-                        options={allAssigneeOptions}
+                        options={usersOptions}
                         value={field.value || ""}
                         onChange={field.onChange}
+                        isLoading={isLoadingUsers}
                         placeholder="Select Task Leader"
                       />
                     </FormControl>
