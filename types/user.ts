@@ -155,6 +155,33 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
+    name: "Worker Tools",
+    permissions: [
+      UserPermission.WORKER_TOOLS_CREATE,
+      UserPermission.WORKER_TOOLS_EDIT,
+      UserPermission.WORKER_TOOLS_DELETE,
+      UserPermission.WORKER_TOOLS_VIEW,
+    ],
+  },
+  {
+    name: "Tool Requests",
+    permissions: [
+      UserPermission.TOOL_REQUESTS_CREATE,
+      UserPermission.TOOL_REQUESTS_EDIT,
+      UserPermission.TOOL_REQUESTS_DELETE,
+      UserPermission.TOOL_REQUESTS_VIEW,
+    ],
+  },
+  {
+    name: "Tool Maintenance",
+    permissions: [
+      UserPermission.TOOL_MAINTENANCE_CREATE,
+      UserPermission.TOOL_MAINTENANCE_EDIT,
+      UserPermission.TOOL_MAINTENANCE_DELETE,
+      UserPermission.TOOL_MAINTENANCE_VIEW,
+    ],
+  },
+  {
     name: "Refunds",
     permissions: [
       UserPermission.Refund_CREATE,
@@ -230,6 +257,31 @@ export const PERMISSION_GROUPS = [
   {
     name: "POS",
     permissions: [UserPermission.POS_VIEW],
+  },
+  {
+    name: "Loans",
+    permissions: [
+      UserPermission.LOANS_CREATE,
+      UserPermission.LOANS_EDIT,
+      UserPermission.LOANS_DELETE,
+      UserPermission.LOANS_VIEW,
+    ],
+  },
+  {
+    name: "Lenders",
+    permissions: [
+      UserPermission.LENDERS_CREATE,
+      UserPermission.LENDERS_EDIT,
+      UserPermission.LENDERS_DELETE,
+      UserPermission.LENDERS_VIEW,
+    ],
+  },
+  {
+    name: "Loan Payments",
+    permissions: [
+      UserPermission.LOAN_PAYMENTS_CREATE,
+      UserPermission.LOAN_PAYMENTS_DELETE,
+    ],
   },
   {
     name: "Coupons",
