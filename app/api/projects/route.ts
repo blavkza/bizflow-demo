@@ -2,7 +2,7 @@ import db from "@/lib/db";
 import { projectSchema } from "@/lib/formValidationSchemas";
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { sendPushNotification } from "@/lib/expo";
+import { sendPushNotification, sendPushFreelancer } from "@/lib/expo";
 import { UserRole, NotificationType } from "@prisma/client";
 
 export async function POST(req: Request) {
@@ -217,7 +217,35 @@ export async function POST(req: Request) {
             data: taskData.assigneeIds.map((employeeId: string) => ({
               employeeId,
               title: "New Task Assigned",
-              message: `You have been assigned to task "${task.title}" in project "${project.title}" by ${creater.name}.`,
+              message: `Task: ${task.title}\nProject: ${project.title}\nDetails: ${task.description || "No description"}\nAssigned by: ${creater.name}`,
+              type: NotificationType.Task,
+              isRead: false,
+              actionUrl: `/dashboard/projects/${project.id}/tasks/${task.id}`,
+            })),
+          });
+        }
+
+        // Notifications for task assignees (freelancers)
+        if (taskData.freelancerIds && taskData.freelancerIds.length > 0) {
+          await Promise.all(
+            taskData.freelancerIds.map((freelancerId: string) =>
+              sendPushFreelancer({
+                freelancerId,
+                title: "New Task Assigned",
+                body: `You have been assigned task "${task.title}" in project "${project.title}"!`,
+                data: {
+                  taskId: task.id,
+                  url: `/dashboard/projects/${project.id}/tasks/${task.id}`,
+                },
+              }),
+            ),
+          );
+
+          await db.employeeNotification.createMany({
+            data: taskData.freelancerIds.map((freelancerId: string) => ({
+              freeLancerId: freelancerId,
+              title: "New Task Assigned",
+              message: `Task: ${task.title}\nProject: ${project.title}\nDetails: ${task.description || "No description"}\nAssigned by: ${creater.name}`,
               type: NotificationType.Task,
               isRead: false,
               actionUrl: `/dashboard/projects/${project.id}/tasks/${task.id}`,
@@ -263,6 +291,64 @@ export async function POST(req: Request) {
       });
       console.log(
         `Push notification sent to new project manager: ${project.manager.employeeId}`,
+      );
+    }
+
+    // Notifications for assistant employees
+    if (assistantEmployeeIds && assistantEmployeeIds.length > 0) {
+      const assistantMessage = `You have been assigned as an assistant to project ${project.title} : ${project.projectNumber} by ${creater.name}.`;
+
+      await db.employeeNotification.createMany({
+        data: assistantEmployeeIds.map((id: string) => ({
+          employeeId: id,
+          title: "Project Assistant",
+          message: assistantMessage,
+          type: "EMPLOYEE",
+          actionUrl: `/dashboard/projects/${project.id}`,
+        })),
+      });
+
+      await Promise.all(
+        assistantEmployeeIds.map((id: string) =>
+          sendPushNotification({
+            employeeId: id,
+            title: "Project Assignment",
+            body: assistantMessage,
+            data: {
+              projectId: project.id,
+              url: `/dashboard/projects/${project.id}`,
+            },
+          }),
+        ),
+      );
+    }
+
+    // Notifications for assistant freelancers
+    if (assistantFreelancerIds && assistantFreelancerIds.length > 0) {
+      const assistantMessage = `You have been assigned as an assistant to project ${project.title} : ${project.projectNumber} by ${creater.name}.`;
+
+      await db.employeeNotification.createMany({
+        data: assistantFreelancerIds.map((id: string) => ({
+          freeLancerId: id,
+          title: "Project Assistant",
+          message: assistantMessage,
+          type: "EMPLOYEE",
+          actionUrl: `/dashboard/projects/${project.id}`,
+        })),
+      });
+
+      await Promise.all(
+        assistantFreelancerIds.map((id: string) =>
+          sendPushFreelancer({
+            freelancerId: id,
+            title: "Project Assignment",
+            body: assistantMessage,
+            data: {
+              projectId: project.id,
+              url: `/dashboard/projects/${project.id}`,
+            },
+          }),
+        ),
       );
     }
 

@@ -2,7 +2,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Project, Tool } from "../type";
-import { Plus, Wrench, Calendar, AlertTriangle, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Wrench,
+  Calendar,
+  AlertTriangle,
+  Loader2,
+  Check,
+} from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,7 +24,6 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { MultiSelect } from "@/components/ui/multi-select";
 
 interface ProjectToolsProps {
   project: Project;
@@ -28,12 +34,11 @@ export function ProjectTools({ project, fetchProject }: ProjectToolsProps) {
   const toolInterUses = project.toolInterUses || [];
   const assignedTools = project.tools || [];
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [allTools, setAllTools] = useState<{ label: string; value: string }[]>(
-    [],
-  );
+  const [allTools, setAllTools] = useState<Tool[]>([]);
   const [selectedToolIds, setSelectedToolIds] = useState<string[]>([]);
   const [isLoadingTools, setIsLoadingTools] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     if (isDialogOpen) {
@@ -50,7 +55,9 @@ export function ProjectTools({ project, fetchProject }: ProjectToolsProps) {
     try {
       const response = await axios.get("/api/tools");
       const tools: Tool[] = response.data || [];
-      setAllTools(tools.map((t) => ({ label: t.name, value: t.id })));
+      // Filter out subtools (tools that have a parentToolId)
+      const mainTools = tools.filter((t) => !t.parentToolId);
+      setAllTools(mainTools);
     } catch (error) {
       console.error("Error fetching tools:", error);
       toast.error("Failed to load tools");
@@ -127,34 +134,146 @@ export function ProjectTools({ project, fetchProject }: ProjectToolsProps) {
               Manage Tools
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Assign Tools to Project</DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Select from main tools only. Subtools are automatically included
+                with their parents.
+              </p>
             </DialogHeader>
-            <div className="py-4">
+            <div className="py-4 space-y-4 flex-1 overflow-auto">
+              <div className="flex items-center gap-2">
+                <input
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Search tools by name or code..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
               {isLoadingTools ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-10 w-10 animate-spin text-primary" />
                 </div>
               ) : (
-                <MultiSelect
-                  options={allTools}
-                  selected={selectedToolIds}
-                  onChange={setSelectedToolIds}
-                  placeholder="Select tools..."
-                />
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  {allTools
+                    .filter(
+                      (tool) =>
+                        tool.name
+                          .toLowerCase()
+                          .includes(searchQuery.toLowerCase()) ||
+                        tool.code
+                          ?.toLowerCase()
+                          .includes(searchQuery.toLowerCase()),
+                    )
+                    .map((tool) => {
+                      const isSelected = selectedToolIds.includes(tool.id);
+                      return (
+                        <Card
+                          key={tool.id}
+                          className={`cursor-pointer transition-all hover:border-primary border-2 ${
+                            isSelected
+                              ? "border-primary bg-primary/5"
+                              : "border-transparent"
+                          }`}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedToolIds(
+                                selectedToolIds.filter((id) => id !== tool.id),
+                              );
+                            } else {
+                              setSelectedToolIds([...selectedToolIds, tool.id]);
+                            }
+                          }}
+                        >
+                          <CardContent className="p-3 flex items-center gap-4">
+                            <div className="relative h-14 w-14 shrink-0 rounded-md overflow-hidden bg-muted">
+                              {tool.primaryImage ? (
+                                <Image
+                                  src={tool.primaryImage}
+                                  alt={tool.name}
+                                  fill
+                                  className="object-cover"
+                                  unoptimized
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <Wrench className="h-6 w-6 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h5 className="text-sm font-medium truncate">
+                                {tool.name}
+                              </h5>
+                              <p className="text-[10px] text-muted-foreground truncate">
+                                {tool.code || "No Code"}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge
+                                  variant="secondary"
+                                  className={`text-[9px] px-1 py-0 h-4 ${
+                                    tool.status === "AVAILABLE"
+                                      ? "bg-green-100 text-green-700"
+                                      : tool.status === "IN_USE"
+                                        ? "bg-amber-100 text-amber-700"
+                                        : "bg-red-100 text-red-700"
+                                  }`}
+                                >
+                                  {tool.status}
+                                </Badge>
+                                <span
+                                  className={`text-[9px] font-medium ${getConditionColor(tool.condition)}`}
+                                >
+                                  {tool.condition}
+                                </span>
+                              </div>
+                            </div>
+                            <div
+                              className={`h-4 w-4 rounded-full border flex items-center justify-center ${
+                                isSelected
+                                  ? "bg-primary border-primary"
+                                  : "border-muted-foreground/30"
+                              }`}
+                            >
+                              {isSelected && (
+                                <Check className="h-3 w-3 text-white" />
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                </div>
               )}
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleUpdateTools} disabled={isSubmitting}>
-                {isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Save Changes
-              </Button>
+            <DialogFooter className="mt-4">
+              <div className="flex flex-col sm:flex-row justify-between w-full items-center gap-4">
+                <p className="text-sm font-medium">
+                  {selectedToolIds.length} Tools Selected
+                </p>
+                <div className="flex gap-2 w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    className="flex-1 sm:flex-none"
+                    onClick={() => setIsDialogOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1 sm:flex-none"
+                    onClick={handleUpdateTools}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Save Assignment
+                  </Button>
+                </div>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>

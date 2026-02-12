@@ -60,6 +60,58 @@ export async function sendPushNotification({
     console.error("Error in sendPushNotification:", error);
   }
 }
+
+export async function sendPushFreelancer({
+  freelancerId,
+  title,
+  body,
+  data,
+}: {
+  freelancerId: string;
+  title: string;
+  body: string;
+  data?: any;
+}) {
+  try {
+    const freelancer = await db.freeLancer.findUnique({
+      where: { id: freelancerId },
+      select: { expoPushToken: true },
+    });
+
+    if (
+      !freelancer?.expoPushToken ||
+      !Expo.isExpoPushToken(freelancer.expoPushToken)
+    ) {
+      if (freelancer?.expoPushToken) {
+        console.error(
+          `Invalid Push token for freelancer: ${freelancer.expoPushToken}`,
+        );
+      } else {
+        console.log(`No push token found for freelancer ${freelancerId}`);
+      }
+      return;
+    }
+
+    const messages = [
+      {
+        to: freelancer.expoPushToken,
+        sound: "default" as const,
+        title: title,
+        body: body,
+        data: data || {},
+        priority: "high" as const,
+        channelId: "default_v4",
+      },
+    ];
+
+    const chunks = expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+      await expo.sendPushNotificationsAsync(chunk);
+    }
+  } catch (error) {
+    console.error("Error in sendPushFreelancer:", error);
+  }
+}
 export async function sendPushToUser({
   userId,
   title,
@@ -76,11 +128,12 @@ export async function sendPushToUser({
       where: { id: userId },
       include: {
         employee: { select: { expoPushToken: true } },
-        // freeLancer: { select: { expoPushToken: true } } // TODO: Add to FreeLancer schema if needed
+        freeLancer: { select: { expoPushToken: true } },
       },
     });
 
-    const token = user?.employee?.expoPushToken;
+    const token =
+      user?.employee?.expoPushToken || user?.freeLancer?.expoPushToken;
 
     if (!token || !Expo.isExpoPushToken(token)) {
       console.log(`No valid push token for user ${userId}`);

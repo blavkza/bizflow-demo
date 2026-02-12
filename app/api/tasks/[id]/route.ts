@@ -1,12 +1,12 @@
 import db from "@/lib/db";
-import { sendPushNotification } from "@/lib/expo";
+import { sendPushNotification, sendPushFreelancer } from "@/lib/expo";
 import { auth } from "@clerk/nextjs/server";
 import { NotificationType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -59,7 +59,7 @@ export async function PUT(
     if (!existingTask) {
       return NextResponse.json(
         { error: "Task not found or access denied" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -70,11 +70,11 @@ export async function PUT(
 
       if (existingEmployees.length !== assigneeIds.length) {
         const missingIds = assigneeIds.filter(
-          (id: string) => !existingEmployees.some((emp) => emp.id === id)
+          (id: string) => !existingEmployees.some((emp) => emp.id === id),
         );
         return NextResponse.json(
           { error: `Employees not found: ${missingIds.join(", ")}` },
-          { status: 404 }
+          { status: 404 },
         );
       }
     }
@@ -86,11 +86,11 @@ export async function PUT(
 
       if (existingFreelancers.length !== freelancerIds.length) {
         const missingIds = freelancerIds.filter(
-          (id: string) => !existingFreelancers.some((fl) => fl.id === id)
+          (id: string) => !existingFreelancers.some((fl) => fl.id === id),
         );
         return NextResponse.json(
           { error: `Freelancers not found: ${missingIds.join(", ")}` },
-          { status: 404 }
+          { status: 404 },
         );
       }
     }
@@ -163,7 +163,7 @@ export async function PUT(
       {
         timeout: 30000,
         maxWait: 30000,
-      }
+      },
     );
 
     // Fetch updated task for response and notifications
@@ -210,10 +210,12 @@ export async function PUT(
       });
 
       if (fullUpdatedTask.assignees && fullUpdatedTask.assignees.length > 0) {
+        const detailMessage = `Task: ${fullUpdatedTask.title}\nProject: ${fullUpdatedTask.project?.title}\nStatus: ${fullUpdatedTask.status}\nPriority: ${fullUpdatedTask.priority || "N/A"}\nDue: ${fullUpdatedTask.dueDate ? new Date(fullUpdatedTask.dueDate).toLocaleDateString() : "N/A"}\nUpdated by: ${updater.name}`;
+
         const employeeNotifications = fullUpdatedTask.assignees.map((emp) => ({
           employeeId: emp.id,
           title: "Task Updated",
-          message: `Task "${fullUpdatedTask.title}" details have been updated by ${updater.name}.`,
+          message: detailMessage,
           type: NotificationType.Task,
           isRead: false,
           actionUrl: `/dashboard/projects/${fullUpdatedTask.projectId}/tasks/${fullUpdatedTask.id}`,
@@ -223,13 +225,50 @@ export async function PUT(
           await sendPushNotification({
             employeeId: employee.id,
             title: "Task Updated",
-            body: `Task "${fullUpdatedTask.title}" has been updated.`,
-            data: { taskId: fullUpdatedTask.id },
+            body: `Task "${fullUpdatedTask.title}" details updated in project "${fullUpdatedTask.project?.title}".`,
+            data: {
+              taskId: fullUpdatedTask.id,
+              projectId: fullUpdatedTask.projectId,
+            },
           });
         }
 
         await db.employeeNotification.createMany({
           data: employeeNotifications,
+        });
+      }
+
+      if (
+        fullUpdatedTask.freeLancerAssignees &&
+        fullUpdatedTask.freeLancerAssignees.length > 0
+      ) {
+        const detailMessage = `Task: ${fullUpdatedTask.title}\nProject: ${fullUpdatedTask.project?.title}\nStatus: ${fullUpdatedTask.status}\nPriority: ${fullUpdatedTask.priority || "N/A"}\nDue: ${fullUpdatedTask.dueDate ? new Date(fullUpdatedTask.dueDate).toLocaleDateString() : "N/A"}\nUpdated by: ${updater.name}`;
+
+        const freelancerNotifications = fullUpdatedTask.freeLancerAssignees.map(
+          (free) => ({
+            freeLancerId: free.id,
+            title: "Task Updated",
+            message: detailMessage,
+            type: NotificationType.Task,
+            isRead: false,
+            actionUrl: `/dashboard/projects/${fullUpdatedTask.projectId}/tasks/${fullUpdatedTask.id}`,
+          }),
+        );
+
+        for (const freelancer of fullUpdatedTask.freeLancerAssignees) {
+          await sendPushFreelancer({
+            freelancerId: freelancer.id,
+            title: "Task Updated",
+            body: `Task "${fullUpdatedTask.title}" details updated in project "${fullUpdatedTask.project?.title}".`,
+            data: {
+              taskId: fullUpdatedTask.id,
+              projectId: fullUpdatedTask.projectId,
+            },
+          });
+        }
+
+        await db.employeeNotification.createMany({
+          data: freelancerNotifications,
         });
       }
     }
@@ -239,14 +278,14 @@ export async function PUT(
     console.error("[TASK_UPDATE_ERROR]", error);
     return NextResponse.json(
       { error: "Failed to update task" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
 
@@ -317,26 +356,26 @@ export async function DELETE(
       });
 
       console.log(
-        `Deletion notifications sent to ${employeeNotifications.length} employees.`
+        `Deletion notifications sent to ${employeeNotifications.length} employees.`,
       );
     }
 
     return NextResponse.json(
       { message: "Task deleted successfully" },
-      { status: 200 }
+      { status: 200 },
     );
   } catch (error) {
     console.error("Error deleting task:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { userId } = await auth();
@@ -429,7 +468,7 @@ export async function GET(
     console.error("[TASK_GET_ERROR]", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

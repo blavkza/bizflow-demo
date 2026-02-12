@@ -219,6 +219,8 @@ export interface Tool {
   rentalRateWeekly: Decimal | null;
   rentalRateMonthly: Decimal | null;
   primaryImage: string | null;
+  parentToolId?: string | null;
+  code?: string | null;
 }
 
 export interface ToolInterUse {

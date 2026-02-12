@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
 import { taskSchema } from "@/lib/formValidationSchemas";
 import { NotificationType } from "@prisma/client";
-import { sendPushNotification } from "@/lib/expo";
+import { sendPushNotification, sendPushFreelancer } from "@/lib/expo";
 
 export async function POST(req: Request) {
   try {
@@ -190,19 +190,9 @@ async function createSingleTask(data: any, creator: any) {
     },
   });
 
-  if (validatedData.assigneeIds && validatedData.assigneeIds.length > 0) {
-    const employeeNotifications = validatedData.assigneeIds.map(
-      (employeeId: string) => ({
-        employeeId: employeeId,
-        title: "New Task Assigned",
-        message: `You have been assigned to task "${result.title}" in project "${result.project.title}" by ${creator.name}.`,
-        type: NotificationType.Task,
-        isRead: false,
-        actionUrl: `/dashboard/projects/${result.projectId}/tasks/${result.id}`,
-      }),
-    );
+    const detailMessage = `Task: ${result.title}\nProject: ${result.project.title}\nDetails: ${result.description || "No description"}\nAssigned by: ${creator.name}`;
 
-    // 1. Send Push Notifications
+    // 1. Send Push Notifications to Employees
     await Promise.all(
       validatedData.assigneeIds.map((employeeId: string) =>
         sendPushNotification({
@@ -215,14 +205,50 @@ async function createSingleTask(data: any, creator: any) {
           },
         }),
       ),
-    ); // 2. Create Database Notifications (History)
-
-    await db.employeeNotification.createMany({
-      data: employeeNotifications,
-    });
-    console.log(
-      `Notifications sent to ${employeeNotifications.length} employees.`,
     );
+
+    // 2. Create Database Notifications for Employees
+    await db.employeeNotification.createMany({
+      data: validatedData.assigneeIds.map((id: string) => ({
+        employeeId: id,
+        title: "New Task Assigned",
+        message: detailMessage,
+        type: NotificationType.Task,
+        isRead: false,
+        actionUrl: `/dashboard/projects/${result.projectId}/tasks/${result.id}`,
+      })),
+    });
+  }
+
+  if (validatedData.freelancerIds && validatedData.freelancerIds.length > 0) {
+    const detailMessage = `Task: ${result.title}\nProject: ${result.project.title}\nDetails: ${result.description || "No description"}\nAssigned by: ${creator.name}`;
+    
+    // 1. Send Push Notifications to Freelancers
+    await Promise.all(
+      validatedData.freelancerIds.map((freelancerId: string) =>
+        sendPushFreelancer({
+          freelancerId: freelancerId,
+          title: "New Task Assigned",
+          body: `You have been assigned task "${result.title}" in project "${result.project.title}"!`,
+          data: {
+            taskId: result.id,
+            url: `/dashboard/projects/${result.projectId}/tasks/${result.id}`,
+          },
+        }),
+      ),
+    );
+
+    // 2. Create Database Notifications for Freelancers
+    await db.employeeNotification.createMany({
+      data: validatedData.freelancerIds.map((id: string) => ({
+        freeLancerId: id,
+        title: "New Task Assigned",
+        message: detailMessage,
+        type: NotificationType.Task,
+        isRead: false,
+        actionUrl: `/dashboard/projects/${result.projectId}/tasks/${result.id}`,
+      })),
+    });
   }
 
   return NextResponse.json(result, { status: 201 });
@@ -358,8 +384,10 @@ async function createSingleTaskInBatch(
             status: subtask.status || "TODO",
           })),
         });
-      } // Create notification for CREATOR
+      }
+       const detailMessage = `Task: ${task.title}\nProject: ${task.project.title}\nDetails: ${task.description || "No description"}\nAssigned by: ${creator.name}`;
 
+      // Create notification for CREATOR
       await prisma.notification.create({
         data: {
           title: "Task Created",
@@ -371,22 +399,8 @@ async function createSingleTaskInBatch(
         },
       });
 
-      // ---------------------------------------------------------
-      // START: PUSH NOTIFICATION INTEGRATION (createSingleTaskInBatch)
-      // ---------------------------------------------------------
       if (taskData.assigneeIds && taskData.assigneeIds.length > 0) {
-        const employeeNotifications = taskData.assigneeIds.map(
-          (employeeId: string) => ({
-            employeeId: employeeId,
-            title: "New Task Assigned",
-            message: `You have been assigned to task "${task.title}" in project "${task.project.title}".`,
-            type: NotificationType.Task,
-            isRead: false,
-            actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
-          }),
-        );
-
-        // 1. Send Push Notifications
+        // 1. Send Push Notifications to Employees
         await Promise.all(
           taskData.assigneeIds.map((employeeId: string) =>
             sendPushNotification({
@@ -399,15 +413,49 @@ async function createSingleTaskInBatch(
               },
             }),
           ),
-        ); // 2. Create Database Notifications (History)
+        );
 
+        // 2. Create Database Notifications for Employees
         await prisma.employeeNotification.createMany({
-          data: employeeNotifications,
+          data: taskData.assigneeIds.map((id: string) => ({
+            employeeId: id,
+            title: "New Task Assigned",
+            message: detailMessage,
+            type: NotificationType.Task,
+            isRead: false,
+            actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
+          })),
         });
       }
-      // ---------------------------------------------------------
-      // END: PUSH NOTIFICATION INTEGRATION (createSingleTaskInBatch)
-      // ---------------------------------------------------------
+
+      if (taskData.freelancerIds && taskData.freelancerIds.length > 0) {
+        // 1. Send Push Notifications to Freelancers
+        await Promise.all(
+          taskData.freelancerIds.map((freelancerId: string) =>
+            sendPushFreelancer({
+              freelancerId: freelancerId,
+              title: "New Task Assigned",
+              body: `You have been assigned task "${task.title}" in project "${task.project.title}"!`,
+              data: {
+                taskId: task.id,
+                url: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
+              },
+            }),
+          ),
+        );
+
+        // 2. Create Database Notifications for Freelancers
+        await prisma.employeeNotification.createMany({
+          data: taskData.freelancerIds.map((id: string) => ({
+            freeLancerId: id,
+            title: "New Task Assigned",
+            message: detailMessage,
+            type: NotificationType.Task,
+            isRead: false,
+            actionUrl: `/dashboard/projects/${task.projectId}/tasks/${task.id}`,
+          })),
+        });
+      }
 
       return task;
     },

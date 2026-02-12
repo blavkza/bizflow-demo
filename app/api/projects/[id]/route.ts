@@ -1,8 +1,9 @@
 import db from "@/lib/db";
 import { projectSchema } from "@/lib/formValidationSchemas";
 import { auth } from "@clerk/nextjs/server";
-import { UserRole } from "@prisma/client";
+import { UserRole, NotificationType } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
+import { sendPushNotification, sendPushFreelancer } from "@/lib/expo";
 
 export async function PUT(
   req: Request,
@@ -188,16 +189,83 @@ export async function PUT(
     });
 
     if (project.manager?.employeeId) {
+      const managerMessage = `Project ${project.title} : ${project.projectNumber} has been updated by ${user.name}.`;
       await db.employeeNotification.create({
         data: {
           employeeId: project.manager.employeeId,
           title: "Project Updated",
-          message: `Project ${project.title} : ${project.projectNumber} has been updated by ${user.name}.`,
+          message: managerMessage,
           type: "EMPLOYEE",
           isRead: false,
-          actionUrl: `/dashboard/profile`,
+          actionUrl: `/dashboard/projects/${project.id}`,
         },
       });
+
+      await sendPushNotification({
+        employeeId: project.manager.employeeId,
+        title: "Project Updated",
+        body: managerMessage,
+        data: {
+          projectId: project.id,
+          url: `/dashboard/projects/${project.id}`,
+        },
+      });
+    }
+
+    // Notify Assistant Employees on update
+    if (project.assistantEmployees.length > 0) {
+      const assistantMessage = `Project ${project.title} has been updated by ${user.name}.`;
+
+      await Promise.all(
+        project.assistantEmployees.map(async (emp) => {
+          await db.employeeNotification.create({
+            data: {
+              employeeId: emp.id,
+              title: "Project Updated",
+              message: assistantMessage,
+              type: "EMPLOYEE",
+              actionUrl: `/dashboard/projects/${project.id}`,
+            },
+          });
+          await sendPushNotification({
+            employeeId: emp.id,
+            title: "Project Updated",
+            body: assistantMessage,
+            data: {
+              projectId: project.id,
+              url: `/dashboard/projects/${project.id}`,
+            },
+          });
+        }),
+      );
+    }
+
+    // Notify Assistant Freelancers on update
+    if (project.assistantFreelancers.length > 0) {
+      const assistantMessage = `Project ${project.title} has been updated by ${user.name}.`;
+
+      await Promise.all(
+        project.assistantFreelancers.map(async (free) => {
+          await db.employeeNotification.create({
+            data: {
+              freeLancerId: free.id,
+              title: "Project Updated",
+              message: assistantMessage,
+              type: "EMPLOYEE",
+              actionUrl: `/dashboard/projects/${project.id}`,
+            },
+          });
+          await sendPushFreelancer({
+            freelancerId: free.id,
+            title: "Project Updated",
+            body: assistantMessage,
+            data: {
+              projectId: project.id,
+              url: `/dashboard/projects/${project.id}`,
+            },
+          });
+        }),
+      );
     }
 
     return NextResponse.json({ project, notification });

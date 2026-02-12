@@ -480,6 +480,7 @@ model FreeLancer {
   restrictions             String?
   riskLevel                String?
   overtimeHourRate         Float                  @default(50.00)
+  expoPushToken            String?
   scheduledWeekendKnockIn  String?
   scheduledWeekendKnockOut String?
   leaveRequests            LeaveRequest[]
@@ -487,6 +488,7 @@ model FreeLancer {
   attendanceRecords        AttendanceRecord[]
   documents                Document[]
   emergencyCallOuts        EmergencyCallOut[]
+  employeeNotification     EmployeeNotification[]
   department               Department?            @relation("DepartmentFreelancers", fields: [departmentId], references: [id])
   generalSetting           GeneralSetting?        @relation(fields: [generalSettingId], references: [id])
   kpiResults               KpiResult[]
@@ -2542,8 +2544,10 @@ model EmployeeNotification {
   readAt     DateTime?
   createdAt  DateTime              @default(now())
   updatedAt  DateTime              @updatedAt
-  employeeId String?
-  employee   Employee?             @relation(fields: [employeeId], references: [id])
+  employeeId   String?
+  freeLancerId String?
+  employee     Employee?   @relation(fields: [employeeId], references: [id])
+  freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
 
   @@index([isRead])
   @@index([type])
