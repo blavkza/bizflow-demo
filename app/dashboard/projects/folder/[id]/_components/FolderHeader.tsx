@@ -60,7 +60,7 @@ export default function FolderHeader({
           <div className="flex items-center gap-2 mt-1">
             <span className="text-xs text-muted-foreground">Your role:</span>
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-              {isManager ? "Team Leader" : userRole}
+              {isManager ? "Project Leader" : userRole}
             </span>
           </div>
         )}

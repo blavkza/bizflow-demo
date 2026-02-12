@@ -321,7 +321,7 @@ export default function ProjectForm({
             name="managerId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Team Leader</FormLabel>
+                <FormLabel>Project Leader</FormLabel>
                 <FormControl>
                   <Combobox
                     options={usersOptions}
@@ -643,10 +643,30 @@ export default function ProjectForm({
 
                   <FormField
                     control={control}
+                    name={`tasks.${index}.taskLeaderId`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Task Leader</FormLabel>
+                        <FormControl>
+                          <Combobox
+                            options={usersOptions}
+                            value={field.value || ""}
+                            onChange={field.onChange}
+                            isLoading={isLoadingUsers}
+                            placeholder="Select Task Leader"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
                     name={`tasks.${index}.assigneeIds`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Allocate (Employees)</FormLabel>
+                        <FormLabel>Assistance (Employees)</FormLabel>
                         <FormControl>
                           <MultiSelect
                             options={
@@ -670,7 +690,7 @@ export default function ProjectForm({
                     name={`tasks.${index}.freelancerIds`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Allocate (Freelancers)</FormLabel>
+                        <FormLabel>Assistance (Freelancers)</FormLabel>
                         <FormControl>
                           <MultiSelect
                             options={

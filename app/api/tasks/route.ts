@@ -143,6 +143,7 @@ async function createSingleTask(data: any, creator: any) {
           estimatedHours: validatedData.estimatedHours,
           taskNumber,
           isAIGenerated: validatedData.isAIGenerated || false,
+          taskLeaderId: validatedData.taskLeaderId || null,
           assignees: {
             connect:
               validatedData.assigneeIds?.map((id: string) => ({ id })) || [],
@@ -358,6 +359,7 @@ async function createSingleTaskInBatch(
           estimatedHours: taskData.estimatedHours || null,
           taskNumber,
           isAIGenerated: taskData.isAIGenerated || false,
+          taskLeaderId: taskData.taskLeaderId || null,
           assignees: {
             connect: taskData.assigneeIds?.map((id: string) => ({ id })) || [],
           },

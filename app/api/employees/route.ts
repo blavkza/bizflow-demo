@@ -139,7 +139,6 @@ export async function GET() {
 
     const [employees, departments] = await Promise.all([
       db.employee.findMany({
-        where: employeeWhere,
         include: {
           department: {
             select: {

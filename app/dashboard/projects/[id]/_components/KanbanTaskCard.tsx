@@ -1,7 +1,8 @@
 import { Task } from "@/types/project";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Clock, Eye, GripVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, Clock, Eye, GripVertical, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useRouter } from "next/navigation";
@@ -11,12 +12,14 @@ interface KanbanTaskCardProps {
   task: Task;
   isDragging?: boolean;
   showDregButton?: boolean;
+  onTaskDelete?: (taskId: string) => Promise<void>;
 }
 
 export const KanbanTaskCard = ({
   task,
   isDragging = false,
   showDregButton,
+  onTaskDelete,
 }: KanbanTaskCardProps) => {
   const router = useRouter();
   const { attributes, listeners, setNodeRef, transform, transition } =
@@ -99,14 +102,29 @@ export const KanbanTaskCard = ({
         <h4 className="text-sm font-medium line-clamp-2 flex-1">
           {task.title}
         </h4>
-        {showDregButton && (
-          <div
-            {...listeners}
-            className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted/20 rounded"
-          >
-            <GripVertical size={16} className="text-muted-foreground" />
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          {onTaskDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 hover:bg-destructive/10 hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTaskDelete(task.id);
+              }}
+            >
+              <Trash2 size={14} />
+            </Button>
+          )}
+          {showDregButton && (
+            <div
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted/20 rounded"
+            >
+              <GripVertical size={16} className="text-muted-foreground" />
+            </div>
+          )}
+        </div>
       </div>
 
       {task.description && (

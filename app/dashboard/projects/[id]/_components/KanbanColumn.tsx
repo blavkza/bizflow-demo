@@ -15,6 +15,7 @@ interface KanbanColumnProps {
   count: number;
   tasks: Task[];
   showDregButton: boolean;
+  onTaskDelete?: (taskId: string) => Promise<void>;
 }
 
 export const KanbanColumn = ({
@@ -24,6 +25,7 @@ export const KanbanColumn = ({
   count,
   tasks,
   showDregButton,
+  onTaskDelete,
 }: KanbanColumnProps) => {
   const { isOver, setNodeRef } = useDroppable({
     id: id,
@@ -65,6 +67,7 @@ export const KanbanColumn = ({
                 key={task.id}
                 task={task}
                 showDregButton={showDregButton}
+                onTaskDelete={onTaskDelete}
               />
             ))}
           </SortableContext>

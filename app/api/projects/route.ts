@@ -186,6 +186,7 @@ export async function POST(req: Request) {
             endTime: taskData.endTime || null,
             allocatedTime: taskData.allocatedTime || null,
             estimatedHours: taskData.estimatedHours || null,
+            taskLeaderId: taskData.taskLeaderId || null,
             assignees: {
               connect:
                 taskData.assigneeIds?.map((id: string) => ({ id })) || [],

@@ -232,6 +232,7 @@ export const projectTaskSchema = z.object({
   estimatedHours: z.number().optional(),
   assigneeIds: z.array(z.string()).optional(),
   freelancerIds: z.array(z.string()).optional(),
+  taskLeaderId: z.string().optional(),
 });
 
 export const projectSchema = z.object({
@@ -287,6 +288,7 @@ export const taskSchema = z.object({
   estimatedHours: z.number().optional(),
   assigneeIds: z.array(z.string()).optional(),
   freelancerIds: z.array(z.string()).optional(),
+  taskLeaderId: z.string().optional(),
   isAIGenerated: z.boolean().optional().default(false),
   subtasks: z.array(subtaskSchema).optional().default([]),
 });

@@ -58,6 +58,7 @@ model User {
   createdReports       Report[]
   sessions             Session[]
   timeEntries          TimeEntry[]
+  managedTasks         Task[]             @relation("TaskLeader")
   resolvedToolRequests ToolRequest[]      @relation("ResolvedRequests")
   processedReturns     ToolReturn[]       @relation("ProcessedReturns")
   createdTransactions  Transaction[]
@@ -1112,6 +1113,8 @@ model Task {
   timeEntries         TimeEntry[]
   freeLancerAssignees FreeLancer[] @relation("FreeLancerTaskAssignments")
   assignees           Employee[]   @relation("TaskAssignments")
+  taskLeaderId        String?
+  taskLeader          User?        @relation("TaskLeader", fields: [taskLeaderId], references: [id])
 
   @@index([projectId])
   @@index([status])

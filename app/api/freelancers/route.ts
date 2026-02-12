@@ -134,7 +134,6 @@ export async function GET() {
 
     const [freelancers, departments] = await Promise.all([
       db.freeLancer.findMany({
-        where: freelancerWhere,
         include: {
           department: {
             select: {

@@ -45,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { Combobox } from "@/components/ui/combobox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
@@ -131,6 +132,7 @@ interface TaskFormProps {
     freeLancerAssignees?: { id: string }[];
     isAIGenerated?: boolean;
     subtasks?: any[];
+    taskLeaderId?: string;
   };
   projectId: string;
   onCancel?: () => void;
@@ -175,6 +177,7 @@ export default function TaskForm({
       freelancerIds: data?.freeLancerAssignees?.map((f) => f.id) || [],
       isAIGenerated: data?.isAIGenerated || false,
       subtasks: data?.subtasks || [],
+      taskLeaderId: data?.taskLeaderId || "",
     },
   });
 
@@ -552,6 +555,25 @@ export default function TaskForm({
 
               <FormField
                 control={singleTaskForm.control}
+                name="taskLeaderId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Task Leader</FormLabel>
+                    <FormControl>
+                      <Combobox
+                        options={allAssigneeOptions}
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        placeholder="Select Task Leader"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={singleTaskForm.control}
                 name="priority"
                 render={({ field }) => (
                   <FormItem>
@@ -716,7 +738,7 @@ export default function TaskForm({
               />
 
               <FormItem className="md:col-span-2">
-                <FormLabel>Assignees (Employees & Freelancers)</FormLabel>
+                <FormLabel>Assistance (Employees & Freelancers)</FormLabel>
                 <FormControl>
                   <MultiSelect
                     options={allAssigneeOptions}
@@ -921,7 +943,7 @@ export default function TaskForm({
                       name={`tasks.${index}.title`}
                       render={({ field }) => (
                         <FormItem className="md:col-span-2">
-                          <FormLabel>Task Title *</FormLabel>
+                          <FormLabel>Assistance (Employees)</FormLabel>
                           <FormControl>
                             <Input placeholder="Enter Task Title" {...field} />
                           </FormControl>
@@ -1079,6 +1101,25 @@ export default function TaskForm({
 
                     <FormField
                       control={multiTaskForm.control}
+                      name={`tasks.${index}.taskLeaderId`}
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Task Leader</FormLabel>
+                          <FormControl>
+                            <Combobox
+                              options={allAssigneeOptions}
+                              value={field.value || ""}
+                              onChange={field.onChange}
+                              placeholder="Select Task Leader"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={multiTaskForm.control}
                       name={`tasks.${index}.allocatedTime`}
                       render={({ field }) => (
                         <FormItem>
@@ -1148,7 +1189,9 @@ export default function TaskForm({
                     />
 
                     <FormItem className="md:col-span-2">
-                      <FormLabel>Assignees (Employees & Freelancers)</FormLabel>
+                      <FormLabel>
+                        Assistance (Employees & Freelancers)
+                      </FormLabel>
                       <FormControl>
                         <MultiSelect
                           options={allAssigneeOptions}

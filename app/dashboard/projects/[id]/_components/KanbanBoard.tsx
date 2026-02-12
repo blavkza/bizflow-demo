@@ -18,8 +18,9 @@ interface KanbanBoardProps {
   onTaskUpdate: (
     id: string,
     updateType: "status",
-    newStatus: Task["status"]
+    newStatus: Task["status"],
   ) => Promise<void>;
+  onTaskDelete?: (taskId: string) => Promise<void>;
   currentUserPermission: boolean | null;
   currentUserRole: string | null;
   isManager: boolean;
@@ -29,6 +30,7 @@ export const KanbanBoard = ({
   tasks,
   setTasks,
   onTaskUpdate,
+  onTaskDelete,
   setProjectStatus,
   currentUserPermission,
   currentUserRole,
@@ -94,7 +96,7 @@ export const KanbanBoard = ({
         const updatedTasks = tasks.map((task) =>
           task.id === active.id
             ? { ...task, status: targetColumn.status }
-            : task
+            : task,
         );
 
         // This triggers the parent's useEffect and progress recalculation
@@ -102,7 +104,7 @@ export const KanbanBoard = ({
 
         // Calculate new project status
         const allTasksCompleted = updatedTasks.every(
-          (task) => task.status === "COMPLETED"
+          (task) => task.status === "COMPLETED",
         );
         setProjectStatus(allTasksCompleted ? "COMPLETED" : "ACTIVE");
 
@@ -110,7 +112,7 @@ export const KanbanBoard = ({
           await onTaskUpdate(
             active.id as string,
             "status",
-            targetColumn.status
+            targetColumn.status,
           );
 
           /*           toast.success("Task status updated");
@@ -119,13 +121,15 @@ export const KanbanBoard = ({
           // Revert if API call fails
           setTasks((prevTasks) =>
             prevTasks.map((task) =>
-              task.id === active.id ? { ...task, status: originalStatus } : task
-            )
+              task.id === active.id
+                ? { ...task, status: originalStatus }
+                : task,
+            ),
           );
 
           // Also revert project status
           const wereAllTasksCompleted = tasks.every(
-            (task) => task.status === "COMPLETED"
+            (task) => task.status === "COMPLETED",
           );
           setProjectStatus(wereAllTasksCompleted ? "COMPLETED" : "ACTIVE");
 
@@ -163,6 +167,7 @@ export const KanbanBoard = ({
                 count={taskCounts[column.status]}
                 tasks={columnTasks}
                 showDregButton={showDregButton}
+                onTaskDelete={onTaskDelete}
               />
             );
           })}

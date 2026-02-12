@@ -179,6 +179,36 @@ export default function ProjectsDetailsPage({
     }
   };
 
+  const handleDeleteTask = async (taskId: string) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this task? This action cannot be undone.",
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete task");
+      }
+
+      toast.success("Task deleted successfully");
+      refetch();
+    } catch (error) {
+      console.error("Error deleting task:", error);
+      toast.error("Failed to delete task");
+      throw error;
+    }
+  };
+
   if (loadingProject) {
     return <ProjectDetailsSkeleton />;
   }
@@ -451,6 +481,7 @@ export default function ProjectsDetailsPage({
               setProjectStatus={setProjectStatus}
               setTasks={setTasks}
               onTaskUpdate={handleTaskUpdate}
+              onTaskDelete={handleDeleteTask}
               currentUserPermission={
                 currentUserPermissions?.canEditTask || null
               }
