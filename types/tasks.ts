@@ -39,6 +39,12 @@ export interface Task {
     description: string | null;
     color: string | null;
   };
+  taskLeader: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar: string | null;
+  };
   assignees: Array<{
     id: string;
     firstName: string;
