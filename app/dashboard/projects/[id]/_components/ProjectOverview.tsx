@@ -164,7 +164,7 @@ export function ProjectOverview({
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <User size={16} className="text-primary" />
-              Lead
+              Project Leader
             </p>
             <div className="pl-6 flex items-center gap-2">
               <Avatar className="w-6 h-6 border">
@@ -183,7 +183,7 @@ export function ProjectOverview({
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground flex items-center gap-2">
               <Users size={16} className="text-primary" />
-              Team
+              Assistances
             </p>
             <div className="pl-6 flex items-center gap-3">
               <div className="flex -space-x-2">
