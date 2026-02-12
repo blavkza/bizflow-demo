@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import {
   Card,
   CardContent,
@@ -56,14 +56,15 @@ import {
 export default function TransactionDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  // Mock transaction data - in real app, fetch based on params.id
+  // Mock transaction data - in real app, fetch based on id
   const [transaction, setTransaction] = useState({
-    id: params.id,
+    id: id,
     date: "2024-01-15",
     description: "Office Supplies Purchase",
     amount: 1250.0,

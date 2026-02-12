@@ -12,9 +12,9 @@ import { getUserAuth } from "@/lib/auth";
 export default async function WorkerDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const id = params.id;
+  const { id } = await params;
 
   // Fetch employee data
   const employee = await db.employee.findUnique({

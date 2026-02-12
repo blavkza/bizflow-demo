@@ -5,7 +5,7 @@ import Header from "./_components/header";
 import StatsCard from "./_components/stats-card";
 import TabsSection from "./_components/tabs";
 import { ArrowLeft } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { ClientWithRelations } from "./_components/types";
 import { toast } from "sonner";
 import Loading from "./_components/Loading";
@@ -29,9 +29,9 @@ const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
 export default function ClientDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = params;
+  const { id } = use(params);
   const [client, setClient] = useState<ClientWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -53,15 +53,15 @@ export default function ClientDetailPage({
     : false;
 
   const canViewClients = data?.permissions?.includes(
-    UserPermission.Clients_VIEW
+    UserPermission.Clients_VIEW,
   );
 
   const canEditClient = data?.permissions?.includes(
-    UserPermission.Clients_EDIT
+    UserPermission.Clients_EDIT,
   );
 
   const canCreateTransation = data?.permissions?.includes(
-    UserPermission.TRANSACTIONS_MANAGE
+    UserPermission.TRANSACTIONS_MANAGE,
   );
 
   useEffect(() => {

@@ -187,22 +187,11 @@ export function ProjectOverview({
             </p>
             <div className="pl-6 flex items-center gap-3">
               <div className="flex -space-x-2">
-                {project.teamMembers?.slice(0, 3).map((member, idx) => (
-                  <Avatar
-                    key={`mem-${idx}`}
-                    className="w-6 h-6 border border-background"
-                  >
-                    <AvatarImage src={member.user?.avatar || ""} />
-                    <AvatarFallback className="text-[8px]">
-                      {member.user?.name?.[0]}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
                 {[
                   ...(project.assistantEmployees || []),
                   ...(project.assistantFreelancers || []),
                 ]
-                  .slice(0, 2)
+                  .slice(0, 5)
                   .map((assistant, idx) => (
                     <Avatar
                       key={`ast-${idx}`}
@@ -219,8 +208,7 @@ export function ProjectOverview({
               </div>
               <p className="text-xs font-medium text-muted-foreground">
                 +
-                {(project?.teamMembers?.length || 0) +
-                  (project?.assistantEmployees?.length || 0) +
+                {(project?.assistantEmployees?.length || 0) +
                   (project?.assistantFreelancers?.length || 0)}
               </p>
             </div>

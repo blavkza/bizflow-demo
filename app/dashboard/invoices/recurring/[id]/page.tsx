@@ -1,7 +1,7 @@
 // app/dashboard/invoices/recurring/[id]/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
@@ -93,8 +93,9 @@ interface RecurringInvoiceDetail {
 export default function RecurringInvoiceDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const router = useRouter();
   const { userId } = useAuth();
   const [recurringInvoice, setRecurringInvoice] =
@@ -112,7 +113,7 @@ export default function RecurringInvoiceDetailPage({
   useEffect(() => {
     const fetchRecurringInvoice = async () => {
       try {
-        const response = await fetch(`/api/invoices/recurring/${params.id}`);
+        const response = await fetch(`/api/invoices/recurring/${id}`);
         if (!response.ok) {
           throw new Error("Failed to fetch recurring invoice");
         }
@@ -126,7 +127,7 @@ export default function RecurringInvoiceDetailPage({
     };
 
     fetchRecurringInvoice();
-  }, [params.id]);
+  }, [id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -216,7 +217,7 @@ export default function RecurringInvoiceDetailPage({
         else stats.pending++;
         return stats;
       },
-      { paid: 0, pending: 0, overdue: 0 }
+      { paid: 0, pending: 0, overdue: 0 },
     );
   };
 
@@ -233,7 +234,7 @@ export default function RecurringInvoiceDetailPage({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ status: newStatus }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -244,7 +245,7 @@ export default function RecurringInvoiceDetailPage({
       setRecurringInvoice(updatedInvoice);
 
       toast.success(
-        `Recurring invoice ${newStatus.toLowerCase()} successfully`
+        `Recurring invoice ${newStatus.toLowerCase()} successfully`,
       );
     } catch (error) {
       console.error("Failed to update recurring invoice status:", error);
@@ -263,7 +264,7 @@ export default function RecurringInvoiceDetailPage({
 
   const fetchRecurringInvoice = async () => {
     try {
-      const response = await fetch(`/api/invoices/recurring/${params.id}`);
+      const response = await fetch(`/api/invoices/recurring/${id}`);
       if (!response.ok) {
         throw new Error("Failed to fetch recurring invoice");
       }
@@ -479,7 +480,7 @@ export default function RecurringInvoiceDetailPage({
                 Every{" "}
                 {getFrequencyLabel(
                   recurringInvoice.frequency,
-                  recurringInvoice.interval
+                  recurringInvoice.interval,
                 )}
               </Badge>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
@@ -90,8 +90,9 @@ interface CallOutDetail {
 export default function CallOutDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const router = useRouter();
   const [callOut, setCallOut] = useState<CallOutDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -102,11 +103,11 @@ export default function CallOutDetailPage({
 
   useEffect(() => {
     fetchDetail();
-  }, [params.id]);
+  }, [id]);
 
   const fetchDetail = async () => {
     try {
-      const response = await fetch(`/api/emergency-callouts/${params.id}`);
+      const response = await fetch(`/api/emergency-callouts/${id}`);
       if (!response.ok) throw new Error("Failed to fetch details");
       const data = await response.json();
       setCallOut(data);
@@ -126,7 +127,7 @@ export default function CallOutDetailPage({
       if (reason) payload.declinedReason = reason;
       if (notes) payload.notes = notes;
 
-      const response = await fetch(`/api/emergency-callouts/${params.id}`, {
+      const response = await fetch(`/api/emergency-callouts/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -164,7 +165,7 @@ export default function CallOutDetailPage({
           styles[status] || "bg-gray-100"
         }`}
       >
-        {status.replace("_", " ")}
+        {status?.replace("_", " ") || "UNKNOWN"}
       </span>
     );
   };
@@ -223,7 +224,7 @@ export default function CallOutDetailPage({
                   </label>
                   <div className="flex items-center gap-2 mt-1">
                     <Car className="w-4 h-4 text-gray-500" />
-                    <span>{callOut.vehicle.replace("_", " ")}</span>
+                    <span>{callOut.vehicle?.replace("_", " ") || "N/A"}</span>
                   </div>
                 </div>
                 <div>

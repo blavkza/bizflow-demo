@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -136,8 +136,9 @@ const mockActivities = [
 export default function TargetDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
   const [target] = useState(mockTarget);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isUpdateProgressOpen, setIsUpdateProgressOpen] = useState(false);
@@ -174,7 +175,7 @@ export default function TargetDetailPage({
 
   const daysRemaining = Math.ceil(
     (new Date(target.endDate).getTime() - new Date().getTime()) /
-      (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24),
   );
 
   return (
@@ -298,7 +299,7 @@ export default function TargetDetailPage({
             <CardTitle className="text-sm font-medium">Status</CardTitle>
             <div
               className={`w-2 h-2 rounded-full ${getStatusColor(
-                target.status
+                target.status,
               )}`}
             />
           </CardHeader>
@@ -472,7 +473,7 @@ export default function TargetDetailPage({
                           <span>
                             Due:{" "}
                             {new Date(
-                              milestone.targetDate
+                              milestone.targetDate,
                             ).toLocaleDateString()}
                           </span>
                           <span>Progress: {milestone.progress}%</span>

@@ -1,9 +1,10 @@
 import { ToolRequestDetailClient } from "./_components/tool-request-detail-client";
 
-export default function ToolRequestDetailPage({
+export default async function ToolRequestDetailPage({
   params,
 }: {
-  params: { requestId: string };
+  params: Promise<{ requestId: string }>;
 }) {
-  return <ToolRequestDetailClient requestId={params.requestId} />;
+  const { requestId } = await params;
+  return <ToolRequestDetailClient requestId={requestId} />;
 }
