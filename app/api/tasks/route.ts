@@ -189,7 +189,7 @@ async function createSingleTask(data: any, creator: any) {
       userId: creator.id,
     },
   });
-
+  if (validatedData.assigneeIds && validatedData.assigneeIds.length > 0) {
     const detailMessage = `Task: ${result.title}\nProject: ${result.project.title}\nDetails: ${result.description || "No description"}\nAssigned by: ${creator.name}`;
 
     // 1. Send Push Notifications to Employees
@@ -222,7 +222,7 @@ async function createSingleTask(data: any, creator: any) {
 
   if (validatedData.freelancerIds && validatedData.freelancerIds.length > 0) {
     const detailMessage = `Task: ${result.title}\nProject: ${result.project.title}\nDetails: ${result.description || "No description"}\nAssigned by: ${creator.name}`;
-    
+
     // 1. Send Push Notifications to Freelancers
     await Promise.all(
       validatedData.freelancerIds.map((freelancerId: string) =>
@@ -385,7 +385,7 @@ async function createSingleTaskInBatch(
           })),
         });
       }
-       const detailMessage = `Task: ${task.title}\nProject: ${task.project.title}\nDetails: ${task.description || "No description"}\nAssigned by: ${creator.name}`;
+      const detailMessage = `Task: ${task.title}\nProject: ${task.project.title}\nDetails: ${task.description || "No description"}\nAssigned by: ${creator.name}`;
 
       // Create notification for CREATOR
       await prisma.notification.create({
