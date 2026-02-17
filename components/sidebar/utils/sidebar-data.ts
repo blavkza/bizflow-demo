@@ -441,6 +441,12 @@ export const getSidebarData = (
             color: "text-orange-500",
           },
           {
+            title: "Tools Checks",
+            url: "/dashboard/tools/checks",
+            icon: Hammer,
+            color: "text-orange-500",
+          },
+          {
             title: "Tool Returns",
             url: "/dashboard/tools/worker-tools/return",
             icon: RefreshCcw,
