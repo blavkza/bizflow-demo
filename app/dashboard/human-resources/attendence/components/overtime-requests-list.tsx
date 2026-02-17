@@ -64,7 +64,7 @@ export function OvertimeRequestsList({
   const requests = data?.requests || [];
 
   const filteredRequests = requests.filter((request: any) => {
-    const person = request.employee || request.freeLancer;
+    const person = request.employee || request.freeLancer || request.trainer;
     if (!person) return false;
 
     // Search filter
@@ -72,6 +72,7 @@ export function OvertimeRequestsList({
     const id = (
       person.employeeNumber ||
       person.freeLancerNumber ||
+      person.trainerNumber ||
       ""
     ).toLowerCase();
     const matchesSearch =
@@ -115,7 +116,8 @@ export function OvertimeRequestsList({
   return (
     <div className="space-y-4">
       {filteredRequests.map((request: any) => {
-        const person = request.employee || request.freeLancer;
+        const person =
+          request.employee || request.freeLancer || request.trainer;
         const name = `${person.firstName} ${person.lastName}`;
         const statusColor =
           {

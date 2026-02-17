@@ -29,13 +29,13 @@ export function OvertimeChecker() {
     if (!attendance) return null;
     const now = new Date();
     const recordDate = new Date(attendance.date);
-    
+
     // Check if it's the same calendar day
-    return (
-      now.getFullYear() === recordDate.getFullYear() &&
+    return now.getFullYear() === recordDate.getFullYear() &&
       now.getMonth() === recordDate.getMonth() &&
       now.getDate() === recordDate.getDate()
-    ) ? attendance : null;
+      ? attendance
+      : null;
   }, [attendance]);
 
   useEffect(() => {
@@ -45,11 +45,11 @@ export function OvertimeChecker() {
     const isKnockedIn = todayRecord.checkIn && !todayRecord.checkOut;
     if (!isKnockedIn) return;
 
-    const checkOvertime = () => {
+    const checkOvertime = async () => {
       const now = new Date();
       const scheduledKO = employee.scheduledKnockOut || "17:00";
       const [koHours, koMinutes] = scheduledKO.split(":").map(Number);
-      
+
       const koToday = new Date();
       koToday.setHours(koHours, koMinutes, 0, 0);
 
@@ -60,12 +60,34 @@ export function OvertimeChecker() {
 
       // 1. Initial notification at KO time
       if (now >= koToday && !localStorage.getItem(hasNotifiedId)) {
-        toast.info(`Your shift ended at ${scheduledKO}. Don't forget to knock out!`, {
-          duration: 8000,
-        });
+        // Verify with server before notifying (in case localStorage was cleared)
+        try {
+          const res = await fetch("/api/notifications");
+          if (res.ok) {
+            const notifications = await res.json();
+            const serverHasIt = notifications.some(
+              (n: any) =>
+                n.title === "Shift Ended" &&
+                new Date(n.createdAt).toDateString() === todayStr,
+            );
+            if (serverHasIt) {
+              localStorage.setItem(hasNotifiedId, "true");
+              return;
+            }
+          }
+        } catch (error) {
+          console.error("Failed to check server notifications:", error);
+        }
+
+        toast.info(
+          `Your shift ended at ${scheduledKO}. Don't forget to knock out!`,
+          {
+            duration: 8000,
+          },
+        );
         localStorage.setItem(hasNotifiedId, "true");
         playRing();
-        
+
         // Create DB notification
         fetch("/api/notifications", {
           method: "POST",
@@ -74,18 +96,40 @@ export function OvertimeChecker() {
             title: "Shift Ended",
             message: `Your shift ended at ${scheduledKO}. Please remember to knock out.`,
             type: "ATTENDANCE",
-            priority: "MEDIUM"
-          })
-        }).catch(err => console.error("Failed to create shift end notification:", err));
+            priority: "MEDIUM",
+          }),
+        }).catch((err) =>
+          console.error("Failed to create shift end notification:", err),
+        );
       }
 
       // 2. Overtime popover 30 minutes after KO time
       const popoverTriggerTime = new Date(koToday.getTime() + 30 * 60000);
       if (
-        now >= popoverTriggerTime && 
-        !localStorage.getItem(hasPopoverShownId) && 
+        now >= popoverTriggerTime &&
+        !localStorage.getItem(hasPopoverShownId) &&
         !localStorage.getItem(hasAcceptedId)
       ) {
+        // Verify with server before showing popover
+        try {
+          const res = await fetch("/api/notifications");
+          if (res.ok) {
+            const notifications = await res.json();
+            const serverHasIt = notifications.some(
+              (n: any) =>
+                n.title === "Overtime Available" &&
+                new Date(n.createdAt).toDateString() === todayStr,
+            );
+            if (serverHasIt) {
+              localStorage.setItem(hasPopoverShownId, "true");
+              setShowPopover(false);
+              return;
+            }
+          }
+        } catch (error) {
+          /* ignore */
+        }
+
         setShowPopover(true);
         localStorage.setItem(hasPopoverShownId, "true");
         playRing();
@@ -98,9 +142,11 @@ export function OvertimeChecker() {
             title: "Overtime Available",
             message: `You are still knocked in 30 minutes after your shift end. Please accept or dismiss overtime.`,
             type: "ATTENDANCE",
-            priority: "HIGH"
-          })
-        }).catch(err => console.error("Failed to create overtime offer notification:", err));
+            priority: "HIGH",
+          }),
+        }).catch((err) =>
+          console.error("Failed to create overtime offer notification:", err),
+        );
       }
     };
 
@@ -135,9 +181,13 @@ export function OvertimeChecker() {
     try {
       if (!audioRef.current) {
         // Using a standard notification sound
-        audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+        audioRef.current = new Audio(
+          "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3",
+        );
       }
-      audioRef.current.play().catch(err => console.warn("Audio play blocked:", err));
+      audioRef.current
+        .play()
+        .catch((err) => console.warn("Audio play blocked:", err));
     } catch (e) {
       console.warn("Failed to play notification sound:", e);
     }
@@ -157,10 +207,15 @@ export function OvertimeChecker() {
 
       if (response.ok) {
         toast.success("Overtime request submitted and awaiting admin approval");
-        localStorage.setItem(`ot-accepted-${new Date().toDateString()}`, "true");
+        localStorage.setItem(
+          `ot-accepted-${new Date().toDateString()}`,
+          "true",
+        );
         setShowPopover(false);
       } else {
-        toast.error("Could not submit overtime request. Please try again or contact admin.");
+        toast.error(
+          "Could not submit overtime request. Please try again or contact admin.",
+        );
       }
     } catch (error) {
       console.error("Overtime submission error:", error);
@@ -179,27 +234,29 @@ export function OvertimeChecker() {
             Overtime Opportunity Detected
           </AlertDialogTitle>
           <AlertDialogDescription className="text-base text-card-foreground">
-            It is now 30 minutes past your scheduled knock-out time ({employee.scheduledKnockOut}). 
-            Would you like to register this extra time as overtime?
+            It is now 30 minutes past your scheduled knock-out time (
+            {employee.scheduledKnockOut}). Would you like to register this extra
+            time as overtime?
             <div className="mt-4 p-3 bg-slate-100 dark:bg-slate-800 rounded-md flex items-start gap-2 border border-slate-200 dark:border-slate-700">
               <Info className="h-4 w-4 mt-0.5 text-primary" />
               <div className="text-sm space-y-1">
                 <p>Accepting will notify admin for approval.</p>
                 <p className="font-semibold text-red-500">
-                  This offer expires in: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                  This offer expires in: {Math.floor(timeLeft / 60)}:
+                  {(timeLeft % 60).toString().padStart(2, "0")}
                 </p>
               </div>
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="mt-4">
-          <AlertDialogCancel 
+          <AlertDialogCancel
             onClick={() => setShowPopover(false)}
             className="border-slate-300"
           >
             No, Dismiss
           </AlertDialogCancel>
-          <AlertDialogAction 
+          <AlertDialogAction
             onClick={handleAccept}
             className="bg-primary hover:bg-primary/90 text-white"
           >

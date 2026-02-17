@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
     const {
       employeeId,
       freelancerId,
+      trainerId,
       location,
       notes,
       method = CheckInMethod.MANUAL,
@@ -21,15 +22,15 @@ export async function POST(request: NextRequest) {
       address,
     } = body;
 
-    if (!employeeId && !freelancerId) {
+    if (!employeeId && !freelancerId && !trainerId) {
       return NextResponse.json(
-        { error: "Employee ID or Freelancer ID is required" },
+        { error: "Employee ID, Freelancer ID or Trainer ID is required" },
         { status: 400 },
       );
     }
 
     let person: any = null;
-    let personType: "employee" | "freelancer" = "employee";
+    let personType: "employee" | "freelancer" | "trainer" = "employee";
 
     // Find employee or freelancer
     if (employeeId) {
@@ -39,19 +40,26 @@ export async function POST(request: NextRequest) {
         },
       });
       personType = "employee";
-    } else {
+    } else if (freelancerId) {
       person = await db.freeLancer.findFirst({
         where: {
           OR: [{ id: freelancerId }, { freeLancerNumber: freelancerId }],
         },
       });
       personType = "freelancer";
+    } else {
+      person = await db.trainer.findFirst({
+        where: {
+          OR: [{ id: trainerId }, { trainerNumber: trainerId }],
+        },
+      });
+      personType = "trainer";
     }
 
     if (!person) {
       return NextResponse.json(
         {
-          error: `${personType === "employee" ? "Employee" : "Freelancer"} not found`,
+          error: `${personType === "employee" ? "Employee" : personType === "freelancer" ? "Freelancer" : "Trainer"} not found`,
         },
         { status: 404 },
       );
@@ -127,7 +135,9 @@ export async function POST(request: NextRequest) {
       where: {
         ...(personType === "employee"
           ? { employeeId: person.id }
-          : { freeLancerId: person.id }),
+          : personType === "freelancer"
+            ? { freeLancerId: person.id }
+            : { trainerId: person.id }),
         checkIn: { not: null }, // Must have checked in
         checkOut: null, // Must not be checked out already
       },
@@ -146,6 +156,17 @@ export async function POST(request: NextRequest) {
             : false,
         freeLancer:
           personType === "freelancer"
+            ? {
+                select: {
+                  scheduledKnockIn: true,
+                  scheduledKnockOut: true,
+                  scheduledWeekendKnockIn: true,
+                  scheduledWeekendKnockOut: true,
+                },
+              }
+            : false,
+        trainer:
+          personType === "trainer"
             ? {
                 select: {
                   scheduledKnockIn: true,
@@ -190,6 +211,11 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+
+    const personWithDetails =
+      attendanceRecord.employee ||
+      attendanceRecord.freeLancer ||
+      attendanceRecord.trainer;
 
     const checkInTime = attendanceRecord.checkIn;
 
@@ -303,7 +329,9 @@ export async function POST(request: NextRequest) {
         where: {
           ...(personType === "employee"
             ? { employeeId: person.id }
-            : { freelancerId: person.id }),
+            : personType === "freelancer"
+              ? { freelancerId: person.id }
+              : { trainerId: person.id }),
           date: attendanceRecord.date,
           status: "APPROVED",
         },
@@ -312,12 +340,11 @@ export async function POST(request: NextRequest) {
       if (overtimeRequest) {
         // Overtime is approved, calculate it
         finalOvertimeHours = overtimeHours;
-        if (personType === "employee") {
-          overtimePay = overtimeHours * overtimeHourRate;
-          console.log(
-            `Overtime APPROVED: ${overtimeHours}h * R${overtimeHourRate} = R${overtimePay}`,
-          );
-        }
+        const rateToUse = person.overtimeHourRate || overtimeHourRate;
+        overtimePay = overtimeHours * rateToUse;
+        console.log(
+          `Overtime APPROVED for ${personType}: ${overtimeHours}h * R${rateToUse} = R${overtimePay}`,
+        );
       } else {
         // No approved overtime, those hours won't be counted as overtime
         console.log(
@@ -471,7 +498,7 @@ export async function POST(request: NextRequest) {
 // ------------------------------------------------------------------
 async function checkAttendanceBypass(
   assigneeId: string,
-  assigneeType: "employee" | "freelancer",
+  assigneeType: "employee" | "freelancer" | "trainer",
   date: Date,
 ): Promise<{
   hasBypass: boolean;
@@ -492,8 +519,10 @@ async function checkAttendanceBypass(
 
     if (assigneeType === "employee") {
       where.employees = { some: { id: assigneeId } };
-    } else {
+    } else if (assigneeType === "freelancer") {
       where.freelancers = { some: { id: assigneeId } };
+    } else {
+      where.trainers = { some: { id: assigneeId } };
     }
 
     const bypassRule = await db.attendanceBypassRule.findFirst({
@@ -507,6 +536,12 @@ async function checkAttendanceBypass(
             : false,
         freelancers:
           assigneeType === "freelancer"
+            ? {
+                select: { id: true },
+              }
+            : false,
+        trainers:
+          assigneeType === "trainer"
             ? {
                 select: { id: true },
               }
@@ -913,10 +948,18 @@ async function checkAndCreateAbsentRecords(
         date: today,
         checkOut: { not: null },
         regularHours: { gt: 0 },
-        employeeId: { not: null },
+        OR: [{ employeeId: { not: null } }, { trainerId: { not: null } }],
       },
       include: {
         employee: {
+          select: {
+            scheduledKnockIn: true,
+            scheduledKnockOut: true,
+            scheduledWeekendKnockIn: true,
+            scheduledWeekendKnockOut: true,
+          },
+        },
+        trainer: {
           select: {
             scheduledKnockIn: true,
             scheduledKnockOut: true,
@@ -930,6 +973,7 @@ async function checkAndCreateAbsentRecords(
     let someoneWorkedOver50 = false;
 
     for (const record of employeesWorkedOver50) {
+      const person = record.employee || record.trainer;
       const recordDay = new Date(record.date);
       const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
       const recordDayName = dayNames[recordDay.getUTCDay()];
@@ -940,16 +984,12 @@ async function checkAndCreateAbsentRecords(
 
       if (isWeekend) {
         scheduledKnockInTime =
-          record.employee?.scheduledWeekendKnockIn ??
-          record.employee?.scheduledKnockIn ??
-          null;
+          person?.scheduledWeekendKnockIn ?? person?.scheduledKnockIn ?? null;
         scheduledKnockOutTime =
-          record.employee?.scheduledWeekendKnockOut ??
-          record.employee?.scheduledKnockOut ??
-          null;
+          person?.scheduledWeekendKnockOut ?? person?.scheduledKnockOut ?? null;
       } else {
-        scheduledKnockInTime = record.employee?.scheduledKnockIn ?? null;
-        scheduledKnockOutTime = record.employee?.scheduledKnockOut ?? null;
+        scheduledKnockInTime = person?.scheduledKnockIn ?? null;
+        scheduledKnockOutTime = person?.scheduledKnockOut ?? null;
       }
 
       if (scheduledKnockInTime && scheduledKnockOutTime) {
@@ -1023,7 +1063,7 @@ async function createAbsentRecords() {
     );
 
     console.log(
-      "Auto-attendance: Creating absent records for EMPLOYEES who didn't check in...",
+      "Auto-attendance: Creating absent records for EMPLOYEES and TRAINERS who didn't check in...",
     );
 
     const activeEmployeesWithoutRecords = await db.employee.findMany({
@@ -1139,8 +1179,100 @@ async function createAbsentRecords() {
       }
     }
 
+    const activeTrainersWithoutRecords = await db.trainer.findMany({
+      where: {
+        status: "ACTIVE",
+        NOT: {
+          attendanceRecords: {
+            some: {
+              date: today,
+            },
+          },
+        },
+      },
+      include: {
+        department: true,
+        leaveRequests: {
+          where: {
+            startDate: { lte: today },
+            endDate: { gte: today },
+            status: LeaveStatus.APPROVED,
+          },
+        },
+      },
+    });
+
+    for (const trainer of activeTrainersWithoutRecords) {
+      try {
+        const hasApprovedLeave = trainer.leaveRequests.length > 0;
+        if (hasApprovedLeave) {
+          console.log(
+            `Skipping Trainer ${trainer.firstName} - has approved leave`,
+          );
+          continue;
+        }
+
+        const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+        const todayDay = dayNames[today.getUTCDay()];
+        const workingDays = trainer.workingDays || [];
+
+        const isWorkingDay = workingDays.includes(todayDay);
+
+        if (!isWorkingDay) {
+          console.log(
+            `Skipping Trainer ${trainer.firstName} - not a working day (${todayDay})`,
+          );
+          continue;
+        }
+
+        const isWeekend = todayDay === "SAT" || todayDay === "SUN";
+        let scheduledKnockInTime: string | null = null;
+        let scheduledKnockOutTime: string | null = null;
+
+        if (isWeekend) {
+          scheduledKnockInTime =
+            trainer.scheduledWeekendKnockIn ?? trainer.scheduledKnockIn ?? null;
+          scheduledKnockOutTime =
+            trainer.scheduledWeekendKnockOut ??
+            trainer.scheduledKnockOut ??
+            null;
+        } else {
+          scheduledKnockInTime = trainer.scheduledKnockIn ?? null;
+          scheduledKnockOutTime = trainer.scheduledKnockOut ?? null;
+        }
+
+        const attendanceRecord = await db.attendanceRecord.create({
+          data: {
+            trainerId: trainer.id,
+            date: today,
+            status: AttendanceStatus.ABSENT,
+            scheduledKnockIn: scheduledKnockInTime,
+            scheduledKnockOut: scheduledKnockOutTime,
+            isWeekend: isWeekend,
+            notes: "Auto-created: Absent - No check-in recorded",
+          },
+        });
+
+        createdRecords.push({
+          id: attendanceRecord.id,
+          trainer: `${trainer.firstName} ${trainer.lastName}`,
+          status: attendanceRecord.status,
+          isWeekend: isWeekend,
+        });
+
+        console.log(
+          `Auto-attendance: Created absent record for TRAINER ${trainer.firstName} ${trainer.lastName} (${isWeekend ? "WEEKEND" : "WEEKDAY"})`,
+        );
+      } catch (error) {
+        console.error(
+          `Auto-attendance: Error processing trainer ${trainer.id}:`,
+          error,
+        );
+      }
+    }
+
     console.log(
-      `Auto-attendance: Completed. Created ${createdRecords.length} EMPLOYEE absent records and ${createdWarnings.length} warnings.`,
+      `Auto-attendance: Completed. Created ${createdRecords.length} records and ${createdWarnings.length} warnings.`,
     );
     return createdRecords.length > 0;
   } catch (error) {

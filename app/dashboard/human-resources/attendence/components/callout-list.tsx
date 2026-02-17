@@ -140,15 +140,21 @@ export function CallOutList({ records, loading }: CallOutListProps) {
     <>
       <div className="space-y-4">
         {records.map((record) => {
-          const person = record.employee || record.freeLancer;
-          const personType = record.employee ? "employee" : "freelancer";
+          const person = record.employee || record.freeLancer || record.trainer;
+          const personType = record.employee
+            ? "employee"
+            : record.freeLancer
+              ? "freelancer"
+              : "trainer";
           const personName = person
             ? `${person.firstName || ""} ${person.lastName || ""}`.trim() ||
               "Unknown"
             : "Unknown";
           const personNumber = record.employee
             ? record.employee.employeeNumber
-            : record.freeLancer?.freeLancerNumber;
+            : record.freeLancer
+              ? record.freeLancer.freeLancerNumber
+              : record.trainer?.trainerNumber;
 
           return (
             <Card key={record.id} className="hover:shadow-md transition-shadow">
@@ -174,10 +180,16 @@ export function CallOutList({ records, loading }: CallOutListProps) {
                         <Badge variant="outline" className="text-[10px] h-4">
                           {personType === "employee" ? (
                             <User className="w-2.5 h-2.5 mr-1" />
-                          ) : (
+                          ) : personType === "freelancer" ? (
                             <UserCog className="w-2.5 h-2.5 mr-1" />
+                          ) : (
+                            <Zap className="w-2.5 h-2.5 mr-1 text-amber-500" />
                           )}
-                          {personType === "employee" ? "EMP" : "FL"}
+                          {personType === "employee"
+                            ? "EMP"
+                            : personType === "freelancer"
+                              ? "FL"
+                              : "TRN"}
                         </Badge>
                         <span className="text-xs text-muted-foreground">
                           {personNumber}
@@ -370,7 +382,9 @@ export function CallOutList({ records, loading }: CallOutListProps) {
                       ? `${selectedRecord.employee.firstName} ${selectedRecord.employee.lastName}`
                       : selectedRecord.freeLancer
                         ? `${selectedRecord.freeLancer.firstName} ${selectedRecord.freeLancer.lastName}`
-                        : "Unknown"}
+                        : selectedRecord.trainer
+                          ? `${selectedRecord.trainer.firstName} ${selectedRecord.trainer.lastName}`
+                          : "Unknown"}
                   </p>
                 </div>
                 <div>

@@ -5,7 +5,7 @@ import { sendPushNotification } from "@/lib/expo";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { id } = params;
@@ -80,6 +80,7 @@ export async function PUT(
         message: employeeMessage,
         type: "EMPLOYEE",
         isRead: false,
+        actionUrl: "/dashboard/profile",
       },
     });
 
@@ -97,7 +98,7 @@ export async function PUT(
     console.error("Error updating Employee contact info:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

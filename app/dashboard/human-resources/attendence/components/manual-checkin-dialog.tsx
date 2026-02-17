@@ -48,14 +48,18 @@ export function ManualCheckInDialog({
     lat: undefined,
     lng: undefined,
   });
-  const [personType, setPersonType] = useState<"employee" | "freelancer">(
-    "employee"
-  );
+  const [personType, setPersonType] = useState<
+    "employee" | "freelancer" | "trainer"
+  >("employee");
   const [showMap, setShowMap] = useState(false);
 
   const handleSubmit = () => {
     const id =
-      personType === "employee" ? formData.employeeId : formData.freelancerId;
+      personType === "employee"
+        ? formData.employeeId
+        : personType === "freelancer"
+          ? formData.freelancerId
+          : formData.trainerId;
 
     if (!id || !formData.location) {
       return;
@@ -64,6 +68,7 @@ export function ManualCheckInDialog({
     setFormData({
       employeeId: "",
       freelancerId: "",
+      trainerId: "",
       location: "",
       notes: "",
       lat: undefined,
@@ -89,6 +94,7 @@ export function ManualCheckInDialog({
     setFormData({
       employeeId: "",
       freelancerId: "",
+      trainerId: "",
       location: "",
       notes: "",
       lat: undefined,
@@ -112,14 +118,18 @@ export function ManualCheckInDialog({
         <DialogHeader>
           <DialogTitle>Manual Check-In/Out</DialogTitle>
           <DialogDescription>
-            Record attendance manually for employees or freelancers
+            Record attendance manually for employees, freelancers or trainers
           </DialogDescription>
         </DialogHeader>
 
         <Tabs
           value={personType}
           onValueChange={(value) => {
-            if (value === "employee" || value === "freelancer") {
+            if (
+              value === "employee" ||
+              value === "freelancer" ||
+              value === "trainer"
+            ) {
               setPersonType(value);
             }
           }}
@@ -127,6 +137,7 @@ export function ManualCheckInDialog({
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="employee">Employee</TabsTrigger>
             <TabsTrigger value="freelancer">Freelancer</TabsTrigger>
+            <TabsTrigger value="trainer">Trainer</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -149,21 +160,37 @@ export function ManualCheckInDialog({
 
           <div className="space-y-2">
             <Label htmlFor="id">
-              {personType === "employee" ? "Employee ID" : "Freelancer ID"} *
+              {personType === "employee"
+                ? "Employee ID"
+                : personType === "freelancer"
+                  ? "Freelancer ID"
+                  : "Trainer ID"}{" "}
+              *
             </Label>
             <Input
               id="id"
-              placeholder={personType === "employee" ? "EMP001" : "FRL001"}
+              placeholder={
+                personType === "employee"
+                  ? "EMP001"
+                  : personType === "freelancer"
+                    ? "FRL001"
+                    : "TRN001"
+              }
               value={
                 personType === "employee"
                   ? formData.employeeId
-                  : formData.freelancerId
+                  : personType === "freelancer"
+                    ? formData.freelancerId
+                    : formData.trainerId
               }
               onChange={(e) =>
                 setFormData({
                   ...formData,
-                  [personType === "employee" ? "employeeId" : "freelancerId"]:
-                    e.target.value.toUpperCase(),
+                  [personType === "employee"
+                    ? "employeeId"
+                    : personType === "freelancer"
+                      ? "freelancerId"
+                      : "trainerId"]: e.target.value.toUpperCase(),
                 })
               }
             />
@@ -224,7 +251,11 @@ export function ManualCheckInDialog({
             disabled={
               isLoading ||
               !formData.location ||
-              !(formData.employeeId || formData.freelancerId)
+              !(
+                formData.employeeId ||
+                formData.freelancerId ||
+                formData.trainerId
+              )
             }
           >
             {isLoading ? (

@@ -26,6 +26,7 @@ import {
   UserRole,
   UserStatus,
   UserType,
+  TrainerStatus,
 } from "@prisma/client";
 import { optional, z } from "zod";
 
@@ -241,6 +242,7 @@ export const projectSchema = z.object({
   projectType: z.nativeEnum(ProjectType),
   billingType: z.nativeEnum(BillingType).optional(),
   clientId: z.string().optional(),
+  maintenanceId: z.string().optional(),
   priority: z.nativeEnum(Priority),
   managerId: z.string().min(1, "Team leader is required"),
   startDate: z.union([z.date(), z.string().transform((str) => new Date(str))]),
@@ -342,6 +344,10 @@ export const employeeSchema = z
       .number()
       .min(0, { message: "Overtime rate must be positive" })
       .default(50.0),
+    emergencyCallOutRate: z.coerce
+      .number()
+      .min(0, { message: "Call-out rate must be positive" })
+      .default(0.0),
     hireDate: z.date({ required_error: "Hire date is required" }),
     terminationDate: z.date().optional().nullable(),
     status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
@@ -449,6 +455,18 @@ export const freelancerSchema = z.object({
     ])
     .transform((val) => Number(val))
     .default(50.0),
+  emergencyCallOutRate: z
+    .union([
+      z
+        .string()
+        .min(1, { message: "Call-out rate is required" })
+        .refine((val) => !isNaN(Number(val)), {
+          message: "Must be a valid number",
+        }),
+      z.number().min(0, { message: "Call-out rate must be positive" }),
+    ])
+    .transform((val) => Number(val))
+    .default(0.0),
   hireDate: z.date({ required_error: "Hire date is required" }),
   terminationDate: z.date().optional().nullable(),
   status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
@@ -1091,3 +1109,91 @@ export const packageFormSchema = z.object({
 });
 
 export type PackageFormValues = z.infer<typeof packageFormSchema>;
+
+export const trainerSchema = z.object({
+  firstName: z.string().min(1, { message: "First name is required" }),
+  lastName: z.string().min(1, { message: "Last name is required" }),
+  phone: z.string().min(1, { message: "Phone number is required" }),
+  email: z
+    .string()
+    .email({ message: "Invalid email address!" })
+    .optional()
+    .or(z.literal("")),
+  position: z.string().min(1, { message: "Position is required" }),
+  departmentId: z.string().min(1, { message: "Department is required" }),
+  salary: z
+    .union([
+      z
+        .string()
+        .min(1, { message: "Salary is required" })
+        .refine((val) => !isNaN(Number(val)), {
+          message: "Must be a valid number",
+        }),
+      z.number().min(0, { message: "Salary must be positive" }),
+    ])
+    .transform((val) => Number(val)),
+  overtimeHourRate: z
+    .union([
+      z
+        .string()
+        .min(1, { message: "Overtime rate is required" })
+        .refine((val) => !isNaN(Number(val)), {
+          message: "Must be a valid number",
+        }),
+      z.number().min(0, { message: "Overtime rate must be positive" }),
+    ])
+    .transform((val) => Number(val))
+    .default(50.0),
+  emergencyCallOutRate: z
+    .union([
+      z
+        .string()
+        .min(1, { message: "Call-out rate is required" })
+        .refine((val) => !isNaN(Number(val)), {
+          message: "Must be a valid number",
+        }),
+      z.number().min(0, { message: "Call-out rate must be positive" }),
+    ])
+    .transform((val) => Number(val))
+    .default(0.0),
+  hireDate: z.date({ required_error: "Hire date is required" }),
+  terminationDate: z.date().optional().nullable(),
+  status: z.nativeEnum(TrainerStatus).default("ACTIVE"),
+  city: z.string().or(z.literal("")),
+  province: z.string().or(z.literal("")),
+  postalCode: z.string().or(z.literal("")),
+  country: z.string().or(z.literal("")),
+  address: z.string().min(1, { message: "Address is required" }),
+  scheduledKnockIn: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  scheduledKnockOut: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  scheduledWeekendKnockIn: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  scheduledWeekendKnockOut: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, {
+      message: "Invalid time format (HH:mm)",
+    })
+    .optional()
+    .or(z.literal("")),
+  workingDays: z.array(z.string()).default([]),
+  reliable: z.boolean().optional(),
+});
+
+export type trainerSchemaType = z.infer<typeof trainerSchema>;

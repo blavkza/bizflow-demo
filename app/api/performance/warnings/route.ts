@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     if (!employeeId || !type || !severity || !reason) {
       return NextResponse.json(
         { error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         message: `You have received a ${severity} severity warning regarding ${type}. Reason: ${reason}`,
         type: "WARNING",
         isRead: false,
-        actionUrl: `/dashboard/warnings/${warning.id}`,
+        actionUrl: `/dashboard/human-resources/performance`,
       },
     });
 
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     console.error("Create warning API error:", error);
     return NextResponse.json(
       { error: "Failed to create warning" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -83,11 +83,13 @@ export async function GET(request: NextRequest) {
       resolvedAt: warning.resolvedAt?.toISOString(),
       resolutionNotes: warning.resolutionNotes,
       employee: {
-        id: warning.employee.id,
-        name: `${warning.employee.firstName} ${warning.employee.lastName}`,
-        position: warning.employee.position,
-        department: warning.employee.department?.name || "No Department",
-        avatar: warning.employee.avatar,
+        id: warning.employee?.id || "",
+        name: warning.employee
+          ? `${warning.employee.firstName || ""} ${warning.employee.lastName || ""}`.trim()
+          : "Unknown Employee",
+        position: warning.employee?.position || "Unknown",
+        department: warning.employee?.department?.name || "No Department",
+        avatar: warning.employee?.avatar || null,
       },
     }));
 
@@ -106,7 +108,7 @@ export async function PUT(request: NextRequest) {
     if (!warningId) {
       return NextResponse.json(
         { error: "Warning ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -128,7 +130,7 @@ export async function PUT(request: NextRequest) {
         }. Resolution: ${resolutionNotes || "Warning resolved by manager"}`,
         type: "WARNING",
         isRead: false,
-        actionUrl: `/dashboard/warnings/${updatedWarning.id}`,
+        actionUrl: `/dashboard/human-resources/performance`,
       },
     });
 
@@ -137,7 +139,7 @@ export async function PUT(request: NextRequest) {
     console.error("Update warning API error:", error);
     return NextResponse.json(
       { error: "Failed to update warning" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -151,7 +153,7 @@ export async function DELETE(request: NextRequest) {
     if (!warningId) {
       return NextResponse.json(
         { error: "Warning ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -164,7 +166,7 @@ export async function DELETE(request: NextRequest) {
     console.error("Delete warning API error:", error);
     return NextResponse.json(
       { error: "Failed to delete warning" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

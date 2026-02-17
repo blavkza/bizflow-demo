@@ -48,8 +48,7 @@ const HRSettingsSchema = z.object({
   autoProcessPayroll: z.boolean(),
   workingDaysPerMonth: z.number().min(1).max(31),
   overtimeHourRate: z.number().min(0),
-  callOutHourlyRate: z.number().min(0),
-  useCallOutHourlyRate: z.boolean(),
+  overtimeHourRate: z.number().min(0),
 
   // Attendance Settings
   workingHoursPerDay: z.number().min(1).max(24),
@@ -166,8 +165,7 @@ interface HRSettings {
   paymentDay: number;
   paymentMonth: string;
   overtimeHourRate: number;
-  callOutHourlyRate: number;
-  useCallOutHourlyRate: boolean;
+  overtimeHourRate: number;
   autoProcessPayroll: boolean;
   workingDaysPerMonth: number;
   lateThreshold: number;
@@ -273,8 +271,6 @@ export default function HRSettingsForm({
       overtimeThreshold: 8,
       WeekendovertimeThreshold: 4,
       overtimeHourRate: 50,
-      callOutHourlyRate: 0,
-      useCallOutHourlyRate: false,
       maxBreaksPerDay: 2,
       totalBreakDurationMinutes: 60,
       breakReminderMinutes: 5,
@@ -386,8 +382,6 @@ export default function HRSettingsForm({
             overtimeThreshold: settings.overtimeThreshold,
             WeekendovertimeThreshold: settings.WeekendovertimeThreshold,
             overtimeHourRate: settings.overtimeHourRate,
-            callOutHourlyRate: settings.callOutHourlyRate || 0,
-            useCallOutHourlyRate: settings.useCallOutHourlyRate || false,
             maxBreaksPerDay: settings.maxBreaksPerDay ?? 2,
             totalBreakDurationMinutes: settings.totalBreakDurationMinutes ?? 60,
             breakReminderMinutes: settings.breakReminderMinutes ?? 5,
@@ -736,65 +730,6 @@ export default function HRSettingsForm({
                         disabled={!hasFullAccess && !canManageSettings}
                       />
                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="callOutHourlyRate"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <div className="flex items-center">
-                        <FormLabel>Call-Out Hour Rate (ZAR)</FormLabel>
-                        <ExplanationPopover
-                          title="Call-Out Hour Rate"
-                          content="Global hourly rate for emergency call-outs. If disabled, worker's individual overtime rate is used."
-                        />
-                      </div>
-                      <Input
-                        type="number"
-                        min="0"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseInt(e.target.value))
-                        }
-                        className="w-full"
-                        disabled={!hasFullAccess && !canManageSettings}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                <FormField
-                  control={form.control}
-                  name="useCallOutHourlyRate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center">
-                          <FormLabel className="text-base">
-                            Use Global Call-Out Rate
-                          </FormLabel>
-                          <ExplanationPopover
-                            title="Use Global Call-Out Rate"
-                            content="When enabled, the Global Call-Out Rate above will be used for all workers. When disabled, their individual overtime rate will be used."
-                          />
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          Toggle between global rate and individual worker rate
-                        </div>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={!hasFullAccess && !canManageSettings}
-                        />
-                      </FormControl>
                     </FormItem>
                   )}
                 />

@@ -219,6 +219,12 @@ export async function GET(
               },
               take: 60,
             },
+            employeeNotification: {
+              orderBy: {
+                createdAt: "desc",
+              },
+              take: 60,
+            },
             overtimeRequests: {
               orderBy: {
                 requestedAt: "desc",

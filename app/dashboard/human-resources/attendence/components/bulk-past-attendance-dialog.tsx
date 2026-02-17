@@ -45,12 +45,12 @@ interface Worker {
   number: string;
   position: string;
   department: string;
-  type: "employee" | "freelancer";
+  type: "employee" | "freelancer" | "trainer";
 }
 
 interface AttendanceEntry {
   workerId: string;
-  workerType: "employee" | "freelancer";
+  workerType: "employee" | "freelancer" | "trainer";
   name: string;
   checkIn: string;
   checkOut: string;
@@ -70,7 +70,7 @@ export function BulkPastAttendanceDialog({
   const [isFetching, setIsFetching] = useState(false);
 
   const [workerTypeFilter, setWorkerTypeFilter] = useState<
-    "all" | "employee" | "freelancer"
+    "all" | "employee" | "freelancer" | "trainer"
   >("all");
   const [commonCheckIn, setCommonCheckIn] = useState("07:00");
   const [commonCheckOut, setCommonCheckOut] = useState("17:00");
@@ -256,8 +256,8 @@ export function BulkPastAttendanceDialog({
             Bulk Past Attendance
           </DialogTitle>
           <DialogDescription className="text-sm">
-            Record attendance for multiple employees and freelancers for a
-            specific past date.
+            Record attendance for multiple employees, freelancers and trainers
+            for a specific past date.
           </DialogDescription>
         </DialogHeader>
 
@@ -344,6 +344,18 @@ export function BulkPastAttendanceDialog({
                   )}
                 >
                   FREELANCERS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkerTypeFilter("trainer")}
+                  className={cn(
+                    "flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all",
+                    workerTypeFilter === "trainer"
+                      ? "bg-white text-primary shadow-sm"
+                      : "text-muted-foreground hover:text-primary",
+                  )}
+                >
+                  TRAINERS
                 </button>
               </div>
 
@@ -432,10 +444,16 @@ export function BulkPastAttendanceDialog({
                                 "text-[8px] px-1.5 py-0 rounded uppercase font-bold tracking-tighter",
                                 w.type === "employee"
                                   ? "bg-blue-100 text-blue-700"
-                                  : "bg-purple-100 text-purple-700",
+                                  : w.type === "freelancer"
+                                    ? "bg-purple-100 text-purple-700"
+                                    : "bg-orange-100 text-orange-700",
                               )}
                             >
-                              {w.type === "employee" ? "EMP" : "FRL"}
+                              {w.type === "employee"
+                                ? "EMP"
+                                : w.type === "freelancer"
+                                  ? "FRL"
+                                  : "TRN"}
                             </span>
                           </div>
                           <p className="text-[10px] text-muted-foreground truncate font-medium">
@@ -507,8 +525,8 @@ export function BulkPastAttendanceDialog({
                     No workers selected
                   </p>
                   <p className="text-xs text-muted-foreground max-w-xs mt-1">
-                    Select employees or freelancers from the left panel to start
-                    recording their attendance
+                    Select employees, freelancers or trainers from the left
+                    panel to start recording their attendance
                   </p>
                 </div>
               ) : (
@@ -529,12 +547,16 @@ export function BulkPastAttendanceDialog({
                                 "text-[7px] px-1 py-0.5 rounded-sm uppercase font-black tracking-tighter",
                                 entry.workerType === "employee"
                                   ? "bg-blue-600 text-white"
-                                  : "bg-purple-600 text-white",
+                                  : entry.workerType === "freelancer"
+                                    ? "bg-purple-600 text-white"
+                                    : "bg-orange-600 text-white",
                               )}
                             >
                               {entry.workerType === "employee"
                                 ? "EMPLOYEE"
-                                : "FREELANCER"}
+                                : entry.workerType === "freelancer"
+                                  ? "FREELANCER"
+                                  : "TRAINER"}
                             </span>
                           </div>
                         </div>

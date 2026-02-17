@@ -36,6 +36,7 @@ import {
   RefreshCcw,
   Bolt,
   Siren,
+  GraduationCap,
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
 import { CgArrowsExchange } from "react-icons/cg";
@@ -249,6 +250,17 @@ export const getSidebarData = (
             url: "/dashboard/human-resources/clients",
             icon: Building,
             color: "text-fuchsia-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.SETTINGS_MANAGE)
+      ? [
+          {
+            title: "Maintenance",
+            url: "/dashboard/maintenance",
+            icon: Wrench,
+            color: "text-orange-500",
           },
         ]
       : []),
@@ -495,14 +507,13 @@ export const getSidebarData = (
           },
         ]
       : []),
-    ...(hasFullAccess ||
-    hasPermission(permissions, UserPermission.Freelancer_VIEW)
+    ...(hasFullAccess || hasPermission(permissions, UserPermission.Trainer_VIEW)
       ? [
           {
-            title: "Freelancers",
-            url: "/dashboard/human-resources/freelancers",
-            icon: UserPlus,
-            color: "text-red-500",
+            title: "Trainers",
+            url: "/dashboard/human-resources/trainers",
+            icon: GraduationCap,
+            color: "text-blue-500",
           },
         ]
       : []),

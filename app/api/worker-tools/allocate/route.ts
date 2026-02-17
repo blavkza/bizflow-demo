@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { ToolStatus } from "@prisma/client";
-import { sendPushNotification } from "@/lib/expo";
+import { sendPushNotification, sendPushFreelancer } from "@/lib/expo";
 
 export async function POST(req: Request) {
   try {
@@ -98,18 +98,22 @@ export async function POST(req: Request) {
 
     // 4. Send Notifications
     for (const tool of result) {
-      if (tool.employeeId) {
-        // Parse notifications
-        const title = "New Tool Allocated";
-        const message = `You have been allocated ${tool.quantity} unit(s) of ${tool.name}.`;
+      const title = "New Tool Allocated";
+      const message = `You have been allocated ${tool.quantity} unit(s) of ${tool.name}.`;
+      const actionUrl = `/dashboard/tools/${tool.id}`; // Common action URL, managed by app navigator
 
+      if (tool.employeeId) {
         // Push Notification
         try {
           await sendPushNotification({
             employeeId: tool.employeeId,
             title: title,
             body: message,
-            data: { type: "TOOL_ALLOCATION", toolId: tool.id },
+            data: {
+              type: "TOOL_ALLOCATION",
+              toolId: tool.id,
+              url: actionUrl,
+            },
           });
         } catch (e) {
           console.error("Failed to send push notification", e);
@@ -125,6 +129,39 @@ export async function POST(req: Request) {
             priority: "MEDIUM",
             channels: ["IN_APP", "PUSH"],
             isRead: false,
+            actionUrl: actionUrl,
+          },
+        });
+      } else if (tool.freelancerId) {
+        // Freelancer Notification
+
+        // Push Notification
+        try {
+          await sendPushFreelancer({
+            freelancerId: tool.freelancerId,
+            title: title,
+            body: message,
+            data: {
+              type: "TOOL_ALLOCATION",
+              toolId: tool.id,
+              url: actionUrl,
+            },
+          });
+        } catch (e) {
+          console.error("Failed to send freelancer push notification", e);
+        }
+
+        // In-App Notification
+        await db.employeeNotification.create({
+          data: {
+            freeLancerId: tool.freelancerId,
+            title: title,
+            message: message,
+            type: "TOOLS",
+            priority: "MEDIUM",
+            channels: ["IN_APP", "PUSH"],
+            isRead: false,
+            actionUrl: actionUrl,
           },
         });
       }

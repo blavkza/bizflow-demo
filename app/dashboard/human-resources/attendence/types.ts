@@ -10,6 +10,7 @@ export interface AttendanceRecord {
   id: string;
   employeeId: string | null;
   freeLancerId: string | null;
+  trainerId: string | null;
   employee?: {
     id: string;
     employeeNumber: string;
@@ -28,6 +29,21 @@ export interface AttendanceRecord {
   freeLancer?: {
     id: string;
     freeLancerNumber: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string | null;
+    position: string;
+    department?: {
+      name: string;
+    } | null;
+    scheduledKnockIn: string | null;
+    scheduledKnockOut: string | null;
+    workingDays: string[];
+    overtimeHourRate: number;
+  } | null;
+  trainer?: {
+    id: string;
+    trainerNumber: string;
     firstName: string;
     lastName: string;
     avatar?: string | null;
@@ -64,7 +80,7 @@ export interface AttendanceRecord {
   updatedAt: Date;
   displayStatus?: string;
   isVirtualRecord?: boolean;
-  personType?: "employee" | "freelancer";
+  personType?: "employee" | "freelancer" | "trainer";
 }
 
 export interface CheckInRecord {
@@ -73,7 +89,7 @@ export interface CheckInRecord {
   employeeId: string;
   employeeNumber: string;
   employeeAvatar: string | null;
-  personType: "employee" | "freelancer";
+  personType: "employee" | "freelancer" | "trainer";
   method: CheckInMethod;
   location: string;
   address?: string;
@@ -106,6 +122,7 @@ export interface Department {
 export interface ManualCheckInData {
   employeeId?: string;
   freelancerId?: string;
+  trainerId?: string;
   location: string;
   notes: string;
   lat?: number;
@@ -115,16 +132,22 @@ export interface ManualCheckInData {
 export type LeaveStatus = "SICK_LEAVE" | "ANNUAL_LEAVE" | "UNPAID_LEAVE";
 
 export function isLeaveStatus(
-  status: AttendanceStatus
+  status: AttendanceStatus,
 ): status is Extract<AttendanceStatus, LeaveStatus> {
   return ["SICK_LEAVE", "ANNUAL_LEAVE", "UNPAID_LEAVE"].includes(status);
 }
-export type CallOutStatus = "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELLED" | "COMPLETED";
+export type CallOutStatus =
+  | "PENDING"
+  | "ACCEPTED"
+  | "DECLINED"
+  | "CANCELLED"
+  | "COMPLETED";
 
 export interface EmergencyCallOut {
   id: string;
   employeeId: string | null;
   freeLancerId: string | null;
+  trainerId: string | null;
   employee?: {
     id: string;
     employeeNumber: string;
@@ -139,6 +162,17 @@ export interface EmergencyCallOut {
   freeLancer?: {
     id: string;
     freeLancerNumber: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string | null;
+    position: string;
+    department?: {
+      name: string;
+    } | null;
+  } | null;
+  trainer?: {
+    id: string;
+    trainerNumber: string;
     firstName: string;
     lastName: string;
     avatar?: string | null;

@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
         where.OR = [
           { employee: { departmentId: user.employee.departmentId } },
           { freeLancer: { departmentId: user.employee.departmentId } },
+          { Trainer: { departmentId: user.employee.departmentId } },
         ];
       }
 
@@ -81,6 +82,9 @@ export async function GET(request: NextRequest) {
           freeLancer: {
             include: { department: true },
           },
+          trainer: {
+            include: { department: true },
+          },
         },
         orderBy: { requestedAt: "desc" },
       });
@@ -93,8 +97,10 @@ export async function GET(request: NextRequest) {
 
       const existingRequest = await db.overtimeRequest.findFirst({
         where: {
-          employeeId: employeeId,
-          date: date,
+          OR: [
+            { employeeId: employeeId, date: date },
+            { trainerId: employeeId, date: date },
+          ],
         },
       });
 
@@ -119,6 +125,7 @@ export async function POST(request: NextRequest) {
     const {
       employeeId: inputEmployeeId,
       freelancerId: inputFreelancerId,
+      trainerId: inputTrainerId,
       startTime,
       hours,
       reason,
@@ -126,6 +133,7 @@ export async function POST(request: NextRequest) {
 
     let employeeId = null;
     let freelancerId = null;
+    let trainerId = null;
 
     if (inputEmployeeId) {
       const employee = await db.employee.findFirst({
@@ -148,11 +156,20 @@ export async function POST(request: NextRequest) {
       if (freelancer) {
         freelancerId = freelancer.id;
       }
+    } else if (inputTrainerId) {
+      const trainer = await db.trainer.findFirst({
+        where: {
+          OR: [{ id: inputTrainerId }, { trainerNumber: inputTrainerId }],
+        },
+      });
+      if (trainer) {
+        trainerId = trainer.id;
+      }
     }
 
-    if (!employeeId && !freelancerId) {
+    if (!employeeId && !freelancerId && !trainerId) {
       return NextResponse.json(
-        { error: "Employee or Freelancer not found" },
+        { error: "Employee, Freelancer or Trainer not found" },
         { status: 404 },
       );
     }
@@ -164,6 +181,7 @@ export async function POST(request: NextRequest) {
         OR: [
           ...(employeeId ? [{ employeeId, date }] : []),
           ...(freelancerId ? [{ freeLancerId: freelancerId, date }] : []),
+          ...(trainerId ? [{ trainerId, date }] : []),
         ],
       },
     });
@@ -173,6 +191,7 @@ export async function POST(request: NextRequest) {
         data: {
           employeeId,
           freeLancerId: freelancerId,
+          trainerId: trainerId,
           date: date,
           startTime: startTime ? new Date(startTime) : new Date(),
           duration: hours ? parseFloat(hours) : null,
@@ -188,7 +207,11 @@ export async function POST(request: NextRequest) {
         where: {
           AND: [
             { date: date },
-            employeeId ? { employeeId } : { freeLancerId: freelancerId },
+            employeeId
+              ? { employeeId }
+              : freelancerId
+                ? { freeLancerId: freelancerId }
+                : { trainerId },
           ],
         },
       });
@@ -236,6 +259,7 @@ export async function PATCH(request: NextRequest) {
       include: {
         employee: true,
         freeLancer: true,
+        trainer: true,
       },
     });
 
@@ -245,6 +269,7 @@ export async function PATCH(request: NextRequest) {
         where: {
           employeeId: updated.employeeId || undefined,
           freeLancerId: updated.freeLancerId || undefined,
+          trainerId: updated.trainerId || undefined,
           date: updated.date,
         },
       });

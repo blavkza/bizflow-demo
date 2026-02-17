@@ -29,16 +29,16 @@ export async function POST(
           include: {
             user: {
               include: {
-                employee: { select: { overtimeHourRate: true } },
-                freeLancer: { select: { overtimeHourRate: true } },
+                employee: { select: { emergencyCallOutRate: true } },
+                freeLancer: { select: { emergencyCallOutRate: true } },
               },
             },
           },
         },
         requestedUser: {
           include: {
-            employee: { select: { overtimeHourRate: true } },
-            freeLancer: { select: { overtimeHourRate: true } },
+            employee: { select: { emergencyCallOutRate: true } },
+            freeLancer: { select: { emergencyCallOutRate: true } },
           },
         },
       } as any,
@@ -68,16 +68,15 @@ export async function POST(
     const durationHours =
       (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
-    // Fetch HR Settings for global rate
-    const settings = await db.hRSettings.findFirst();
-    const globalRate = settings?.callOutHourlyRate || 0;
-    const useGlobal = settings?.useCallOutHourlyRate || false;
+    // Fetch call-out details (rates are already included in the findUnique if we update it)
+    // Actually, let's update the findUnique to include the new emergencyCallOutRate field
 
     // Helper to get effective rate for a user
     const getEffectiveRate = (u: any) => {
-      if (useGlobal && globalRate > 0) return globalRate;
       return (
-        u?.employee?.overtimeHourRate || u?.freeLancer?.overtimeHourRate || 0
+        u?.employee?.emergencyCallOutRate ||
+        u?.freeLancer?.emergencyCallOutRate ||
+        0
       );
     };
 

@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching bypass rules:", error);
     return NextResponse.json(
       { error: "Failed to fetch bypass rules" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
     if (!data.startDate || !data.endDate) {
       return NextResponse.json(
         { error: "Start date and end date are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     if (startDate > endDate) {
       return NextResponse.json(
         { error: "Start date cannot be after end date" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "Invalid check-in time format. Use HH:mm (24-hour format)" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -168,7 +168,7 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: "Invalid check-out time format. Use HH:mm (24-hour format)" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
 
       if (existingEmployeeRules.length > 0) {
         const conflictingEmployees = existingEmployeeRules.flatMap((rule) =>
-          rule.employees.filter((emp) => employeeIds.includes(emp.id))
+          rule.employees.filter((emp) => employeeIds.includes(emp.id)),
         );
 
         if (conflictingEmployees.length > 0) {
@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
             {
               error: `Bypass rules already exist for employees: ${employeeNumbers} during the specified period`,
             },
-            { status: 409 }
+            { status: 409 },
           );
         }
       }
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
 
       if (existingFreelancerRules.length > 0) {
         const conflictingFreelancers = existingFreelancerRules.flatMap((rule) =>
-          rule.freelancers.filter((f) => freelancerIds.includes(f.id))
+          rule.freelancers.filter((f) => freelancerIds.includes(f.id)),
         );
 
         if (conflictingFreelancers.length > 0) {
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
             {
               error: `Bypass rules already exist for freelancers: ${freelancerNumbers} during the specified period`,
             },
-            { status: 409 }
+            { status: 409 },
           );
         }
       }
@@ -326,13 +326,13 @@ export async function POST(request: NextRequest) {
         message: "Bypass rule created successfully",
         bypassRule,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error) {
     console.error("Error creating bypass rule:", error);
     return NextResponse.json(
       { error: "Failed to create bypass rule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -364,7 +364,7 @@ export async function PUT(request: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: "Rule ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -382,7 +382,7 @@ export async function PUT(request: NextRequest) {
     if (!existingRule) {
       return NextResponse.json(
         { error: "Bypass rule not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -395,17 +395,17 @@ export async function PUT(request: NextRequest) {
     const updatedFreelancerIds = data.freelancerIds || existingFreelancerIds;
 
     const addedEmployeeIds = updatedEmployeeIds.filter(
-      (id: string) => !existingEmployeeIds.includes(id)
+      (id: string) => !existingEmployeeIds.includes(id),
     );
     const removedEmployeeIds = existingEmployeeIds.filter(
-      (id) => !updatedEmployeeIds.includes(id)
+      (id) => !updatedEmployeeIds.includes(id),
     );
 
     const addedFreelancerIds = updatedFreelancerIds.filter(
-      (id: string) => !existingFreelancerIds.includes(id)
+      (id: string) => !existingFreelancerIds.includes(id),
     );
     const removedFreelancerIds = existingFreelancerIds.filter(
-      (id) => !updatedFreelancerIds.includes(id)
+      (id) => !updatedFreelancerIds.includes(id),
     );
 
     // Validate dates if provided
@@ -420,7 +420,7 @@ export async function PUT(request: NextRequest) {
       if (startDate > endDate) {
         return NextResponse.json(
           { error: "Start date cannot be after end date" },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -529,7 +529,7 @@ export async function PUT(request: NextRequest) {
     console.error("Error updating bypass rule:", error);
     return NextResponse.json(
       { error: "Failed to update bypass rule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -561,7 +561,7 @@ export async function DELETE(request: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: "Rule ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -591,7 +591,7 @@ export async function DELETE(request: NextRequest) {
     if (!existingRule) {
       return NextResponse.json(
         { error: "Bypass rule not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -627,7 +627,7 @@ export async function DELETE(request: NextRequest) {
     console.error("Error deleting bypass rule:", error);
     return NextResponse.json(
       { error: "Failed to delete bypass rule" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -708,6 +708,7 @@ async function sendBypassNotifications(params: SendBypassNotificationsParams) {
               message,
               type: "ATTENDANCE",
               isRead: false,
+              actionUrl: "/dashboard",
               metadata: {
                 bypassRuleId: rule.id,
                 notificationType: type,
@@ -740,12 +741,12 @@ async function sendBypassNotifications(params: SendBypassNotificationsParams) {
                 },
               });
               console.log(
-                `${type} push notification sent to employee ${employee.employeeNumber}`
+                `${type} push notification sent to employee ${employee.employeeNumber}`,
               );
             } catch (pushError) {
               console.error(
                 `Failed to send push notification to employee ${employee.employeeNumber}:`,
-                pushError
+                pushError,
               );
               // Continue even if push notification fails
             }
@@ -753,7 +754,7 @@ async function sendBypassNotifications(params: SendBypassNotificationsParams) {
         } catch (notificationError) {
           console.error(
             `Failed to create notification for employee ${employee.id}:`,
-            notificationError
+            notificationError,
           );
           // Continue with other employees even if one fails
         }
@@ -766,7 +767,7 @@ async function sendBypassNotifications(params: SendBypassNotificationsParams) {
     // Note: Freelancers don't have notifications in your schema
     // If you need freelancer notifications, you'll need to add a freelancer notification model
     console.log(
-      `Sent ${type} notifications to ${employeeIds.length} employees and ${freelancerIds.length} freelancers`
+      `Sent ${type} notifications to ${employeeIds.length} employees and ${freelancerIds.length} freelancers`,
     );
   } catch (error) {
     console.error(`Error sending ${type} notifications:`, error);
@@ -784,7 +785,7 @@ function getNotificationContent(
     endDate: Date;
     createdBy: string;
     changes: any;
-  }
+  },
 ): { title: string; message: string } {
   const { rule, employee, data, startDate, endDate, createdBy, changes } =
     context;
@@ -828,13 +829,13 @@ function getNotificationContent(
 
       if (changes.bypassCheckInChanged) {
         updateDetails.push(
-          `check-in bypass ${rule.bypassCheckIn ? "enabled" : "disabled"}`
+          `check-in bypass ${rule.bypassCheckIn ? "enabled" : "disabled"}`,
         );
       }
 
       if (changes.bypassCheckOutChanged) {
         updateDetails.push(
-          `check-out bypass ${rule.bypassCheckOut ? "enabled" : "disabled"}`
+          `check-out bypass ${rule.bypassCheckOut ? "enabled" : "disabled"}`,
         );
       }
 

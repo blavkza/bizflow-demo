@@ -17,6 +17,7 @@ export interface LeaveRequest {
   comments?: string;
   department: string;
   requestedBy?: string;
+  emergencyAvailability?: boolean;
 }
 
 export interface LeaveBalances {

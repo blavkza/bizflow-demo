@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       assistantFreelancerIds,
       toolIds,
       tasks,
+      maintenanceId,
     } = validation.data;
 
     // Only check manager if managerId is provided
@@ -124,6 +125,13 @@ export async function POST(req: Request) {
         client: true,
       },
     });
+
+    if (maintenanceId) {
+      await db.maintenance.update({
+        where: { id: maintenanceId },
+        data: { projectId: project.id },
+      });
+    }
 
     // Automatically create ProjectTeam members for assistants
     const assistantUsers = new Set<string>();

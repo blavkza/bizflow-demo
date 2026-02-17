@@ -9,7 +9,7 @@ export async function PUT(
     params,
   }: {
     params: Promise<{ id: string }>;
-  }
+  },
 ) {
   try {
     const { id } = await params;
@@ -81,6 +81,7 @@ export async function PUT(
         message: employeeMessage,
         type: "EMPLOYEE",
         isRead: false,
+        actionUrl: "/dashboard/profile",
       },
     });
 
@@ -94,7 +95,7 @@ export async function PUT(
     });
 
     console.log(
-      `Push notification sent for employee profile update: ${updatedEmployee.id}`
+      `Push notification sent for employee profile update: ${updatedEmployee.id}`,
     );
     // ---------------------------------------------------------
 
@@ -103,7 +104,7 @@ export async function PUT(
     console.error("Error updating Employee personal info:", error);
     return NextResponse.json(
       { message: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -15,56 +15,127 @@ export async function POST(request: Request) {
     if (!admin) return new NextResponse("Unauthorized", { status: 401 });
 
     const body = await request.json();
-    const { employeeIds, title, message, startTime } = body;
+    const {
+      employeeIds,
+      freelancerIds,
+      trainerIds,
+      title,
+      message,
+      startTime,
+    } = body;
 
     if (
-      !employeeIds ||
-      !Array.isArray(employeeIds) ||
-      employeeIds.length === 0
+      (!employeeIds ||
+        !Array.isArray(employeeIds) ||
+        employeeIds.length === 0) &&
+      (!freelancerIds ||
+        !Array.isArray(freelancerIds) ||
+        freelancerIds.length === 0) &&
+      (!trainerIds || !Array.isArray(trainerIds) || trainerIds.length === 0)
     ) {
       return NextResponse.json(
-        { error: "At least one employee ID is required" },
+        { error: "At least one recipient ID is required" },
         { status: 400 },
       );
     }
 
     const results = [];
 
-    for (const employeeId of employeeIds) {
-      const callOut = await db.emergencyCallOut.create({
-        data: {
-          employeeId,
-          title,
-          message,
-          startTime: new Date(startTime),
-          requestedBy: admin.id,
-          status: "PENDING",
-        },
-      });
+    // Process Employees
+    if (employeeIds && Array.isArray(employeeIds)) {
+      for (const employeeId of employeeIds) {
+        const callOut = await db.emergencyCallOut.create({
+          data: {
+            employeeId,
+            title,
+            message,
+            startTime: new Date(startTime),
+            requestedBy: admin.id,
+            status: "PENDING",
+          },
+        });
 
-      // Create a system notification record
-      await db.employeeNotification.create({
-        data: {
+        // Create a system notification record
+        await db.employeeNotification.create({
+          data: {
+            employeeId,
+            title: `Emergency Call Out: ${title}`,
+            message: message || "You have an emergency call out request.",
+            type: "EMERGENCY",
+            priority: "HIGH",
+            metadata: { callOutId: callOut.id },
+            actionUrl: `/dashboard/emergency-callouts`,
+          },
+        });
+
+        // Send Push Notification
+        await sendPushNotification({
           employeeId,
           title: `Emergency Call Out: ${title}`,
-          message: message || "You have an emergency call out request.",
-          type: "EMERGENCY",
-          priority: "HIGH",
-          metadata: { callOutId: callOut.id },
-        },
-      });
+          body:
+            message ||
+            "You have an emergency call out request. Please accept or decline in the app.",
+          data: { type: "EMERGENCY_CALL_OUT", callOutId: callOut.id },
+        });
 
-      // Send Push Notification
-      await sendPushNotification({
-        employeeId,
-        title: `Emergency Call Out: ${title}`,
-        body:
-          message ||
-          "You have an emergency call out request. Please accept or decline in the app.",
-        data: { type: "EMERGENCY_CALL_OUT", callOutId: callOut.id },
-      });
+        results.push(callOut);
+      }
+    }
 
-      results.push(callOut);
+    // Process Freelancers
+    if (freelancerIds && Array.isArray(freelancerIds)) {
+      for (const freelancerId of freelancerIds) {
+        const callOut = await db.emergencyCallOut.create({
+          data: {
+            freeLancerId: freelancerId, // Matches schema field name
+            title,
+            message,
+            startTime: new Date(startTime),
+            requestedBy: admin.id,
+            status: "PENDING",
+          },
+        });
+
+        // Freelancers might not have a notification system yet, but we'll create the record if applicable
+        // ... notifications logic if needed ...
+
+        results.push(callOut);
+      }
+    }
+
+    // Process Trainers
+    if (trainerIds && Array.isArray(trainerIds)) {
+      for (const trainerId of trainerIds) {
+        const callOut = await db.emergencyCallOut.create({
+          data: {
+            trainerId,
+            title,
+            message,
+            startTime: new Date(startTime),
+            requestedBy: admin.id,
+            status: "PENDING",
+          },
+        });
+
+        // Trainers might have a notification system/expo token
+        const trainer = await db.trainer.findUnique({
+          where: { id: trainerId },
+          select: { expoPushToken: true },
+        });
+
+        if (trainer?.expoPushToken) {
+          await sendPushNotification({
+            trainerId, // Assuming sendPushNotification supports trainerId or needs adjustment
+            title: `Emergency Call Out: ${title}`,
+            body:
+              message ||
+              "You have an emergency call out request. Please accept or decline in the app.",
+            data: { type: "EMERGENCY_CALL_OUT", callOutId: callOut.id },
+          } as any);
+        }
+
+        results.push(callOut);
+      }
     }
 
     return NextResponse.json(results);
@@ -78,12 +149,16 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get("employeeId");
+    const freelancerId = searchParams.get("freelancerId");
+    const trainerId = searchParams.get("trainerId");
     const status = searchParams.get("status");
     const active = searchParams.get("active"); // Filter for accepted but not completed
     const date = searchParams.get("date"); // Filter by check-in date
 
     const where: any = {};
     if (employeeId) where.employeeId = employeeId;
+    if (freelancerId) where.freeLancerId = freelancerId;
+    if (trainerId) where.trainerId = trainerId;
     if (status) where.status = status;
 
     if (active === "true") {
@@ -126,6 +201,19 @@ export async function GET(request: Request) {
           select: {
             id: true,
             freeLancerNumber: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+            position: true,
+            department: {
+              select: { name: true },
+            },
+          },
+        },
+        Trainer: {
+          select: {
+            id: true,
+            trainerNumber: true,
             firstName: true,
             lastName: true,
             avatar: true,
@@ -235,12 +323,24 @@ export async function PATCH(request: Request) {
     if (checkOut === true) {
       const current = await db.emergencyCallOut.findUnique({
         where: { id: callOutId },
+        include: {
+          employee: { select: { emergencyCallOutRate: true } },
+          freeLancer: { select: { emergencyCallOutRate: true } },
+          Trainer: { select: { emergencyCallOutRate: true } },
+        },
       });
 
       if (current && current.checkIn) {
         const checkOutTime = new Date();
         const durationMs = checkOutTime.getTime() - current.checkIn.getTime();
         const durationHours = durationMs / (1000 * 60 * 60);
+
+        // Get the individual's rate
+        let rate = 0;
+        if (current.employee) rate = current.employee.emergencyCallOutRate;
+        else if (current.freeLancer)
+          rate = current.freeLancer.emergencyCallOutRate;
+        else if (current.Trainer) rate = current.Trainer.emergencyCallOutRate;
 
         updateData.checkOut = checkOutTime;
         updateData.checkOutLat = lat;
@@ -249,6 +349,8 @@ export async function PATCH(request: Request) {
         updateData.duration = durationHours;
         updateData.status = "COMPLETED";
         updateData.completedAt = checkOutTime;
+        updateData.earnings = durationHours * rate;
+        updateData.hourlyRateUsed = rate;
       }
     }
 

@@ -94,7 +94,7 @@ export function AttendanceList({
       return null;
     }
     const overtimeHours = safeDecimalToNumber(record.overtimeHours);
-    const person = record.employee || record.freeLancer;
+    const person = record.employee || record.freeLancer || record.trainer;
 
     if (!person) return null;
 
@@ -191,8 +191,9 @@ export function AttendanceList({
         const hasFreelancer = rule.freelancers?.some(
           (f: any) => f.id === person.id,
         );
+        const hasTrainer = rule.trainers?.some((t: any) => t.id === person.id);
 
-        return isDateInRange && (hasEmployee || hasFreelancer);
+        return isDateInRange && (hasEmployee || hasFreelancer || hasTrainer);
       });
 
       if (activeRule) {
@@ -278,7 +279,7 @@ export function AttendanceList({
     if (isLeaveStatus(record.status)) return false;
     if (record.displayStatus === "Day Off") return false;
 
-    const person = record.employee || record.freeLancer;
+    const person = record.employee || record.freeLancer || record.trainer;
     const recordDate = new Date(record.date);
 
     // Check if it's today
@@ -312,7 +313,7 @@ export function AttendanceList({
 
   const getDisplayStatusText = (record: AttendanceRecord) => {
     if (shouldShowNotCheckedIn(record)) {
-      const person = record.employee || record.freeLancer;
+      const person = record.employee || record.freeLancer || record.trainer;
       const recordDate = new Date(record.date);
       const { knockIn: scheduledKnockIn } = getScheduledTimes(
         person,
@@ -339,7 +340,32 @@ export function AttendanceList({
       return "Not Checked In";
     }
 
-    // Use getDisplayStatus from utils
+    // Custom status labels for checked-in workers
+    if (record.status === "PRESENT") {
+      return "Present & Working";
+    }
+
+    if (record.status === "LATE") {
+      return "Present & Arrived Late";
+    }
+
+    if (record.status === "ON_BREAK") {
+      const activeBreak = record.breaks?.find((b: any) => !b.endTime);
+      if (activeBreak) {
+        const startTime = new Date(activeBreak.startTime);
+        // Using 12:00 as a simple threshold for Tea vs Lunch
+        // Assuming SAST or local time for the hour check
+        const hour = startTime.getHours();
+        if (hour < 12) {
+          return "Present & On Tea Time";
+        } else {
+          return "Present & On Lunch Time";
+        }
+      }
+      return "Present & On Break";
+    }
+
+    // Use getDisplayStatus from utils for other statuses (ABSENT, LEAVE, etc.)
     return getDisplayStatus(record);
   };
 
@@ -386,11 +412,17 @@ export function AttendanceList({
   return (
     <div className="space-y-4">
       {records.map((record) => {
-        const person = record.employee || record.freeLancer;
-        const personType = record.employee ? "employee" : "freelancer";
+        const person = record.employee || record.freeLancer || record.trainer;
+        const personType = record.employee
+          ? "employee"
+          : record.freeLancer
+            ? "freelancer"
+            : "trainer";
         const personId = record.employee
           ? record.employee.employeeNumber
-          : record.freeLancer?.freeLancerNumber;
+          : record.freeLancer
+            ? record.freeLancer.freeLancerNumber
+            : record.trainer?.trainerNumber;
 
         if (!person) return null;
 
@@ -484,8 +516,10 @@ export function AttendanceList({
                       <Badge variant="outline" className="text-xs">
                         {personType === "employee" ? (
                           <Users className="w-3 h-3 mr-1" />
-                        ) : (
+                        ) : personType === "freelancer" ? (
                           <UserCog className="w-3 h-3 mr-1" />
+                        ) : (
+                          <Zap className="w-3 h-3 mr-1" />
                         )}
                         {personType}
                       </Badge>

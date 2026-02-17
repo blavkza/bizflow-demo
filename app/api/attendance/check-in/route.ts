@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
     const {
       employeeId,
       freelancerId,
+      trainerId,
       location,
       notes,
       method = CheckInMethod.MANUAL,
@@ -71,15 +72,15 @@ export async function POST(request: NextRequest) {
     const halfDayThreshold = hrSettings?.halfDayThreshold || 4.0;
     const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
 
-    if (!employeeId && !freelancerId) {
+    if (!employeeId && !freelancerId && !trainerId) {
       return NextResponse.json(
-        { error: "Employee ID or Freelancer ID is required" },
+        { error: "Employee ID, Freelancer ID or Trainer ID is required" },
         { status: 400 },
       );
     }
 
     let person: any = null;
-    let personType: "employee" | "freelancer" = "employee";
+    let personType: "employee" | "freelancer" | "trainer" = "employee";
 
     if (employeeId) {
       person = await db.employee.findFirst({
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
         },
       });
       personType = "employee";
-    } else {
+    } else if (freelancerId) {
       person = await db.freeLancer.findFirst({
         where: {
           OR: [{ id: freelancerId }, { freeLancerNumber: freelancerId }],
@@ -106,12 +107,27 @@ export async function POST(request: NextRequest) {
         },
       });
       personType = "freelancer";
+    } else {
+      person = await db.trainer.findFirst({
+        where: {
+          OR: [{ id: trainerId }, { trainerNumber: trainerId }],
+        },
+        include: {
+          department: true,
+          leaveRequests: {
+            where: {
+              status: LeaveStatus.APPROVED,
+            },
+          },
+        },
+      });
+      personType = "trainer";
     }
 
     if (!person) {
       return NextResponse.json(
         {
-          error: `${personType === "employee" ? "Employee" : "Freelancer"} not found`,
+          error: `${personType === "employee" ? "Employee" : personType === "freelancer" ? "Freelancer" : "Trainer"} not found`,
         },
         { status: 404 },
       );
@@ -155,14 +171,14 @@ export async function POST(request: NextRequest) {
     // 5. VALIDATION CHECKS
     // ---------------------------------------------------------
 
-    // Check if employee is on leave
-    if (personType === "employee") {
+    // Check if employee or trainer is on leave
+    if (personType === "employee" || personType === "trainer") {
       const isOnLeave = await checkIfEmployeeOnLeave(person, attendanceDate);
 
       if (isOnLeave && !bypassResult.bypassCheckIn) {
         return NextResponse.json(
           {
-            error: "Employee is on approved leave for this shift",
+            error: `${personType === "employee" ? "Employee" : "Trainer"} is on approved leave for this shift`,
             leaveType: isOnLeave.leaveType,
             reason: isOnLeave.reason,
           },
@@ -202,17 +218,24 @@ export async function POST(request: NextRequest) {
               date: attendanceDate,
             },
           })
-        : await db.attendanceRecord.findFirst({
-            where: {
-              freeLancerId: person.id,
-              date: attendanceDate,
-            },
-          });
+        : personType === "freelancer"
+          ? await db.attendanceRecord.findFirst({
+              where: {
+                freeLancerId: person.id,
+                date: attendanceDate,
+              },
+            })
+          : await db.attendanceRecord.findFirst({
+              where: {
+                trainerId: person.id,
+                date: attendanceDate,
+              },
+            });
 
     if (existingRecord && existingRecord.checkIn) {
       return NextResponse.json(
         {
-          error: `${personType === "employee" ? "Employee" : "Freelancer"} already checked in for this shift`,
+          error: `${personType === "employee" ? "Employee" : personType === "freelancer" ? "Freelancer" : "Trainer"} already checked in for this shift`,
           existingRecordId: existingRecord.id,
         },
         { status: 400 },
@@ -395,8 +418,10 @@ export async function POST(request: NextRequest) {
 
     if (personType === "employee") {
       attendanceData.employeeId = person.id;
-    } else {
+    } else if (personType === "freelancer") {
       attendanceData.freeLancerId = person.id;
+    } else {
+      attendanceData.trainerId = person.id;
     }
 
     const attendanceDateUTC = attendanceDate;
@@ -434,6 +459,12 @@ export async function POST(request: NextRequest) {
                       include: { department: true },
                     }
                   : false,
+              trainer:
+                personType === "trainer"
+                  ? {
+                      include: { department: true },
+                    }
+                  : false,
             },
           });
         } catch (createError: any) {
@@ -446,7 +477,9 @@ export async function POST(request: NextRequest) {
               where:
                 personType === "employee"
                   ? { employeeId: person.id, date: attendanceDateUTC }
-                  : { freeLancerId: person.id, date: attendanceDateUTC },
+                  : personType === "freelancer"
+                    ? { freeLancerId: person.id, date: attendanceDateUTC }
+                    : { trainerId: person.id, date: attendanceDateUTC },
             });
 
             if (raceRecord) {
@@ -460,6 +493,10 @@ export async function POST(request: NextRequest) {
                       : false,
                   freeLancer:
                     personType === "freelancer"
+                      ? { include: { department: true } }
+                      : false,
+                  trainer:
+                    personType === "trainer"
                       ? { include: { department: true } }
                       : false,
                 },
@@ -488,6 +525,12 @@ export async function POST(request: NextRequest) {
                     include: { department: true },
                   }
                 : false,
+            trainer:
+              personType === "trainer"
+                ? {
+                    include: { department: true },
+                  }
+                : false,
           },
         });
       }
@@ -500,16 +543,20 @@ export async function POST(request: NextRequest) {
       });
 
       // Send notification
-      if (personType === "employee" && person.expoPushToken) {
+      if (
+        (personType === "employee" || personType === "trainer") &&
+        person.expoPushToken
+      ) {
         try {
           const checkInStatus = isLate ? "marked as LATE" : "successful";
 
           await sendPushNotification({
-            employeeId: person.id,
+            employeeId: personType === "employee" ? person.id : undefined,
+            trainerId: personType === "trainer" ? person.id : undefined,
             title: "Check-in Recorded",
             body: `Your check-in was ${checkInStatus}`,
             data: { attendanceId: attendanceRecord.id },
-          });
+          } as any);
         } catch (error) {
           console.error("Failed to send push notification:", error);
         }
@@ -561,7 +608,7 @@ export async function POST(request: NextRequest) {
 // ---------------------------------------------------------
 async function checkAttendanceBypassSimple(
   assigneeId: string,
-  assigneeType: "employee" | "freelancer",
+  assigneeType: "employee" | "freelancer" | "trainer",
   date: Date,
 ): Promise<{
   hasBypass: boolean;
@@ -601,8 +648,12 @@ async function checkAttendanceBypassSimple(
       where.employees = {
         some: { id: assigneeId },
       };
-    } else {
+    } else if (assigneeType === "freelancer") {
       where.freelancers = {
+        some: { id: assigneeId },
+      };
+    } else {
+      where.trainers = {
         some: { id: assigneeId },
       };
     }
@@ -629,6 +680,17 @@ async function checkAttendanceBypassSimple(
                 select: {
                   id: true,
                   freeLancerNumber: true,
+                  firstName: true,
+                  lastName: true,
+                },
+              }
+            : false,
+        trainers:
+          assigneeType === "trainer"
+            ? {
+                select: {
+                  id: true,
+                  trainerNumber: true,
                   firstName: true,
                   lastName: true,
                 },
@@ -801,6 +863,7 @@ async function checkAndCreateLateWarning(
           message: `${reason} (Severity: ${severity})`,
           type: "WARNING",
           isRead: false,
+          actionUrl: "/dashboard/human-resources/performance",
         },
       });
 
@@ -828,15 +891,14 @@ async function triggerAutoAttendanceForLeave() {
 
     const employees = await db.employee.findMany({
       where: {
-        OR: [
-          {
-            leaveRequests: {
-              some: {
-                status: LeaveStatus.APPROVED,
-              },
-            },
+        status: "ACTIVE",
+        leaveRequests: {
+          some: {
+            status: LeaveStatus.APPROVED,
+            startDate: { lte: today },
+            endDate: { gte: today },
           },
-        ],
+        },
       },
       include: {
         department: true,
@@ -853,8 +915,35 @@ async function triggerAutoAttendanceForLeave() {
       },
     });
 
+    const trainers = await db.trainer.findMany({
+      where: {
+        status: "ACTIVE",
+        leaveRequests: {
+          some: {
+            status: LeaveStatus.APPROVED,
+            startDate: { lte: today },
+            endDate: { gte: today },
+          },
+        },
+      },
+      include: {
+        department: true,
+        attendanceRecords: {
+          where: {
+            date: today,
+          },
+        },
+        leaveRequests: {
+          where: {
+            status: LeaveStatus.APPROVED,
+          },
+        },
+      },
+    });
+
     const createdRecords = [];
 
+    // Process Employees
     for (const employee of employees) {
       try {
         if (employee.AttendanceRecord.length > 0) continue;
@@ -896,7 +985,7 @@ async function triggerAutoAttendanceForLeave() {
           createdRecords.push(attendanceRecord);
         }
 
-        if (employee.AttendanceRecord.length > 0) {
+        if (shouldCreateRecord.shouldCreate) {
           await db.employeeNotification.create({
             data: {
               employeeId: employee.id,
@@ -904,18 +993,82 @@ async function triggerAutoAttendanceForLeave() {
               message: `Your attendance for today was recorded as leave`,
               type: "ATTENDANCE",
               isRead: false,
+              actionUrl: "/dashboard/human-resources/attendence",
             },
           });
 
-          await sendPushNotification({
-            employeeId: employee.id,
-            title: "Leave Attendance Recorded",
-            body: `Your attendance for today was recorded as leave`,
-            data: { employeeId: employee.id },
-          });
+          if (employee.expoPushToken) {
+            await sendPushNotification({
+              employeeId: employee.id,
+              title: "Leave Attendance Recorded",
+              body: `Your attendance for today was recorded as leave`,
+              data: { employeeId: employee.id },
+            });
+          }
         }
       } catch (error) {
-        console.error(`Auto-attendance error for ${employee.id}:`, error);
+        console.error(
+          `Auto-attendance error for employee ${employee.id}:`,
+          error,
+        );
+      }
+    }
+
+    // Process Trainers
+    for (const trainer of trainers) {
+      try {
+        if (trainer.attendanceRecords.length > 0) continue;
+
+        const shouldCreateRecord = await shouldCreateLeaveAttendanceRecord(
+          trainer,
+          today,
+        );
+
+        if (shouldCreateRecord.shouldCreate) {
+          const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+          const todayDay = dayNames[today.getUTCDay()];
+          const isWeekend = todayDay === "SAT" || todayDay === "SUN";
+
+          let scheduledKnockInTime: string | null = null;
+          let scheduledKnockOutTime: string | null = null;
+
+          if (isWeekend) {
+            scheduledKnockInTime =
+              trainer.scheduledWeekendKnockIn || trainer.scheduledKnockIn;
+            scheduledKnockOutTime =
+              trainer.scheduledWeekendKnockOut || trainer.scheduledKnockOut;
+          } else {
+            scheduledKnockInTime = trainer.scheduledKnockIn;
+            scheduledKnockOutTime = trainer.scheduledKnockOut;
+          }
+
+          const attendanceRecord = await db.attendanceRecord.create({
+            data: {
+              trainerId: trainer.id,
+              date: today,
+              status: shouldCreateRecord.status!,
+              scheduledKnockIn: scheduledKnockInTime,
+              scheduledKnockOut: scheduledKnockOutTime,
+              notes: shouldCreateRecord.notes,
+              isWeekend: isWeekend,
+            },
+          });
+          createdRecords.push(attendanceRecord);
+        }
+
+        if (shouldCreateRecord.shouldCreate && trainer.expoPushToken) {
+          await sendPushNotification({
+            trainerId: trainer.id,
+            title: "Leave Attendance Recorded",
+            body: `Your attendance for today was recorded as leave`,
+            data: { trainerId: trainer.id },
+          } as any);
+        }
+      } catch (error) {
+        console.error(
+          `Auto-attendance error for trainer ${trainer.id}:`,
+          error,
+        );
       }
     }
     return createdRecords;
@@ -971,6 +1124,8 @@ function getLeaveAttendanceStatus(leaveType: string): AttendanceStatus {
       return AttendanceStatus.PATERNITY_LEAVE;
     case "STUDY":
       return AttendanceStatus.STUDY_LEAVE;
+    case "COMPASSIONATE":
+      return AttendanceStatus.COMPASSIONATE_LEAVE;
     default:
       return AttendanceStatus.ANNUAL_LEAVE;
   }
@@ -990,6 +1145,8 @@ function getLeaveTypeDisplayName(leaveType: string): string {
       return "Paternity Leave";
     case "STUDY":
       return "Study Leave";
+    case "COMPASSIONATE":
+      return "Compassionate Leave";
     default:
       return "Leave";
   }

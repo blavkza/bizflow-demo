@@ -81,6 +81,7 @@ export default function TaskSidebar({ task }: TaskSidebarProps) {
             <Label className="text-sm font-medium text-muted-foreground">
               Assistances ({allAssignees.length})
             </Label>
+
             <div className="space-y-2 mt-1">
               {allAssignees.map((assignee) => (
                 <div

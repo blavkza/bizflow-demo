@@ -35,6 +35,7 @@ export async function POST(req: Request) {
       salaryType,
       dailySalary,
       overtimeHourRate,
+      emergencyCallOutRate,
       monthlySalary,
       status,
       hireDate,
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
         dailySalary: dailySalary || 0,
         monthlySalary: monthlySalary || 0,
         overtimeHourRate: overtimeHourRate || 0,
+        emergencyCallOutRate: emergencyCallOutRate || 0,
         status,
         hireDate,
         // Address fields
@@ -182,6 +184,7 @@ export async function GET() {
         salary: displaySalary,
         salaryType: salaryType,
         overtimeHourRate: employee.overtimeHourRate,
+        emergencyCallOutRate: employee.emergencyCallOutRate,
         location: employee.city || employee.address || "Not specified",
         startDate: employee.hireDate?.toLocaleDateString() || "Not specified",
         manager: employee.department?.manager?.name || "No manager",

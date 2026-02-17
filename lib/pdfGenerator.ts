@@ -4,6 +4,7 @@ import { QuotationWithRelations } from "@/types/quotation";
 import { QuotationReportGenerator } from "./quotationReportGenerator";
 import { InvoiceProps } from "@/types/invoice";
 import { InvoiceReportGenerator } from "./invoiceReportGenerator";
+import { MaintenanceReportGenerator } from "./maintenanceReportGenerator";
 
 // Define CompanyInfo type
 interface CompanyInfo {
@@ -41,7 +42,12 @@ interface CompanyInfo {
 interface PDFGeneratorOptions {
   combineServices: boolean;
   hideItemPrices?: boolean; // New optional property
-  type?: "quotation" | "invoice" | "delivery-note" | "price-sheet";
+  type?:
+    | "quotation"
+    | "invoice"
+    | "delivery-note"
+    | "price-sheet"
+    | "maintenance";
 }
 
 export class PDFGenerator {
@@ -49,7 +55,7 @@ export class PDFGenerator {
   private static async generatePDFFromHTML(
     htmlContent: string,
     documentType: string,
-    documentNumber: string
+    documentNumber: string,
   ): Promise<Blob> {
     return new Promise(async (resolve, reject) => {
       try {
@@ -191,7 +197,7 @@ export class PDFGenerator {
   static async generateQuotationPDF(
     quotation: QuotationWithRelations,
     companyInfo: CompanyInfo | null,
-    options: PDFGeneratorOptions
+    options: PDFGeneratorOptions,
   ): Promise<Blob> {
     try {
       const htmlContent = QuotationReportGenerator.generateQuotationReportHTML(
@@ -200,13 +206,13 @@ export class PDFGenerator {
         {
           combineServices: options.combineServices,
           hideItemPrices: options.hideItemPrices,
-        }
+        },
       );
 
       return await this.generatePDFFromHTML(
         htmlContent,
         "quotation",
-        quotation.quotationNumber
+        quotation.quotationNumber,
       );
     } catch (error) {
       console.error("Error generating quotation PDF:", error);
@@ -218,22 +224,45 @@ export class PDFGenerator {
   static async generateInvoicePDF(
     invoice: InvoiceProps,
     companyInfo: CompanyInfo | null,
-    options: PDFGeneratorOptions
+    options: PDFGeneratorOptions,
   ): Promise<Blob> {
     try {
       const htmlContent = InvoiceReportGenerator.generateInvoiceReportHTML(
         invoice,
         companyInfo || undefined,
-        options.combineServices
+        options.combineServices,
       );
 
       return await this.generatePDFFromHTML(
         htmlContent,
         "invoice",
-        invoice.invoiceNumber
+        invoice.invoiceNumber,
       );
     } catch (error) {
       console.error("Error generating invoice PDF:", error);
+      throw error;
+    }
+  }
+
+  // Maintenance PDF methods
+  static async generateMaintenancePDF(
+    maintenance: any,
+    companyInfo: CompanyInfo | null,
+    options: PDFGeneratorOptions,
+  ): Promise<Blob> {
+    try {
+      const htmlContent = MaintenanceReportGenerator.generateReportHTML(
+        maintenance,
+        companyInfo || undefined,
+      );
+
+      return await this.generatePDFFromHTML(
+        htmlContent,
+        "maintenance",
+        maintenance.id.slice(-8).toUpperCase(),
+      );
+    } catch (error) {
+      console.error("Error generating maintenance PDF:", error);
       throw error;
     }
   }
@@ -242,7 +271,7 @@ export class PDFGenerator {
   static async downloadPDF(
     document: QuotationWithRelations | InvoiceProps,
     companyInfo: CompanyInfo | null,
-    options: PDFGeneratorOptions
+    options: PDFGeneratorOptions,
   ): Promise<void> {
     try {
       let pdfBlob: Blob;
@@ -253,7 +282,7 @@ export class PDFGenerator {
         pdfBlob = await this.generateQuotationPDF(
           document as QuotationWithRelations,
           companyInfo,
-          options
+          options,
         );
         filename = `Quotation-${(document as QuotationWithRelations).quotationNumber}.pdf`;
       } else {
@@ -261,7 +290,7 @@ export class PDFGenerator {
         pdfBlob = await this.generateInvoicePDF(
           document as InvoiceProps,
           companyInfo,
-          options
+          options,
         );
         filename = `Invoice-${(document as InvoiceProps).invoiceNumber}.pdf`;
       }
@@ -289,13 +318,13 @@ export class PDFGenerator {
   static async downloadQuotationPDF(
     quotation: QuotationWithRelations,
     companyInfo: CompanyInfo | null,
-    options: PDFGeneratorOptions
+    options: PDFGeneratorOptions,
   ): Promise<void> {
     try {
       const pdfBlob = await this.generateQuotationPDF(
         quotation,
         companyInfo,
-        options
+        options,
       );
 
       // Create download link
@@ -320,13 +349,13 @@ export class PDFGenerator {
   static async downloadInvoicePDF(
     invoice: InvoiceProps,
     companyInfo: CompanyInfo | null,
-    options: PDFGeneratorOptions
+    options: PDFGeneratorOptions,
   ): Promise<void> {
     try {
       const pdfBlob = await this.generateInvoicePDF(
         invoice,
         companyInfo,
-        options
+        options,
       );
 
       // Create download link
@@ -348,11 +377,42 @@ export class PDFGenerator {
     }
   }
 
+  static async downloadMaintenancePDF(
+    maintenance: any,
+    companyInfo: CompanyInfo | null,
+    options: PDFGeneratorOptions,
+  ): Promise<void> {
+    try {
+      const pdfBlob = await this.generateMaintenancePDF(
+        maintenance,
+        companyInfo,
+        options,
+      );
+
+      // Create download link
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = window.document.createElement("a");
+      link.href = url;
+      link.download = `Maintenance-${maintenance.id.slice(-8).toUpperCase()}.pdf`;
+      window.document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      setTimeout(() => {
+        window.document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (error) {
+      console.error("Error downloading maintenance PDF:", error);
+      throw error;
+    }
+  }
+
   // Print methods
   static async printPDF(
     document: QuotationWithRelations | InvoiceProps,
     companyInfo: CompanyInfo | null,
-    options: PDFGeneratorOptions
+    options: PDFGeneratorOptions,
   ): Promise<void> {
     try {
       let pdfBlob: Blob;
@@ -361,13 +421,13 @@ export class PDFGenerator {
         pdfBlob = await this.generateQuotationPDF(
           document as QuotationWithRelations,
           companyInfo,
-          options
+          options,
         );
       } else {
         pdfBlob = await this.generateInvoicePDF(
           document as InvoiceProps,
           companyInfo,
-          options
+          options,
         );
       }
 
@@ -383,7 +443,7 @@ export class PDFGenerator {
       iframe.style.height = "1px";
       iframe.style.opacity = "0";
       iframe.style.pointerEvents = "none";
-      
+
       // Set source to PDF blob
       iframe.src = url;
 
@@ -419,7 +479,7 @@ export class PDFGenerator {
   static async printInvoicePDF(
     invoice: InvoiceProps,
     companyInfo: CompanyInfo | null,
-    options: PDFGeneratorOptions
+    options: PDFGeneratorOptions,
   ): Promise<void> {
     await this.printPDF(invoice, companyInfo, options);
   }
@@ -427,7 +487,7 @@ export class PDFGenerator {
   static async printQuotationPDF(
     quotation: QuotationWithRelations,
     companyInfo: CompanyInfo | null,
-    options: PDFGeneratorOptions
+    options: PDFGeneratorOptions,
   ): Promise<void> {
     await this.printPDF(quotation, companyInfo, options);
   }

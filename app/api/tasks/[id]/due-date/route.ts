@@ -6,7 +6,7 @@ import { sendPushNotification } from "@/lib/expo";
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { id } = await params;
@@ -39,11 +39,11 @@ export async function PUT(
       data: {
         title: "Due Date Updated",
         message: `Task "${updatedTask.title}" due date changed to ${new Date(
-          dueDate
+          dueDate,
         ).toLocaleDateString()}`,
         type: "PROJECT",
         isRead: false,
-        actionUrl: `/tasks/${id}`,
+        actionUrl: `/dashboard/projects/${updatedTask.projectId}/tasks/${id}`,
         userId: user.id,
       },
     });
@@ -70,7 +70,7 @@ export async function PUT(
             taskId: updatedTask.id,
             url: `/dashboard/projects/${updatedTask.projectId}/tasks/${id}`,
           },
-        })
+        }),
       );
 
       await Promise.all(pushPromises);
@@ -80,7 +80,7 @@ export async function PUT(
       });
 
       console.log(
-        `Due date update: Notifications sent to ${updatedTask.assignees.length} employees.`
+        `Due date update: Notifications sent to ${updatedTask.assignees.length} employees.`,
       );
     }
 
@@ -89,7 +89,7 @@ export async function PUT(
     console.error("Error updating due date:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

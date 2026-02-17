@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Info, AlertCircle, CheckCircle2, Calendar } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 type Employee = {
   id: string;
@@ -58,6 +59,7 @@ export default function LeaveRequestForm({
     days: "",
     reason: "",
     contactInfo: "",
+    emergencyAvailability: false,
   });
 
   const [calculatedDays, setCalculatedDays] = useState(0);
@@ -65,7 +67,7 @@ export default function LeaveRequestForm({
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
-    null
+    null,
   );
   const [leaveUsage, setLeaveUsage] = useState<LeaveUsage | null>(null);
   const [isLoadingUsage, setIsLoadingUsage] = useState(false);
@@ -104,7 +106,7 @@ export default function LeaveRequestForm({
   useEffect(() => {
     if (formData.employeeId) {
       const employee = employees.find(
-        (emp) => emp.employeeId === formData.employeeId
+        (emp) => emp.employeeId === formData.employeeId,
       );
       setSelectedEmployee(employee || null);
 
@@ -127,7 +129,7 @@ export default function LeaveRequestForm({
       try {
         setIsLoadingUsage(true);
         const response = await fetch(
-          `/api/leaves/employee/${selectedEmployee.employeeId}/used-days`
+          `/api/leaves/employee/${selectedEmployee.employeeId}/used-days`,
         );
         if (response.ok) {
           const data = await response.json();
@@ -222,6 +224,7 @@ export default function LeaveRequestForm({
         days: "",
         reason: "",
         contactInfo: "",
+        emergencyAvailability: false,
       });
       setCalculatedDays(0);
       setSelectedEmployee(null);
@@ -641,16 +644,34 @@ export default function LeaveRequestForm({
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="contactInfo">
-            Employee Contact During Leave (Optional)
-          </Label>
-          <Input
-            id="contactInfo"
-            placeholder="Employee's phone number or email for contact during leave"
-            value={formData.contactInfo}
-            onChange={(e) => handleChange("contactInfo", e.target.value)}
-          />
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="contactInfo">
+              Employee Contact During Leave (Optional)
+            </Label>
+            <Input
+              id="contactInfo"
+              placeholder="Employee's phone number or email for contact during leave"
+              value={formData.contactInfo}
+              onChange={(e) => handleChange("contactInfo", e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center space-x-2 border p-3 rounded-md">
+            <Switch
+              id="emergencyAvailability"
+              checked={formData.emergencyAvailability || false}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  emergencyAvailability: checked,
+                }))
+              }
+            />
+            <Label htmlFor="emergencyAvailability" className="cursor-pointer">
+              Available for Emergencies?
+            </Label>
+          </div>
         </div>
 
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">

@@ -126,6 +126,7 @@ export async function POST(req: Request) {
           message: `Your request for ${toolName} has been submitted successfully.`,
           type: "SYSTEM", // Changed from INFO to SYSTEM
           isRead: false,
+          actionUrl: `/dashboard/tools/tool-request/${request.id}`,
         },
       });
     }

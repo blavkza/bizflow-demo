@@ -33,6 +33,25 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { title, message, type, priority, actionUrl } = body;
 
+    if (type === "ATTENDANCE") {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const existingNotification = await db.notification.findFirst({
+        where: {
+          userId,
+          title,
+          createdAt: {
+            gte: today,
+          },
+        },
+      });
+
+      if (existingNotification) {
+        return NextResponse.json(existingNotification);
+      }
+    }
+
     const notification = await db.notification.create({
       data: {
         userId,

@@ -58,32 +58,35 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
 
   // Calculate totals
   const totalEmployees = attendanceRecords.filter(
-    (record) => record.employeeId
+    (record) => record.employeeId,
   ).length;
   const totalFreelancers = attendanceRecords.filter(
-    (record) => record.freeLancerId
+    (record) => record.freeLancerId,
+  ).length;
+  const totalTrainers = attendanceRecords.filter(
+    (record) => record.trainerId,
   ).length;
   const totalPersons = attendanceRecords.length;
 
   // Status breakdown
   const presentPersons = attendanceRecords.filter(
-    (r) => r.status === "PRESENT"
+    (r) => r.status === "PRESENT",
   ).length;
 
   const latePersons = attendanceRecords.filter(
-    (r) => r.status === "LATE"
+    (r) => r.status === "LATE",
   ).length;
 
   const absentPersons = attendanceRecords.filter(
-    (r) => r.status === "ABSENT"
+    (r) => r.status === "ABSENT",
   ).length;
 
   const halfDayPersons = attendanceRecords.filter(
-    (r) => r.status === "HALF_DAY"
+    (r) => r.status === "HALF_DAY",
   ).length;
 
   const onLeavePersons = attendanceRecords.filter((r) =>
-    isLeaveStatus(r.status)
+    isLeaveStatus(r.status),
   ).length;
 
   // Hours calculations
@@ -92,17 +95,17 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
       sum +
       safeDecimalToNumber(r.regularHours || 0) +
       safeDecimalToNumber(r.overtimeHours || 0),
-    0
+    0,
   );
 
   const totalOvertimeHours = attendanceRecords.reduce(
     (sum, r) => sum + safeDecimalToNumber(r.overtimeHours || 0),
-    0
+    0,
   );
 
   const totalRegularHours = attendanceRecords.reduce(
     (sum, r) => sum + safeDecimalToNumber(r.regularHours || 0),
-    0
+    0,
   );
 
   // Calculate overtime pay (using default rate)
@@ -113,15 +116,15 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
 
   // Check-in methods breakdown
   const gpsCheckIns = attendanceRecords.filter(
-    (r) => r.checkInMethod === "GPS"
+    (r) => r.checkInMethod === "GPS",
   ).length;
 
   const manualCheckIns = attendanceRecords.filter(
-    (r) => r.checkInMethod === "MANUAL"
+    (r) => r.checkInMethod === "MANUAL",
   ).length;
 
   const barcodeCheckIns = attendanceRecords.filter(
-    (r) => r.checkInMethod === "BARCODE"
+    (r) => r.checkInMethod === "BARCODE",
   ).length;
 
   // Additional metrics
@@ -159,6 +162,10 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
             <div className="flex items-center justify-between">
               <span>Freelancers</span>
               <span className="font-semibold">{totalFreelancers}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Trainers</span>
+              <span className="font-semibold">{totalTrainers}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Attendance Rate</span>
@@ -317,7 +324,7 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
                   attendanceRecords.filter(
                     (r) =>
                       r.employeeId &&
-                      safeDecimalToNumber(r.overtimeHours || 0) > 0
+                      safeDecimalToNumber(r.overtimeHours || 0) > 0,
                   ).length
                 }
               </span>
@@ -334,7 +341,24 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
                   attendanceRecords.filter(
                     (r) =>
                       r.freeLancerId &&
-                      safeDecimalToNumber(r.overtimeHours || 0) > 0
+                      safeDecimalToNumber(r.overtimeHours || 0) > 0,
+                  ).length
+                }
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-100">
+                  <div className="text-xs font-semibold text-orange-600">T</div>
+                </div>
+                <span>Trainers with OT</span>
+              </div>
+              <span className="font-semibold">
+                {
+                  attendanceRecords.filter(
+                    (r) =>
+                      r.trainerId &&
+                      safeDecimalToNumber(r.overtimeHours || 0) > 0,
                   ).length
                 }
               </span>

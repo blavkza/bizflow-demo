@@ -28,14 +28,20 @@ export async function POST(request: NextRequest) {
     for (const entry of entries) {
       const { workerId, workerType, checkIn, checkOut } = entry;
       const isEmployee = workerType === "employee";
+      const isFreelancer = workerType === "freelancer";
+      const isTrainer = workerType === "trainer";
 
       let worker;
       if (isEmployee) {
         worker = await db.employee.findUnique({
           where: { id: workerId },
         });
-      } else {
+      } else if (isFreelancer) {
         worker = await db.freeLancer.findUnique({
+          where: { id: workerId },
+        });
+      } else {
+        worker = await db.trainer.findUnique({
           where: { id: workerId },
         });
       }
@@ -44,7 +50,7 @@ export async function POST(request: NextRequest) {
         results.push({
           workerId,
           status: "error",
-          message: `${isEmployee ? "Employee" : "Freelancer"} not found`,
+          message: `${isEmployee ? "Employee" : isFreelancer ? "Freelancer" : "Trainer"} not found`,
         });
         continue;
       }
@@ -76,7 +82,14 @@ export async function POST(request: NextRequest) {
       // Build specific search key for upsert
       const upsertWhere: any = isEmployee
         ? { employeeId_date: { employeeId: worker.id, date: recordDate } }
-        : { freeLancerId_date: { freeLancerId: worker.id, date: recordDate } };
+        : isFreelancer
+          ? {
+              freeLancerId_date: {
+                freeLancerId: worker.id,
+                date: recordDate,
+              },
+            }
+          : { trainerId_date: { trainerId: worker.id, date: recordDate } };
 
       const dataBatch: any = {
         date: recordDate,
@@ -91,8 +104,10 @@ export async function POST(request: NextRequest) {
 
       if (isEmployee) {
         dataBatch.employeeId = worker.id;
-      } else {
+      } else if (isFreelancer) {
         dataBatch.freeLancerId = worker.id;
+      } else {
+        dataBatch.trainerId = worker.id;
       }
 
       // Upsert Attendance Record
@@ -118,8 +133,10 @@ export async function POST(request: NextRequest) {
 
         if (isEmployee) {
           otData.employeeId = worker.id;
-        } else {
+        } else if (isFreelancer) {
           otData.freeLancerId = worker.id;
+        } else {
+          otData.trainerId = worker.id;
         }
 
         const otRequest = await db.overtimeRequest.upsert({

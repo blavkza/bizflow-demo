@@ -120,6 +120,9 @@ export default function FreeLancerForm({
       overtimeHourRate: data?.overtimeHourRate
         ? Number(data.overtimeHourRate)
         : 50.0,
+      emergencyCallOutRate: data?.emergencyCallOutRate
+        ? Number(data.emergencyCallOutRate)
+        : 0.0,
       hireDate: parseDate(data?.hireDate) || new Date(),
       terminationDate: parseDate(data?.terminationDate),
       status: data?.status || "ACTIVE",
@@ -326,23 +329,43 @@ export default function FreeLancerForm({
             )}
           />
           {/* Overtime Rate Field */}
-          <FormField
-            control={form.control}
-            name="overtimeHourRate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Overtime Hourly Rate (R)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="Enter overtime rate"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2">
+            <FormField
+              control={form.control}
+              name="overtimeHourRate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Overtime Hourly Rate (R)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Enter overtime rate"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Callout Rate Field */}
+            <FormField
+              control={form.control}
+              name="emergencyCallOutRate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Emergency Call-out Rate (R)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Enter call-out rate"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           {/* Hire Date */}
           <FormField
             control={form.control}
@@ -357,7 +380,7 @@ export default function FreeLancerForm({
                         variant={"outline"}
                         className={cn(
                           "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
+                          !field.value && "text-muted-foreground",
                         )}
                       >
                         {field.value ? (
@@ -411,7 +434,7 @@ export default function FreeLancerForm({
                         variant={"outline"}
                         className={cn(
                           "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
+                          !field.value && "text-muted-foreground",
                         )}
                       >
                         {field.value ? (
@@ -713,8 +736,8 @@ export default function FreeLancerForm({
                                   ? field.onChange([...field.value, day.id])
                                   : field.onChange(
                                       field.value?.filter(
-                                        (value) => value !== day.id
-                                      )
+                                        (value) => value !== day.id,
+                                      ),
                                     );
                               }}
                             />

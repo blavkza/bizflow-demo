@@ -64,12 +64,10 @@ export function BarcodeCheckInDialog({
         scannedData = data; // Use the parsed object
 
         // Check for Freelancer restriction
-        if (
-          typeof data.id === "string" &&
-          data.id.toUpperCase().startsWith("FRL")
-        ) {
+        const uId = (data.id as string).toUpperCase();
+        if (uId.startsWith("FRL") || uId.startsWith("FL-")) {
           setValidationError(
-            "Barcode check-in is restricted to Employees only. Freelancers must use manual check-in."
+            "Barcode check-in is restricted to Employees and Trainers only. Freelancers must use manual check-in.",
           );
           return;
         }
@@ -83,7 +81,7 @@ export function BarcodeCheckInDialog({
 
           if (diffInMinutes > 5) {
             setValidationError(
-              "This QR pass has expired (older than 5 minutes). Please ask the employee to refresh their pass."
+              "This QR pass has expired (older than 5 minutes). Please ask the employee to refresh their pass.",
             );
             return;
           }
@@ -91,9 +89,10 @@ export function BarcodeCheckInDialog({
       }
     } catch (error) {
       // If JSON parse fails, treat as raw string ID (e.g. printed card)
-      if (barcode.toUpperCase().startsWith("FRL")) {
+      const uBarcode = barcode.toUpperCase();
+      if (uBarcode.startsWith("FRL") || uBarcode.startsWith("FL-")) {
         setValidationError(
-          "Barcode check-in is restricted to Employees only. Freelancers must use manual check-in."
+          "Barcode check-in is restricted to Employees and Trainers only. Freelancers must use manual check-in.",
         );
         return;
       }
@@ -115,7 +114,8 @@ export function BarcodeCheckInDialog({
         <DialogHeader>
           <DialogTitle>Barcode Check-In/Out</DialogTitle>
           <DialogDescription>
-            Scan <strong>employee</strong> QR code to process attendance.
+            Scan <strong>employee or trainer</strong> QR code to process
+            attendance.
           </DialogDescription>
         </DialogHeader>
 

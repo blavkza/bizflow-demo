@@ -144,6 +144,25 @@ export default function LeaveRequestCard({
                   </div>
                 )}
                 <div className="mt-1">
+                  {request.emergencyAvailability ? (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-green-50 text-green-700 border-green-200"
+                    >
+                      <CheckCircle className="mr-1 h-3 w-3" />
+                      Available for Emergency
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-red-50 text-red-700 border-red-200"
+                    >
+                      <XCircle className="mr-1 h-3 w-3" />
+                      Not Available for Emergency
+                    </Badge>
+                  )}
+                </div>
+                <div className="mt-1">
                   <Badge variant="secondary" className="text-xs">
                     Requested on:{" "}
                     {new Date(request.requestedDate).toLocaleString()}

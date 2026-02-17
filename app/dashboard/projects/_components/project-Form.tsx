@@ -87,6 +87,10 @@ export default function ProjectForm({
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [isLoadingFreelancers, setIsLoadingFreelancers] = useState(false);
+  const [maintenanceOptions, setMaintenanceOptions] = useState<
+    ComboboxOption[]
+  >([]);
+  const [isLoadingMaintenances, setIsLoadingMaintenances] = useState(false);
   const router = useRouter();
 
   const form = useForm<projectSchemaType>({
@@ -114,7 +118,11 @@ export default function ProjectForm({
     handleSubmit,
     formState: { isSubmitting },
     watch,
+    setValue,
   } = form;
+
+  const billingType = watch("billingType");
+  const selectedClientId = watch("clientId");
 
   const assistantEmployeeIds = watch("assistantEmployeeIds") || [];
   const assistantFreelancerIds = watch("assistantFreelancerIds") || [];
@@ -224,6 +232,34 @@ export default function ProjectForm({
     }
   };
 
+  const fetchMaintenances = async (clientId?: string) => {
+    setIsLoadingMaintenances(true);
+    try {
+      const url = clientId
+        ? `/api/maintenance?clientId=${clientId}`
+        : "/api/maintenance";
+      const response = await axios.get(url);
+      const maintenances = response?.data || [];
+      const options = maintenances.map((m: any) => ({
+        label: `${m.task} (${m.client.name}) - ${new Date(m.date).toLocaleDateString()}`,
+        value: m.id,
+      }));
+      setMaintenanceOptions(options);
+    } catch (err) {
+      console.error("Error fetching maintenances:", err);
+    } finally {
+      setIsLoadingMaintenances(false);
+    }
+  };
+
+  useEffect(() => {
+    if (billingType === BillingType.MAINTENANCE_CONTRACT) {
+      fetchMaintenances(selectedClientId);
+    } else {
+      setValue("maintenanceId", undefined);
+    }
+  }, [billingType, selectedClientId, setValue]);
+
   useEffect(() => {
     fetchUsers();
     fetchClients();
@@ -297,6 +333,28 @@ export default function ProjectForm({
               </FormItem>
             )}
           />
+
+          {billingType === BillingType.MAINTENANCE_CONTRACT && (
+            <FormField
+              control={form.control}
+              name="maintenanceId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Maintenance Contract / Task</FormLabel>
+                  <FormControl>
+                    <Combobox
+                      options={maintenanceOptions}
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      isLoading={isLoadingMaintenances}
+                      placeholder="Select maintenance"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
 
           <FormField
             control={form.control}

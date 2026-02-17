@@ -57,7 +57,7 @@ const payrollSchema = z.object({
             type: z.string(),
             amount: z.number(),
             description: z.string().optional(),
-          })
+          }),
         )
         .optional(),
       deductions: z
@@ -66,10 +66,10 @@ const payrollSchema = z.object({
             type: z.string(),
             amount: z.number(),
             description: z.string().optional(),
-          })
+          }),
         )
         .optional(),
-    })
+    }),
   ),
   totalAmount: z
     .union([z.number(), z.string()])
@@ -85,14 +85,17 @@ const payrollSchema = z.object({
     .transform((val) => Number(val))
     .optional()
     .default(0),
-  status: z.nativeEnum(PayrollStatus).optional().default(PayrollStatus.PROCESSED),
+  status: z
+    .nativeEnum(PayrollStatus)
+    .optional()
+    .default(PayrollStatus.PROCESSED),
   payrollId: z.string().optional(),
 });
 
 // Helper: Date Logic Check
 async function canProcessPayroll(
   month: string,
-  isDraft: boolean = false
+  isDraft: boolean = false,
 ): Promise<{ canProcess: boolean; message?: string }> {
   try {
     // Drafts ignore date restrictions
@@ -163,7 +166,7 @@ export async function POST(req: Request) {
     if (!payrollCheck.canProcess) {
       return NextResponse.json(
         { error: payrollCheck.message },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -173,37 +176,42 @@ export async function POST(req: Request) {
     const requestedEmployeeIds = data.employees.map((e) => e.id);
     const existingPayments = await db.payment.findMany({
       where: {
-        Payroll: { 
+        Payroll: {
           month: data.month,
           status: { not: PayrollStatus.CANCELLED }, // Ignore cancelled ones
-          ...(data.payrollId ? { NOT: { id: data.payrollId } } : {})
+          ...(data.payrollId ? { NOT: { id: data.payrollId } } : {}),
         },
         OR: [
           { employeeId: { in: requestedEmployeeIds } },
           { freeLancerId: { in: requestedEmployeeIds } },
         ],
       },
-      select: { employeeId: true, freeLancerId: true, Payroll: { select: { status: true } } },
+      select: {
+        employeeId: true,
+        freeLancerId: true,
+        Payroll: { select: { status: true } },
+      },
     });
 
     // If it's not a draft, we don't want to pay someone already paid (PROCESSED or PAID status)
     const alreadyPaidIds = new Set(
       existingPayments
-        .filter(p => !isDraft || p.Payroll?.status !== PayrollStatus.DRAFT) // If we are saving a draft, we might be overwriting or adding to it, but standard policy is no duplicates across non-cancelled payrolls
+        .filter((p) => !isDraft || p.Payroll?.status !== PayrollStatus.DRAFT) // If we are saving a draft, we might be overwriting or adding to it, but standard policy is no duplicates across non-cancelled payrolls
         .flatMap((p) => [p.employeeId, p.freeLancerId])
-        .filter(Boolean) as string[]
+        .filter(Boolean) as string[],
     );
 
     const employeesToProcess = data.employees.filter(
-      (emp) => !alreadyPaidIds.has(emp.id)
+      (emp) => !alreadyPaidIds.has(emp.id),
     );
 
     if (employeesToProcess.length === 0) {
       return NextResponse.json(
         {
-          error: "All selected workers have already been processed for this month.",
+          error:
+            "All selected workers have already been processed for this month.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -217,7 +225,7 @@ export async function POST(req: Request) {
         total: acc.total + (emp.amount || 0), // Gross
         net: acc.net + (emp.netAmount || 0),
       }),
-      { base: 0, overtime: 0, bonus: 0, deduction: 0, total: 0, net: 0 }
+      { base: 0, overtime: 0, bonus: 0, deduction: 0, total: 0, net: 0 },
     );
 
     // --- AGGREGATION LOGIC (For Payroll Summary) ---
@@ -285,7 +293,7 @@ export async function POST(req: Request) {
             // Processing an existing draft or updating a processed one
             const existingPayroll = await prisma.payroll.findUnique({
               where: { id: data.payrollId },
-              include: { transaction: true }
+              include: { transaction: true },
             });
 
             if (existingPayroll?.transactionId) {
@@ -295,8 +303,10 @@ export async function POST(req: Request) {
                 data: {
                   amount: batchTotals.net,
                   status: TransactionStatus.COMPLETED,
-                  description: data.description || `Payroll for ${data.month} (${data.workerType})`,
-                }
+                  description:
+                    data.description ||
+                    `Payroll for ${data.month} (${data.workerType})`,
+                },
               });
               transactionId = updatedTrx.id;
             } else {
@@ -307,12 +317,14 @@ export async function POST(req: Request) {
                   currency: "ZAR",
                   type: TransactionType.EXPENSE,
                   status: TransactionStatus.COMPLETED,
-                  description: data.description || `Payroll for ${data.month} (${data.workerType})`,
+                  description:
+                    data.description ||
+                    `Payroll for ${data.month} (${data.workerType})`,
                   date: payDate,
                   createdBy: creater.id,
                   categoryId: paymentCategory!.id,
                   reference: `PAYROLL-${Date.now()}`,
-                }
+                },
               });
               transactionId = newTrx.id;
             }
@@ -324,12 +336,14 @@ export async function POST(req: Request) {
                 currency: "ZAR",
                 type: TransactionType.EXPENSE,
                 status: TransactionStatus.COMPLETED,
-                description: data.description || `Payroll for ${data.month} (${data.workerType})`,
+                description:
+                  data.description ||
+                  `Payroll for ${data.month} (${data.workerType})`,
                 date: payDate,
                 createdBy: creater.id,
                 categoryId: paymentCategory!.id,
                 reference: `PAYROLL-${Date.now()}`,
-              }
+              },
             });
             transactionId = newTrx.id;
           }
@@ -337,7 +351,9 @@ export async function POST(req: Request) {
 
         // 2. Payroll Logic
         const basePayrollData: any = {
-          description: data.description || `${isDraft ? "[DRAFT] " : ""}Payroll for ${data.month} (${data.workerType})`,
+          description:
+            data.description ||
+            `${isDraft ? "[DRAFT] " : ""}Payroll for ${data.month} (${data.workerType})`,
           type: data.type,
           totalAmount: batchTotals.total,
           netAmount: batchTotals.net,
@@ -348,12 +364,14 @@ export async function POST(req: Request) {
           status: data.status as PayrollStatus,
           // RE-CREATE AGGREGATED SUMMARIES
           payrollBonuses: {
-            create: Object.entries(aggregatedBonuses).map(([type, bdata]: [string, any]) => ({
-              bonusType: type,
-              amount: bdata.amount,
-              description: `Total ${type.replace(/_/g, " ")}`,
-              isPercentage: false,
-            })),
+            create: Object.entries(aggregatedBonuses).map(
+              ([type, bdata]: [string, any]) => ({
+                bonusType: type,
+                amount: bdata.amount,
+                description: `Total ${type.replace(/_/g, " ")}`,
+                isPercentage: false,
+              }),
+            ),
           },
           payrollDeductions: {
             create: Object.entries(aggregatedDeductions).map(
@@ -362,7 +380,7 @@ export async function POST(req: Request) {
                 amount: ddata.amount,
                 description: `Total ${type.replace(/_/g, " ")}`,
                 isPercentage: false,
-              })
+              }),
             ),
           },
         };
@@ -374,14 +392,20 @@ export async function POST(req: Request) {
         if (data.payrollId) {
           // UPDATE EXISTING
           // Delete old relations to start fresh for this run
-          await prisma.payment.deleteMany({ where: { payrollId: data.payrollId } });
-          await prisma.payrollBonus.deleteMany({ where: { payrollId: data.payrollId } });
-          await prisma.payrollDeduction.deleteMany({ where: { payrollId: data.payrollId } });
+          await prisma.payment.deleteMany({
+            where: { payrollId: data.payrollId },
+          });
+          await prisma.payrollBonus.deleteMany({
+            where: { payrollId: data.payrollId },
+          });
+          await prisma.payrollDeduction.deleteMany({
+            where: { payrollId: data.payrollId },
+          });
 
           // Update Payroll Header
           payroll = await prisma.payroll.update({
             where: { id: data.payrollId },
-            data: basePayrollData
+            data: basePayrollData,
           });
         } else {
           // CREATE NEW
@@ -395,7 +419,6 @@ export async function POST(req: Request) {
             },
           });
         }
-
 
         // C. Create Individual Payments with DETAILED LISTED Bonuses & Deductions
         const payments = await Promise.all(
@@ -416,7 +439,9 @@ export async function POST(req: Request) {
               regularHours: employee.regularHours || 0,
               performanceScore: employee.performanceScore,
               createdBy: creater.id,
-              transaction: transactionId ? { connect: { id: transactionId } } : undefined,
+              transaction: transactionId
+                ? { connect: { id: transactionId } }
+                : undefined,
               Payroll: { connect: { id: payroll.id } },
 
               // --- KEY STEP: CREATE INDIVIDUAL LINE ITEMS ---
@@ -448,7 +473,7 @@ export async function POST(req: Request) {
             return prisma.payment.create({
               data: paymentData,
             });
-          })
+          }),
         );
 
         return { payroll, payments };
@@ -456,16 +481,16 @@ export async function POST(req: Request) {
       {
         timeout: 30000,
         maxWait: 30000,
-      }
+      },
     );
 
     // 6. Send Notifications (Push & In-App) - ONLY if NOT a draft
     if (!isDraft) {
       const employeesCount = employeesToProcess.filter(
-        (e: any) => !e.isFreelancer
+        (e: any) => !e.isFreelancer,
       ).length;
       const freelancersCount = employeesToProcess.filter(
-        (e: any) => e.isFreelancer
+        (e: any) => e.isFreelancer,
       ).length;
 
       // Admin Notification
@@ -474,7 +499,7 @@ export async function POST(req: Request) {
           title: "New Payroll Created",
           message: `Payroll for ${data.month} created. ${employeesCount} Emp, ${freelancersCount} Free. Total Net: ${batchTotals.net.toLocaleString(
             "en-ZA",
-            { style: "currency", currency: "ZAR" }
+            { style: "currency", currency: "ZAR" },
           )}`,
           type: "PAYMENT",
           isRead: false,
@@ -491,17 +516,12 @@ export async function POST(req: Request) {
             const workerId = payment.employeeId || payment.freeLancerId;
             if (!workerId) continue;
 
-            const formattedAmount = Number(payment.netAmount).toLocaleString(
-              "en-ZA",
-              { style: "currency", currency: "ZAR" }
-            );
-
             // A. Push Notification
             try {
               await sendPushNotification({
                 employeeId: workerId,
                 title: "Payslip Ready",
-                body: `Your payslip for ${data.month} is ready. Net Pay: ${formattedAmount}`,
+                body: `Your payslip for ${data.month} is ready.`,
                 data: {
                   paymentId: payment.id,
                   url: `/dashboard/payslips/${payment.id}`,
@@ -517,10 +537,10 @@ export async function POST(req: Request) {
                 data: {
                   employeeId: workerId,
                   title: "Payslip Ready",
-                  message: `Your payslip for ${data.month} has been generated. Net Pay: ${formattedAmount}.`,
+                  message: `Your payslip for ${data.month} has been generated.`,
                   type: "PAYMENT",
                   isRead: false,
-                  actionUrl: `/dashboard/payslips/${payment.id}`,
+                  actionUrl: `/dashboard/payroll/${workerId}`,
                 },
               });
             } catch (e) {
@@ -536,7 +556,7 @@ export async function POST(req: Request) {
     console.error("Payroll processing error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -599,7 +619,7 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       { message: "Failed to fetch workers", error },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

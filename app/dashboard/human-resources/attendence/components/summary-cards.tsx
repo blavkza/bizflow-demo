@@ -27,35 +27,35 @@ function isActuallyAbsent(record: AttendanceRecord): boolean {
 
 export function SummaryCards({ attendanceRecords }: SummaryCardsProps) {
   const totalEmployees = attendanceRecords.filter(
-    (record) => record.employeeId
+    (record) => record.employeeId,
   ).length;
-  const totalFreelancers = attendanceRecords.filter(
-    (record) => record.freeLancerId
+  const totalTrainers = attendanceRecords.filter(
+    (record) => record.freeLancerId || record.trainerId,
   ).length;
   const totalPersons = attendanceRecords.length;
 
   // Count actually checked in present persons
   const presentPersons = attendanceRecords.filter(
-    (r) => r.status === AttendanceStatus.PRESENT && r.checkIn !== null
+    (r) => r.status === AttendanceStatus.PRESENT && r.checkIn !== null,
   ).length;
 
   // Count actually checked in late persons
   const latePersons = attendanceRecords.filter(
-    (r) => r.status === AttendanceStatus.LATE && r.checkIn !== null
+    (r) => r.status === AttendanceStatus.LATE && r.checkIn !== null,
   ).length;
 
   // Count persons who haven't checked in yet
   const notCheckedInPersons = attendanceRecords.filter((r) =>
-    isNotCheckedIn(r)
+    isNotCheckedIn(r),
   ).length;
 
   // Count actual absent persons (excluding "not checked in" ones)
   const absentPersons = attendanceRecords.filter((r) =>
-    isActuallyAbsent(r)
+    isActuallyAbsent(r),
   ).length;
 
   const onLeavePersons = attendanceRecords.filter((r) =>
-    isLeaveStatus(r.status)
+    isLeaveStatus(r.status),
   ).length;
 
   // Only calculate hours for persons who have checked in
@@ -66,12 +66,12 @@ export function SummaryCards({ attendanceRecords }: SummaryCardsProps) {
       sum +
       safeDecimalToNumber(r.regularHours) +
       safeDecimalToNumber(r.overtimeHours),
-    0
+    0,
   );
 
   const totalOvertimeHours = checkedInRecords.reduce(
     (sum, r) => sum + safeDecimalToNumber(r.overtimeHours),
-    0
+    0,
   );
 
   return (
@@ -88,11 +88,11 @@ export function SummaryCards({ attendanceRecords }: SummaryCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Freelancers</CardTitle>
+          <CardTitle className="text-sm font-medium">Trainers</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{totalFreelancers}</div>
-          <p className="text-xs text-muted-foreground">Active freelancers</p>
+          <div className="text-2xl font-bold">{totalTrainers}</div>
+          <p className="text-xs text-muted-foreground">Active trainers</p>
         </CardContent>
       </Card>
 

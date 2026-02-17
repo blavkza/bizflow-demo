@@ -97,6 +97,8 @@ export function AvatarUploadDialog({
         formData.append("settingsId", user.id);
       } else if (type === "freelancer") {
         formData.append("freelancerId", user.id);
+      } else if (type === "trainer") {
+        formData.append("trainerId", user.id);
       }
 
       const response = await fetch("/api/upload", {

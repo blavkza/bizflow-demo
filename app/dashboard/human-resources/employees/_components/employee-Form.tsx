@@ -128,6 +128,10 @@ const employeeSchema = z
       .number()
       .min(0, { message: "Overtime rate must be positive" })
       .default(50.0),
+    emergencyCallOutRate: z.coerce
+      .number()
+      .min(0, { message: "Call-out rate must be positive" })
+      .default(0.0),
     hireDate: z.date({ required_error: "Hire date is required" }),
     terminationDate: z.date().optional().nullable(),
     status: z.nativeEnum(EmployeeStatus).default("ACTIVE"),
@@ -179,7 +183,7 @@ const employeeSchema = z
     {
       message: "Salary is required for the selected salary type",
       path: ["salaryType"],
-    }
+    },
   )
   .refine(
     (data) => {
@@ -195,7 +199,7 @@ const employeeSchema = z
     {
       message: "Termination date must be after hire date",
       path: ["terminationDate"],
-    }
+    },
   );
 
 export type employeeSchemaType = z.infer<typeof employeeSchema>;
@@ -246,6 +250,9 @@ export default function EmployeeForm({
       overtimeHourRate: data?.overtimeHourRate
         ? Number(data.overtimeHourRate)
         : 50.0,
+      emergencyCallOutRate: data?.emergencyCallOutRate
+        ? Number(data.emergencyCallOutRate)
+        : 0.0,
       hireDate: parseDate(data?.hireDate) || new Date(),
       terminationDate: parseDate(data?.terminationDate),
       status: data?.status || "ACTIVE",
@@ -288,7 +295,7 @@ export default function EmployeeForm({
         const calculatedMonthly = dailySalary * WORKING_DAYS_PER_MONTH;
         form.setValue(
           "monthlySalary",
-          parseFloat(calculatedMonthly.toFixed(2))
+          parseFloat(calculatedMonthly.toFixed(2)),
         );
       } else if (salaryType === "MONTHLY" && monthlySalary > 0) {
         const calculatedDaily = monthlySalary / WORKING_DAYS_PER_MONTH;
@@ -307,7 +314,7 @@ export default function EmployeeForm({
         const calculatedMonthly = dailySalary * WORKING_DAYS_PER_MONTH;
         form.setValue(
           "monthlySalary",
-          parseFloat(calculatedMonthly.toFixed(2))
+          parseFloat(calculatedMonthly.toFixed(2)),
         );
       }
     }
@@ -683,23 +690,43 @@ export default function EmployeeForm({
             </div>
           </div>
           {/* Overtime Rate Field */}
-          <FormField
-            control={form.control}
-            name="overtimeHourRate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Overtime Hourly Rate (R)</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    placeholder="Enter overtime rate"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:col-span-2">
+            <FormField
+              control={form.control}
+              name="overtimeHourRate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Overtime Hourly Rate (R)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Enter overtime rate"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {/* Callout Rate Field */}
+            <FormField
+              control={form.control}
+              name="emergencyCallOutRate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Emergency Call-out Rate (R)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      placeholder="Enter call-out rate"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
           {/* Hire Date */}
           <FormField
             control={form.control}
@@ -714,7 +741,7 @@ export default function EmployeeForm({
                         variant={"outline"}
                         className={cn(
                           "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
+                          !field.value && "text-muted-foreground",
                         )}
                       >
                         {field.value ? (
@@ -768,7 +795,7 @@ export default function EmployeeForm({
                         variant={"outline"}
                         className={cn(
                           "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
+                          !field.value && "text-muted-foreground",
                         )}
                       >
                         {field.value ? (
@@ -1048,8 +1075,8 @@ export default function EmployeeForm({
                                   ? field.onChange([...field.value, day.id])
                                   : field.onChange(
                                       field.value?.filter(
-                                        (value) => value !== day.id
-                                      )
+                                        (value) => value !== day.id,
+                                      ),
                                     );
                               }}
                             />

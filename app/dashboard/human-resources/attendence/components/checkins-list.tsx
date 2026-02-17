@@ -30,6 +30,7 @@ import {
   UserCog,
   Eye,
   LogOut,
+  Zap,
 } from "lucide-react";
 import { CheckInRecord } from "../types";
 import { getCheckInMethodColor, safeDecimalToNumber } from "../utils";
@@ -42,14 +43,14 @@ interface CheckInsListProps {
 
 export function CheckInsList({ checkins, loading }: CheckInsListProps) {
   const [selectedRecord, setSelectedRecord] = useState<CheckInRecord | null>(
-    null
+    null,
   );
   const [showMap, setShowMap] = useState(false);
   const [mapType, setMapType] = useState<"checkin" | "checkout">("checkin");
 
   const handleShowMap = (
     checkin: CheckInRecord,
-    type: "checkin" | "checkout"
+    type: "checkin" | "checkout",
   ) => {
     setSelectedRecord(checkin);
     setMapType(type);
@@ -76,7 +77,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
   // Function to get map URL with exact pin location
   const getMapUrl = (
     coordinates: { lat: number; lng: number } | null,
-    type: "checkin" | "checkout"
+    type: "checkin" | "checkout",
   ): string => {
     if (!coordinates) return "";
 
@@ -123,10 +124,10 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                     : QrCode;
 
               const checkInCoordinates = getSafeCoordinates(
-                checkin.coordinates
+                checkin.coordinates,
               );
               const checkOutCoordinates = getSafeCoordinates(
-                checkin.checkOutCoordinates
+                checkin.checkOutCoordinates,
               );
               const hasCheckInCoordinates = checkInCoordinates !== null;
               const hasCheckOutCoordinates = checkOutCoordinates !== null;
@@ -158,10 +159,16 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                         <Badge variant="outline" className="text-[10px] h-4">
                           {checkin.personType === "freelancer" ? (
                             <UserCog className="w-2.5 h-2.5 mr-1" />
+                          ) : checkin.personType === "trainer" ? (
+                            <Zap className="w-2.5 h-2.5 mr-1 text-amber-500" />
                           ) : (
                             <User className="w-2.5 h-2.5 mr-1" />
                           )}
-                          {checkin.personType === "freelancer" ? "FL" : "EMP"}
+                          {checkin.personType === "freelancer"
+                            ? "FL"
+                            : checkin.personType === "trainer"
+                              ? "TRN"
+                              : "EMP"}
                         </Badge>
                       </div>
                       <p className="text-muted-foreground truncate text-[10px]">
@@ -270,7 +277,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                       <p className="text-[10px] font-medium">
                         {checkin.checkOutTimestamp ? (
                           new Date(
-                            checkin.checkOutTimestamp
+                            checkin.checkOutTimestamp,
                           ).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",
@@ -333,7 +340,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                       ? new Date(selectedRecord.timestamp).toLocaleString()
                       : selectedRecord.checkOutTimestamp
                         ? new Date(
-                            selectedRecord.checkOutTimestamp
+                            selectedRecord.checkOutTimestamp,
                           ).toLocaleString()
                         : "N/A"}
                   </p>
@@ -369,7 +376,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                         <p className="font-medium">Latitude</p>
                         <p className="font-mono">
                           {formatCoordinate(
-                            selectedRecord.checkOutCoordinates.lat
+                            selectedRecord.checkOutCoordinates.lat,
                           )}
                         </p>
                       </div>
@@ -377,7 +384,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                         <p className="font-medium">Longitude</p>
                         <p className="font-mono">
                           {formatCoordinate(
-                            selectedRecord.checkOutCoordinates.lng
+                            selectedRecord.checkOutCoordinates.lng,
                           )}
                         </p>
                       </div>

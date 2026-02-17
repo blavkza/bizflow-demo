@@ -31,13 +31,13 @@ export async function POST(req: Request) {
     const nextDate = calculateNextDate(
       data.startDate,
       data.frequency,
-      data.interval
+      data.interval,
     );
 
     // Calculate amounts with proper order: discount first, then tax
     const subtotal = data.items.reduce(
       (sum, item) => sum + item.quantity * item.unitPrice,
-      0
+      0,
     );
 
     // Calculate discount
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
 
     const totalTax = itemsWithAmounts.reduce(
       (sum, item) => sum + (item.taxAmount || 0),
-      0
+      0,
     );
 
     // Total amount is discounted subtotal + tax
@@ -94,201 +94,206 @@ export async function POST(req: Request) {
       : "INV-0001";
 
     // Use transaction to ensure both recurring invoice and first invoice are created
-    const result = await db.$transaction(async (prisma) => {
-      // Create recurring invoice template
-      const recurringInvoice = await prisma.recurringInvoice.create({
-        data: {
-          clientId: data.clientId,
-          frequency: data.frequency,
-          interval: data.interval,
-          startDate: data.startDate,
-          endDate: data.endDate || null,
-          nextDate,
-          description: data.description,
-          items: data.items as any,
-          currency: data.currency,
-          discountAmount: data.discountAmount,
-          discountType: data.discountType,
-          paymentTerms: data.paymentTerms,
-          notes: data.notes,
-          creator: creator.id,
-          totalInvoicesGenerated: 1,
-          lastGeneratedAt: new Date(),
-        },
-      });
-
-      // Create the first invoice
-      const firstInvoice = await prisma.invoice.create({
-        data: {
-          invoiceNumber,
-          clientId: data.clientId,
-          project:
-            data.description ||
-            `Recurring Invoice ${data.frequency.toLowerCase()}`,
-          amount: subtotal, // Original subtotal before discount
-          currency: data.currency,
-          status: InvoiceStatus.DRAFT,
-          issueDate: new Date(data.startDate),
-          dueDate: calculateDueDate(new Date(data.startDate), 30),
-          description: data.description,
-          taxAmount: totalTax, // Tax calculated on discounted amount
-          taxRate: taxRate, // Effective tax rate based on discounted subtotal
-          discountAmount: discountAmount,
-          discountType: data.discountType,
-          totalAmount, // Final total (discounted subtotal + tax)
-          paymentTerms: data.paymentTerms,
-          notes: data.notes,
-          createdBy: creator.id,
-          isRecurring: true,
-          recurringId: recurringInvoice.id,
-        },
-      });
-
-      // Create invoice items
-      await prisma.invoiceItem.createMany({
-        data: itemsWithAmounts.map((item) => ({
-          invoiceId: firstInvoice.id,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          amount: item.amount, // Original amount (quantity * unitPrice)
-          currency: data.currency,
-          taxRate: item.taxRate,
-          taxAmount: item.taxAmount, // Tax calculated on discounted item amount
-          shopProductId: item.shopProductId || null,
-          details: item.details || null,
-        })),
-      });
-
-      const itemsWithProducts = itemsWithAmounts.filter(
-        (item): item is typeof item & { shopProductId: string } =>
-          !!item.shopProductId && typeof item.shopProductId === "string"
-      );
-
-      if (itemsWithProducts.length > 0) {
-        // Generate sale number
-        const lastSale = await prisma.sale.findFirst({
-          orderBy: { createdAt: "desc" },
-          select: { saleNumber: true },
-        });
-
-        const saleNumber = lastSale
-          ? `SALE-${parseInt(lastSale.saleNumber.split("-")[1]) + 1}`
-          : "SALE-0001";
-
-        // Get client information for the sale
-        const client = await prisma.client.findUnique({
-          where: { id: data.clientId },
-          select: {
-            name: true,
-            email: true,
-            phone: true,
-            address: true,
-          },
-        });
-
-        // Create or find a customer record from the client
-        let customerId: string | undefined;
-
-        if (client?.email) {
-          const existingCustomer = await prisma.customer.findFirst({
-            where: { email: client.email },
-          });
-          if (existingCustomer) {
-            customerId = existingCustomer.id;
-          }
-        }
-
-        // If no customer found by email, create a new one with required fields
-        if (!customerId) {
-          const customerEmail =
-            client?.email || `invoice-${invoiceNumber}@temp.com`;
-          const newCustomer = await prisma.customer.create({
-            data: {
-              firstName: client?.name?.split(" ")[0] || "Invoice",
-              lastName:
-                client?.name?.split(" ").slice(1).join(" ") || "Customer",
-              email: customerEmail,
-              phone: client?.phone || "",
-              address: client?.address || "",
-              createdBy: creator.id,
-            },
-          });
-          customerId = newCustomer.id;
-        }
-
-        // Create the sale
-        const sale = await prisma.sale.create({
+    const result = await db.$transaction(
+      async (prisma) => {
+        // Create recurring invoice template
+        const recurringInvoice = await prisma.recurringInvoice.create({
           data: {
-            saleNumber,
-            customerId: customerId,
-            customerName: client?.name || "Invoice Customer",
-            customerEmail: client?.email,
-            customerPhone: client?.phone,
-            customerAddress: client?.address,
-            status: "COMPLETED",
-            subtotal: Number(totalAmount),
-            total: Number(totalAmount),
-            paymentStatus: "COMPLETED",
-            paymentMethod: "INVOICE",
-            amountReceived: Number(totalAmount),
-            saleDate: new Date(data.startDate),
-            createdBy: creator.id,
-            orderId: firstInvoice.id,
+            clientId: data.clientId,
+            frequency: data.frequency,
+            interval: data.interval,
+            startDate: data.startDate,
+            endDate: data.endDate || null,
+            nextDate,
+            description: data.description,
+            items: data.items as any,
+            currency: data.currency,
+            discountAmount: data.discountAmount,
+            discountType: data.discountType,
+            paymentTerms: data.paymentTerms,
+            notes: data.notes,
+            creator: creator.id,
+            totalInvoicesGenerated: 1,
+            lastGeneratedAt: new Date(),
           },
         });
 
-        // Create sale items and update product stock
-        for (const item of itemsWithProducts) {
-          const shopProductId = item.shopProductId;
-          const quantity = Math.floor(item.quantity);
+        // Create the first invoice
+        const firstInvoice = await prisma.invoice.create({
+          data: {
+            invoiceNumber,
+            clientId: data.clientId,
+            project:
+              data.description ||
+              `Recurring Invoice ${data.frequency.toLowerCase()}`,
+            amount: subtotal, // Original subtotal before discount
+            currency: data.currency,
+            status: InvoiceStatus.DRAFT,
+            issueDate: new Date(data.startDate),
+            dueDate: calculateDueDate(new Date(data.startDate), 30),
+            description: data.description,
+            taxAmount: totalTax, // Tax calculated on discounted amount
+            taxRate: taxRate, // Effective tax rate based on discounted subtotal
+            discountAmount: discountAmount,
+            discountType: data.discountType,
+            totalAmount, // Final total (discounted subtotal + tax)
+            paymentTerms: data.paymentTerms,
+            notes: data.notes,
+            createdBy: creator.id,
+            isRecurring: true,
+            recurringId: recurringInvoice.id,
+          },
+        });
 
-          // Create sale item - shopProductId is guaranteed to be string here
-          await prisma.saleItem.create({
-            data: {
-              saleId: sale.id,
-              shopProductId: shopProductId,
-              quantity: quantity,
-              price: item.unitPrice,
-              total: item.amount,
+        // Create invoice items
+        await prisma.invoiceItem.createMany({
+          data: itemsWithAmounts.map((item) => ({
+            invoiceId: firstInvoice.id,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            amount: item.amount, // Original amount (quantity * unitPrice)
+            currency: data.currency,
+            taxRate: item.taxRate,
+            taxAmount: item.taxAmount, // Tax calculated on discounted item amount
+            shopProductId: item.shopProductId || null,
+            details: item.details || null,
+          })),
+        });
+
+        const itemsWithProducts = itemsWithAmounts.filter(
+          (item): item is typeof item & { shopProductId: string } =>
+            !!item.shopProductId && typeof item.shopProductId === "string",
+        );
+
+        if (itemsWithProducts.length > 0) {
+          // Generate sale number
+          const lastSale = await prisma.sale.findFirst({
+            orderBy: { createdAt: "desc" },
+            select: { saleNumber: true },
+          });
+
+          const saleNumber = lastSale
+            ? `SALE-${parseInt(lastSale.saleNumber.split("-")[1]) + 1}`
+            : "SALE-0001";
+
+          // Get client information for the sale
+          const client = await prisma.client.findUnique({
+            where: { id: data.clientId },
+            select: {
+              name: true,
+              email: true,
+              phone: true,
+              address: true,
             },
           });
 
-          // Update product stock
-          const product = await prisma.shopProduct.findUnique({
-            where: { id: shopProductId },
+          // Create or find a customer record from the client
+          let customerId: string | undefined;
+
+          if (client?.email) {
+            const existingCustomer = await prisma.customer.findFirst({
+              where: { email: client.email },
+            });
+            if (existingCustomer) {
+              customerId = existingCustomer.id;
+            }
+          }
+
+          // If no customer found by email, create a new one with required fields
+          if (!customerId) {
+            const customerEmail =
+              client?.email || `invoice-${invoiceNumber}@temp.com`;
+            const newCustomer = await prisma.customer.create({
+              data: {
+                firstName: client?.name?.split(" ")[0] || "Invoice",
+                lastName:
+                  client?.name?.split(" ").slice(1).join(" ") || "Customer",
+                email: customerEmail,
+                phone: client?.phone || "",
+                address: client?.address || "",
+                createdBy: creator.id,
+              },
+            });
+            customerId = newCustomer.id;
+          }
+
+          // Create the sale
+          const sale = await prisma.sale.create({
+            data: {
+              saleNumber,
+              customerId: customerId,
+              customerName: client?.name || "Invoice Customer",
+              customerEmail: client?.email,
+              customerPhone: client?.phone,
+              customerAddress: client?.address,
+              status: "COMPLETED",
+              subtotal: Number(totalAmount),
+              total: Number(totalAmount),
+              paymentStatus: "COMPLETED",
+              paymentMethod: "INVOICE",
+              amountReceived: Number(totalAmount),
+              saleDate: new Date(data.startDate),
+              createdBy: creator.id,
+              orderId: firstInvoice.id,
+            },
           });
 
-          if (product) {
-            const newStock = product.stock - quantity;
+          // Create sale items and update product stock
+          for (const item of itemsWithProducts) {
+            const shopProductId = item.shopProductId;
+            const quantity = Math.floor(item.quantity);
+
+            // Create sale item - shopProductId is guaranteed to be string here
+            await prisma.saleItem.create({
+              data: {
+                saleId: sale.id,
+                shopProductId: shopProductId,
+                quantity: quantity,
+                price: item.unitPrice,
+                total: item.amount,
+              },
+            });
 
             // Update product stock
-            await prisma.shopProduct.update({
+            const product = await prisma.shopProduct.findUnique({
               where: { id: shopProductId },
-              data: {
-                stock: Math.max(0, newStock),
-              },
             });
 
-            // Create stock movement record
-            await prisma.stockMovement.create({
-              data: {
-                shopProductId: shopProductId,
-                type: StockMovementType.OUT,
-                quantity: quantity,
-                previousStock: product.stock,
-                newStock: Math.max(0, newStock),
-                reason: `Sale from recurring invoice ${invoiceNumber}`,
-                reference: sale.saleNumber,
-                creater: creator.name,
-              },
-            });
+            if (product) {
+              const newStock = product.stock - quantity;
+
+              // Update product stock
+              await prisma.shopProduct.update({
+                where: { id: shopProductId },
+                data: {
+                  stock: Math.max(0, newStock),
+                },
+              });
+
+              // Create stock movement record
+              await prisma.stockMovement.create({
+                data: {
+                  shopProductId: shopProductId,
+                  type: StockMovementType.OUT,
+                  quantity: quantity,
+                  previousStock: product.stock,
+                  newStock: Math.max(0, newStock),
+                  reason: `Sale from recurring invoice ${invoiceNumber}`,
+                  reference: sale.saleNumber,
+                  creater: creator.name,
+                },
+              });
+            }
           }
         }
-      }
 
-      return { recurringInvoice, firstInvoice };
-    });
+        return { recurringInvoice, firstInvoice };
+      },
+      {
+        timeout: 30000, // 30 seconds
+      },
+    );
 
     // Create notification
     await db.notification.create({
@@ -318,7 +323,7 @@ export async function POST(req: Request) {
 function calculateNextDate(
   startDate: Date,
   frequency: string,
-  interval: number
+  interval: number,
 ): Date {
   const date = new Date(startDate);
 

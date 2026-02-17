@@ -122,7 +122,7 @@ export function formatTime(time: Date | string | null): string {
 
 export function getStatusColor(
   status: AttendanceStatus,
-  displayStatus?: string
+  displayStatus?: string,
 ): string {
   if (
     displayStatus?.includes("Not Checked In") &&
@@ -177,7 +177,22 @@ export function getStatusIconName(status: AttendanceStatus): string {
   }
 }
 
-export function getStatusDisplayName(status: AttendanceStatus): string {
+export function getStatusDisplayName(
+  status: AttendanceStatus,
+  record?: AttendanceRecord,
+): string {
+  // Check if it's an approved leave record from notes
+  // Note: record as any to bypass TS if needed, but notes is in AttendanceRecord
+  if (record?.notes?.startsWith("Approved Leave: ")) {
+    const leaveType = record.notes.replace("Approved Leave: ", "");
+    // Format COMPASSIONATE -> Compassionate Leave, SICK -> Sick Leave, etc.
+    return (
+      leaveType.charAt(0).toUpperCase() +
+      leaveType.slice(1).toLowerCase().replace(/_/g, " ") +
+      " Leave"
+    );
+  }
+
   switch (status) {
     case AttendanceStatus.PRESENT:
       return "Present";
@@ -255,7 +270,7 @@ export function getDisplayStatus(record: AttendanceRecord): string {
     !record.checkIn;
 
   if (!isVirtual) {
-    return getStatusDisplayName(record.status);
+    return getStatusDisplayName(record.status, record);
   }
 
   // For virtual records (no actual attendance record)
@@ -270,11 +285,14 @@ export function getDisplayStatus(record: AttendanceRecord): string {
 
   // If it's a leave status
   if (isLeaveStatus(record.status)) {
-    return getStatusDisplayName(record.status);
+    return getStatusDisplayName(record.status, record);
   }
 
   // For today, non-leave virtual records
-  const person = (record as any).employee || (record as any).freeLancer;
+  const person =
+    (record as any).employee ||
+    (record as any).freeLancer ||
+    (record as any).trainer;
   const scheduledKnockIn = person?.scheduledKnockIn;
 
   if (!scheduledKnockIn) {
@@ -287,7 +305,7 @@ export function getDisplayStatus(record: AttendanceRecord): string {
     scheduledTime.getHours(),
     scheduledTime.getMinutes(),
     0,
-    0
+    0,
   );
 
   const gracePeriod = new Date(todayScheduled.getTime() + 15 * 60000);

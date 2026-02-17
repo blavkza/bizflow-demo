@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import db from "@/lib/db";
-import { EmployeeStatus, FreeLancerStatus } from "@prisma/client";
+import {
+  EmployeeStatus,
+  FreeLancerStatus,
+  TrainerStatus,
+} from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -68,6 +72,30 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    // Get active trainers who don't have an attendance record for this date
+    const trainers = await db.trainer.findMany({
+      where: {
+        status: TrainerStatus.ACTIVE,
+        attendanceRecords: {
+          none: {
+            date: date,
+          },
+        },
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        trainerNumber: true,
+        position: true,
+        department: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
     // Combine and mark types
     const workers = [
       ...employees.map((e) => ({
@@ -87,6 +115,15 @@ export async function GET(request: NextRequest) {
         position: f.position,
         department: f.department?.name || "No Department",
         type: "freelancer",
+      })),
+      ...trainers.map((t) => ({
+        id: t.id,
+        firstName: t.firstName,
+        lastName: t.lastName,
+        number: t.trainerNumber,
+        position: t.position,
+        department: t.department?.name || "No Department",
+        type: "trainer",
       })),
     ];
 

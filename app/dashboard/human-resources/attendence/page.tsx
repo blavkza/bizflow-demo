@@ -164,11 +164,13 @@ export default function AttendancePage() {
         departmentOptions={departmentOptions}
         attendanceRecords={attendanceRecords}
         filteredAttendance={attendanceRecords.filter((record) => {
-          const person = record.employee || record.freeLancer;
+          const person = record.employee || record.freeLancer || record.trainer;
           const personName = `${person?.firstName || ""} ${person?.lastName || ""}`;
           const personId = record.employee
             ? record.employee.employeeNumber
-            : record.freeLancer?.freeLancerNumber || "";
+            : record.freeLancer
+              ? record.freeLancer.freeLancerNumber
+              : record.trainer?.trainerNumber || "";
 
           const matchesSearch =
             personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -215,6 +217,8 @@ export default function AttendancePage() {
               payload.employeeId = data.employeeId;
             } else if (data.freelancerId) {
               payload.freelancerId = data.freelancerId;
+            } else if (data.trainerId) {
+              payload.trainerId = data.trainerId;
             }
 
             if (data.lat && data.lng) {
@@ -271,7 +275,8 @@ export default function AttendancePage() {
                 : "/api/attendance/check-out";
 
             const { id, address, location, coordinates } = scanData;
-            const isFreelancer = id.startsWith("FRL");
+            const isFreelancer = id.startsWith("FRL") || id.startsWith("FL-");
+            const isTrainer = id.startsWith("TRN") || id.startsWith("TR-");
 
             const payload: any = {
               method: "BARCODE",
@@ -281,6 +286,8 @@ export default function AttendancePage() {
 
             if (isFreelancer) {
               payload.freelancerId = id;
+            } else if (isTrainer) {
+              payload.trainerId = id;
             } else {
               payload.employeeId = id;
             }

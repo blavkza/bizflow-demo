@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -71,13 +71,75 @@ export async function PATCH(
           message: message,
           type: "LEAVE",
           isRead: false,
-          actionUrl: "/dashboard/leave",
+          actionUrl: "/dashboard/human-resources/leaves",
         },
       });
 
       console.log(
-        `Notification sent to employee ${leaveRequest.employeeId} regarding leave status: ${status}`
+        `Notification sent to employee ${leaveRequest.employeeId} regarding leave status: ${status}`,
       );
+
+      // Create attendance records if approved
+      if (status === "APPROVED") {
+        const leaveStatusMap: Record<string, string> = {
+          ANNUAL: "ANNUAL_LEAVE",
+          SICK: "SICK_LEAVE",
+          MATERNITY: "MATERNITY_LEAVE",
+          PATERNITY: "PATERNITY_LEAVE",
+          STUDY: "STUDY_LEAVE",
+          UNPAID: "UNPAID_LEAVE",
+          COMPASSIONATE: "UNPAID_LEAVE",
+        };
+
+        const upperType = (leaveRequest.leaveType || "").toUpperCase();
+        const attendanceStatus = (leaveStatusMap[upperType] as any) || "ABSENT";
+        const start = new Date(leaveRequest.startDate);
+        const end = new Date(leaveRequest.endDate);
+
+        const current = new Date(start);
+        while (current <= end) {
+          const dateToProcess = new Date(current);
+          dateToProcess.setHours(0, 0, 0, 0);
+
+          const personCriteria: any = {};
+          if (leaveRequest.employeeId)
+            personCriteria.employeeId = leaveRequest.employeeId;
+          if (leaveRequest.freeLancerId)
+            personCriteria.freeLancerId = leaveRequest.freeLancerId;
+          const trainerId = (leaveRequest as any).trainerId;
+          if (trainerId) personCriteria.trainerId = trainerId;
+
+          if (Object.keys(personCriteria).length > 0) {
+            const existing = await db.attendanceRecord.findFirst({
+              where: {
+                ...personCriteria,
+                date: dateToProcess,
+              },
+            });
+
+            if (!existing) {
+              await db.attendanceRecord.create({
+                data: {
+                  ...personCriteria,
+                  date: dateToProcess,
+                  status: attendanceStatus,
+                  notes: `Approved Leave: ${leaveRequest.leaveType}`,
+                },
+              });
+            } else if (existing.status === "ABSENT" && !existing.checkIn) {
+              await db.attendanceRecord.update({
+                where: { id: existing.id },
+                data: {
+                  status: attendanceStatus,
+                  notes: `Approved Leave: ${leaveRequest.leaveType}`,
+                },
+              });
+            }
+          }
+
+          current.setDate(current.getDate() + 1);
+        }
+      }
     }
 
     return NextResponse.json(leaveRequest);
@@ -85,7 +147,7 @@ export async function PATCH(
     console.error("Error updating leave request:", error);
     return NextResponse.json(
       { error: "Failed to update leave request" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

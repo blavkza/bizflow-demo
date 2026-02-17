@@ -260,6 +260,7 @@ export async function PATCH(
           message,
           type: "SYSTEM",
           isRead: false,
+          actionUrl: `/dashboard/tools/tool-request/${updatedRequest.id}`,
         },
       });
     }

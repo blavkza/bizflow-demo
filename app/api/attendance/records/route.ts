@@ -5,8 +5,24 @@ import {
   AttendanceStatus,
   EmployeeStatus,
   FreeLancerStatus,
+  TrainerStatus,
   UserRole,
 } from "@prisma/client";
+
+const leaveStatusMap: { [key: string]: AttendanceStatus } = {
+  ANNUAL: AttendanceStatus.ANNUAL_LEAVE,
+  SICK: AttendanceStatus.SICK_LEAVE,
+  MATERNITY: AttendanceStatus.MATERNITY_LEAVE,
+  PATERNITY: AttendanceStatus.PATERNITY_LEAVE,
+  STUDY: AttendanceStatus.STUDY_LEAVE,
+  UNPAID: AttendanceStatus.UNPAID_LEAVE,
+  COMPASSIONATE: AttendanceStatus.UNPAID_LEAVE,
+};
+
+function getLeaveStatus(leaveType: string): AttendanceStatus {
+  const upperType = leaveType.toUpperCase();
+  return leaveStatusMap[upperType] || AttendanceStatus.ABSENT;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -78,16 +94,22 @@ export async function GET(request: NextRequest) {
       status: FreeLancerStatus.ACTIVE,
     };
 
+    const activeTrainersWhere: any = {
+      status: TrainerStatus.ACTIVE,
+    };
+
     // Apply department filter if not full access
     if (!hasFullAccess && user.employee?.departmentId) {
       activeEmployeesWhere.departmentId = user.employee.departmentId;
       activeFreelancersWhere.departmentId = user.employee.departmentId;
+      activeTrainersWhere.departmentId = user.employee.departmentId;
     }
 
     // Further filter by requested department if specified and allowed
     if (department && department !== "All Departments") {
       activeEmployeesWhere.department = { name: department };
       activeFreelancersWhere.department = { name: department };
+      activeTrainersWhere.department = { name: department };
     }
 
     // Get all active employees with their scheduled times
@@ -103,6 +125,14 @@ export async function GET(request: NextRequest) {
           include: {
             breaks: true,
           },
+        },
+        leaveRequests: {
+          where: {
+            status: "APPROVED",
+            startDate: { lte: targetDate },
+            endDate: { gte: targetDate },
+          },
+          take: 1,
         },
       },
       orderBy: {
@@ -123,6 +153,42 @@ export async function GET(request: NextRequest) {
           include: {
             breaks: true,
           },
+        },
+        leaveRequests: {
+          where: {
+            status: "APPROVED",
+            startDate: { lte: targetDate },
+            endDate: { gte: targetDate },
+          },
+          take: 1,
+        },
+      },
+      orderBy: {
+        firstName: "asc",
+      },
+    });
+
+    // Get all active trainers with their scheduled times
+    const activeTrainers = await db.trainer.findMany({
+      where: activeTrainersWhere,
+      include: {
+        department: true,
+        attendanceRecords: {
+          where: {
+            date: targetDate,
+          },
+          take: 1,
+          include: {
+            breaks: true,
+          },
+        },
+        leaveRequests: {
+          where: {
+            status: "APPROVED",
+            startDate: { lte: targetDate },
+            endDate: { gte: targetDate },
+          },
+          take: 1,
         },
       },
       orderBy: {
@@ -146,7 +212,13 @@ export async function GET(request: NextRequest) {
 
       if (todayRecord) {
         status = todayRecord.status;
-        displayStatus = getStatusDisplayName(todayRecord.status);
+        displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
+      } else if (employee.leaveRequests && employee.leaveRequests.length > 0) {
+        const leave = employee.leaveRequests[0];
+        status = getLeaveStatus(leave.leaveType);
+        displayStatus = getStatusDisplayName(status, {
+          notes: `Approved Leave: ${leave.leaveType}`,
+        });
       } else {
         const calculatedStatus = calculateAttendanceStatus(
           employee,
@@ -178,6 +250,7 @@ export async function GET(request: NextRequest) {
           scheduledWeekendKnockOut: employee.scheduledWeekendKnockOut,
           workingDays: employee.workingDays,
           overtimeHourRate: employee.overtimeHourRate,
+          emergencyCallOutRate: employee.emergencyCallOutRate,
         },
         freeLancer: null,
         date: targetDate.toISOString(),
@@ -218,7 +291,16 @@ export async function GET(request: NextRequest) {
 
       if (todayRecord) {
         status = todayRecord.status;
-        displayStatus = getStatusDisplayName(todayRecord.status);
+        displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
+      } else if (
+        freelancer.leaveRequests &&
+        freelancer.leaveRequests.length > 0
+      ) {
+        const leave = freelancer.leaveRequests[0];
+        status = getLeaveStatus(leave.leaveType);
+        displayStatus = getStatusDisplayName(status, {
+          notes: `Approved Leave: ${leave.leaveType}`,
+        });
       } else {
         const calculatedStatus = calculateAttendanceStatus(
           freelancer,
@@ -250,6 +332,7 @@ export async function GET(request: NextRequest) {
           scheduledWeekendKnockOut: freelancer.scheduledWeekendKnockOut,
           workingDays: freelancer.workingDays,
           overtimeHourRate: freelancer.overtimeHourRate,
+          emergencyCallOutRate: freelancer.emergencyCallOutRate,
         },
         employee: null,
         date: targetDate.toISOString(),
@@ -276,8 +359,92 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Transform trainer data
+    const trainerRecords = activeTrainers.map((trainer) => {
+      const todayRecord = trainer.attendanceRecords[0];
+      const {
+        knockIn: scheduledKnockIn,
+        knockOut: scheduledKnockOut,
+        isWeekend,
+      } = getScheduledTimes(trainer, targetDate);
+
+      let status: AttendanceStatus;
+      let displayStatus: string;
+
+      if (todayRecord) {
+        status = todayRecord.status;
+        displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
+      } else if (trainer.leaveRequests && trainer.leaveRequests.length > 0) {
+        const leave = trainer.leaveRequests[0];
+        status = getLeaveStatus(leave.leaveType);
+        displayStatus = getStatusDisplayName(status, {
+          notes: `Approved Leave: ${leave.leaveType}`,
+        });
+      } else {
+        const calculatedStatus = calculateAttendanceStatus(
+          trainer,
+          currentTime,
+          targetDate,
+          "trainer",
+          scheduledKnockIn,
+          scheduledKnockOut,
+          isWeekend,
+        );
+        status = calculatedStatus.status;
+        displayStatus = calculatedStatus.displayStatus;
+      }
+
+      return {
+        id: todayRecord?.id || `virtual-${trainer.id}`,
+        trainerId: trainer.id,
+        trainer: {
+          id: trainer.id,
+          firstName: trainer.firstName,
+          lastName: trainer.lastName,
+          trainerNumber: trainer.trainerNumber,
+          avatar: trainer.avatar,
+          position: trainer.position,
+          department: trainer.department,
+          scheduledKnockIn: scheduledKnockIn,
+          scheduledKnockOut: scheduledKnockOut,
+          scheduledWeekendKnockIn: trainer.scheduledWeekendKnockIn,
+          scheduledWeekendKnockOut: trainer.scheduledWeekendKnockOut,
+          workingDays: trainer.workingDays,
+          overtimeHourRate: trainer.overtimeHourRate,
+          emergencyCallOutRate: trainer.emergencyCallOutRate,
+        },
+        employee: null,
+        freeLancer: null,
+        date: targetDate.toISOString(),
+        checkIn: todayRecord?.checkIn,
+        checkOut: todayRecord?.checkOut,
+        checkInMethod: todayRecord?.checkInMethod,
+        checkInAddress: todayRecord?.checkInAddress,
+        checkInLat: todayRecord?.checkInLat,
+        checkInLng: todayRecord?.checkInLng,
+        regularHours: todayRecord?.regularHours,
+        overtimeHours: todayRecord?.overtimeHours,
+        notes: todayRecord?.notes,
+        breakStart: todayRecord?.breakStart,
+        breakEnd: todayRecord?.breakEnd,
+        breakDuration: todayRecord?.breakDuration,
+        breaks: todayRecord?.breaks || [],
+        status,
+        displayStatus,
+        isVirtualRecord: !todayRecord,
+        isWeekend: isWeekend,
+        personType: "trainer" as const,
+        createdAt: todayRecord?.createdAt,
+        updatedAt: todayRecord?.updatedAt,
+      };
+    });
+
     // Combine both employee and freelancer records
-    const allRecords = [...employeeRecords, ...freelancerRecords];
+    const allRecords = [
+      ...employeeRecords,
+      ...freelancerRecords,
+      ...trainerRecords,
+    ];
 
     // Filter by status if specified
     let filteredRecords = allRecords;
@@ -313,7 +480,7 @@ function calculateAttendanceStatus(
   person: any,
   currentTime: Date,
   targetDate: Date,
-  personType: "employee" | "freelancer",
+  personType: "employee" | "freelancer" | "trainer",
   scheduledKnockIn: string | null,
   scheduledKnockOut: string | null,
   isWeekend: boolean,
@@ -412,7 +579,18 @@ function calculateAttendanceStatus(
   };
 }
 
-function getStatusDisplayName(status: AttendanceStatus): string {
+function getStatusDisplayName(status: AttendanceStatus, record?: any): string {
+  // Check if it's an approved leave record from notes
+  if (record?.notes?.startsWith("Approved Leave: ")) {
+    const leaveType = record.notes.replace("Approved Leave: ", "");
+    // Format COMPASSIONATE -> Compassionate Leave, SICK -> Sick Leave, etc.
+    return (
+      leaveType.charAt(0).toUpperCase() +
+      leaveType.slice(1).toLowerCase().replace(/_/g, " ") +
+      " Leave"
+    );
+  }
+
   switch (status) {
     case AttendanceStatus.PRESENT:
       return "Present";

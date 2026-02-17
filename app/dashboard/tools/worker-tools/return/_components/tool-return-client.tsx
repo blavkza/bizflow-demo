@@ -51,7 +51,7 @@ export function ToolReturnClient() {
       <div className="flex-1 space-y-4 p-8 pt-6">
         <div className="flex items-center justify-between">
           <Heading
-            title="Tool Returns & Logistics"
+            title="Tool Returns "
             description="Manage and process tool returns from workers."
           />
         </div>

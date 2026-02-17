@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
       days,
       reason,
       contactInfo,
+      emergencyAvailability,
     } = body;
 
     let employee = null;
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest) {
         days: parseInt(days),
         reason,
         contactInfo,
+        emergencyAvailability: Boolean(emergencyAvailability),
         status: "PENDING",
         requestedDate: new Date(),
       },
@@ -161,6 +163,7 @@ export async function GET(request: NextRequest) {
         comments: request.comments,
         department: person?.department?.name || "No Department",
         isFreelancer,
+        emergencyAvailability: request.emergencyAvailability,
       };
     });
 

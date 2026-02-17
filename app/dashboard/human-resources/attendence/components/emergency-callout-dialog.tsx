@@ -34,51 +34,74 @@ export function EmergencyCallOutDialog({
   onOpenChange,
 }: EmergencyCallOutDialogProps) {
   const [employees, setEmployees] = useState<any[]>([]);
+  const [freelancers, setFreelancers] = useState<any[]>([]);
+  const [trainers, setTrainers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [formData, setFormData] = useState({
     employeeIds: [] as string[],
+    freelancerIds: [] as string[],
+    trainerIds: [] as string[],
     title: "Emergency Call Out",
-    message: "You are required for an emergency call out. Please respond immediately.",
+    message:
+      "You are required for an emergency call out. Please respond immediately.",
     startTime: "", // Initialize empty
   });
 
   useEffect(() => {
     if (open) {
-      fetchEmployees();
+      fetchAllStaff();
       if (!formData.startTime) {
-        setFormData(prev => ({ 
-          ...prev, 
-          startTime: new Date().toISOString().slice(0, 16) 
+        setFormData((prev) => ({
+          ...prev,
+          startTime: new Date().toISOString().slice(0, 16),
         }));
       }
     }
   }, [open]);
 
-  const fetchEmployees = async () => {
+  const fetchAllStaff = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch("/api/employees");
-      if (!res.ok) throw new Error("Failed to fetch employees");
-      const data = await res.json();
-      setEmployees(Array.isArray(data.employees) ? data.employees : []);
+      const [empRes, freeRes, trainRes] = await Promise.all([
+        fetch("/api/employees"),
+        fetch("/api/freelancers"),
+        fetch("/api/trainers"),
+      ]);
+
+      const [empData, freeData, trainData] = await Promise.all([
+        empRes.ok ? empRes.json() : { employees: [] },
+        freeRes.ok ? freeRes.json() : { freelancers: [] },
+        trainRes.ok ? trainRes.json() : { trainers: [] },
+      ]);
+
+      setEmployees(Array.isArray(empData.employees) ? empData.employees : []);
+      setFreelancers(
+        Array.isArray(freeData.freelancers) ? freeData.freelancers : [],
+      );
+      setTrainers(Array.isArray(trainData.trainers) ? trainData.trainers : []);
     } catch (error) {
-      toast.error("Failed to load employees");
+      toast.error("Failed to load staff");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (formData.employeeIds.length === 0 || !formData.title || !formData.startTime) {
+    const totalSelected =
+      formData.employeeIds.length +
+      formData.freelancerIds.length +
+      formData.trainerIds.length;
+
+    if (totalSelected === 0 || !formData.title || !formData.startTime) {
       toast.error("Please fill in all required fields");
       return;
     }
 
     try {
       setIsSubmitting(true);
-      
+
       // Fix timezone issue:
       // datetime-local gives "2026-01-30T09:00" (no timezone)
       // We need to tell the server this is in the user's local timezone
@@ -86,17 +109,17 @@ export function EmergencyCallOutDialog({
       const timezoneOffset = -new Date().getTimezoneOffset(); // in minutes, already negated for proper sign
       const offsetHours = Math.floor(Math.abs(timezoneOffset) / 60);
       const offsetMinutes = Math.abs(timezoneOffset) % 60;
-      const offsetSign = timezoneOffset >= 0 ? '+' : '-';
-      const offsetString = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`;
-      
+      const offsetSign = timezoneOffset >= 0 ? "+" : "-";
+      const offsetString = `${offsetSign}${String(offsetHours).padStart(2, "0")}:${String(offsetMinutes).padStart(2, "0")}`;
+
       // Append timezone: "2026-01-30T09:00" becomes "2026-01-30T09:00+02:00"
       const startTimeWithTZ = `${formData.startTime}:00${offsetString}`;
-      
+
       const payload = {
         ...formData,
         startTime: startTimeWithTZ,
       };
-      
+
       const res = await fetch("/api/attendance/callout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -108,13 +131,18 @@ export function EmergencyCallOutDialog({
         throw new Error(error.error || "Failed to trigger call out");
       }
 
-      toast.success(`${formData.employeeIds.length} emergency call outs triggered successfully`);
+      toast.success(
+        `${totalSelected} emergency call outs triggered successfully`,
+      );
       onOpenChange(false);
       // Reset form
       setFormData({
         employeeIds: [],
+        freelancerIds: [],
+        trainerIds: [],
         title: "Emergency Call Out",
-        message: "You are required for an emergency call out. Please respond immediately.",
+        message:
+          "You are required for an emergency call out. Please respond immediately.",
         startTime: new Date().toISOString().slice(0, 16),
       });
     } catch (error: any) {
@@ -124,10 +152,40 @@ export function EmergencyCallOutDialog({
     }
   };
 
-  const employeeOptions = (employees || []).map(emp => ({
-    label: `${emp.name || `${emp.firstName} ${emp.lastName}`} (${emp.employeeNumber})`,
-    value: emp.id
-  }));
+  const staffOptions = [
+    ...(employees || []).map((emp) => ({
+      label: `[EMP] ${emp.name || `${emp.firstName} ${emp.lastName}`} (${emp.employeeNumber})`,
+      value: `emp-${emp.id}`,
+    })),
+    ...(freelancers || []).map((free) => ({
+      label: `[FREE] ${free.firstName} ${free.lastName} (${free.freeLancerNumber})`,
+      value: `free-${free.id}`,
+    })),
+    ...(trainers || []).map((train) => ({
+      label: `[TRAIN] ${train.firstName} ${train.lastName} (${train.trainerNumber})`,
+      value: `train-${train.id}`,
+    })),
+  ];
+
+  const selectedValues = [
+    ...formData.employeeIds.map((id) => `emp-${id}`),
+    ...formData.freelancerIds.map((id) => `free-${id}`),
+    ...formData.trainerIds.map((id) => `train-${id}`),
+  ];
+
+  const handleStaffChange = (vals: string[]) => {
+    const employeeIds = vals
+      .filter((v) => v.startsWith("emp-"))
+      .map((v) => v.replace("emp-", ""));
+    const freelancerIds = vals
+      .filter((v) => v.startsWith("free-"))
+      .map((v) => v.replace("free-", ""));
+    const trainerIds = vals
+      .filter((v) => v.startsWith("train-"))
+      .map((v) => v.replace("train-", ""));
+
+    setFormData({ ...formData, employeeIds, freelancerIds, trainerIds });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -138,18 +196,19 @@ export function EmergencyCallOutDialog({
             Trigger Emergency Call Out
           </DialogTitle>
           <DialogDescription>
-            This will send high-priority notifications to the selected employees' mobile app.
+            This will send high-priority notifications to the selected
+            employees' mobile app.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="employee">Select Employees *</Label>
+            <Label htmlFor="staff">Select Recipients *</Label>
             <MultiSelect
-              options={employeeOptions}
-              selected={formData.employeeIds}
-              onChange={(vals) => setFormData({ ...formData, employeeIds: vals })}
-              placeholder="Select employees..."
+              options={staffOptions}
+              selected={selectedValues}
+              onChange={handleStaffChange}
+              placeholder="Select employees, freelancers or trainers..."
               loading={isLoading}
             />
           </div>
@@ -159,7 +218,9 @@ export function EmergencyCallOutDialog({
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
             />
           </div>
 
@@ -169,7 +230,9 @@ export function EmergencyCallOutDialog({
               id="startTime"
               type="datetime-local"
               value={formData.startTime}
-              onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, startTime: e.target.value })
+              }
             />
           </div>
 
@@ -179,7 +242,9 @@ export function EmergencyCallOutDialog({
               id="message"
               placeholder="Provide more details about the emergency..."
               value={formData.message}
-              onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, message: e.target.value })
+              }
             />
           </div>
         </div>
@@ -188,10 +253,15 @@ export function EmergencyCallOutDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button 
-            variant="destructive" 
-            onClick={handleSubmit} 
-            disabled={isSubmitting || formData.employeeIds.length === 0}
+          <Button
+            variant="destructive"
+            onClick={handleSubmit}
+            disabled={
+              isSubmitting ||
+              (formData.employeeIds.length === 0 &&
+                formData.freelancerIds.length === 0 &&
+                formData.trainerIds.length === 0)
+            }
           >
             {isSubmitting ? (
               <>

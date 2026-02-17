@@ -120,6 +120,7 @@ export async function POST(req: Request) {
             type: "TOOLS",
             priority: "LOW",
             channels: ["IN_APP"],
+            actionUrl: `/dashboard/tools/${targetToolId}`,
           },
         });
       }

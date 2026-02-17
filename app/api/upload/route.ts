@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const employeeId = formData.get("employeeId") as string | null;
     const settingsId = formData.get("settingsId") as string | null;
     const freelancerId = formData.get("freelancerId") as string | null;
+    const trainerId = formData.get("trainerId") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -27,14 +28,14 @@ export async function POST(request: Request) {
     if (!file.type.startsWith("image/")) {
       return NextResponse.json(
         { error: "Only image files are allowed" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json(
         { error: "File size must be less than 5MB" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -45,7 +46,7 @@ export async function POST(request: Request) {
     if (!cloudinaryUrl || !uploadPreset) {
       return NextResponse.json(
         { error: "Cloudinary configuration missing" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -73,17 +74,20 @@ export async function POST(request: Request) {
             ? settingsId
             : type === "freelancer"
               ? freelancerId
-              : userId;
+              : type === "trainer"
+                ? trainerId
+                : userId;
 
     if (
       (type === "client" && !clientId) ||
       (type === "employee" && !employeeId) ||
       (type === "settings" && !settingsId) ||
-      (type === "freelancer" && !freelancerId)
+      (type === "freelancer" && !freelancerId) ||
+      (type === "trainer" && !trainerId)
     ) {
       return NextResponse.json(
         { error: `Missing ${type} ID` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -102,13 +106,13 @@ export async function POST(request: Request) {
     const cloudinaryFormData = new FormData();
     cloudinaryFormData.append(
       "file",
-      `data:${file.type};base64,${buffer.toString("base64")}`
+      `data:${file.type};base64,${buffer.toString("base64")}`,
     );
     cloudinaryFormData.append("upload_preset", uploadPreset);
     cloudinaryFormData.append("folder", "avatars");
     cloudinaryFormData.append(
       "public_id",
-      `${type}_${entityId}_avatar_${timestamp}`
+      `${type}_${entityId}_avatar_${timestamp}`,
     );
     const cloudinaryResponse = await fetch(cloudinaryUrl, {
       method: "POST",
@@ -197,6 +201,11 @@ export async function POST(request: Request) {
         where: { id: freelancerId },
         data: { avatar: cloudinaryData.secure_url },
       });
+    } else if (type === "trainer" && trainerId) {
+      await db.trainer.update({
+        where: { id: trainerId },
+        data: { avatar: cloudinaryData.secure_url },
+      });
     } else {
       await db.user.update({
         where: { userId },
@@ -216,7 +225,7 @@ export async function POST(request: Request) {
     console.error("Upload error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Upload failed" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
