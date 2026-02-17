@@ -32,11 +32,13 @@ import {
   TicketPercent,
   Landmark,
   Hammer,
+  Check,
   ClipboardList,
   RefreshCcw,
   Bolt,
   Siren,
   GraduationCap,
+  CheckCircle2Icon,
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
 import { CgArrowsExchange } from "react-icons/cg";
@@ -443,8 +445,8 @@ export const getSidebarData = (
           {
             title: "Tools Checks",
             url: "/dashboard/tools/checks",
-            icon: Hammer,
-            color: "text-orange-500",
+            icon: CheckCircle2Icon,
+            color: "text-blue-500",
           },
           {
             title: "Tool Returns",
