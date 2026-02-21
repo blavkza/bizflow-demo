@@ -65,8 +65,6 @@ model User {
   employee             Employee?          @relation(fields: [employeeId], references: [id])
   freeLancerId         String?            @unique
   freeLancer           FreeLancer?        @relation(fields: [freeLancerId], references: [id])
-  traineeId            String?            @unique
-  trainee              Trainee?           @relation(fields: [traineeId], references: [id])
   Vendor               Vendor[]
   workLogs             WorkLog[]
   CallOutAssistant     CallOutAssistant[]
@@ -4069,7 +4067,6 @@ enum UserType {
   ADMIN
   EMPLOYEE
   FREELANCER
-  TRAINEE
 }
 
 enum PackageType {

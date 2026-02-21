@@ -72,17 +72,6 @@ export async function PUT(
       );
     }
 
-    // Validate trainee linking for TRAINEE users
-    if (
-      userType === UserType.TRAINEE &&
-      (!traineeId || traineeId === "no-trainee")
-    ) {
-      return NextResponse.json(
-        { error: "Trainee must be selected for trainee users" },
-        { status: 400 },
-      );
-    }
-
     if (employeeId && employeeId !== "no-employee") {
       const existingEmployeeUser = await db.user.findFirst({
         where: {
@@ -110,22 +99,6 @@ export async function PUT(
       if (existingFreelancerUser) {
         return NextResponse.json(
           { error: "This freelancer is already linked to another user" },
-          { status: 400 },
-        );
-      }
-    }
-
-    if (traineeId && traineeId !== "no-trainee") {
-      const existingTraineeUser = await db.user.findFirst({
-        where: {
-          traineeId,
-          id: { not: id },
-        },
-      });
-
-      if (existingTraineeUser) {
-        return NextResponse.json(
-          { error: "This trainee is already linked to another user" },
           { status: 400 },
         );
       }
@@ -163,18 +136,6 @@ export async function PUT(
       updateData.freeLancerId = freelancerId;
       if (userType === UserType.FREELANCER) {
         updateData.employeeId = null;
-        updateData.traineeId = null;
-      }
-    }
-
-    // Handle trainee linking/unlinking
-    if (traineeId === "no-trainee" || !traineeId) {
-      if (traineeId === "no-trainee") updateData.traineeId = null;
-    } else {
-      updateData.traineeId = traineeId;
-      if (userType === UserType.TRAINEE) {
-        updateData.employeeId = null;
-        updateData.freeLancerId = null;
       }
     }
 
@@ -200,15 +161,6 @@ export async function PUT(
             position: true,
           },
         },
-        trainee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            traineeNumber: true,
-            position: true,
-          },
-        },
       },
     });
 
@@ -223,7 +175,6 @@ export async function PUT(
         userType: updatedUser.userType,
         employee: updatedUser.employee,
         freelancer: updatedUser.freeLancer,
-        trainee: updatedUser.trainee,
         permissions: updatedUser.permissions,
         phone: updatedUser.phone,
         createdAt: updatedUser.createdAt,

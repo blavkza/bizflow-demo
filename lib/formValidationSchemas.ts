@@ -41,7 +41,6 @@ export const createUserSchema = z
     userType: z.nativeEnum(UserType),
     employeeId: z.string().optional(),
     freelancerId: z.string().optional(),
-    traineeId: z.string().optional(),
     password: z
       .string()
       .min(8, { message: "Password must be at least 8 characters long!" })
@@ -79,14 +78,6 @@ export const createUserSchema = z
         path: ["freelancerId"],
       });
     }
-    // Trainee users must be linked to a trainee
-    if (data.userType === UserType.TRAINEE && !data.traineeId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Trainee must be selected when user type is Trainee",
-        path: ["traineeId"],
-      });
-    }
   });
 
 export type createUserSchemaType = z.infer<typeof createUserSchema>;
@@ -101,7 +92,6 @@ export const updateUserSchema = z
     userType: z.nativeEnum(UserType),
     employeeId: z.string().optional(),
     freelancerId: z.string().optional(),
-    traineeId: z.string().optional(),
     permissions: z.array(z.nativeEnum(UserPermission)).default([]),
   })
   .superRefine((data, ctx) => {
@@ -119,14 +109,6 @@ export const updateUserSchema = z
         code: z.ZodIssueCode.custom,
         message: "Freelancer must be selected when user type is Freelancer",
         path: ["freelancerId"],
-      });
-    }
-    // Trainee users must be linked to a trainee
-    if (data.userType === UserType.TRAINEE && !data.traineeId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Trainee must be selected when user type is Trainee",
-        path: ["traineeId"],
       });
     }
   });

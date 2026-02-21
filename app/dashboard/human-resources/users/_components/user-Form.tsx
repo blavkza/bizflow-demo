@@ -36,7 +36,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { PERMISSION_GROUPS } from "@/types/user";
 import { EmployeeForUserLinking } from "@/types/employee";
 import { FreelancerForUserLinking } from "@/types/freelancer";
-import { TraineeForUserLinking } from "@/types/trainee";
 
 interface UserFormProps {
   type: "create" | "update";
@@ -51,7 +50,6 @@ interface UserFormProps {
     userType?: UserType;
     employeeId?: string;
     freelancerId?: string;
-    traineeId?: string;
     permissions?: UserPermission[];
   };
   onCancel?: () => void;
@@ -103,7 +101,6 @@ export default function UserForm({
             userType: data?.userType ?? UserType.ADMIN,
             employeeId: data?.employeeId ?? "",
             freelancerId: data?.freelancerId ?? "",
-            traineeId: data?.traineeId ?? "",
             permissions: data?.permissions ?? [],
           }
         : {
@@ -116,7 +113,6 @@ export default function UserForm({
             userType: UserType.ADMIN,
             employeeId: "",
             freelancerId: "",
-            traineeId: "",
             password: "",
             confirmPassword: "",
             permissions: [],
@@ -127,7 +123,6 @@ export default function UserForm({
   const selectedUserType = form.watch("userType");
   const selectedEmployeeId = form.watch("employeeId");
   const selectedFreelancerId = form.watch("freelancerId");
-  const selectedTraineeId = form.watch("traineeId");
 
   const currentName = form.watch("name");
   const currentEmail = form.watch("email");
@@ -180,34 +175,6 @@ export default function UserForm({
     fetchAvailableFreelancers();
   }, [type, data?.freelancerId]);
 
-  const [availableTrainees, setAvailableTrainees] = useState<
-    TraineeForUserLinking[]
-  >([]);
-  const [isLoadingTrainees, setIsLoadingTrainees] = useState(false);
-
-  // Fetch available trainees
-  useEffect(() => {
-    const fetchAvailableTrainees = async () => {
-      setIsLoadingTrainees(true);
-      try {
-        const url =
-          type === "update" && data?.traineeId
-            ? `/api/trainees/available?includeCurrent=true&currentTraineeId=${data.traineeId}`
-            : "/api/trainees/available";
-
-        const response = await axios.get(url);
-        setAvailableTrainees(response.data);
-      } catch (error) {
-        console.error("Error fetching trainees:", error);
-        toast.error("Failed to load available trainees");
-      } finally {
-        setIsLoadingTrainees(false);
-      }
-    };
-
-    fetchAvailableTrainees();
-  }, [type, data?.traineeId]);
-
   // Get selected employee details
   const selectedEmployee = availableEmployees.find(
     (emp) => emp.id === selectedEmployeeId,
@@ -216,11 +183,6 @@ export default function UserForm({
   // Get selected freelancer details
   const selectedFreelancer = availableFreelancers.find(
     (fl) => fl.id === selectedFreelancerId,
-  );
-
-  // Get selected trainee details
-  const selectedTrainee = availableTrainees.find(
-    (tr) => tr.id === selectedTraineeId,
   );
 
   // Get currently linked employee for update
@@ -237,12 +199,10 @@ export default function UserForm({
 
   // Auto-fill user details from employee/freelancer
   useEffect(() => {
-    const entity = selectedEmployee || selectedFreelancer || selectedTrainee;
+    const entity = selectedEmployee || selectedFreelancer;
     const entityId = selectedEmployee
       ? selectedEmployeeId
-      : selectedFreelancer
-        ? selectedFreelancerId
-        : selectedTraineeId;
+      : selectedFreelancerId;
 
     if (
       entity &&
@@ -287,9 +247,7 @@ export default function UserForm({
         ) {
           const idNum = selectedEmployee
             ? selectedEmployee.employeeNumber
-            : selectedFreelancer
-              ? (selectedFreelancer as any).freelancerNumber
-              : (selectedTrainee as any).traineeNumber;
+            : (selectedFreelancer as any).freelancerNumber;
           form.setValue("userName", idNum);
         }
 
@@ -315,8 +273,7 @@ export default function UserForm({
   useEffect(() => {
     if (
       (selectedEmployeeId === "no-employee" || !selectedEmployeeId) &&
-      (selectedFreelancerId === "no-freelancer" || !selectedFreelancerId) &&
-      (selectedTraineeId === "no-trainee" || !selectedTraineeId)
+      (selectedFreelancerId === "no-freelancer" || !selectedFreelancerId)
     ) {
       setHasAutoFilled(false);
     }
@@ -332,7 +289,6 @@ export default function UserForm({
           values.employeeId === "no-employee" ? null : values.employeeId,
         freelancerId:
           values.freelancerId === "no-freelancer" ? null : values.freelancerId,
-        traineeId: values.traineeId === "no-trainee" ? null : values.traineeId,
       };
 
       if (type === "create") {
@@ -383,7 +339,7 @@ export default function UserForm({
   };
 
   const fillFromEntity = () => {
-    const entity = selectedEmployee || selectedFreelancer || selectedTrainee;
+    const entity = selectedEmployee || selectedFreelancer;
     if (entity) {
       const fullName = `${entity.firstName} ${entity.lastName}`;
       form.setValue("name", fullName);
@@ -399,9 +355,7 @@ export default function UserForm({
       if (type === "create") {
         const idNum = selectedEmployee
           ? selectedEmployee.employeeNumber
-          : selectedFreelancer
-            ? (selectedFreelancer as any).freelancerNumber
-            : (selectedTrainee as any).traineeNumber;
+          : (selectedFreelancer as any).freelancerNumber;
 
         const username =
           entity.email?.split("@")[0] ||
@@ -433,11 +387,6 @@ export default function UserForm({
                       form.setValue("employeeId", "no-employee");
                     if (val === "EMPLOYEE") {
                       form.setValue("freelancerId", "no-freelancer");
-                      form.setValue("traineeId", "no-trainee");
-                    }
-                    if (val === "TRAINEE") {
-                      form.setValue("employeeId", "no-employee");
-                      form.setValue("freelancerId", "no-freelancer");
                     }
                   }}
                   value={field.value}
@@ -452,7 +401,6 @@ export default function UserForm({
                     <SelectItem value="ADMIN">Admin</SelectItem>
                     <SelectItem value="EMPLOYEE">Employee</SelectItem>
                     <SelectItem value="FREELANCER">Freelancer</SelectItem>
-                    <SelectItem value="TRAINEE">Trainee</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -587,66 +535,6 @@ export default function UserForm({
             />
           )}
 
-          {/* Trainee Link Field */}
-          {(selectedUserType === "TRAINEE" || selectedUserType === "ADMIN") && (
-            <FormField
-              control={form.control}
-              name="traineeId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Link to Trainee {selectedUserType === "TRAINEE" && "*"}
-                  </FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    defaultValue={field.value}
-                    disabled={isLoadingTrainees}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={
-                            isLoadingTrainees
-                              ? "Loading trainees..."
-                              : "Select a trainee (optional)"
-                          }
-                        />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="no-trainee">
-                        No trainee linked
-                      </SelectItem>
-                      {availableTrainees.map((trainee) => (
-                        <SelectItem
-                          key={trainee.id}
-                          value={trainee.id}
-                          disabled={
-                            trainee.isLinked && trainee.id !== data?.traineeId
-                          }
-                        >
-                          {trainee.firstName} {trainee.lastName} (
-                          {trainee.traineeNumber})
-                          {trainee.email && ` - ${trainee.email}`}
-                          {trainee.isLinked &&
-                            trainee.id !== data?.traineeId &&
-                            " (Already linked)"}
-                        </SelectItem>
-                      ))}
-                      {availableTrainees.length === 0 && !isLoadingTrainees && (
-                        <SelectItem value="no-available-trainees" disabled>
-                          No available trainees found
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          )}
-
           {/* Show currently linked employee/freelancer info for update */}
           {type === "update" && (
             <>
@@ -676,17 +564,6 @@ export default function UserForm({
                     <br />
                     <strong>Freelancer #:</strong>{" "}
                     {currentLinkedFreelancer.freelancerNumber}
-                    <br />
-                  </p>
-                </div>
-              )}
-              {type === "update" && data?.traineeId && !selectedTraineeId && (
-                <div className="md:col-span-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <h4 className="font-medium text-amber-900">
-                    Currently Linked Trainee:
-                  </h4>
-                  <p className="text-sm text-amber-800">
-                    <strong>Trainee #:</strong> {data.traineeId}
                     <br />
                   </p>
                 </div>
@@ -729,17 +606,6 @@ export default function UserForm({
                       {selectedFreelancer.freelancerNumber}
                       <br />
                       <strong>Position:</strong> {selectedFreelancer.position}
-                    </p>
-                  )}
-                  {selectedTrainee && (
-                    <p className="text-sm text-blue-800 dark:text-zinc-300">
-                      <strong>Name:</strong> {selectedTrainee.firstName}{" "}
-                      {selectedTrainee.lastName}
-                      <br />
-                      <strong>Trainee #:</strong>{" "}
-                      {selectedTrainee.traineeNumber}
-                      <br />
-                      <strong>Position:</strong> {selectedTrainee.position}
                     </p>
                   )}
                 </div>
@@ -995,27 +861,13 @@ export default function UserForm({
             </div>
           )}
 
-          {selectedUserType === UserType.TRAINEE && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-blue-800 text-sm">
-                <strong>Trainee User:</strong> This user is linked to a trainee
-                record but can still have system permissions.
-              </p>
-            </div>
-          )}
-
           {selectedUserType === UserType.ADMIN &&
-            (selectedEmployee || selectedFreelancer || selectedTrainee) && (
+            (selectedEmployee || selectedFreelancer) && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <p className="text-amber-800 text-sm">
                   <strong>Admin with Identity Link:</strong> This admin user is
                   also linked to an{" "}
-                  {selectedEmployee
-                    ? "employee"
-                    : selectedFreelancer
-                      ? "freelancer"
-                      : "trainee"}{" "}
-                  record.
+                  {selectedEmployee ? "employee" : "freelancer"} record.
                 </p>
               </div>
             )}
