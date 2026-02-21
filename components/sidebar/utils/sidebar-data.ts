@@ -444,7 +444,7 @@ export const getSidebarData = (
             color: "text-orange-500",
           },
           {
-            title: "Tools Checks",
+            title: "Tools Check",
             url: "/dashboard/tools/checks",
             icon: CheckCircle2Icon,
             color: "text-blue-500",
