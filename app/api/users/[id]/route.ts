@@ -28,6 +28,7 @@ export async function PUT(
       userType,
       employeeId,
       freelancerId,
+      traineeId,
       permissions,
     } = await req.json();
 
@@ -71,6 +72,17 @@ export async function PUT(
       );
     }
 
+    // Validate trainee linking for TRAINEE users
+    if (
+      userType === UserType.TRAINEE &&
+      (!traineeId || traineeId === "no-trainee")
+    ) {
+      return NextResponse.json(
+        { error: "Trainee must be selected for trainee users" },
+        { status: 400 },
+      );
+    }
+
     if (employeeId && employeeId !== "no-employee") {
       const existingEmployeeUser = await db.user.findFirst({
         where: {
@@ -103,6 +115,22 @@ export async function PUT(
       }
     }
 
+    if (traineeId && traineeId !== "no-trainee") {
+      const existingTraineeUser = await db.user.findFirst({
+        where: {
+          traineeId,
+          id: { not: id },
+        },
+      });
+
+      if (existingTraineeUser) {
+        return NextResponse.json(
+          { error: "This trainee is already linked to another user" },
+          { status: 400 },
+        );
+      }
+    }
+
     // Prepare update data
     const updateData: any = {
       name,
@@ -130,14 +158,23 @@ export async function PUT(
 
     // Handle freelancer linking/unlinking
     if (freelancerId === "no-freelancer" || !freelancerId) {
-      // Only clear if we are not setting it (handled above by default null if not passed? No, existing data remains)
-      // If explicit "no-freelancer" passed, clear it.
       if (freelancerId === "no-freelancer") updateData.freeLancerId = null;
     } else {
       updateData.freeLancerId = freelancerId;
-      // If linking freelancer, ensure employee is unlinked
       if (userType === UserType.FREELANCER) {
         updateData.employeeId = null;
+        updateData.traineeId = null;
+      }
+    }
+
+    // Handle trainee linking/unlinking
+    if (traineeId === "no-trainee" || !traineeId) {
+      if (traineeId === "no-trainee") updateData.traineeId = null;
+    } else {
+      updateData.traineeId = traineeId;
+      if (userType === UserType.TRAINEE) {
+        updateData.employeeId = null;
+        updateData.freeLancerId = null;
       }
     }
 
@@ -163,6 +200,15 @@ export async function PUT(
             position: true,
           },
         },
+        trainee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            traineeNumber: true,
+            position: true,
+          },
+        },
       },
     });
 
@@ -177,6 +223,7 @@ export async function PUT(
         userType: updatedUser.userType,
         employee: updatedUser.employee,
         freelancer: updatedUser.freeLancer,
+        trainee: updatedUser.trainee,
         permissions: updatedUser.permissions,
         phone: updatedUser.phone,
         createdAt: updatedUser.createdAt,

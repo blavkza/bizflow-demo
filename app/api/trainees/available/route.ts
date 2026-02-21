@@ -43,7 +43,7 @@ export async function GET(req: Request) {
       whereClause.user = null;
     }
 
-    const freelancers = await db.freeLancer.findMany({
+    const trainees = await db.trainee.findMany({
       where: whereClause,
       include: {
         department: {
@@ -63,23 +63,23 @@ export async function GET(req: Request) {
       },
     });
 
-    const availableFreelancers = freelancers.map((freelancer) => ({
-      id: freelancer.id,
-      freelancerNumber: freelancer.freeLancerNumber,
-      firstName: freelancer.firstName,
-      lastName: freelancer.lastName,
-      email: freelancer.email,
-      phone: freelancer.phone,
-      position: freelancer.position,
-      department: freelancer.department,
-      status: freelancer.status,
-      avatar: freelancer.avatar,
-      isLinked: freelancer.user !== null,
+    const availableTrainees = trainees.map((trainee) => ({
+      id: trainee.id,
+      traineeNumber: trainee.traineeNumber,
+      firstName: trainee.firstName,
+      lastName: trainee.lastName,
+      email: trainee.email,
+      phone: trainee.phone,
+      position: trainee.position,
+      department: trainee.department,
+      status: trainee.status,
+      avatar: trainee.avatar,
+      isLinked: trainee.user !== null,
     }));
 
-    return NextResponse.json(availableFreelancers);
+    return NextResponse.json(availableTrainees);
   } catch (error) {
-    console.error("[AVAILABLE_FREELANCERS_ERROR]", error);
+    console.error("[AVAILABLE_TRAINEES_ERROR]", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 },

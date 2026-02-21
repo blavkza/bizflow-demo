@@ -56,6 +56,24 @@ export const PERMISSION_GROUPS = [
     ],
   },
   {
+    name: "Trainees",
+    permissions: [
+      UserPermission.Trainee_CREATE,
+      UserPermission.Trainee_EDIT,
+      UserPermission.Trainee_DELETE,
+      UserPermission.Trainee_VIEW,
+    ],
+  },
+  {
+    name: "Trainers",
+    permissions: [
+      UserPermission.Trainer_CREATE,
+      UserPermission.Trainer_EDIT,
+      UserPermission.Trainer_DELETE,
+      UserPermission.Trainer_VIEW,
+    ],
+  },
+  {
     name: "Department",
     permissions: [
       UserPermission.DEPARTMENT_CREATE,
@@ -304,6 +322,7 @@ export interface User {
   userType: UserType;
   employeeId?: string;
   freelancerId?: string;
+  traineeId?: string;
   permissions: UserPermission[];
   avatar: string | null;
   status: UserStatus;
@@ -321,6 +340,13 @@ export interface User {
     firstName: string;
     lastName: string;
     freeLancerNumber: string;
+    position: string;
+  };
+  trainee?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    traineeNumber: string;
     position: string;
   };
 }

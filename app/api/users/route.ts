@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       permissions,
       phone,
       status,
+      traineeId,
     } = body;
 
     if (permissions && !Array.isArray(permissions)) {
@@ -41,9 +42,9 @@ export async function POST(req: Request) {
       );
     }
 
-    if (userType === UserType.FREELANCER && !freelancerId) {
+    if (userType === UserType.TRAINEE && !traineeId) {
       return NextResponse.json(
-        { error: "Freelancer must be selected for freelancer users" },
+        { error: "Trainee must be selected for trainee users" },
         { status: 400 },
       );
     }
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Check if freelancer is already linked to a user (only if freelancerId is provided)
+    // Check if freelancer is already linked to a user
     if (freelancerId) {
       const existingFreelancerUser = await db.user.findFirst({
         where: { freeLancerId: freelancerId },
@@ -71,6 +72,20 @@ export async function POST(req: Request) {
       if (existingFreelancerUser) {
         return NextResponse.json(
           { error: "This freelancer is already linked to another user" },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Check if trainee is already linked to a user
+    if (traineeId) {
+      const existingTraineeUser = await db.user.findFirst({
+        where: { traineeId },
+      });
+
+      if (existingTraineeUser) {
+        return NextResponse.json(
+          { error: "This trainee is already linked to another user" },
           { status: 400 },
         );
       }
@@ -107,6 +122,11 @@ export async function POST(req: Request) {
     // Link freelancer if provided
     if (freelancerId) {
       userData.freeLancerId = freelancerId;
+    }
+
+    // Link trainee if provided
+    if (traineeId) {
+      userData.traineeId = traineeId;
     }
 
     const user = await db.user.create({

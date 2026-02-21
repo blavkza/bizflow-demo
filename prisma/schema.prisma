@@ -4069,6 +4069,7 @@ enum UserType {
   ADMIN
   EMPLOYEE
   FREELANCER
+  TRAINEE
 }
 
 enum PackageType {
