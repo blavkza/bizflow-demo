@@ -606,7 +606,6 @@ model Trainee {
   bypassRules              AttendanceBypassRule[] @relation("BypassRuleTrainees")
   assignedTasks            Task[]                 @relation("TraineeTaskAssignments")
   assistantInProjects      Project[]              @relation("ProjectAssistantTrainees")
-  user                     User?
   CallOutAssistant         CallOutAssistant[]
 
   toolMovements ToolMovement[]
