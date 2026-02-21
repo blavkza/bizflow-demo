@@ -140,12 +140,12 @@ export function CallOutList({ records, loading }: CallOutListProps) {
     <>
       <div className="space-y-4">
         {records.map((record) => {
-          const person = record.employee || record.freeLancer || record.trainer;
+          const person = record.employee || record.freeLancer || record.trainee;
           const personType = record.employee
             ? "employee"
             : record.freeLancer
               ? "freelancer"
-              : "trainer";
+              : "trainee";
           const personName = person
             ? `${person.firstName || ""} ${person.lastName || ""}`.trim() ||
               "Unknown"
@@ -154,7 +154,7 @@ export function CallOutList({ records, loading }: CallOutListProps) {
             ? record.employee.employeeNumber
             : record.freeLancer
               ? record.freeLancer.freeLancerNumber
-              : record.trainer?.trainerNumber;
+              : record.trainee?.traineeNumber;
 
           return (
             <Card key={record.id} className="hover:shadow-md transition-shadow">
@@ -382,8 +382,8 @@ export function CallOutList({ records, loading }: CallOutListProps) {
                       ? `${selectedRecord.employee.firstName} ${selectedRecord.employee.lastName}`
                       : selectedRecord.freeLancer
                         ? `${selectedRecord.freeLancer.firstName} ${selectedRecord.freeLancer.lastName}`
-                        : selectedRecord.trainer
-                          ? `${selectedRecord.trainer.firstName} ${selectedRecord.trainer.lastName}`
+                        : selectedRecord.trainee
+                          ? `${selectedRecord.trainee.firstName} ${selectedRecord.trainee.lastName}`
                           : "Unknown"}
                   </p>
                 </div>
@@ -486,3 +486,4 @@ export function CallOutList({ records, loading }: CallOutListProps) {
     </>
   );
 }
+

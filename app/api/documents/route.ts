@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       | "transaction"
       | "task"
       | "freeLancer"
-      | "trainer"
+      | "trainee"
       | "loan"
       | "loanPayment"
       | "lender";
@@ -165,14 +165,14 @@ export async function POST(request: Request) {
           );
         }
         break;
-      case "trainer":
-        const trainer = await db.trainer.findUnique({
+      case "trainee":
+        const trainee = await db.trainee.findUnique({
           where: { id: entityId },
         });
-        if (!trainer) {
-          console.log("Trainer not found:", entityId);
+        if (!trainee) {
+          console.log("Trainee not found:", entityId);
           return NextResponse.json(
-            { error: "Trainer not found" },
+            { error: "Trainee not found" },
             { status: 404 },
           );
         }
@@ -213,7 +213,7 @@ export async function POST(request: Request) {
         console.log("Invalid entity type:", entityType);
         return NextResponse.json(
           {
-            error: `Invalid entity type: ${entityType}. Must be one of: folder, project, vender, client, employee, transaction, task, freeLancer, trainer, loan, loanPayment, lender`,
+            error: `Invalid entity type: ${entityType}. Must be one of: folder, project, vender, client, employee, transaction, task, freeLancer, trainee, loan, loanPayment, lender`,
           },
           { status: 400 },
         );
@@ -370,8 +370,8 @@ export async function POST(request: Request) {
       case "freeLancer":
         documentData.freeLancerId = entityId;
         break;
-      case "trainer":
-        documentData.trainerId = entityId;
+      case "trainee":
+        documentData.traineeId = entityId;
         break;
       case "loan":
         documentData.loanId = entityId;
@@ -457,7 +457,7 @@ export async function GET(request: Request) {
           "transaction",
           "task",
           "freeLancer",
-          "trainer",
+          "trainee",
           "loan",
           "loanPayment",
           "lender",
@@ -491,8 +491,8 @@ export async function GET(request: Request) {
       case "freeLancer":
         query.freeLancerId = entityId;
         break;
-      case "trainer":
-        query.trainerId = entityId;
+      case "trainee":
+        query.traineeId = entityId;
         break;
       case "loan":
         query.loanId = entityId;
@@ -516,3 +516,4 @@ export async function GET(request: Request) {
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
+

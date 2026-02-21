@@ -94,7 +94,7 @@ export function AttendanceList({
       return null;
     }
     const overtimeHours = safeDecimalToNumber(record.overtimeHours);
-    const person = record.employee || record.freeLancer || record.trainer;
+    const person = record.employee || record.freeLancer || record.trainee;
 
     if (!person) return null;
 
@@ -191,9 +191,9 @@ export function AttendanceList({
         const hasFreelancer = rule.freelancers?.some(
           (f: any) => f.id === person.id,
         );
-        const hasTrainer = rule.trainers?.some((t: any) => t.id === person.id);
+        const hasTrainee = rule.trainees?.some((t: any) => t.id === person.id);
 
-        return isDateInRange && (hasEmployee || hasFreelancer || hasTrainer);
+        return isDateInRange && (hasEmployee || hasFreelancer || hasTrainee);
       });
 
       if (activeRule) {
@@ -279,7 +279,7 @@ export function AttendanceList({
     if (isLeaveStatus(record.status)) return false;
     if (record.displayStatus === "Day Off") return false;
 
-    const person = record.employee || record.freeLancer || record.trainer;
+    const person = record.employee || record.freeLancer || record.trainee;
     const recordDate = new Date(record.date);
 
     // Check if it's today
@@ -313,7 +313,7 @@ export function AttendanceList({
 
   const getDisplayStatusText = (record: AttendanceRecord) => {
     if (shouldShowNotCheckedIn(record)) {
-      const person = record.employee || record.freeLancer || record.trainer;
+      const person = record.employee || record.freeLancer || record.trainee;
       const recordDate = new Date(record.date);
       const { knockIn: scheduledKnockIn } = getScheduledTimes(
         person,
@@ -412,17 +412,17 @@ export function AttendanceList({
   return (
     <div className="space-y-4">
       {records.map((record) => {
-        const person = record.employee || record.freeLancer || record.trainer;
+        const person = record.employee || record.freeLancer || record.trainee;
         const personType = record.employee
           ? "employee"
           : record.freeLancer
             ? "freelancer"
-            : "trainer";
+            : "trainee";
         const personId = record.employee
           ? record.employee.employeeNumber
           : record.freeLancer
             ? record.freeLancer.freeLancerNumber
-            : record.trainer?.trainerNumber;
+            : record.trainee?.traineeNumber;
 
         if (!person) return null;
 
@@ -873,3 +873,4 @@ export function AttendanceList({
     </div>
   );
 }
+

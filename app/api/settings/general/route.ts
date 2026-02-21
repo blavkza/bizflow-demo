@@ -66,6 +66,13 @@ export async function POST(req: Request) {
       creditNoteTerms,
       supplierListNote,
       supplierListTerms,
+      depositPaymentEnabled,
+      depositPercentage,
+      interest30Days,
+      interest1To3Months,
+      interest3To6Months,
+      interest6To9Months,
+      interest9To12Months,
     } = body;
 
     const allUsers = await db.user.findMany({
@@ -115,6 +122,13 @@ export async function POST(req: Request) {
             creditNoteTerms,
             supplierListNote,
             supplierListTerms,
+            depositPaymentEnabled,
+            depositPercentage,
+            interest30Days,
+            interest1To3Months,
+            interest3To6Months,
+            interest6To9Months,
+            interest9To12Months,
           },
         });
         results.push({
@@ -153,6 +167,13 @@ export async function POST(req: Request) {
             creditNoteTerms,
             supplierListNote,
             supplierListTerms,
+            depositPaymentEnabled,
+            depositPercentage,
+            interest30Days,
+            interest1To3Months,
+            interest3To6Months,
+            interest6To9Months,
+            interest9To12Months,
           },
         });
         results.push({
@@ -217,6 +238,13 @@ export async function GET() {
         creditNoteTerms: true,
         supplierListNote: true,
         supplierListTerms: true,
+        depositPaymentEnabled: true,
+        depositPercentage: true,
+        interest30Days: true,
+        interest1To3Months: true,
+        interest3To6Months: true,
+        interest6To9Months: true,
+        interest9To12Months: true,
       },
     });
 
@@ -249,11 +277,18 @@ export async function GET() {
       purchaseOrderNote: settings.purchaseOrderNote,
       purchaseOrderTerms: settings.purchaseOrderTerms,
       proFormaNote: settings.proFormaNote,
-      proFormaTerms: settings.purchaseOrderTerms,
+      proFormaTerms: settings.proFormaTerms,
       creditNoteNote: settings.creditNoteNote,
-      creditNoteTerms: settings.deliveryNoteTerms,
+      creditNoteTerms: settings.creditNoteTerms,
       supplierListNote: settings.supplierListNote,
-      supplierListTerms: settings.purchaseOrderTerms,
+      supplierListTerms: settings.supplierListTerms,
+      depositPaymentEnabled: settings.depositPaymentEnabled,
+      depositPercentage: settings.depositPercentage,
+      interest30Days: settings.interest30Days,
+      interest1To3Months: settings.interest1To3Months,
+      interest3To6Months: settings.interest3To6Months,
+      interest6To9Months: settings.interest6To9Months,
+      interest9To12Months: settings.interest9To12Months,
     };
 
     return NextResponse.json({ data: transformedSettings });

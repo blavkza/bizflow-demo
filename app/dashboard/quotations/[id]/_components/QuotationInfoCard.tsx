@@ -154,10 +154,39 @@ export const QuotationInfoCard = ({
                 <span className="text-blue-600">
                   {formatCurrency(
                     Number(quotation.totalAmount) -
-                      Number(quotation.depositAmount)
+                      Number(quotation.depositAmount),
                   )}
                 </span>
               </div>
+              {quotation.interestAmount &&
+                Number(quotation.interestAmount) > 0 && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Interest ({quotation.interestRate}%):
+                      </span>
+                      <span className="text-orange-600 font-medium">
+                        +{formatCurrency(quotation.interestAmount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Term:</span>
+                      <span className="font-medium">
+                        {quotation.installmentPeriod === "30days"
+                          ? "30 Days"
+                          : quotation.installmentPeriod === "1to3months"
+                            ? "1-3 Months"
+                            : quotation.installmentPeriod === "3to6months"
+                              ? "3-6 Months"
+                              : quotation.installmentPeriod === "6to9months"
+                                ? "6-9 Months"
+                                : quotation.installmentPeriod === "9to12months"
+                                  ? "9-12 Months"
+                                  : quotation.installmentPeriod}
+                      </span>
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
         )}

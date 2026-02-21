@@ -33,6 +33,8 @@ import {
 } from "@/lib/formValidationSchemas";
 import { Editor } from "@/components/ui/editor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { BadgePercent } from "lucide-react";
 
 interface GeneralSettingsFormProps {
   canManageSettings: boolean;
@@ -45,7 +47,7 @@ export default function GeneralSettingsForm({
 }: GeneralSettingsFormProps) {
   const router = useRouter();
   const [generalSettings, setGeneralSettings] = useState<GeneralSetting | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(true);
 
@@ -81,6 +83,14 @@ export default function GeneralSettingsForm({
       creditNoteTerms: "",
       supplierListNote: "",
       supplierListTerms: "",
+      // Deposit Payment Schedule
+      depositPaymentEnabled: false,
+      depositPercentage: 60,
+      interest30Days: 18,
+      interest1To3Months: 40,
+      interest3To6Months: 45,
+      interest6To9Months: 60,
+      interest9To12Months: 70,
     },
   });
 
@@ -135,6 +145,14 @@ export default function GeneralSettingsForm({
             creditNoteTerms: settings.creditNoteTerms || "",
             supplierListNote: settings.supplierListNote || "",
             supplierListTerms: settings.supplierListTerms || "",
+            // Deposit Payment Schedule
+            depositPaymentEnabled: settings.depositPaymentEnabled ?? false,
+            depositPercentage: settings.depositPercentage ?? 60,
+            interest30Days: settings.interest30Days ?? 18,
+            interest1To3Months: settings.interest1To3Months ?? 40,
+            interest3To6Months: settings.interest3To6Months ?? 45,
+            interest6To9Months: settings.interest6To9Months ?? 60,
+            interest9To12Months: settings.interest9To12Months ?? 70,
           });
         }
       } catch (error) {
@@ -153,7 +171,7 @@ export default function GeneralSettingsForm({
       toast.success(
         generalSettings
           ? "Settings updated successfully"
-          : "Initial settings saved successfully"
+          : "Initial settings saved successfully",
       );
       router.refresh();
     } catch (error) {
@@ -499,9 +517,205 @@ export default function GeneralSettingsForm({
               {/* Invoice Tab */}
               <TabsContent value="invoice" className="space-y-4">
                 <p className="font-semibold text-lg"></p>
+
+                {/* ===== Deposit Payment Schedule ===== */}
+                <div className="rounded-lg border bg-card p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <BadgePercent className="h-5 w-5 text-primary" />
+                      <div>
+                        <p className="font-semibold text-base">
+                          Deposit Payment Schedule
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Enable to configure installment interest rates used on
+                          quotations &amp; invoices.
+                        </p>
+                      </div>
+                    </div>
+                    <FormField
+                      control={form.control}
+                      name="depositPaymentEnabled"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              disabled={!hasFullAccess && !canManageSettings}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {form.watch("depositPaymentEnabled") && (
+                    <div className="space-y-4 pt-2 border-t">
+                      {/* Deposit Percentage */}
+                      <FormField
+                        control={form.control}
+                        name="depositPercentage"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel>Deposit Required (%)</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={100}
+                                  step={1}
+                                  placeholder="60"
+                                  value={field.value}
+                                  onChange={(e) =>
+                                    field.onChange(
+                                      parseFloat(e.target.value) || 0,
+                                    )
+                                  }
+                                  className="pr-8"
+                                  disabled={
+                                    !hasFullAccess && !canManageSettings
+                                  }
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                                  %
+                                </span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {/* Interest Rates Grid */}
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Interest rates on the remaining balance:
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        {(
+                          [
+                            {
+                              name: "interest30Days" as const,
+                              label: "30 Days",
+                              default: 18,
+                            },
+                            {
+                              name: "interest1To3Months" as const,
+                              label: "1–3 Months",
+                              default: 40,
+                            },
+                            {
+                              name: "interest3To6Months" as const,
+                              label: "3–6 Months",
+                              default: 45,
+                            },
+                            {
+                              name: "interest6To9Months" as const,
+                              label: "6–9 Months",
+                              default: 60,
+                            },
+                            {
+                              name: "interest9To12Months" as const,
+                              label: "9–12 Months",
+                              default: 70,
+                            },
+                          ] as const
+                        ).map((item) => (
+                          <FormField
+                            key={item.name}
+                            control={form.control}
+                            name={item.name}
+                            render={({ field }) => (
+                              <FormItem className="space-y-1">
+                                <FormLabel>{item.label}</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={100}
+                                      step={0.5}
+                                      placeholder={String(item.default)}
+                                      value={field.value}
+                                      onChange={(e) =>
+                                        field.onChange(
+                                          parseFloat(e.target.value) || 0,
+                                        )
+                                      }
+                                      className="pr-8"
+                                      disabled={
+                                        !hasFullAccess && !canManageSettings
+                                      }
+                                    />
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+                                      %
+                                    </span>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Preview */}
+                      <div className="rounded-md bg-muted/50 p-4 text-sm space-y-1">
+                        <p className="font-medium mb-2">
+                          Preview (based on current values):
+                        </p>
+                        <p>
+                          A <strong>{form.watch("depositPercentage")}%</strong>{" "}
+                          deposit is required to secure the solar installation
+                          package. The remaining balance will be paid in
+                          installments as follows:
+                        </p>
+                        <ul className="list-disc list-inside space-y-0.5 mt-1 text-muted-foreground">
+                          <li>
+                            30 days:{" "}
+                            <strong className="text-foreground">
+                              {form.watch("interest30Days")}%
+                            </strong>{" "}
+                            interest on the remaining balance
+                          </li>
+                          <li>
+                            1–3 months:{" "}
+                            <strong className="text-foreground">
+                              {form.watch("interest1To3Months")}%
+                            </strong>{" "}
+                            interest on the remaining balance
+                          </li>
+                          <li>
+                            3–6 months:{" "}
+                            <strong className="text-foreground">
+                              {form.watch("interest3To6Months")}%
+                            </strong>{" "}
+                            interest on the remaining balance
+                          </li>
+                          <li>
+                            6–9 months:{" "}
+                            <strong className="text-foreground">
+                              {form.watch("interest6To9Months")}%
+                            </strong>{" "}
+                            interest on the remaining balance
+                          </li>
+                          <li>
+                            9–12 months:{" "}
+                            <strong className="text-foreground">
+                              {form.watch("interest9To12Months")}%
+                            </strong>{" "}
+                            interest on the remaining balance
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* General Settings (Kept for backward compatibility) */}
                 <p className="font-semibold text-xl">
-                  General Payment Terms & Note (Legacy)
+                  General Payment Terms &amp; Note (Legacy)
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <FormField

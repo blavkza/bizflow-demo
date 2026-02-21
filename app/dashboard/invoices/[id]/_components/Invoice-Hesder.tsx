@@ -43,6 +43,9 @@ interface InvoiceHeaderProps {
     depositRequired?: boolean;
     depositType?: "AMOUNT" | "PERCENTAGE";
     depositAmount?: number;
+    interestRate?: number;
+    interestAmount?: number;
+    installmentPeriod?: string;
     totalAmount: number;
   };
 }
@@ -286,6 +289,41 @@ export default function InvoiceHeader({ invoice }: InvoiceHeaderProps) {
                   Deposit represents {depositInfo.depositPercentage}% of total
                   amount
                 </div>
+
+                {invoice.interestAmount &&
+                  Number(invoice.interestAmount) > 0 && (
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <Label className="text-xs font-medium text-orange-700">
+                            Interest ({invoice.interestRate}%)
+                          </Label>
+                          <div className="font-medium text-orange-600">
+                            +{formatCurrency(Number(invoice.interestAmount))}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-blue-700">
+                            Installment Period
+                          </Label>
+                          <div className="font-medium">
+                            {invoice.installmentPeriod === "30days"
+                              ? "30 Days"
+                              : invoice.installmentPeriod === "1to3months"
+                                ? "1-3 Months"
+                                : invoice.installmentPeriod === "3to6months"
+                                  ? "3-6 Months"
+                                  : invoice.installmentPeriod === "6to9months"
+                                    ? "6-9 Months"
+                                    : invoice.installmentPeriod ===
+                                        "9to12months"
+                                      ? "9-12 Months"
+                                      : invoice.installmentPeriod}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
               </div>
             </>
           )}

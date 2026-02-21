@@ -49,7 +49,7 @@ export function ManualCheckInDialog({
     lng: undefined,
   });
   const [personType, setPersonType] = useState<
-    "employee" | "freelancer" | "trainer"
+    "employee" | "freelancer" | "trainee"
   >("employee");
   const [showMap, setShowMap] = useState(false);
 
@@ -59,7 +59,7 @@ export function ManualCheckInDialog({
         ? formData.employeeId
         : personType === "freelancer"
           ? formData.freelancerId
-          : formData.trainerId;
+          : formData.traineeId;
 
     if (!id || !formData.location) {
       return;
@@ -68,7 +68,7 @@ export function ManualCheckInDialog({
     setFormData({
       employeeId: "",
       freelancerId: "",
-      trainerId: "",
+      traineeId: "",
       location: "",
       notes: "",
       lat: undefined,
@@ -94,7 +94,7 @@ export function ManualCheckInDialog({
     setFormData({
       employeeId: "",
       freelancerId: "",
-      trainerId: "",
+      traineeId: "",
       location: "",
       notes: "",
       lat: undefined,
@@ -118,7 +118,7 @@ export function ManualCheckInDialog({
         <DialogHeader>
           <DialogTitle>Manual Check-In/Out</DialogTitle>
           <DialogDescription>
-            Record attendance manually for employees, freelancers or trainers
+            Record attendance manually for employees, freelancers or trainees
           </DialogDescription>
         </DialogHeader>
 
@@ -128,7 +128,7 @@ export function ManualCheckInDialog({
             if (
               value === "employee" ||
               value === "freelancer" ||
-              value === "trainer"
+              value === "trainee"
             ) {
               setPersonType(value);
             }
@@ -137,7 +137,7 @@ export function ManualCheckInDialog({
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="employee">Employee</TabsTrigger>
             <TabsTrigger value="freelancer">Freelancer</TabsTrigger>
-            <TabsTrigger value="trainer">Trainer</TabsTrigger>
+            <TabsTrigger value="trainee">Trainee</TabsTrigger>
           </TabsList>
         </Tabs>
 
@@ -164,7 +164,7 @@ export function ManualCheckInDialog({
                 ? "Employee ID"
                 : personType === "freelancer"
                   ? "Freelancer ID"
-                  : "Trainer ID"}{" "}
+                  : "Trainee ID"}{" "}
               *
             </Label>
             <Input
@@ -181,7 +181,7 @@ export function ManualCheckInDialog({
                   ? formData.employeeId
                   : personType === "freelancer"
                     ? formData.freelancerId
-                    : formData.trainerId
+                    : formData.traineeId
               }
               onChange={(e) =>
                 setFormData({
@@ -190,7 +190,7 @@ export function ManualCheckInDialog({
                     ? "employeeId"
                     : personType === "freelancer"
                       ? "freelancerId"
-                      : "trainerId"]: e.target.value.toUpperCase(),
+                      : "traineeId"]: e.target.value.toUpperCase(),
                 })
               }
             />
@@ -254,7 +254,7 @@ export function ManualCheckInDialog({
               !(
                 formData.employeeId ||
                 formData.freelancerId ||
-                formData.trainerId
+                formData.traineeId
               )
             }
           >
@@ -274,3 +274,4 @@ export function ManualCheckInDialog({
     </Dialog>
   );
 }
+

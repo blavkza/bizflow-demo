@@ -57,7 +57,6 @@ export const ItemsTable = ({
   combineServices: boolean;
   hideItemPrices: boolean;
 }) => {
-
   const [activeTab, setActiveTab] = useState<string>("all");
 
   const formatCurrency = (amount: number) => {
@@ -119,7 +118,7 @@ export const ItemsTable = ({
         itemTotal,
         itemType,
       } as CalculatedItem;
-    }
+    },
   );
 
   // --- 2. Calculate Global Discount (Pass 2) ---
@@ -136,7 +135,7 @@ export const ItemsTable = ({
 
   globalDiscountMoney = Math.min(
     globalDiscountMoney,
-    subtotalAfterItemDiscounts
+    subtotalAfterItemDiscounts,
   );
 
   // --- 3. Final Calculations ---
@@ -297,12 +296,14 @@ export const ItemsTable = ({
   // Tab content renderers
   const renderItemsTable = (
     items: Array<CalculatedItem | CombinedServiceItem>,
-    showDetailedBreakdown: boolean = false
+    showDetailedBreakdown: boolean = false,
   ) => (
     <Table>
       <TableHeader className="bg-muted/50">
         <TableRow>
-          <TableHead className={hideItemPrices ? "w-[70%]" : "w-[40%]"}>Description</TableHead>
+          <TableHead className={hideItemPrices ? "w-[70%]" : "w-[40%]"}>
+            Description
+          </TableHead>
           <TableHead className="text-center">Qty</TableHead>
           {!hideItemPrices && (
             <>
@@ -554,7 +555,7 @@ export const ItemsTable = ({
                       individualServices: combinedServices.services,
                     } as CombinedServiceItem,
                   ],
-                  true
+                  true,
                 )}
 
                 {/* Detailed breakdown of individual services */}
@@ -602,89 +603,118 @@ export const ItemsTable = ({
       <div className="px-4 py-4">
         <div className="flex justify-end">
           <div className="w-80 space-y-3">
-              {/* 1. Gross Subtotal */}
+            {/* 1. Gross Subtotal */}
+            <div className="flex justify-between text-sm">
+              <span className="">Subtotal (Gross)</span>
+              <span className="font-medium">
+                {formatCurrency(subtotalGross)}
+              </span>
+            </div>
+
+            {/* 2. Item Discounts */}
+            {totalItemDiscountMoney > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="">Subtotal (Gross)</span>
-                <span className="font-medium">
-                  {formatCurrency(subtotalGross)}
+                <span className="">Item Discounts</span>
+                <span className="text-red-600 font-medium">
+                  -{formatCurrency(totalItemDiscountMoney)}
                 </span>
               </div>
+            )}
 
-              {/* 2. Item Discounts */}
-              {totalItemDiscountMoney > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="">Item Discounts</span>
-                  <span className="text-red-600 font-medium">
-                    -{formatCurrency(totalItemDiscountMoney)}
+            {/* 3. Global Discount */}
+            {globalDiscountMoney > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="">
+                  Global Discount
+                  {quotation.discountType === "PERCENTAGE" && (
+                    <span className="text-xs ml-1">
+                      ({globalDiscountInputVal}%)
+                    </span>
+                  )}
+                </span>
+                <span className="text-red-600 font-medium">
+                  -{formatCurrency(globalDiscountMoney)}
+                </span>
+              </div>
+            )}
+
+            {/* 4. Taxable Amount */}
+            <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+              <span className=" text-xs uppercase tracking-wide">
+                Taxable Amount
+              </span>
+              <span className="">{formatCurrency(taxableAmount)}</span>
+            </div>
+
+            {/* 5. Tax */}
+            <div className="flex justify-between text-sm">
+              <span className="">Tax</span>
+              <span className="">{formatCurrency(totalTax)}</span>
+            </div>
+
+            {/* 6. Interest */}
+            {quotation.interestAmount &&
+              Number(quotation.interestAmount) > 0 && (
+                <div className="flex justify-between text-sm text-orange-600">
+                  <span>
+                    Interest ({Number(quotation.interestRate)}%)
+                    <span className="text-xs block text-muted-foreground italic">
+                      Term:{" "}
+                      {quotation.installmentPeriod === "30days"
+                        ? "30 Days"
+                        : quotation.installmentPeriod === "1to3months"
+                          ? "1-3 Months"
+                          : quotation.installmentPeriod === "3to6months"
+                            ? "3-6 Months"
+                            : quotation.installmentPeriod === "6to9months"
+                              ? "6-9 Months"
+                              : quotation.installmentPeriod === "9to12months"
+                                ? "9-12 Months"
+                                : quotation.installmentPeriod}
+                    </span>
+                  </span>
+                  <span className="font-medium">
+                    +{formatCurrency(Number(quotation.interestAmount))}
                   </span>
                 </div>
               )}
 
-              {/* 3. Global Discount */}
-              {globalDiscountMoney > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="">
-                    Global Discount
-                    {quotation.discountType === "PERCENTAGE" && (
+            {/* 7. Grand Total */}
+            <div className="flex justify-between items-center pt-2 border-t border-gray-300">
+              <span className="font-bold ">Total</span>
+              <span className="font-bold text-xl text-primary">
+                {formatCurrency(Number(quotation.totalAmount))}
+              </span>
+            </div>
+
+            {/* 8. Deposit & Amount Due */}
+            {quotation.depositRequired && depositMoney > 0 && (
+              <>
+                <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                  <span className="text-green-600 font-medium">
+                    Deposit Required
+                    {quotation.depositType === "PERCENTAGE" && (
                       <span className="text-xs ml-1">
-                        ({globalDiscountInputVal}%)
+                        ({Number(quotation.depositRate)}%)
                       </span>
                     )}
                   </span>
-                  <span className="text-red-600 font-medium">
-                    -{formatCurrency(globalDiscountMoney)}
+                  <span className="text-green-600 font-medium">
+                    -{formatCurrency(depositMoney)}
                   </span>
                 </div>
-              )}
 
-              {/* 4. Taxable Amount */}
-              <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                <span className=" text-xs uppercase tracking-wide">
-                  Taxable Amount
-                </span>
-                <span className="">{formatCurrency(taxableAmount)}</span>
-              </div>
-
-              {/* 5. Tax */}
-              <div className="flex justify-between text-sm">
-                <span className="">Tax</span>
-                <span className="">{formatCurrency(totalTax)}</span>
-              </div>
-
-              {/* 6. Grand Total */}
-              <div className="flex justify-between items-center pt-2 border-t border-gray-300">
-                <span className="font-bold ">Total</span>
-                <span className="font-bold text-xl text-primary">
-                  {formatCurrency(totalAmount)}
-                </span>
-              </div>
-
-              {/* 7. Deposit & Amount Due */}
-              {quotation.depositRequired && depositMoney > 0 && (
-                <>
-                  <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
-                    <span className="text-green-600 font-medium">
-                      Deposit Required
-                      {quotation.depositType === "PERCENTAGE" && (
-                        <span className="text-xs ml-1">
-                          ({Number(quotation.depositRate)}%)
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-green-600 font-medium">
-                      -{formatCurrency(depositMoney)}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between items-center bg-muted/30 px-2 py-2 rounded">
-                    <span className="font-bold">Amount Due</span>
-                    <span className="font-bold text-blue-600">
-                      {formatCurrency(amountDue)}
-                    </span>
-                  </div>
-                </>
-              )}
-            </div>
+                <div className="flex justify-between items-center bg-muted/30 px-2 py-2 rounded">
+                  <span className="font-bold">Balance Due</span>
+                  <span className="font-bold text-blue-600">
+                    {formatCurrency(
+                      Number(quotation.totalAmount) - depositMoney,
+                    )}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -106,8 +106,8 @@ export async function PATCH(
             personCriteria.employeeId = leaveRequest.employeeId;
           if (leaveRequest.freeLancerId)
             personCriteria.freeLancerId = leaveRequest.freeLancerId;
-          const trainerId = (leaveRequest as any).trainerId;
-          if (trainerId) personCriteria.trainerId = trainerId;
+          const traineeId = (leaveRequest as any).traineeId;
+          if (traineeId) personCriteria.traineeId = traineeId;
 
           if (Object.keys(personCriteria).length > 0) {
             const existing = await db.attendanceRecord.findFirst({

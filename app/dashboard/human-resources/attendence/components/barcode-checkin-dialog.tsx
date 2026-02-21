@@ -67,7 +67,7 @@ export function BarcodeCheckInDialog({
         const uId = (data.id as string).toUpperCase();
         if (uId.startsWith("FRL") || uId.startsWith("FL-")) {
           setValidationError(
-            "Barcode check-in is restricted to Employees and Trainers only. Freelancers must use manual check-in.",
+            "Barcode check-in is restricted to Employees and Trainees only. Freelancers must use manual check-in.",
           );
           return;
         }
@@ -92,7 +92,7 @@ export function BarcodeCheckInDialog({
       const uBarcode = barcode.toUpperCase();
       if (uBarcode.startsWith("FRL") || uBarcode.startsWith("FL-")) {
         setValidationError(
-          "Barcode check-in is restricted to Employees and Trainers only. Freelancers must use manual check-in.",
+          "Barcode check-in is restricted to Employees and Trainees only. Freelancers must use manual check-in.",
         );
         return;
       }
@@ -114,7 +114,7 @@ export function BarcodeCheckInDialog({
         <DialogHeader>
           <DialogTitle>Barcode Check-In/Out</DialogTitle>
           <DialogDescription>
-            Scan <strong>employee or trainer</strong> QR code to process
+            Scan <strong>employee or trainee</strong> QR code to process
             attendance.
           </DialogDescription>
         </DialogHeader>
@@ -150,3 +150,4 @@ export function BarcodeCheckInDialog({
     </Dialog>
   );
 }
+

@@ -5,9 +5,9 @@ import Header from "./_components/Header";
 import StatsCard from "./_components/Stats-Card";
 import TabsSection from "./_components/TabsSection";
 import { EmployeeWithDetails } from "@/types/employee";
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { UserPermission, UserRole } from "@prisma/client";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useQuery } from "@tanstack/react-query";
 import Loading from "./_components/loading";
@@ -24,12 +24,8 @@ const hasRole = (role: string, requiredRoles: UserRole[]): boolean => {
   return requiredRoles.includes(role as UserRole);
 };
 
-export default function EmployeeDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
+export default function EmployeeDetailPage() {
+  const { id } = useParams() as { id: string };
 
   const [employee, setEmployee] = useState<EmployeeWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,11 +47,11 @@ export default function EmployeeDetailPage({
     : false;
 
   const canViewEmployees = data?.permissions?.includes(
-    UserPermission.EMPLOYEES_VIEW
+    UserPermission.EMPLOYEES_VIEW,
   );
 
   const canEditEmployees = data?.permissions?.includes(
-    UserPermission.EMPLOYEES_EDIT
+    UserPermission.EMPLOYEES_EDIT,
   );
 
   useEffect(() => {

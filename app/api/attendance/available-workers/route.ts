@@ -4,7 +4,7 @@ import db from "@/lib/db";
 import {
   EmployeeStatus,
   FreeLancerStatus,
-  TrainerStatus,
+  TraineeStatus,
 } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
@@ -72,10 +72,10 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get active trainers who don't have an attendance record for this date
-    const trainers = await db.trainer.findMany({
+    // Get active trainees who don't have an attendance record for this date
+    const trainees = await db.trainee.findMany({
       where: {
-        status: TrainerStatus.ACTIVE,
+        status: TraineeStatus.ACTIVE,
         attendanceRecords: {
           none: {
             date: date,
@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
         id: true,
         firstName: true,
         lastName: true,
-        trainerNumber: true,
+        traineeNumber: true,
         position: true,
         department: {
           select: {
@@ -116,14 +116,14 @@ export async function GET(request: NextRequest) {
         department: f.department?.name || "No Department",
         type: "freelancer",
       })),
-      ...trainers.map((t) => ({
+      ...trainees.map((t) => ({
         id: t.id,
         firstName: t.firstName,
         lastName: t.lastName,
-        number: t.trainerNumber,
+        number: t.traineeNumber,
         position: t.position,
         department: t.department?.name || "No Department",
-        type: "trainer",
+        type: "trainee",
       })),
     ];
 
@@ -136,3 +136,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+

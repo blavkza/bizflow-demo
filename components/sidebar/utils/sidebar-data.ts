@@ -39,6 +39,7 @@ import {
   Siren,
   GraduationCap,
   CheckCircle2Icon,
+  UserPlus2,
 } from "lucide-react";
 import { GiTakeMyMoney } from "react-icons/gi";
 import { CgArrowsExchange } from "react-icons/cg";
@@ -515,11 +516,22 @@ export const getSidebarData = (
           },
         ]
       : []),
-    ...(hasFullAccess || hasPermission(permissions, UserPermission.Trainer_VIEW)
+    ...(hasFullAccess ||
+    hasPermission(permissions, UserPermission.Freelancer_VIEW)
       ? [
           {
-            title: "Trainers",
-            url: "/dashboard/human-resources/trainers",
+            title: "Freelancers",
+            url: "/dashboard/human-resources/freelancers",
+            icon: UserPlus2,
+            color: "text-orange-500",
+          },
+        ]
+      : []),
+    ...(hasFullAccess || hasPermission(permissions, UserPermission.Trainee_VIEW)
+      ? [
+          {
+            title: "Funded Trainees",
+            url: "/dashboard/human-resources/trainees",
             icon: GraduationCap,
             color: "text-blue-500",
           },

@@ -69,6 +69,13 @@ export default function InvoiceItems({
     }).format(amount);
   };
 
+  const safeFloat = (val: any): number => {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === "number") return val;
+    const parsed = parseFloat(String(val));
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   // Helper function to safely render HTML details
   const renderDetails = (details: string | null | undefined) => {
     if (!details) return null;
@@ -148,7 +155,6 @@ export default function InvoiceItems({
       unitPrice: item.unitPrice,
       amount: String(lineTotal),
       taxRate: item.taxRate || "15",
-      taxAmount: String(taxAmount),
       details: (item as any).details || null,
     } as CalculatedItem;
   });
@@ -198,7 +204,7 @@ export default function InvoiceItems({
       // If all services have the same tax rate, use that
       const firstTaxRate = Number(serviceItems[0].taxRate || 15);
       const allSameTaxRate = serviceItems.every(
-        (service) => Number(service.taxRate || 15) === firstTaxRate
+        (service) => Number(service.taxRate || 15) === firstTaxRate,
       );
 
       if (allSameTaxRate) {
@@ -296,7 +302,7 @@ export default function InvoiceItems({
   }
   globalDiscountMoney = Math.min(
     globalDiscountMoney,
-    subtotalAfterItemDiscounts
+    subtotalAfterItemDiscounts,
   );
 
   // --- 6. Totals ---
@@ -328,7 +334,7 @@ export default function InvoiceItems({
   // --- 7. Render Functions ---
   const renderItemsTable = (
     items: Array<CalculatedItem | CombinedServiceItem>,
-    showDetailedBreakdown: boolean = false
+    showDetailedBreakdown: boolean = false,
   ) => (
     <Table>
       <TableHeader>
@@ -595,7 +601,7 @@ export default function InvoiceItems({
                         individualServices: combinedServices.services,
                       } as CombinedServiceItem,
                     ],
-                    true
+                    true,
                   )}
 
                   {/* Detailed breakdown of individual services */}
@@ -617,7 +623,7 @@ export default function InvoiceItems({
                                 {service.description || `Service ${index + 1}`}{" "}
                                 ×{" "}
                                 {Number(service.quantity).toLocaleString(
-                                  "en-ZA"
+                                  "en-ZA",
                                 )}
                               </span>
                             </div>
@@ -701,13 +707,41 @@ export default function InvoiceItems({
               <span>{formatCurrency(finalTax)}</span>
             </div>
 
-            {/* 6. Grand Total */}
+            {/* 6. Interest */}
+            {safeFloat(invoice.interestAmount) > 0 && (
+              <div className="flex justify-between text-sm text-orange-600">
+                <span>
+                  Interest ({safeFloat(invoice.interestRate)}%):
+                  <span className="text-xs block text-muted-foreground italic">
+                    Term:{" "}
+                    {invoice.installmentPeriod === "30days"
+                      ? "30 Days"
+                      : invoice.installmentPeriod === "1to3months"
+                        ? "1-3 Months"
+                        : invoice.installmentPeriod === "3to6months"
+                          ? "3-6 Months"
+                          : invoice.installmentPeriod === "6to9months"
+                            ? "6-9 Months"
+                            : invoice.installmentPeriod === "9to12months"
+                              ? "9-12 Months"
+                              : invoice.installmentPeriod}
+                  </span>
+                </span>
+                <span className="font-medium">
+                  +{formatCurrency(safeFloat(invoice.interestAmount))}
+                </span>
+              </div>
+            )}
+
+            {/* 7. Grand Total */}
             <div className="flex justify-between items-center pt-2 border-t text-lg font-semibold">
               <span>Total:</span>
-              <span className="text-primary">{formatCurrency(finalTotal)}</span>
+              <span className="text-primary">
+                {formatCurrency(Number(invoice.totalAmount))}
+              </span>
             </div>
 
-            {/* 7. Deposit & Amount Due */}
+            {/* 8. Deposit & Amount Due */}
             {invoice.depositRequired && depositMoney > 0 && (
               <>
                 <div className="flex justify-between text-sm text-green-600 pt-2">
@@ -725,10 +759,10 @@ export default function InvoiceItems({
                   </span>
                 </div>
 
-                <div className="flex justify-start items-center  px-3 py-2 ">
-                  <span className="font-bold text-blue-600">Amount Due:</span>
+                <div className="flex justify-start items-center space-x-2  px-3 py-2 bg-blue-50 dark:bg-zinc-900 rounded-md">
+                  <span className="font-bold text-blue-600">Balance Due:</span>
                   <span className="font-bold text-blue-600">
-                    {formatCurrency(amountDue)}
+                    {formatCurrency(Number(invoice.totalAmount) - depositMoney)}
                   </span>
                 </div>
               </>

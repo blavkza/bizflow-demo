@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     // Cap global discount
     globalDiscountMoney = Math.min(
       globalDiscountMoney,
-      subtotalAfterItemDiscounts
+      subtotalAfterItemDiscounts,
     );
 
     // --- PASS 3: Distribute Global Discount & Calculate Tax ---
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
         taxAmount: taxAmount,
         shopProductId: item.shopProductId || null,
         serviceId: item.serviceId || null,
-        details: item.details || null, 
+        details: item.details || null,
         itemDiscountType: item.itemDiscountType || null,
         itemDiscountAmount: item.inputDiscountVal,
         sortOrder: 0,
@@ -180,7 +180,7 @@ export async function POST(req: Request) {
             discountAmount: inputGlobalDiscountVal,
             discountType: data.discountType || null,
 
-            totalAmount: totalAmount,
+            totalAmount: totalAmount + safeNumber(data.interestAmount),
 
             depositRequired: data.depositRequired,
             depositType: data.depositType || null,
@@ -188,6 +188,10 @@ export async function POST(req: Request) {
               calculatedDepositMoney > 0 ? calculatedDepositMoney : null,
             depositRate:
               data.depositType === "PERCENTAGE" ? inputDepositVal : 0,
+
+            installmentPeriod: data.installmentPeriod || null,
+            interestRate: data.interestRate || 0,
+            interestAmount: data.interestAmount || 0,
 
             terms: data.terms || null,
             notes: data.notes || null,
@@ -224,7 +228,7 @@ export async function POST(req: Request) {
       {
         maxWait: 5000,
         timeout: 20000,
-      }
+      },
     );
 
     return NextResponse.json(result, { status: 201 });
@@ -233,12 +237,12 @@ export async function POST(req: Request) {
     if (error instanceof z.ZodError) {
       return new NextResponse(
         JSON.stringify({ message: "Validation failed", errors: error.errors }),
-        { status: 422 }
+        { status: 422 },
       );
     }
     return new NextResponse(
       JSON.stringify({ message: "Internal Server Error" }),
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -268,7 +272,7 @@ export async function GET(req: Request) {
         message: "Internal Server Error",
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

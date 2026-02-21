@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     if (!quotation)
       return NextResponse.json(
         { error: "Quotation not found" },
-        { status: 404 }
+        { status: 404 },
       );
 
     // Generate invoice number
@@ -101,6 +101,9 @@ export async function POST(request: Request) {
             depositAmount: safeFloat(quotation.depositAmount),
             depositRate: safeFloat(quotation.depositRate),
             paymentTerms: quotation.paymentTerms,
+            installmentPeriod: quotation.installmentPeriod,
+            interestRate: quotation.interestRate,
+            interestAmount: quotation.interestAmount,
             notes: quotation.notes,
             terms: quotation.terms,
             createdBy: creator.id,
@@ -131,7 +134,7 @@ export async function POST(request: Request) {
 
         // 3. UPDATE SERVICE REVENUE (Aggregated)
         const itemsWithServices = quotation.items.filter(
-          (item) => item.serviceId
+          (item) => item.serviceId,
         );
         if (itemsWithServices.length > 0) {
           const serviceUpdates = new Map<string, number>();
@@ -211,7 +214,7 @@ export async function POST(request: Request) {
                   productUpdates.get(item.shopProductId) || 0;
                 productUpdates.set(
                   item.shopProductId,
-                  currentTotal + productRevenue
+                  currentTotal + productRevenue,
                 );
               }
             }
@@ -272,7 +275,7 @@ export async function POST(request: Request) {
         // 6. Handle Shop Products (Stock & Sales)
         // Filter for items that are products
         const itemsWithProducts = quotation.items.filter(
-          (item) => item.shopProductId
+          (item) => item.shopProductId,
         );
         let sale = null;
 
@@ -409,7 +412,7 @@ export async function POST(request: Request) {
             if (product) {
               const newStock = Math.max(
                 0,
-                product.stock - itemPayload.quantity
+                product.stock - itemPayload.quantity,
               );
               await db.shopProduct.update({
                 where: { id: itemPayload.shopProductId },
@@ -450,7 +453,7 @@ export async function POST(request: Request) {
       {
         maxWait: 5000,
         timeout: 20000,
-      }
+      },
     );
 
     // Create notification with package/subpackage context
@@ -485,7 +488,7 @@ export async function POST(request: Request) {
         error: "Failed to convert quotation",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

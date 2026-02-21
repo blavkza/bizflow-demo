@@ -54,7 +54,7 @@ async function generateInvoiceFromRecurring(recurring: any) {
   const subtotal = itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0);
   const totalTax = itemsWithAmounts.reduce(
     (sum, item) => sum + (item.taxAmount || 0),
-    0
+    0,
   );
 
   let discountAmount = 0;
@@ -64,7 +64,10 @@ async function generateInvoiceFromRecurring(recurring: any) {
     discountAmount = recurring.discountAmount;
   }
 
-  const totalAmount = subtotal + totalTax - discountAmount;
+  const interestAmount = recurring.interestAmount
+    ? parseFloat(recurring.interestAmount.toString())
+    : 0;
+  const totalAmount = subtotal + totalTax - discountAmount + interestAmount;
 
   // Create the invoice
   const invoice = await db.invoice.create({
@@ -87,6 +90,9 @@ async function generateInvoiceFromRecurring(recurring: any) {
       totalAmount,
       paymentTerms: recurring.paymentTerms,
       notes: recurring.notes,
+      interestAmount: recurring.interestAmount,
+      interestRate: recurring.interestRate,
+      installmentPeriod: recurring.installmentPeriod,
       createdBy: recurring.creator,
       isRecurring: true,
       recurringId: recurring.id,
@@ -112,7 +118,7 @@ async function generateInvoiceFromRecurring(recurring: any) {
   const nextDate = calculateNextDate(
     new Date(),
     recurring.frequency,
-    recurring.interval
+    recurring.interval,
   );
 
   await db.recurringInvoice.update({
@@ -136,7 +142,7 @@ function calculateDueDate(issueDate: Date, days: number): Date {
 function calculateNextDate(
   currentDate: Date,
   frequency: string,
-  interval: number
+  interval: number,
 ): Date {
   const date = new Date(currentDate);
 

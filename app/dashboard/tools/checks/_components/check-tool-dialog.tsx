@@ -24,6 +24,9 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Tool } from "./types";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CheckToolDialogProps {
   tool: Tool | null;
@@ -40,23 +43,46 @@ export function CheckToolDialog({
 }: CheckToolDialogProps) {
   const [loading, setLoading] = useState(false);
   const [condition, setCondition] = useState("GOOD");
-  const [isPresent, setIsPresent] = useState(true);
-  const [isLost, setIsLost] = useState(false);
+  const [status, setStatus] = useState<"present" | "lost">("present");
   const [damageCost, setDamageCost] = useState("");
   const [damageDescription, setDamageDescription] = useState("");
   const [notes, setNotes] = useState("");
+  const [deductFromWorker, setDeductFromWorker] = useState(false);
+  const [pushToMaintenance, setPushToMaintenance] = useState(false);
 
   // Reset form when tool changes or dialog opens
   useEffect(() => {
     if (tool && isOpen) {
       setCondition(tool.condition || "GOOD");
-      setIsPresent(true);
-      setIsLost(false);
+      setStatus("present");
       setDamageCost("");
       setDamageDescription("");
       setNotes("");
+      setDeductFromWorker(false);
+      setPushToMaintenance(false);
     }
   }, [tool, isOpen]);
+
+  // Handle status change
+  useEffect(() => {
+    if (status === "lost" && tool) {
+      setDamageCost(tool.purchasePrice.toString());
+      setCondition("LOST");
+      setDeductFromWorker(true);
+    } else if (status === "present") {
+      if (condition !== "DAMAGED") {
+        setDamageCost("");
+      }
+    }
+  }, [status, tool]);
+
+  // Pre-fill cost if condition changes to DAMAGED while present
+  useEffect(() => {
+    if (status === "present" && condition === "DAMAGED" && !damageCost) {
+      setDamageCost(""); // Let them enter it, or maybe pre-fill? User said "apply to cost".
+      // I'll leave it empty for manual entry for repairs, but lost pre-fills.
+    }
+  }, [condition]);
 
   const handleSubmit = async () => {
     if (!tool) return;
@@ -68,13 +94,15 @@ export function CheckToolDialog({
         toolId: tool.id,
         employeeId: tool.employeeId,
         freelancerId: tool.freelancerId,
-        trainerId: tool.trainerId,
-        condition,
-        isPresent,
-        isLost,
+        traineeId: tool.traineeId,
+        condition: status === "lost" ? "DAMAGED" : condition,
+        isPresent: status === "present",
+        isLost: status === "lost",
         damageCost: damageCost ? parseFloat(damageCost) : 0,
         damageDescription: damageDescription || null,
         notes: notes || null,
+        deductFromWorker,
+        pushToMaintenance,
       };
 
       const response = await fetch("/api/tool-checks", {
@@ -99,6 +127,8 @@ export function CheckToolDialog({
     }
   };
 
+  const showCostInput = condition === "DAMAGED" || status === "lost";
+
   if (!tool) return null;
 
   return (
@@ -111,14 +141,14 @@ export function CheckToolDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
           {/* Tool Info */}
-          <div className="p-4 bg-muted rounded-lg space-y-2">
+          <div className="p-4 bg-muted rounded-lg space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">{tool.name}</h3>
+                <h3 className="font-semibold text-lg">{tool.name}</h3>
                 <p className="text-sm text-muted-foreground">
-                  {tool.serialNumber}
+                  S/N: {tool.serialNumber || "N/A"}
                 </p>
               </div>
               {tool.images && tool.images[0] && (
@@ -127,111 +157,170 @@ export function CheckToolDialog({
                   alt={tool.name}
                   width={80}
                   height={80}
-                  className="rounded object-cover"
+                  className="rounded-md object-cover border bg-background"
                 />
               )}
             </div>
-            <div className="text-sm">
-              <span className="text-muted-foreground">Allocated to:</span>{" "}
-              <span className="font-medium">{tool.workerName}</span>
+            <div className="flex justify-between items-center pt-2 border-t border-muted-foreground/20">
+              <div className="text-sm">
+                <span className="text-muted-foreground">Allocated to:</span>{" "}
+                <span className="font-medium">{tool.workerName}</span>
+              </div>
+              <div className="text-sm font-bold text-blue-600">
+                Price: R {tool.purchasePrice.toLocaleString()}
+              </div>
             </div>
           </div>
 
-          {/* Condition */}
+          {/* Status Selection */}
           <div className="space-y-2">
-            <Label htmlFor="condition">Condition *</Label>
-            <Select value={condition} onValueChange={setCondition}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NEW">New</SelectItem>
-                <SelectItem value="GOOD">Good</SelectItem>
-                <SelectItem value="FAIR">Fair</SelectItem>
-                <SelectItem value="POOR">Poor</SelectItem>
-                <SelectItem value="DAMAGED">Damaged</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label>Tool Availability Status</Label>
+            <Tabs
+              value={status}
+              onValueChange={(v) => setStatus(v as "present" | "lost")}
+              className="w-full"
+            >
+              <TabsList className="grid w-full grid-cols-2 h-12">
+                <TabsTrigger value="present" className="text-sm font-medium">
+                  Tool is Present
+                </TabsTrigger>
+                <TabsTrigger
+                  value="lost"
+                  className="text-sm font-medium data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground"
+                >
+                  Tool is Lost
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
-          {/* Present/Lost Checkboxes */}
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isPresent"
-                checked={isPresent}
-                onCheckedChange={(checked) => {
-                  setIsPresent(checked as boolean);
-                  if (checked) setIsLost(false);
-                }}
-              />
-              <Label htmlFor="isPresent" className="cursor-pointer">
-                Tool is present
-              </Label>
-            </div>
+          <div className="grid gap-6">
+            {status === "present" && (
+              <div className="space-y-2">
+                <Label htmlFor="condition">Tool Condition</Label>
+                <Select value={condition} onValueChange={setCondition}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="GOOD">Good (Minor wear)</SelectItem>
+                    <SelectItem value="FAIR">Fair (Functioning)</SelectItem>
+                    <SelectItem value="POOR">Poor (Requires attn)</SelectItem>
+                    <SelectItem value="DAMAGED">Damaged (Broken)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="isLost"
-                checked={isLost}
-                onCheckedChange={(checked) => {
-                  setIsLost(checked as boolean);
-                  if (checked) setIsPresent(false);
-                }}
-              />
-              <Label htmlFor="isLost" className="cursor-pointer">
-                Tool is lost
-              </Label>
-            </div>
+            {showCostInput && (
+              <div className="space-y-4 p-4 border rounded-lg bg-slate-50/50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="space-y-2">
+                  <Label htmlFor="damageCost">
+                    {status === "lost"
+                      ? "Replacement Value (R)"
+                      : "Repair Estimate (R)"}
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">
+                      R
+                    </span>
+                    <Input
+                      id="damageCost"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="pl-7"
+                      value={damageCost}
+                      onChange={(e) => setDamageCost(e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  {status === "lost" && (
+                    <p className="text-[10px] text-muted-foreground italic">
+                      Pre-filled with purchase price. Edit if necessary.
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">
+                      Deduct from worker?
+                    </Label>
+                    <p className="text-[10px] text-muted-foreground">
+                      Apply this cost to the worker's record
+                    </p>
+                  </div>
+                  <Switch
+                    checked={deductFromWorker}
+                    onCheckedChange={setDeductFromWorker}
+                  />
+                </div>
+
+                {status !== "lost" && (
+                  <div className="flex items-center justify-between pt-2 border-t">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium">
+                        Push to Maintenance?
+                      </Label>
+                      <p className="text-[10px] text-muted-foreground">
+                        Mark as Maintenance and Return from worker automatically
+                      </p>
+                    </div>
+                    <Switch
+                      checked={pushToMaintenance}
+                      onCheckedChange={setPushToMaintenance}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Damage Cost */}
-          <div className="space-y-2">
-            <Label htmlFor="damageCost">Damage/Repair Cost (R)</Label>
-            <Input
-              id="damageCost"
-              type="number"
-              step="0.01"
-              min="0"
-              value={damageCost}
-              onChange={(e) => setDamageCost(e.target.value)}
-              placeholder="0.00"
-            />
-          </div>
+          {/* Additional Info */}
+          <div className="space-y-4 pt-2">
+            {showCostInput && (
+              <div className="space-y-2">
+                <Label htmlFor="damageDescription">
+                  {status === "lost" ? "Loss Details" : "Damage Details"}
+                </Label>
+                <Textarea
+                  id="damageDescription"
+                  value={damageDescription}
+                  onChange={(e) => setDamageDescription(e.target.value)}
+                  placeholder={
+                    status === "lost"
+                      ? "Circumstances of loss..."
+                      : "What specifically is broken?"
+                  }
+                  rows={3}
+                />
+              </div>
+            )}
 
-          {/* Damage Description */}
-          {(damageCost || condition === "DAMAGED" || condition === "POOR") && (
             <div className="space-y-2">
-              <Label htmlFor="damageDescription">Damage Description</Label>
+              <Label htmlFor="notes">Check Notes</Label>
               <Textarea
-                id="damageDescription"
-                value={damageDescription}
-                onChange={(e) => setDamageDescription(e.target.value)}
-                placeholder="Describe the damage or issues..."
-                rows={3}
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Any additional observations..."
+                rows={2}
               />
             </div>
-          )}
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes">Additional Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Any additional observations..."
-              rows={3}
-            />
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="mt-6">
           <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={loading}>
-            {loading ? "Submitting..." : "Submit Check"}
+          <Button
+            onClick={handleSubmit}
+            disabled={loading}
+            variant={status === "lost" ? "destructive" : "default"}
+          >
+            {loading ? "Recording..." : "Finish Inspection"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const {
       employeeIds,
       freelancerIds,
-      trainerIds,
+      traineeIds,
       title,
       message,
       startTime,
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       (!freelancerIds ||
         !Array.isArray(freelancerIds) ||
         freelancerIds.length === 0) &&
-      (!trainerIds || !Array.isArray(trainerIds) || trainerIds.length === 0)
+      (!traineeIds || !Array.isArray(traineeIds) || traineeIds.length === 0)
     ) {
       return NextResponse.json(
         { error: "At least one recipient ID is required" },
@@ -103,12 +103,12 @@ export async function POST(request: Request) {
       }
     }
 
-    // Process Trainers
-    if (trainerIds && Array.isArray(trainerIds)) {
-      for (const trainerId of trainerIds) {
+    // Process Trainees
+    if (traineeIds && Array.isArray(traineeIds)) {
+      for (const traineeId of traineeIds) {
         const callOut = await db.emergencyCallOut.create({
           data: {
-            trainerId,
+            traineeId,
             title,
             message,
             startTime: new Date(startTime),
@@ -117,15 +117,15 @@ export async function POST(request: Request) {
           },
         });
 
-        // Trainers might have a notification system/expo token
-        const trainer = await db.trainer.findUnique({
-          where: { id: trainerId },
+        // Trainees might have a notification system/expo token
+        const trainee = await db.trainee.findUnique({
+          where: { id: traineeId },
           select: { expoPushToken: true },
         });
 
-        if (trainer?.expoPushToken) {
+        if (trainee?.expoPushToken) {
           await sendPushNotification({
-            trainerId, // Assuming sendPushNotification supports trainerId or needs adjustment
+            traineeId, // Assuming sendPushNotification supports traineeId or needs adjustment
             title: `Emergency Call Out: ${title}`,
             body:
               message ||
@@ -150,7 +150,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const employeeId = searchParams.get("employeeId");
     const freelancerId = searchParams.get("freelancerId");
-    const trainerId = searchParams.get("trainerId");
+    const traineeId = searchParams.get("traineeId");
     const status = searchParams.get("status");
     const active = searchParams.get("active"); // Filter for accepted but not completed
     const date = searchParams.get("date"); // Filter by check-in date
@@ -158,7 +158,7 @@ export async function GET(request: Request) {
     const where: any = {};
     if (employeeId) where.employeeId = employeeId;
     if (freelancerId) where.freeLancerId = freelancerId;
-    if (trainerId) where.trainerId = trainerId;
+    if (traineeId) where.traineeId = traineeId;
     if (status) where.status = status;
 
     if (active === "true") {
@@ -210,10 +210,10 @@ export async function GET(request: Request) {
             },
           },
         },
-        Trainer: {
+        Trainee: {
           select: {
             id: true,
-            trainerNumber: true,
+            traineeNumber: true,
             firstName: true,
             lastName: true,
             avatar: true,
@@ -326,7 +326,7 @@ export async function PATCH(request: Request) {
         include: {
           employee: { select: { emergencyCallOutRate: true } },
           freeLancer: { select: { emergencyCallOutRate: true } },
-          Trainer: { select: { emergencyCallOutRate: true } },
+          Trainee: { select: { emergencyCallOutRate: true } },
         },
       });
 
@@ -340,7 +340,7 @@ export async function PATCH(request: Request) {
         if (current.employee) rate = current.employee.emergencyCallOutRate;
         else if (current.freeLancer)
           rate = current.freeLancer.emergencyCallOutRate;
-        else if (current.Trainer) rate = current.Trainer.emergencyCallOutRate;
+        else if (current.Trainee) rate = current.Trainee.emergencyCallOutRate;
 
         updateData.checkOut = checkOutTime;
         updateData.checkOutLat = lat;
@@ -364,3 +364,4 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

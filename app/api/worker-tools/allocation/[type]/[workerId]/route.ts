@@ -22,14 +22,42 @@ export async function GET(
       worker = await db.employee.findUnique({
         where: { id: workerId },
         include: {
-          tools: true,
+          tools: {
+            include: {
+              toolChecks: {
+                orderBy: { checkDate: "desc" },
+                take: 1,
+              },
+            },
+          },
         },
       });
     } else if (type === "freelancer") {
       worker = await db.freeLancer.findUnique({
         where: { id: workerId },
         include: {
-          tools: true,
+          tools: {
+            include: {
+              toolChecks: {
+                orderBy: { checkDate: "desc" },
+                take: 1,
+              },
+            },
+          },
+        },
+      });
+    } else if (type === "trainee") {
+      worker = await db.trainee.findUnique({
+        where: { id: workerId },
+        include: {
+          tools: {
+            include: {
+              toolChecks: {
+                orderBy: { checkDate: "desc" },
+                take: 1,
+              },
+            },
+          },
         },
       });
     } else {
@@ -40,9 +68,23 @@ export async function GET(
       return new NextResponse("Worker not found", { status: 404 });
     }
 
-    // Sort tools by assigned date descending
-    // @ts-ignore
-    tools = worker.tools.sort(
+    // Format tools and sort by assigned date descending
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const formattedTools = worker.tools.map((tool: any) => {
+      const lastCheck = tool.toolChecks[0];
+      const lastCheckDate = lastCheck ? new Date(lastCheck.checkDate) : null;
+      const needsCheck = !lastCheckDate || lastCheckDate < sevenDaysAgo;
+
+      return {
+        ...tool,
+        lastCheckDate,
+        needsCheck,
+      };
+    });
+
+    formattedTools.sort(
       (a: any, b: any) =>
         new Date(b.allocatedDate || 0).getTime() -
         new Date(a.allocatedDate || 0).getTime(),
@@ -53,12 +95,12 @@ export async function GET(
         id: worker.id,
         name: worker.name || `${worker.firstName} ${worker.lastName}`,
         email: worker.email,
-        phone: worker.phone, // Assuming phone exists
-        position: worker.jobTitle || "N/A", // Adjust based on schema
+        phone: worker.phone,
+        position: worker.jobTitle || "N/A",
         department: worker.department || "N/A",
         type: type.toUpperCase(),
       },
-      tools,
+      tools: formattedTools,
     });
   } catch (error) {
     console.log("[WORKER_ALLOCATION_GET]", error);

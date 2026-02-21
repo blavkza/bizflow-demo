@@ -43,13 +43,39 @@ export function QuotationPDF({ quotation, forwardedRef }: QuotationPDFProps) {
 
   const creatorSettings = quotation.creator?.GeneralSetting?.[0] || {};
 
-  const subtotal = quotation.items.reduce(
+  const subtotalGross = quotation.items.reduce(
     (sum, item) => sum + toNumber(item.quantity) * toNumber(item.unitPrice),
-    0
+    0,
   );
+
+  const totalItemDiscounts = quotation.items.reduce((sum, item) => {
+    const qty = toNumber(item.quantity);
+    const price = toNumber(item.unitPrice);
+    const base = qty * price;
+    const discVal = toNumber(item.itemDiscountAmount);
+    let itemDisc = 0;
+    if (item.itemDiscountType === "PERCENTAGE") {
+      itemDisc = base * (discVal / 100);
+    } else {
+      itemDisc = discVal;
+    }
+    return sum + itemDisc;
+  }, 0);
+
+  const subtotalAfterItemDiscounts = subtotalGross - totalItemDiscounts;
+
+  let globalDiscountMoney = 0;
+  const globalDiscVal = toNumber(quotation.discountAmount);
+  if (quotation.discountType === "PERCENTAGE") {
+    globalDiscountMoney = subtotalAfterItemDiscounts * (globalDiscVal / 100);
+  } else {
+    globalDiscountMoney = globalDiscVal;
+  }
+
+  const totalDiscount = totalItemDiscounts + globalDiscountMoney;
   const taxAmount = toNumber(quotation.taxAmount);
-  const discount = toNumber(quotation.discountAmount);
-  const total = subtotal + taxAmount - discount;
+  const interestAmount = toNumber(quotation.interestAmount);
+  const total = toNumber(quotation.totalAmount);
 
   return (
     <div
@@ -228,7 +254,20 @@ export function QuotationPDF({ quotation, forwardedRef }: QuotationPDFProps) {
                 className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
               >
                 <td className="p-1 border-t border-gray-200">
-                  {item.description}
+                  <p className="font-medium">{item.description}</p>
+                  {item.details && (
+                    <p className="text-[10px] text-gray-400 italic">
+                      {item.details}
+                    </p>
+                  )}
+                  {toNumber(item.itemDiscountAmount) > 0 && (
+                    <p className="text-[10px] text-red-500">
+                      Less Discount:{" "}
+                      {item.itemDiscountType === "PERCENTAGE"
+                        ? `${item.itemDiscountAmount}%`
+                        : `R${toNumber(item.itemDiscountAmount).toFixed(2)}`}
+                    </p>
+                  )}
                 </td>
                 <td className="p-1 text-center border-t border-gray-200">
                   {toNumber(item.quantity)}
@@ -239,7 +278,7 @@ export function QuotationPDF({ quotation, forwardedRef }: QuotationPDFProps) {
                 <td className="p-1 text-right border-t border-gray-200">
                   R
                   {(toNumber(item.quantity) * toNumber(item.unitPrice)).toFixed(
-                    2
+                    2,
                   )}
                 </td>
               </tr>
@@ -247,29 +286,63 @@ export function QuotationPDF({ quotation, forwardedRef }: QuotationPDFProps) {
           </tbody>
         </table>
 
-        {/* Compact Totals */}
         <div className="flex justify-end">
-          <div className="w-1/3 text-xs">
+          <div className="w-1/2 text-xs">
             <div className="flex justify-between py-1 border-b border-gray-200">
-              <span>Subtotal:</span>
-              <span>R{subtotal.toFixed(2)}</span>
+              <span className="text-gray-600">Subtotal (Gross):</span>
+              <span>R{subtotalGross.toFixed(2)}</span>
+            </div>
+
+            {totalItemDiscounts > 0 && (
+              <div className="flex justify-between py-1 border-b border-gray-200 text-red-600">
+                <span>Item Discounts:</span>
+                <span>-R{totalItemDiscounts.toFixed(2)}</span>
+              </div>
+            )}
+
+            {globalDiscountMoney > 0 && (
+              <div className="flex justify-between py-1 border-b border-gray-200 text-red-600">
+                <span>
+                  Global Discount{" "}
+                  {quotation.discountType === "PERCENTAGE"
+                    ? `(${quotation.discountAmount}%)`
+                    : ""}
+                  :
+                </span>
+                <span>-R{globalDiscountMoney.toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between py-1 border-b border-gray-200 text-gray-600 font-medium">
+              <span>Taxable Amount:</span>
+              <span>
+                R
+                {(
+                  subtotalGross -
+                  totalItemDiscounts -
+                  globalDiscountMoney
+                ).toFixed(2)}
+              </span>
             </div>
 
             {taxAmount > 0 && (
               <div className="flex justify-between py-1 border-b border-gray-200">
-                <span>Tax ({((taxAmount / subtotal) * 100).toFixed(2)}%):</span>
+                <span>Tax ({toNumber(quotation.taxRate).toFixed(0)}%):</span>
                 <span>R{taxAmount.toFixed(2)}</span>
               </div>
             )}
 
-            {discount > 0 && (
-              <div className="flex justify-between py-1 border-b border-gray-200">
-                <span>Discount:</span>
-                <span>-R{discount.toFixed(2)}</span>
+            {interestAmount > 0 && (
+              <div className="flex justify-between py-1 border-b border-gray-200 text-orange-600">
+                <span>
+                  Interest ({toNumber(quotation.interestRate).toFixed(2)}%):
+                </span>
+                <span>+R{interestAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between py-1 font-semibold text-sm">
-              <span>Total:</span>
+
+            <div className="flex justify-between py-1 font-bold text-sm border-t border-gray-300 mt-1 pt-2">
+              <span>TOTAL AMOUNT:</span>
               <span style={{ color: accentColor }}>R{total.toFixed(2)}</span>
             </div>
           </div>

@@ -118,7 +118,7 @@ export default function InvoiceDetailPage({
             <InvoiceItems invoice={invoice} combineServices={combineServices} />
             <InvoicePayments invoice={invoice} />
             <NoteTermsCard
-              notes={invoice.note}
+              notes={invoice.notes}
               terms={invoice.terms}
               paymentTerms={invoice.paymentTerms}
             />

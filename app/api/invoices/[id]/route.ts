@@ -19,7 +19,7 @@ const safeFloat = (val: any): number => {
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -100,7 +100,7 @@ export async function PUT(
     }
     globalDiscountMoney = Math.min(
       globalDiscountMoney,
-      subtotalAfterItemDiscounts
+      subtotalAfterItemDiscounts,
     );
 
     // 4. PASS 3: Tax Distribution
@@ -175,6 +175,9 @@ export async function PUT(
             depositRequired: invoiceData.depositRequired || false,
             depositType: invoiceData.depositType,
             depositAmount: calculatedDepositAmount,
+            installmentPeriod: invoiceData.installmentPeriod,
+            interestRate: invoiceData.interestRate,
+            interestAmount: invoiceData.interestAmount,
           },
         });
         recurringInvoiceData = { recurringId: existingRecurring.id };
@@ -182,7 +185,7 @@ export async function PUT(
         const nextDate = calculateNextDate(
           new Date(invoiceData.issueDate),
           invoiceData.frequency,
-          invoiceData.interval || 1
+          invoiceData.interval || 1,
         );
         const recurringInvoice = await db.recurringInvoice.create({
           data: {
@@ -203,6 +206,9 @@ export async function PUT(
             depositRequired: invoiceData.depositRequired || false,
             depositType: invoiceData.depositType,
             depositAmount: calculatedDepositAmount,
+            installmentPeriod: invoiceData.installmentPeriod,
+            interestRate: invoiceData.interestRate,
+            interestAmount: invoiceData.interestAmount,
             creator: updater.id,
           },
         });
@@ -231,7 +237,7 @@ export async function PUT(
             taxRate: effectiveTaxRate,
             discountAmount: inputGlobalDiscountVal,
             discountType: invoiceData.discountType,
-            totalAmount,
+            totalAmount: totalAmount + safeFloat(invoiceData.interestAmount),
 
             // Deposit
             depositRequired: invoiceData.depositRequired || false,
@@ -242,6 +248,11 @@ export async function PUT(
               invoiceData.depositType === "PERCENTAGE"
                 ? safeFloat(invoiceData.depositAmount)
                 : 0,
+
+            // Installment
+            installmentPeriod: invoiceData.installmentPeriod || null,
+            interestRate: invoiceData.interestRate || 0,
+            interestAmount: invoiceData.interestAmount || 0,
 
             paymentTerms: invoiceData.paymentTerms,
             notes: invoiceData.notes,
@@ -284,13 +295,13 @@ export async function PUT(
             totalAmount,
             invoiceData,
             updater,
-            originalDepositVal
+            originalDepositVal,
           );
         }
 
         // D. Handle Shop Products (Update Sale Record)
         const itemsWithProducts = finalItems.filter(
-          (item: any) => item.shopProductId
+          (item: any) => item.shopProductId,
         );
 
         // Calculate Sale Totals from Product Items Only
@@ -384,7 +395,7 @@ export async function PUT(
 
         return updatedInvoice;
       },
-      { timeout: 30000, maxWait: 30000 }
+      { timeout: 30000, maxWait: 30000 },
     );
 
     // Notification
@@ -404,7 +415,7 @@ export async function PUT(
     console.error("Invoice update error:", error);
     return NextResponse.json(
       { error: "Failed to update invoice" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -440,7 +451,7 @@ async function handleDepositPaymentUpdate(
   totalAmount: number,
   invoiceData: any,
   updater: any,
-  originalDepositAmount: number
+  originalDepositAmount: number,
 ) {
   // Get the deposit payment linked to this invoice
   const existingPayment = await prisma.invoicePayment.findFirst({
@@ -556,7 +567,7 @@ async function getPaymentCategory(prisma: any, userId: string) {
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -593,14 +604,14 @@ export async function GET(
     console.error("Error fetching invoice:", error);
     return NextResponse.json(
       { error: "Failed to fetch invoice" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -652,7 +663,7 @@ export async function DELETE(
     console.error("Invoice deletion error:", error);
     return NextResponse.json(
       { error: "Failed to delete invoice" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

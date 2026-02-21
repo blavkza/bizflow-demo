@@ -8,6 +8,10 @@ import { FullInvoice } from "@/types/invoice";
 interface InvoiceSummaryProps {
   invoice: {
     amount: number;
+    totalAmount: number;
+    interestAmount?: number;
+    interestRate?: number;
+    installmentPeriod?: string;
     dueDate: Date | string;
     client: {
       id: string;
@@ -17,10 +21,17 @@ interface InvoiceSummaryProps {
   };
 }
 
+const safeFloat = (val: any): number => {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === "number") return val;
+  const parsed = parseFloat(String(val));
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 export default function InvoiceSummary({ invoice }: InvoiceSummaryProps) {
   const daysUntilDue = Math.ceil(
     (new Date(invoice.dueDate).getTime() - new Date().getTime()) /
-      (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24),
   );
 
   return (
@@ -32,9 +43,24 @@ export default function InvoiceSummary({ invoice }: InvoiceSummaryProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            R{invoice.amount.toLocaleString()}
+            R
+            {invoice.totalAmount.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
           </div>
-          <p className="text-xs text-muted-foreground">Including VAT</p>
+          {safeFloat(invoice.interestAmount) > 0 ? (
+            <p className="text-xs text-orange-600 font-medium">
+              +
+              {safeFloat(invoice.interestAmount).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}{" "}
+              Interest ({safeFloat(invoice.interestRate)}%)
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">Including VAT</p>
+          )}
         </CardContent>
       </Card>
       <Card>

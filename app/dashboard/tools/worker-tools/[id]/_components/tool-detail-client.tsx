@@ -54,9 +54,9 @@ export function ToolDetailClient({ toolId }: ToolDetailClientProps) {
   const [allocationOpen, setAllocationOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [allocating, setAllocating] = useState(false);
-  const [assignType, setAssignType] = useState<"EMPLOYEE" | "FREELANCER">(
-    "EMPLOYEE",
-  );
+  const [assignType, setAssignType] = useState<
+    "EMPLOYEE" | "FREELANCER" | "TRAINEE"
+  >("EMPLOYEE");
 
   // ... existing code ...
 
@@ -92,6 +92,15 @@ export function ToolDetailClient({ toolId }: ToolDetailClientProps) {
       return data;
     },
     enabled: allocationOpen && assignType === "FREELANCER",
+  });
+
+  const { data: trainees } = useQuery({
+    queryKey: ["trainees-list"],
+    queryFn: async () => {
+      const { data } = await axios.get("/api/trainees");
+      return data;
+    },
+    enabled: allocationOpen && assignType === "TRAINEE",
   });
 
   const handleAllocate = async () => {
@@ -161,10 +170,15 @@ export function ToolDetailClient({ toolId }: ToolDetailClientProps) {
           label: e.name || `${e.firstName} ${e.lastName}`,
           value: e.id,
         })) || []
-      : freelancers?.freelancers?.map((f: any) => ({
-          label: `${f.firstName} ${f.lastName}`,
-          value: f.id,
-        })) || [];
+      : assignType === "TRAINEE"
+        ? trainees?.trainees?.map((t: any) => ({
+            label: `${t.firstName} ${t.lastName}`,
+            value: t.id,
+          })) || []
+        : freelancers?.freelancers?.map((f: any) => ({
+            label: `${f.firstName} ${f.lastName}`,
+            value: f.id,
+          })) || [];
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -208,8 +222,9 @@ export function ToolDetailClient({ toolId }: ToolDetailClientProps) {
                   setSelectedWorkerIds([]); // Clear selection on type change
                 }}
               >
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="EMPLOYEE">Employees</TabsTrigger>
+                  <TabsTrigger value="TRAINEE">Trainees</TabsTrigger>
                   <TabsTrigger value="FREELANCER">Freelancers</TabsTrigger>
                 </TabsList>
               </Tabs>

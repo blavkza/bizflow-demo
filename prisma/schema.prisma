@@ -65,8 +65,8 @@ model User {
   employee             Employee?          @relation(fields: [employeeId], references: [id])
   freeLancerId         String?            @unique
   freeLancer           FreeLancer?        @relation(fields: [freeLancerId], references: [id])
-  trainerId            String?            @unique
-  trainer              Trainer?           @relation(fields: [trainerId], references: [id])
+  traineeId            String?            @unique
+  trainee              Trainee?           @relation(fields: [traineeId], references: [id])
   Vendor               Vendor[]
   workLogs             WorkLog[]
   CallOutAssistant     CallOutAssistant[]
@@ -119,9 +119,17 @@ model GeneralSetting {
   purchaseOrderTerms String?
   supplierListNote   String?
   supplierListTerms  String?
+  depositPaymentEnabled Boolean @default(false)
+  depositPercentage     Float   @default(60)
+  interest30Days        Float   @default(18)
+  interest1To3Months    Float   @default(40)
+  interest3To6Months    Float   @default(45)
+  interest6To9Months    Float   @default(60)
+  interest9To12Months   Float   @default(70)
   user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   Employee           Employee[]
   FreeLancer         FreeLancer[]
+  Trainee            Trainee[]
   Trainer            Trainer[]
 
   @@map("GeneralSettings")
@@ -324,6 +332,7 @@ model Department {
   children         Department[]      @relation("DepartmentHierarchy")
   employees        Employee[]        @relation("DepartmentEmployees")
   freelancers      FreeLancer[]      @relation("DepartmentFreelancers")
+  trainees         Trainee[]         @relation("DepartmentTrainees")
   trainers         Trainer[]         @relation("DepartmentTrainers")
   invoiceDocuments InvoiceDocument[]
   invoices         Invoice[]
@@ -519,9 +528,9 @@ model FreeLancer {
   @@map("freelancers")
 }
 
-model Trainer {
+model Trainee {
   id                       String                 @id @default(cuid())
-  trainerNumber            String                 @unique
+  traineeNumber            String                 @unique
   firstName                String
   lastName                 String
   email                    String?
@@ -534,7 +543,7 @@ model Trainer {
   currency                 String                 @default("ZAR")
   hireDate                 DateTime
   terminationDate          DateTime?
-  status                   TrainerStatus          @default(ACTIVE)
+  status                   TraineeStatus          @default(ACTIVE)
   reliable                 Boolean?
   idNumber                 String?
   taxNumber                String?
@@ -586,7 +595,7 @@ model Trainer {
   documents                Document[]
   emergencyCallOuts        EmergencyCallOut[]
   employeeNotification     EmployeeNotification[]
-  department               Department?            @relation("DepartmentTrainers", fields: [departmentId], references: [id])
+  department               Department?            @relation("DepartmentTrainees", fields: [departmentId], references: [id])
   generalSetting           GeneralSetting?        @relation(fields: [generalSettingId], references: [id])
   kpiResults               KpiResult[]
   overtimeRequests         OvertimeRequest[]
@@ -595,15 +604,81 @@ model Trainer {
   toolRequests             ToolRequest[]
   toolReturns              ToolReturn[]
   warnings                 Warning[]
-  tools                    Tool[]                 @relation("TrainerTools")
-  bypassRules              AttendanceBypassRule[] @relation("BypassRuleTrainers")
-  assignedTasks            Task[]                 @relation("TrainerTaskAssignments")
-  assistantInProjects      Project[]              @relation("ProjectAssistantTrainers")
+  tools                    Tool[]                 @relation("TraineeTools")
+  bypassRules              AttendanceBypassRule[] @relation("BypassRuleTrainees")
+  assignedTasks            Task[]                 @relation("TraineeTaskAssignments")
+  assistantInProjects      Project[]              @relation("ProjectAssistantTrainees")
   user                     User?
   CallOutAssistant         CallOutAssistant[]
 
   toolMovements ToolMovement[]
   toolChecks    ToolCheck[]
+
+  @@index([departmentId])
+  @@index([status])
+  @@map("trainees")
+}
+
+enum TraineeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+  SUSPENDED
+  PROSPECT
+  BLACKLISTED
+}
+
+model Trainer {
+  id                       String        @id @default(cuid())
+  trainerNumber            String        @unique
+  firstName                String
+  lastName                 String
+  email                    String?
+  phone                    String?
+  avatar                   String?
+  position                 String
+  specialization           String?
+  departmentId             String?
+  generalSettingId         String?
+  salary                   Decimal       @db.Decimal(15, 2)
+  currency                 String        @default("ZAR")
+  hireDate                 DateTime
+  terminationDate          DateTime?
+  status                   TrainerStatus @default(ACTIVE)
+  idNumber                 String?
+  taxNumber                String?
+  nationality              String?
+  maritalStatus            MaritalStatus?
+  address                  String?
+  city                     String?
+  province                 String?
+  postalCode               String?
+  country                  String        @default("South Africa")
+  emergencyName            String?
+  emergencyPhone           String?
+  emergencyRelation        String?
+  emergencyAddress         String?
+  bankName                 String?
+  accountNumber            String?
+  branchCode               String?
+  accountType              String?
+  contractType             ContractType?
+  workSchedule             String?
+  probationEnd             DateTime?
+  scheduledKnockIn         String?
+  scheduledKnockOut        String?
+  workingDays              String[]
+  createdAt                DateTime      @default(now())
+  updatedAt                DateTime      @updatedAt
+  createdBy                String?
+  additionalInfo           String?
+  overtimeHourRate         Float         @default(50.00)
+  emergencyCallOutRate     Float         @default(0.00)
+  expoPushToken            String?
+  scheduledWeekendKnockIn  String?
+  scheduledWeekendKnockOut String?
+  department               Department?   @relation("DepartmentTrainers", fields: [departmentId], references: [id])
+  generalSetting           GeneralSetting? @relation(fields: [generalSettingId], references: [id])
 
   @@index([departmentId])
   @@index([status])
@@ -616,7 +691,6 @@ enum TrainerStatus {
   TERMINATED
   SUSPENDED
   PROSPECT
-  BLACKLISTED
 }
 
 model AttendanceBypassRule {
@@ -633,7 +707,7 @@ model AttendanceBypassRule {
   updatedAt          DateTime     @updatedAt
   employees          Employee[]   @relation("BypassRuleEmployees")
   freelancers        FreeLancer[] @relation("BypassRuleFreelancers")
-  trainers           Trainer[]    @relation("BypassRuleTrainers")
+  trainees           Trainee[]    @relation("BypassRuleTrainees")
 
   @@index([startDate])
   @@index([endDate])
@@ -672,14 +746,14 @@ model AttendanceRecord {
   overtimeRequestId String?
   employee          Employee?        @relation(fields: [employeeId], references: [id])
   freeLancer        FreeLancer?      @relation(fields: [freeLancerId], references: [id])
-  trainerId         String?
-  trainer           Trainer?         @relation(fields: [trainerId], references: [id])
+  traineeId         String?
+  trainee           Trainee?         @relation(fields: [traineeId], references: [id])
   overtimeRequest   OvertimeRequest? @relation(fields: [overtimeRequestId], references: [id])
   breaks            BreakRecord[]
 
   @@unique([employeeId, date])
   @@unique([freeLancerId, date])
-  @@unique([trainerId, date])
+  @@unique([traineeId, date])
   @@map("attendance_records")
 }
 
@@ -712,8 +786,8 @@ model Warning {
   freeLancerId    String?
   employee        Employee?   @relation(fields: [employeeId], references: [id])
   freeLancer      FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  trainerId       String?
-  trainer         Trainer?    @relation(fields: [trainerId], references: [id])
+  traineeId       String?
+  trainee         Trainee?    @relation(fields: [traineeId], references: [id])
 
   @@map("warnings")
 }
@@ -740,8 +814,8 @@ model LeaveRequest {
   freeLancerId          String?
   employee              Employee?   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   freeLancer            FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  trainerId             String?
-  trainer               Trainer?    @relation(fields: [trainerId], references: [id])
+  traineeId             String?
+  trainee               Trainee?    @relation(fields: [traineeId], references: [id])
 
   @@index([employeeId])
   @@index([status])
@@ -914,14 +988,14 @@ model Payment {
   paymentDeductions PaymentDeduction[]
   employee          Employee?          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   freeLancer        FreeLancer?        @relation(fields: [freeLancerId], references: [id], onDelete: Cascade)
-  trainerId         String?
-  trainer           Trainer?           @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  traineeId         String?
+  trainee           Trainee?           @relation(fields: [traineeId], references: [id], onDelete: Cascade)
   Payroll           Payroll?           @relation(fields: [payrollId], references: [id])
   transaction       Transaction?       @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
   @@index([freeLancerId])
-  @@index([trainerId])
+  @@index([traineeId])
   @@index([payDate])
   @@map("payments")
 }
@@ -1147,7 +1221,7 @@ model Project {
   teamMembers          ProjectTeam[]
   assistantEmployees   Employee[]        @relation("ProjectAssistantEmployees")
   assistantFreelancers FreeLancer[]      @relation("ProjectAssistantFreelancers")
-  assistantTrainers    Trainer[]         @relation("ProjectAssistantTrainers")
+  assistantTrainees    Trainee[]         @relation("ProjectAssistantTrainees")
   tools                Tool[]            @relation("ProjectTools")
   client               Client?           @relation(fields: [clientId], references: [id])
   manager              User              @relation(fields: [managerId], references: [id])
@@ -1159,7 +1233,7 @@ model Project {
   workLogs             WorkLog[]
 
   toolMovements ToolMovement[]
-  maintenances Maintenance[]
+  maintenances  Maintenance[]
 
   @@index([clientId])
   @@index([status])
@@ -1227,7 +1301,7 @@ model Task {
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   freelancerId        String?
-  trainerId           String?
+  traineeId           String?
   subtask             Subtask[]
   comment             comment[]
   documents           Document[]
@@ -1235,7 +1309,7 @@ model Task {
   timeEntries         TimeEntry[]
   freeLancerAssignees FreeLancer[] @relation("FreeLancerTaskAssignments")
   assignees           Employee[]   @relation("TaskAssignments")
-  trainerAssignees    Trainer[]    @relation("TrainerTaskAssignments")
+  traineeAssignees    Trainee[]    @relation("TraineeTaskAssignments")
   taskLeaderId        String?
   taskLeader          User?        @relation("TaskLeader", fields: [taskLeaderId], references: [id])
 
@@ -1282,13 +1356,13 @@ model Document {
   lenderId         String?
   loanId           String?
   loanPaymentId    String?
-  trainerId        String?
+  traineeId        String?
   documentPayments DocumentPayment[]
   client           Client?           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   employee         Employee?         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   folder           Folder?           @relation(fields: [folderId], references: [id], onDelete: Cascade)
   freeLancer       FreeLancer?       @relation(fields: [freeLancerId], references: [id])
-  trainer          Trainer?          @relation(fields: [trainerId], references: [id])
+  trainee          Trainee?          @relation(fields: [traineeId], references: [id])
   lender           Lender?           @relation(fields: [lenderId], references: [id], onDelete: Cascade)
   loan             Loan?             @relation(fields: [loanId], references: [id], onDelete: Cascade)
   loanPayment      LoanPayment?      @relation(fields: [loanPaymentId], references: [id], onDelete: Cascade)
@@ -1304,7 +1378,7 @@ model Document {
   @@index([loanId])
   @@index([loanPaymentId])
   @@index([lenderId])
-  @@index([trainerId])
+  @@index([traineeId])
   @@map("documents")
 }
 
@@ -1345,8 +1419,8 @@ model Note {
   employee      Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   folder        Folder?      @relation(fields: [folderId], references: [id], onDelete: Cascade)
   freeLancer    FreeLancer?  @relation(fields: [freeLancerId], references: [id])
-  trainerId     String?
-  trainer       Trainer?     @relation(fields: [trainerId], references: [id])
+  traineeId     String?
+  trainee       Trainee?     @relation(fields: [traineeId], references: [id])
   Project       Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
@@ -1492,6 +1566,9 @@ model Invoice {
   depositRequired Boolean           @default(false)
   depositType     DepositType?      @default(AMOUNT)
   depositRate     Decimal?          @db.Decimal(15, 2)
+  installmentPeriod  String?
+  interestRate       Decimal?          @db.Decimal(5, 2)
+  interestAmount     Decimal?          @db.Decimal(15, 2)
   packageId       String?
   subpackageId    String?
   Expense         Expense[]
@@ -1562,6 +1639,9 @@ model RecurringInvoice {
   depositRequired        Boolean            @default(false)
   depositType            DepositType?       @default(AMOUNT)
   depositRate            Decimal?           @db.Decimal(15, 2)
+  installmentPeriod      String?
+  interestRate           Decimal?           @db.Decimal(5, 2)
+  interestAmount         Decimal?           @db.Decimal(15, 2)
   invoices               Invoice[]
   client                 Client             @relation(fields: [clientId], references: [id])
   user                   User               @relation(fields: [creator], references: [id])
@@ -1711,6 +1791,9 @@ model Quotation {
   depositRequired    Boolean         @default(false)
   depositType        DepositType?    @default(AMOUNT)
   depositRate        Decimal?        @db.Decimal(15, 2)
+  installmentPeriod  String?
+  interestRate       Decimal?        @db.Decimal(5, 2)
+  interestAmount     Decimal?        @db.Decimal(15, 2)
   packageId          String?
   subpackageId       String?
   items              QuotationItem[]
@@ -2339,8 +2422,8 @@ model Tool {
   projects              Project[]            @relation("ProjectTools")
   employee              Employee?            @relation("EmployeeTools", fields: [employeeId], references: [id])
   freelancer            FreeLancer?          @relation("FreelancerTools", fields: [freelancerId], references: [id])
-  trainerId             String?
-  trainer               Trainer?             @relation("TrainerTools", fields: [trainerId], references: [id])
+  traineeId             String?
+  trainee               Trainee?             @relation("TraineeTools", fields: [traineeId], references: [id])
   parentTool            Tool?                @relation("ToolHierarchy", fields: [parentToolId], references: [id])
   subTools              Tool[]               @relation("ToolHierarchy")
 
@@ -2419,8 +2502,8 @@ model ToolMovement {
   tool       Tool        @relation(fields: [toolId], references: [id], onDelete: Cascade)
   employee   Employee?   @relation(fields: [employeeId], references: [id])
   freelancer FreeLancer? @relation(fields: [freelancerId], references: [id])
-  trainerId  String?
-  trainer    Trainer?    @relation(fields: [trainerId], references: [id])
+  traineeId  String?
+  trainee    Trainee?    @relation(fields: [traineeId], references: [id])
   project    Project?    @relation(fields: [projectId], references: [id])
 
   @@map("tool_movements")
@@ -2528,8 +2611,8 @@ model Target {
   department   Department?    @relation(fields: [departmentId], references: [id])
   employee     Employee?      @relation(fields: [employeeId], references: [id])
   freeLancer   FreeLancer?    @relation(fields: [freeLancerId], references: [id])
-  trainerId    String?
-  trainer      Trainer?       @relation(fields: [trainerId], references: [id])
+  traineeId    String?
+  trainee      Trainee?       @relation(fields: [traineeId], references: [id])
 
   @@index([employeeId])
   @@index([departmentId])
@@ -2577,10 +2660,10 @@ model KpiResult {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   freeLancerId String?
-  trainerId    String?
+  traineeId    String?
   employee     Employee?   @relation(fields: [employeeId], references: [id])
   freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  trainer      Trainer?    @relation(fields: [trainerId], references: [id])
+  trainee      Trainee?    @relation(fields: [traineeId], references: [id])
   kpi          Kpi         @relation(fields: [kpiId], references: [id], onDelete: Cascade)
 
   @@unique([kpiId, employeeId, period])
@@ -2668,8 +2751,8 @@ model OvertimeRequest {
   attendanceRecords AttendanceRecord[]
   employee          Employee?          @relation(fields: [employeeId], references: [id])
   freeLancer        FreeLancer?        @relation(fields: [freeLancerId], references: [id])
-  trainerId         String?
-  trainer           Trainer?           @relation(fields: [trainerId], references: [id])
+  traineeId         String?
+  trainee           Trainee?           @relation(fields: [traineeId], references: [id])
 
   @@map("overtime_requests")
 }
@@ -2692,8 +2775,8 @@ model EmployeeNotification {
   freeLancerId String?
   employee     Employee?             @relation(fields: [employeeId], references: [id])
   freeLancer   FreeLancer?           @relation(fields: [freeLancerId], references: [id])
-  Trainer      Trainer?              @relation(fields: [trainerId], references: [id])
-  trainerId    String?
+  Trainee      Trainee?              @relation(fields: [traineeId], references: [id])
+  traineeId    String?
 
   @@index([isRead])
   @@index([type])
@@ -2782,8 +2865,8 @@ model EmergencyCallOut {
   freeLancer    FreeLancer?        @relation(fields: [freeLancerId], references: [id])
   requestedUser User               @relation(fields: [requestedBy], references: [id])
   assistants    CallOutAssistant[]
-  Trainer       Trainer?           @relation(fields: [trainerId], references: [id])
-  trainerId     String?
+  Trainee       Trainee?           @relation(fields: [traineeId], references: [id])
+  traineeId     String?
 
   @@map("emergency_call_outs")
 }
@@ -2802,8 +2885,8 @@ model CallOutAssistant {
   user             User?            @relation(fields: [userId], references: [id])
   employee         Employee?        @relation(fields: [employeeId], references: [id])
   freelancer       FreeLancer?      @relation(fields: [freelancerId], references: [id])
-  trainerId        String?
-  trainer          Trainer?         @relation(fields: [trainerId], references: [id])
+  traineeId        String?
+  trainee          Trainee?         @relation(fields: [traineeId], references: [id])
 
   @@map("call_out_assistants")
 }
@@ -3078,8 +3161,8 @@ model ToolRequest {
   resolvedById  String?
   employee      Employee?           @relation(fields: [employeeId], references: [id])
   freelancer    FreeLancer?         @relation(fields: [freelancerId], references: [id])
-  trainerId     String?
-  trainer       Trainer?            @relation(fields: [trainerId], references: [id])
+  traineeId     String?
+  trainee       Trainee?            @relation(fields: [traineeId], references: [id])
   resolvedBy    User?               @relation("ResolvedRequests", fields: [resolvedById], references: [id])
 
   @@map("tool_requests")
@@ -3103,8 +3186,8 @@ model ToolReturn {
   isApproved        Boolean       @default(false)
   employee          Employee?     @relation(fields: [employeeId], references: [id])
   freelancer        FreeLancer?   @relation(fields: [freelancerId], references: [id])
-  trainerId         String?
-  trainer           Trainer?      @relation(fields: [trainerId], references: [id])
+  traineeId         String?
+  trainee           Trainee?      @relation(fields: [traineeId], references: [id])
   processedBy       User?         @relation("ProcessedReturns", fields: [processedById], references: [id])
   tool              Tool          @relation(fields: [toolId], references: [id])
 
@@ -3139,7 +3222,7 @@ model ToolCheck {
   toolId            String
   employeeId        String?
   freelancerId      String?
-  trainerId         String?
+  traineeId         String?
   checkDate         DateTime      @default(now())
   condition         ToolCondition
   isPresent         Boolean       @default(true)
@@ -3150,11 +3233,12 @@ model ToolCheck {
   checkedBy         String?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+  deductFromWorker  Boolean       @default(false)
 
   tool       Tool        @relation(fields: [toolId], references: [id])
   employee   Employee?   @relation(fields: [employeeId], references: [id])
   freelancer FreeLancer? @relation(fields: [freelancerId], references: [id])
-  trainer    Trainer?    @relation(fields: [trainerId], references: [id])
+  trainee    Trainee?    @relation(fields: [traineeId], references: [id])
 
   @@index([toolId])
   @@index([checkDate])
@@ -3294,6 +3378,10 @@ enum UserPermission {
   Freelancer_EDIT
   Freelancer_DELETE
   Freelancer_VIEW
+  Trainee_CREATE
+  Trainee_EDIT
+  Trainee_DELETE
+  Trainee_VIEW
   Trainer_CREATE
   Trainer_EDIT
   Trainer_DELETE
@@ -3750,6 +3838,7 @@ enum NotificationType {
   CATEGORY
   EMPLOYEE
   FREELANCER
+  TRAINEE
   TRAINER
   ATTENDANCE
   LEAVE
@@ -3928,6 +4017,7 @@ enum ToolCondition {
   FAIR
   POOR
   DAMAGED
+  LOST
 }
 
 enum RentalStatus {

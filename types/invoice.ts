@@ -36,6 +36,13 @@ export type FullInvoice = {
   payments: InvoicePayment[];
   isRecurring?: boolean;
   recurringId?: string;
+  depositRequired?: boolean;
+  depositType?: "AMOUNT" | "PERCENTAGE";
+  depositAmount?: number | Decimal | null;
+  depositRate?: number | Decimal | null;
+  installmentPeriod?: string | null;
+  interestRate?: number | Decimal | null;
+  interestAmount?: number | Decimal | null;
   creator: {
     name: string;
     GeneralSetting: GeneralSetting | null;
@@ -92,35 +99,39 @@ export interface InvoiceProps {
   items: Array<{
     id: string;
     description: string;
-    quantity: string;
-    unitPrice: string;
-    amount: string;
-    taxRate?: string | null;
-    taxAmount?: string | null;
+    quantity: string | number | Decimal;
+    unitPrice: string | number | Decimal;
+    amount: string | number | Decimal;
+    taxRate?: string | number | Decimal | null;
+    taxAmount?: string | number | Decimal | null;
     shopProductId?: string | null;
-    // --- ADDED THESE MISSING FIELDS ---
+    serviceId?: string | null;
     itemDiscountType?: "AMOUNT" | "PERCENTAGE" | null;
-    itemDiscountAmount?: string | number | null;
+    itemDiscountAmount?: string | number | Decimal | null;
   }>;
   payments?: Array<{
     id: string;
-    amount: string;
+    amount: string | number | Decimal;
     method: string;
     reference?: string;
     notes?: string;
     status: string;
-    paidAt?: string;
+    paidAt?: string | Date;
   }>;
   amount: number;
   subtotal: number;
   taxAmount: number;
-  taxRate: number;
-  discountAmount?: number;
+  taxRate: number | Decimal;
+  discountAmount?: number | Decimal;
   discountType?: string;
   pdfUrl?: string;
   depositRequired?: boolean;
   depositType?: "AMOUNT" | "PERCENTAGE";
   depositAmount?: number | Decimal | null;
+  depositRate?: number | Decimal | null;
+  installmentPeriod?: string | null;
+  interestRate?: number | Decimal | null;
+  interestAmount?: number | Decimal | null;
 }
 
 export type InvoiceStatus =

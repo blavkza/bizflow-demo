@@ -37,6 +37,9 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { ReturnToolDialog } from "./return-tool-dialog";
+import { CheckToolDialog } from "./check-tool-dialog";
+import { CheckCircle } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface AllocationDetailClientProps {
   type: string;
@@ -50,6 +53,8 @@ export function AllocationDetailClient({
   const router = useRouter();
   const [selectedTool, setSelectedTool] = useState<any>(null);
   const [isReturnOpen, setIsReturnOpen] = useState(false);
+  const [selectedCheckTool, setSelectedCheckTool] = useState<any>(null);
+  const [isCheckOpen, setIsCheckOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
 
@@ -113,6 +118,11 @@ export function AllocationDetailClient({
   const handleReturn = (tool: any) => {
     setSelectedTool(tool);
     setIsReturnOpen(true);
+  };
+
+  const handleCheck = (tool: any) => {
+    setSelectedCheckTool(tool);
+    setIsCheckOpen(true);
   };
 
   return (
@@ -334,14 +344,36 @@ export function AllocationDetailClient({
                       }).format(Number(tool.purchasePrice))}
                     </TableCell>
                     <TableCell className="text-right pr-6">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs font-semibold bg-blue-50/50 hover:bg-blue-600 hover:text-white border-blue-200 transition-all rounded-full"
-                        onClick={() => handleReturn(tool)}
-                      >
-                        Return Tool
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "h-8 text-xs font-semibold transition-all rounded-full",
+                            tool.needsCheck
+                              ? "bg-green-50/50 hover:bg-green-600 hover:text-white border-green-200"
+                              : "bg-muted text-muted-foreground border-muted-foreground/20 cursor-not-allowed",
+                          )}
+                          onClick={() => tool.needsCheck && handleCheck(tool)}
+                          disabled={!tool.needsCheck}
+                        >
+                          {tool.needsCheck ? (
+                            "Check"
+                          ) : (
+                            <span className="flex items-center gap-1">
+                              <CheckCircle className="h-3 w-3" /> Checked
+                            </span>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs font-semibold bg-blue-50/50 hover:bg-blue-600 hover:text-white border-blue-200 transition-all rounded-full"
+                          onClick={() => handleReturn(tool)}
+                        >
+                          Return Tool
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -355,6 +387,13 @@ export function AllocationDetailClient({
         tool={selectedTool}
         isOpen={isReturnOpen}
         onClose={() => setIsReturnOpen(false)}
+        onSuccess={() => refetch()}
+      />
+
+      <CheckToolDialog
+        tool={selectedCheckTool}
+        isOpen={isCheckOpen}
+        onClose={() => setIsCheckOpen(false)}
         onSuccess={() => refetch()}
       />
     </div>

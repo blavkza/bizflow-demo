@@ -51,6 +51,14 @@ export const WorkerToolsClient = () => {
     },
   });
 
+  const { data: trainees, isLoading: traineesLoading } = useQuery({
+    queryKey: ["trainees-with-tools"],
+    queryFn: async () => {
+      const { data } = await axios.get("/api/worker-tools/stats/trainees");
+      return data;
+    },
+  });
+
   return (
     <>
       <div className="flex items-center justify-between mb-4">
@@ -215,6 +223,7 @@ export const WorkerToolsClient = () => {
         <TabsList>
           <TabsTrigger value="employees">Employees</TabsTrigger>
           <TabsTrigger value="freelancers">Freelancers</TabsTrigger>
+          <TabsTrigger value="trainees">Trainees</TabsTrigger>
           <TabsTrigger value="overall">Overall Tools</TabsTrigger>
         </TabsList>
         <TabsContent value="overall" className="space-y-4">
@@ -231,6 +240,12 @@ export const WorkerToolsClient = () => {
           <WorkerFilterTable
             workers={employees || []}
             title="Employee Allocations"
+          />
+        </TabsContent>
+        <TabsContent value="trainees" className="space-y-4">
+          <WorkerFilterTable
+            workers={trainees || []}
+            title="Trainee Allocations"
           />
         </TabsContent>
         <TabsContent value="freelancers" className="space-y-4">

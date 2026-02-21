@@ -48,7 +48,7 @@ export function AttendanceTabs({
   bypassRules,
 }: AttendanceTabsProps) {
   const filteredCallouts = callouts.filter((c) => {
-    const person = c.employee || c.freeLancer || c.trainer;
+    const person = c.employee || c.freeLancer || c.trainee;
     const name = person
       ? `${person.firstName || ""} ${person.lastName || ""}`
           .trim()
@@ -57,7 +57,7 @@ export function AttendanceTabs({
     const id = (
       c.employee?.employeeNumber ||
       c.freeLancer?.freeLancerNumber ||
-      c.trainer?.trainerNumber ||
+      c.trainee?.traineeNumber ||
       ""
     ).toLowerCase();
     const title = (c.title || "").toLowerCase();
@@ -132,3 +132,4 @@ export function AttendanceTabs({
     </Tabs>
   );
 }
+

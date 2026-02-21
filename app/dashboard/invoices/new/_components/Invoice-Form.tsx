@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { format } from "date-fns";
+import { format, addDays, addMonths } from "date-fns";
 import * as z from "zod";
 import axios from "axios";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import {
   FileText,
   Repeat,
   Search,
+  BadgePercent,
 } from "lucide-react";
 import {
   Form,
@@ -104,7 +105,9 @@ interface CalculationSummary {
   taxableAmount: number;
   discountAmount: number;
   depositAmount: number;
+  interestAmount: number;
   totalAmount: number;
+  interestRate: number;
   amountDue: number;
   itemDiscounts: number[];
 }
@@ -129,13 +132,14 @@ const InvoiceFormSchema = InvoiceSchema.extend({
         itemDiscountType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
         itemDiscountAmount: z.number().optional(),
         details: z.string().optional(),
-      })
+      }),
     )
     .min(1, "Add at least one item"),
 
   depositRequired: z.boolean().default(false),
   depositType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
   depositAmount: z.number().min(0).optional(),
+  payRemainingImmediately: z.boolean().default(false),
 });
 
 type InvoiceFormData = z.infer<typeof InvoiceFormSchema>;
@@ -211,14 +215,14 @@ const SearchableItemInput = ({
       case "ArrowDown":
         e.preventDefault();
         setSelectedIndex((prev) =>
-          prev < filteredItems.length - 1 ? prev + 1 : 0
+          prev < filteredItems.length - 1 ? prev + 1 : 0,
         );
         break;
 
       case "ArrowUp":
         e.preventDefault();
         setSelectedIndex((prev) =>
-          prev > 0 ? prev - 1 : filteredItems.length - 1
+          prev > 0 ? prev - 1 : filteredItems.length - 1,
         );
         break;
 
@@ -280,7 +284,7 @@ const SearchableItemInput = ({
                   key={`${item.type}-${item.id}`}
                   className={cn(
                     "flex items-start p-2 hover:bg-accent rounded-sm cursor-pointer border-b last:border-0 gap-3",
-                    selectedIndex === itemIndex && "bg-accent"
+                    selectedIndex === itemIndex && "bg-accent",
                   )}
                   onMouseEnter={() => setSelectedIndex(itemIndex)}
                   onMouseDown={(e) => {
@@ -351,6 +355,12 @@ const SearchableItemInput = ({
 
 // --- MAIN COMPONENT ---
 
+// Helper to safely parse numbers
+const safeFloat = (value: any): number => {
+  const parsed = parseFloat(value);
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 export default function InvoiceForm({
   type,
   data,
@@ -369,6 +379,19 @@ export default function InvoiceForm({
   const [isLoadingItems, setIsLoadingItems] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
+  // Deposit schedule from general settings
+  const [depositScheduleSettings, setDepositScheduleSettings] = useState<{
+    depositPaymentEnabled: boolean;
+    depositPercentage: number;
+    interest30Days: number;
+    interest1To3Months: number;
+    interest3To6Months: number;
+    interest6To9Months: number;
+    interest9To12Months: number;
+  } | null>(null);
+  const [selectedInstallmentPeriod, setSelectedInstallmentPeriod] =
+    useState<string>((data?.invoice as any)?.installmentPeriod || "");
+
   const router = useRouter();
 
   const [calculations, setCalculations] = useState<CalculationSummary>({
@@ -377,18 +400,20 @@ export default function InvoiceForm({
     taxableAmount: 0,
     discountAmount: 0,
     depositAmount: 0,
+    interestAmount: 0,
     totalAmount: 0,
+    interestRate: 0,
     amountDue: 0,
     itemDiscounts: [],
   });
 
   const [searchInputs, setSearchInputs] = useState<{ [key: number]: string }>(
-    {}
+    {},
   );
   const [showDropdown, setShowDropdown] = useState<number | null>(null);
 
   const [isRecurring, setIsRecurring] = useState(
-    data?.invoice?.isRecurring || false
+    data?.invoice?.isRecurring || false,
   );
 
   // Deposit Logic for Edit Mode
@@ -458,6 +483,15 @@ export default function InvoiceForm({
       frequency: "MONTHLY",
       interval: 1,
       endDate: undefined,
+      installmentPeriod: (data?.invoice as any)?.installmentPeriod || null,
+      interestRate: (data?.invoice as any)?.interestRate
+        ? Number((data?.invoice as any).interestRate)
+        : 0,
+      interestAmount: (data?.invoice as any)?.interestAmount
+        ? Number((data?.invoice as any).interestAmount)
+        : 0,
+      payRemainingImmediately:
+        (data?.invoice as any)?.payRemainingImmediately || false,
     },
   });
 
@@ -521,7 +555,7 @@ export default function InvoiceForm({
     }
     globalDiscountMoney = Math.min(
       globalDiscountMoney,
-      subtotalAfterItemDiscounts
+      subtotalAfterItemDiscounts,
     );
 
     // 3. Tax
@@ -541,7 +575,7 @@ export default function InvoiceForm({
     const finalSubtotal = subtotalAfterItemDiscounts - globalDiscountMoney; // Taxable Amount
     const totalAmount = finalSubtotal + totalTax;
 
-    // 5. Deposit
+    // 5. Deposit and Interest Calculation
     let calculatedDeposit = 0;
     if (depositRequired) {
       if (depositType === "PERCENTAGE") {
@@ -552,7 +586,44 @@ export default function InvoiceForm({
       calculatedDeposit = Math.min(calculatedDeposit, totalAmount);
     }
 
-    const amountDue = totalAmount - calculatedDeposit;
+    // Pass 6: Interest Calculation
+    // Initialize with current form value to prevent flickering while settings load
+    let calculatedInterest = safeFloat(form.getValues("interestAmount"));
+    let selectedInterestRate = safeFloat(form.watch("interestRate")) || 0;
+
+    if (
+      depositRequired &&
+      selectedInstallmentPeriod &&
+      depositScheduleSettings?.depositPaymentEnabled
+    ) {
+      // Scheduled deposit mode: auto-calculate interest on remaining balance
+      const remaining = totalAmount - calculatedDeposit;
+      calculatedInterest = remaining * (selectedInterestRate / 100);
+
+      // Persist values
+      form.setValue("installmentPeriod", selectedInstallmentPeriod);
+      form.setValue("interestAmount", calculatedInterest);
+    } else if (depositScheduleSettings !== undefined) {
+      // Manual mode or schedule disabled: clear installment period
+      form.setValue("installmentPeriod", null);
+
+      if (depositRequired && selectedInterestRate > 0) {
+        // Manual interest: apply rate to remaining balance after deposit
+        const remaining = totalAmount - calculatedDeposit;
+        calculatedInterest = remaining * (selectedInterestRate / 100);
+        form.setValue("interestAmount", calculatedInterest);
+      } else {
+        // No deposit or no interest rate — clear interest
+        calculatedInterest = 0;
+        if (!selectedInterestRate) {
+          form.setValue("interestRate", 0);
+        }
+        form.setValue("interestAmount", 0);
+      }
+    }
+
+    const finalTotalAmount = totalAmount + calculatedInterest;
+    const amountDue = finalTotalAmount - calculatedDeposit;
 
     setCalculations({
       subtotal: subtotalGross,
@@ -560,11 +631,60 @@ export default function InvoiceForm({
       taxableAmount: finalSubtotal,
       discountAmount: globalDiscountMoney + totalItemDiscountMoney,
       depositAmount: calculatedDeposit,
-      totalAmount,
+      interestAmount: calculatedInterest,
+      interestRate: selectedInterestRate,
+      totalAmount: finalTotalAmount,
       amountDue,
       itemDiscounts: itemData.map((i) => i.itemDiscountMoney),
     });
-  }, [form]);
+  }, [form, selectedInstallmentPeriod, depositScheduleSettings]);
+
+  const updateDueDateByPeriod = (period: string) => {
+    const issueDate = form.getValues("issueDate") || new Date();
+    let newDate = new Date(issueDate);
+
+    switch (period) {
+      case "30days":
+        newDate = addDays(issueDate, 30);
+        break;
+      case "1to3months":
+        newDate = addMonths(issueDate, 3);
+        break;
+      case "3to6months":
+        newDate = addMonths(issueDate, 6);
+        break;
+      case "6to9months":
+        newDate = addMonths(issueDate, 9);
+        break;
+      case "9to12months":
+        newDate = addMonths(issueDate, 12);
+        break;
+    }
+
+    form.setValue("dueDate", newDate);
+  };
+
+  const handleDepositChange = (
+    required: boolean,
+    type: "AMOUNT" | "PERCENTAGE",
+    amount: number,
+  ) => {
+    form.setValue("depositRequired", required);
+    form.setValue("depositType", type);
+    if (amount !== undefined) {
+      form.setValue("depositAmount", amount);
+    }
+    calculateTotals();
+  };
+
+  const handleDiscountChange = (
+    type: "AMOUNT" | "PERCENTAGE",
+    amount: number,
+  ) => {
+    form.setValue("discountType", type);
+    form.setValue("discountAmount", amount);
+    calculateTotals();
+  };
 
   useEffect(() => {
     calculateTotals();
@@ -575,6 +695,8 @@ export default function InvoiceForm({
     form.watch("depositRequired"),
     form.watch("depositType"),
     form.watch("depositAmount"),
+    form.watch("interestRate"),
+    selectedInstallmentPeriod,
   ]);
 
   // --- DATA FETCHING ---
@@ -644,6 +766,21 @@ export default function InvoiceForm({
       if (type === "create" && data) {
         form.setValue("paymentTerms", data.paymentTerms || "");
         form.setValue("notes", data.note || "");
+        if (data.depositPaymentEnabled) {
+          form.setValue("depositType", "PERCENTAGE");
+          form.setValue("depositAmount", data.depositPercentage ?? 60);
+        }
+      }
+      if (data) {
+        setDepositScheduleSettings({
+          depositPaymentEnabled: data.depositPaymentEnabled ?? false,
+          depositPercentage: data.depositPercentage ?? 60,
+          interest30Days: data.interest30Days ?? 18,
+          interest1To3Months: data.interest1To3Months ?? 40,
+          interest3To6Months: data.interest3To6Months ?? 45,
+          interest6To9Months: data.interest6To9Months ?? 60,
+          interest9To12Months: data.interest9To12Months ?? 70,
+        });
       }
     } catch (error) {
       console.error("Failed to fetch settings", error);
@@ -736,7 +873,7 @@ export default function InvoiceForm({
     if (items.length > 1) {
       form.setValue(
         "items",
-        items.filter((_, i) => i !== index)
+        items.filter((_, i) => i !== index),
       );
 
       // Remove search input key and re-index the remaining items
@@ -772,7 +909,7 @@ export default function InvoiceForm({
   const getNextInvoiceDate = (
     startDate: Date,
     frequency: RecurringFrequency,
-    interval: number
+    interval: number,
   ): Date => {
     const date = new Date(startDate);
     switch (frequency) {
@@ -797,7 +934,7 @@ export default function InvoiceForm({
 
   const getFrequencyLabel = (
     frequency: RecurringFrequency,
-    interval: number
+    interval: number,
   ): string => {
     const intervalText = interval > 1 ? `${interval} ` : "";
     switch (frequency) {
@@ -875,6 +1012,9 @@ export default function InvoiceForm({
           depositType: values.depositType,
           depositAmount: values.depositAmount,
           paymentTerms: values.paymentTerms,
+          installmentPeriod: values.installmentPeriod,
+          interestRate: values.interestRate,
+          interestAmount: values.interestAmount,
           notes: values.notes,
         };
         response = await axios.post("/api/invoices/recurring", recurringData);
@@ -898,9 +1038,15 @@ export default function InvoiceForm({
         } else if (type === "update") {
           response = await axios.put(
             `/api/invoices/${data.invoice.id}`,
-            invoiceData
+            invoiceData,
           );
           toast.success("Invoice updated successfully");
+
+          if (values.isRecurring && !(data.invoice as any).invoiceNumber) {
+            router.push(`/dashboard/invoices/recurring/${data.invoice.id}`);
+          } else {
+            router.push(`/dashboard/invoices/${data.invoice.id}`);
+          }
 
           router.refresh();
           onSubmitSuccess();
@@ -909,12 +1055,12 @@ export default function InvoiceForm({
           // For credit note
           response = await axios.post(
             `/api/invoices/${data.invoice.id}/credit-note`,
-            invoiceData
+            invoiceData,
           );
 
           if (response?.data?.creditNote?.id) {
             router.push(
-              `/dashboard/invoice-documents/${response.data.creditNote.id}`
+              `/dashboard/invoice-documents/${response.data.creditNote.id}`,
             );
             toast.success("Credit Note Created successfully");
           }
@@ -938,7 +1084,7 @@ export default function InvoiceForm({
       ? getNextInvoiceDate(
           watchedIssueDate,
           watchedFrequency,
-          watchedInterval || 1
+          watchedInterval || 1,
         )
       : null;
 
@@ -1084,7 +1230,7 @@ export default function InvoiceForm({
                           variant={"outline"}
                           className={cn(
                             "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
+                            !field.value && "text-muted-foreground",
                           )}
                         >
                           {field.value ? (
@@ -1123,7 +1269,7 @@ export default function InvoiceForm({
                           variant={"outline"}
                           className={cn(
                             "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
+                            !field.value && "text-muted-foreground",
                           )}
                         >
                           {field.value ? (
@@ -1255,7 +1401,7 @@ export default function InvoiceForm({
                             variant={"outline"}
                             className={cn(
                               "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
+                              !field.value && "text-muted-foreground",
                             )}
                           >
                             {field.value ? (
@@ -1376,7 +1522,7 @@ export default function InvoiceForm({
                         const value = e.target.value;
                         handleUnitPriceChange(
                           index,
-                          value === "" ? undefined : Number(value)
+                          value === "" ? 0 : Number(value),
                         );
                       }}
                     />
@@ -1410,7 +1556,7 @@ export default function InvoiceForm({
                       onChange={(e) => {
                         form.setValue(
                           `items.${index}.itemDiscountAmount`,
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         );
                         calculateTotals();
                       }}
@@ -1475,199 +1621,539 @@ export default function InvoiceForm({
         </div>
 
         {/* Global Financials */}
-        <div
-          className={cn(
-            "grid grid-cols-1 gap-6",
-            isRecurring
-              ? "lg:grid-cols-2"
-              : type === "creditNote"
-                ? "lg:grid-cols-1"
-                : "lg:grid-cols-3"
-          )}
-        >
-          {type !== "creditNote" && (
-            <div className="bg-card border rounded-lg p-6">
-              <h4 className="font-semibold mb-4">Discount</h4>
-              <div className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="discountType"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type</FormLabel>
-                      <Select
-                        onValueChange={(val) => {
-                          field.onChange(val);
-                          calculateTotals();
-                        }}
-                        value={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="AMOUNT">Fixed</SelectItem>
-                          <SelectItem value="PERCENTAGE">%</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </FormItem>
-                  )}
-                />
-                {form.watch("discountType") && (
-                  <FormField
-                    control={form.control}
-                    name="discountAmount"
-                    render={({ field }) => (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Global Discount Section */}
+          <div className="bg-card border rounded-lg p-6">
+            <h4 className="font-semibold mb-4">Global Discount</h4>
+            <div className="space-y-4">
+              <FormItem>
+                <FormLabel>Discount Type</FormLabel>
+                <Select
+                  value={form.watch("discountType") || ""}
+                  onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                    handleDiscountChange(
+                      value,
+                      form.getValues("discountAmount") || 0,
+                    );
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select discount type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AMOUNT">Fixed Amount</SelectItem>
+                    <SelectItem value="PERCENTAGE">Percentage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </FormItem>
+
+              {form.watch("discountType") && (
+                <FormItem>
+                  <FormLabel>
+                    Discount Amount{" "}
+                    {form.watch("discountType") === "PERCENTAGE" ? "(%)" : ""}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      step={
+                        form.watch("discountType") === "PERCENTAGE"
+                          ? "0.1"
+                          : "1.00"
+                      }
+                      placeholder={
+                        form.watch("discountType") === "PERCENTAGE"
+                          ? "0.00%"
+                          : "0.00"
+                      }
+                      value={form.watch("discountAmount") || ""}
+                      onChange={(e) => {
+                        const input = e.target.value;
+                        if (input === "") {
+                          handleDiscountChange(
+                            form.getValues("discountType")!,
+                            0,
+                          );
+                          return;
+                        }
+                        let value = parseFloat(input);
+                        if (isNaN(value)) {
+                          handleDiscountChange(
+                            form.getValues("discountType")!,
+                            0,
+                          );
+                          return;
+                        }
+                        if (
+                          form.watch("discountType") === "PERCENTAGE" &&
+                          value > 100
+                        ) {
+                          value = 100;
+                        }
+                        handleDiscountChange(
+                          form.getValues("discountType")!,
+                          value,
+                        );
+                      }}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            </div>
+          </div>
+
+          {/* Deposit Section */}
+          <div className="bg-card border rounded-lg p-6">
+            <h4 className="font-semibold mb-4 flex items-center gap-2">
+              <BadgePercent className="h-4 w-4" />
+              Deposit
+            </h4>
+            <div className="space-y-4">
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base">Require Deposit</FormLabel>
+                  <div className="text-sm text-muted-foreground">
+                    Request a deposit payment from the client
+                  </div>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={form.watch("depositRequired")}
+                    onCheckedChange={(checked) => {
+                      handleDepositChange(
+                        checked,
+                        form.getValues("depositType") || "PERCENTAGE",
+                        form.getValues("depositAmount") || 50,
+                      );
+                      if (!checked) setSelectedInstallmentPeriod("");
+                    }}
+                  />
+                </FormControl>
+              </FormItem>
+
+              {form.watch("depositRequired") && (
+                <>
+                  {/* If deposit schedule is enabled show installment selector, otherwise manual */}
+                  {depositScheduleSettings?.depositPaymentEnabled ? (
+                    <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <BadgePercent className="h-4 w-4 text-primary" />
+                        Deposit Payment Schedule
+                      </div>
+
+                      {/* Deposit % and Pay Immediately Switch */}
+                      <div className="space-y-3">
+                        <FormItem>
+                          <FormLabel className="text-xs">Deposit (%)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={form.watch("depositAmount") || ""}
+                              onChange={(e) => {
+                                handleDepositChange(
+                                  true,
+                                  "PERCENTAGE",
+                                  parseFloat(e.target.value) || 0,
+                                );
+                              }}
+                            />
+                          </FormControl>
+                        </FormItem>
+
+                        <FormItem className="flex flex-row items-center justify-between rounded-md border p-2 bg-background/50">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-xs font-medium">
+                              Immediately after work done
+                            </FormLabel>
+                            <div className="text-[10px] text-muted-foreground leading-tight">
+                              Remaining balance due upon completion
+                            </div>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={form.watch("payRemainingImmediately")}
+                              onCheckedChange={(checked) => {
+                                form.setValue(
+                                  "payRemainingImmediately",
+                                  checked,
+                                );
+                                if (checked) {
+                                  setSelectedInstallmentPeriod("");
+                                  form.setValue("interestRate", 0);
+                                }
+                                calculateTotals();
+                              }}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      </div>
+
+                      {/* Payment Plan & Interest Section (Hidden if Pay Immediately is ON) */}
+                      {!form.watch("payRemainingImmediately") && (
+                        <div className="space-y-4 pt-2 border-t border-dashed">
+                          {/* Installment period selector */}
+                          <div className="space-y-2">
+                            <FormLabel className="text-xs">
+                              Balance Repayment Term
+                            </FormLabel>
+                            <Select
+                              value={selectedInstallmentPeriod}
+                              onValueChange={(val) => {
+                                setSelectedInstallmentPeriod(val);
+                                // Sync deposit % and interest % into form from settings when period is selected
+                                const interestRateMap: Record<string, number> =
+                                  {
+                                    "30days":
+                                      depositScheduleSettings.interest30Days,
+                                    "1to3months":
+                                      depositScheduleSettings.interest1To3Months,
+                                    "3to6months":
+                                      depositScheduleSettings.interest3To6Months,
+                                    "6to9months":
+                                      depositScheduleSettings.interest6To9Months,
+                                    "9to12months":
+                                      depositScheduleSettings.interest9To12Months,
+                                  };
+                                form.setValue("depositType", "PERCENTAGE");
+                                form.setValue(
+                                  "depositAmount",
+                                  depositScheduleSettings!.depositPercentage,
+                                );
+                                form.setValue(
+                                  "interestRate",
+                                  interestRateMap[val] || 0,
+                                );
+                                updateDueDateByPeriod(val);
+                                calculateTotals();
+                              }}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Select payment period..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="30days">
+                                  30 Days —{" "}
+                                  {depositScheduleSettings.interest30Days}%
+                                  interest
+                                </SelectItem>
+                                <SelectItem value="1to3months">
+                                  1–3 Months —{" "}
+                                  {depositScheduleSettings.interest1To3Months}%
+                                  interest
+                                </SelectItem>
+                                <SelectItem value="3to6months">
+                                  3–6 Months —{" "}
+                                  {depositScheduleSettings.interest3To6Months}%
+                                  interest
+                                </SelectItem>
+                                <SelectItem value="6to9months">
+                                  6–9 Months —{" "}
+                                  {depositScheduleSettings.interest6To9Months}%
+                                  interest
+                                </SelectItem>
+                                <SelectItem value="9to12months">
+                                  9–12 Months —{" "}
+                                  {depositScheduleSettings.interest9To12Months}%
+                                  interest
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Interest Rate - Moved under payment period */}
+                          <FormItem>
+                            <FormLabel className="text-xs">
+                              Interest Rate (%)
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                className="h-8"
+                                value={form.watch("interestRate") || ""}
+                                onChange={(e) => {
+                                  form.setValue(
+                                    "interestRate",
+                                    parseFloat(e.target.value) || 0,
+                                  );
+                                  calculateTotals();
+                                }}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        </div>
+                      )}
+
+                      {/* Installment breakdown */}
+                      {selectedInstallmentPeriod &&
+                        (() => {
+                          const totalWithoutInterest =
+                            calculations.totalAmount -
+                            calculations.interestAmount;
+                          const depositAmt = calculations.depositAmount;
+                          const remaining = totalWithoutInterest - depositAmt;
+                          const interestAmt = calculations.interestAmount;
+                          const totalRemaining = remaining + interestAmt;
+
+                          return (
+                            <div className="rounded-md bg-background border p-4 space-y-2 text-sm">
+                              <p className="font-medium text-base mb-3">
+                                Payment Breakdown
+                              </p>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">
+                                  Total Invoice Amount:
+                                </span>
+                                <span className="font-medium">
+                                  {formatCurrency(totalWithoutInterest)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-green-700">
+                                <span>
+                                  Deposit ({form.watch("depositAmount")}%):
+                                </span>
+                                <span className="font-semibold">
+                                  {formatCurrency(depositAmt)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-muted-foreground">
+                                  Remaining Balance:
+                                </span>
+                                <span className="font-medium">
+                                  {formatCurrency(remaining)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-orange-600">
+                                <span>
+                                  Interest ({calculations.interestRate}%):
+                                </span>
+                                <span className="font-semibold">
+                                  + {formatCurrency(interestAmt)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between border-t pt-2 font-semibold text-base">
+                                <span>Total Remaining Payable:</span>
+                                <span className="text-primary">
+                                  {formatCurrency(totalRemaining)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                    </div>
+                  ) : (
+                    /* Manual deposit entry */
+                    <>
                       <FormItem>
-                        <FormLabel>Amount</FormLabel>
+                        <FormLabel>Deposit Type</FormLabel>
+                        <Select
+                          value={form.watch("depositType") || ""}
+                          onValueChange={(value: "AMOUNT" | "PERCENTAGE") => {
+                            handleDepositChange(
+                              true,
+                              value,
+                              form.getValues("depositAmount") || 50,
+                            );
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select deposit type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="AMOUNT">Fixed Amount</SelectItem>
+                            <SelectItem value="PERCENTAGE">
+                              Percentage
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+
+                      <FormItem>
+                        <FormLabel className="text-xs">
+                          Deposit Amount{" "}
+                          {form.watch("depositType") === "PERCENTAGE"
+                            ? "(%)"
+                            : ""}
+                        </FormLabel>
                         <FormControl>
                           <Input
                             type="number"
                             min="0"
-                            {...field}
+                            step={
+                              form.watch("depositType") === "PERCENTAGE"
+                                ? "1"
+                                : "0.01"
+                            }
+                            className="h-9 text-sm"
+                            placeholder={
+                              form.watch("depositType") === "PERCENTAGE"
+                                ? "50"
+                                : "0.00"
+                            }
+                            value={form.watch("depositAmount") || ""}
                             onChange={(e) => {
-                              field.onChange(parseFloat(e.target.value));
+                              const input = e.target.value;
+                              if (input === "") {
+                                handleDepositChange(
+                                  true,
+                                  form.getValues("depositType") || "PERCENTAGE",
+                                  0,
+                                );
+                                return;
+                              }
+                              let value = parseFloat(input);
+                              if (isNaN(value)) {
+                                handleDepositChange(
+                                  true,
+                                  form.getValues("depositType") || "PERCENTAGE",
+                                  0,
+                                );
+                                return;
+                              }
+                              if (
+                                form.watch("depositType") === "PERCENTAGE" &&
+                                value > 100
+                              ) {
+                                value = 100;
+                              }
+                              handleDepositChange(
+                                true,
+                                form.getValues("depositType") || "PERCENTAGE",
+                                value,
+                              );
+                            }}
+                          />
+                        </FormControl>
+                      </FormItem>
+
+                      <FormItem className="flex flex-row items-center justify-between rounded-md border p-2 bg-background/50">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-xs font-medium">
+                            Immediately after work done
+                          </FormLabel>
+                          <div className="text-[10px] text-muted-foreground leading-tight">
+                            Remaining balance due upon completion
+                          </div>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={form.watch("payRemainingImmediately")}
+                            onCheckedChange={(checked) => {
+                              form.setValue("payRemainingImmediately", checked);
+                              if (checked) {
+                                form.setValue("interestRate", 0);
+                              }
                               calculateTotals();
                             }}
                           />
                         </FormControl>
                       </FormItem>
-                    )}
-                  />
-                )}
-              </div>
-            </div>
-          )}
 
-          {!isRecurring && type !== "creditNote" && (
-            <div className="bg-card border rounded-lg p-6">
-              <h4 className="font-semibold mb-4">Deposit</h4>
-              <div className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="depositRequired"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                      <div className="space-y-0.5">
-                        <FormLabel>Require Deposit</FormLabel>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={(val) => {
-                            field.onChange(val);
-                            calculateTotals();
-                          }}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                {form.watch("depositRequired") && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="depositType"
-                      render={({ field }) => (
+                      {!form.watch("payRemainingImmediately") && (
                         <FormItem>
-                          <FormLabel>Type</FormLabel>
-                          <Select
-                            onValueChange={(val) => {
-                              field.onChange(val);
-                              calculateTotals();
-                            }}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="AMOUNT">Fixed</SelectItem>
-                              <SelectItem value="PERCENTAGE">%</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="depositAmount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Amount</FormLabel>
+                          <FormLabel className="text-xs">
+                            Interest Rate (%)
+                          </FormLabel>
                           <FormControl>
                             <Input
                               type="number"
                               min="0"
-                              {...field}
+                              step="0.01"
+                              placeholder="0"
+                              className="h-8"
+                              value={form.watch("interestRate") || ""}
                               onChange={(e) => {
-                                field.onChange(parseFloat(e.target.value));
+                                form.setValue(
+                                  "interestRate",
+                                  parseFloat(e.target.value) || 0,
+                                );
                                 calculateTotals();
                               }}
                             />
                           </FormControl>
                         </FormItem>
                       )}
-                    />
-                  </>
-                )}
-              </div>
+                    </>
+                  )}
+                </>
+              )}
             </div>
-          )}
+          </div>
 
+          {/* Calculation Summary */}
           <div className="bg-card border rounded-lg p-6">
             <h4 className="font-semibold mb-4 flex items-center gap-2">
-              <Calculator className="h-4 w-4" /> Summary
+              <Calculator className="h-4 w-4" />
+              Calculation Summary
             </h4>
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span>Subtotal:</span>
+                <span>Subtotal (Gross):</span>
                 <span className="font-medium">
                   {formatCurrency(calculations.subtotal)}
                 </span>
               </div>
-              {calculations.discountAmount > 0 && type !== "creditNote" && (
+
+              {calculations.discountAmount > 0 && (
                 <div className="flex justify-between text-sm text-red-600">
-                  <span>Discount:</span>
-                  <span>-{formatCurrency(calculations.discountAmount)}</span>
+                  <span>Total Discount:</span>
+                  <span className="font-medium">
+                    - {formatCurrency(calculations.discountAmount)}
+                  </span>
                 </div>
               )}
-              {type !== "creditNote" && (
-                <>
-                  <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>Taxable:</span>
-                    <span>{formatCurrency(calculations.taxableAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Tax:</span>
-                    <span className="font-medium">
-                      {formatCurrency(calculations.totalTax)}
-                    </span>
-                  </div>
-                </>
+
+              {/* Added Taxable Amount Display */}
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Taxable Amount:</span>
+                <span className="font-medium">
+                  {formatCurrency(calculations.taxableAmount)}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-sm">
+                <span>Tax:</span>
+                <span className="font-medium">
+                  {formatCurrency(calculations.totalTax)}
+                </span>
+              </div>
+
+              {calculations.interestAmount > 0 && (
+                <div className="flex justify-between text-sm text-orange-600">
+                  <span>Interest ({calculations.interestRate}%):</span>
+                  <span className="font-medium">
+                    + {formatCurrency(calculations.interestAmount)}
+                  </span>
+                </div>
               )}
 
               <div className="flex justify-between border-t pt-3 text-base font-semibold">
-                <span>Total:</span>
+                <span>Total Amount:</span>
                 <span className="text-primary">
                   {formatCurrency(calculations.totalAmount)}
                 </span>
               </div>
 
               {form.watch("depositRequired") &&
-                calculations.depositAmount > 0 &&
-                type !== "creditNote" && (
+                calculations.depositAmount > 0 && (
                   <>
                     <div className="flex justify-between text-sm text-green-600 border-t pt-3">
                       <span>Deposit:</span>
-                      <span>{formatCurrency(calculations.depositAmount)}</span>
+                      <span className="font-medium">
+                        {formatCurrency(calculations.depositAmount)}
+                        {form.watch("depositType") === "PERCENTAGE" &&
+                          ` (${form.getValues("depositAmount")}%)`}
+                      </span>
                     </div>
                     <div className="flex justify-between text-base font-semibold border-t pt-3">
-                      <span>Due:</span>
+                      <span>Amount Due:</span>
                       <span className="text-blue-600">
                         {formatCurrency(calculations.amountDue)}
                       </span>

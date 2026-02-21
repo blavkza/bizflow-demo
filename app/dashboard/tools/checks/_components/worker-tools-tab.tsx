@@ -2,7 +2,14 @@
 
 import { useState, useMemo } from "react";
 import Image from "next/image";
-import { Search, User, Wrench, AlertTriangle, Calendar } from "lucide-react";
+import {
+  Search,
+  User,
+  Wrench,
+  AlertTriangle,
+  Calendar,
+  CheckCircle2,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -28,7 +35,7 @@ export function WorkerToolsTab({
 }: WorkerToolsTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [workerTypeFilter, setWorkerTypeFilter] = useState<
-    "all" | "employee" | "freelancer" | "trainer"
+    "all" | "employee" | "freelancer" | "trainee"
   >("all");
 
   const workerGroups = useMemo(() => {
@@ -37,13 +44,13 @@ export function WorkerToolsTab({
         const workerId =
           tool.employeeId ||
           tool.freelancerId ||
-          tool.trainerId ||
+          tool.traineeId ||
           "unassigned";
         const workerType = tool.employeeId
           ? "employee"
           : tool.freelancerId
             ? "freelancer"
-            : "trainer";
+            : "trainee";
 
         if (!acc[workerId]) {
           acc[workerId] = {
@@ -131,11 +138,11 @@ export function WorkerToolsTab({
             Freelancers
           </Button>
           <Button
-            variant={workerTypeFilter === "trainer" ? "default" : "outline"}
+            variant={workerTypeFilter === "trainee" ? "default" : "outline"}
             size="sm"
-            onClick={() => setWorkerTypeFilter("trainer")}
+            onClick={() => setWorkerTypeFilter("trainee")}
           >
-            Trainers
+            Trainees
           </Button>
         </div>
       </div>
@@ -201,11 +208,15 @@ export function WorkerToolsTab({
                   {group.tools.map((tool) => (
                     <div
                       key={tool.id}
-                      onClick={() => onCheckTool(tool)}
-                      className={`relative p-2 border rounded cursor-pointer transition-all hover:shadow-md hover:scale-105 ${
+                      onClick={() => {
+                        if (tool.needsCheck) {
+                          onCheckTool(tool);
+                        }
+                      }}
+                      className={`relative p-2 border rounded transition-all ${
                         tool.needsCheck
-                          ? "border-orange-500 bg-orange-50"
-                          : "border-border hover:border-primary"
+                          ? "cursor-pointer hover:shadow-md hover:scale-105 border-orange-500 bg-orange-50"
+                          : "cursor-not-allowed border-green-200 bg-green-50/30 opacity-80"
                       }`}
                     >
                       {/* Tool Image */}
@@ -238,21 +249,30 @@ export function WorkerToolsTab({
                         </p>
 
                         {/* Last Check */}
-                        {tool.lastCheckDate ? (
-                          <p className="text-[10px] text-muted-foreground">
-                            {tool.daysSinceCheck}d ago
+                        <div className="flex justify-between items-center mt-1">
+                          {tool.lastCheckDate ? (
+                            <p className="text-[10px] text-muted-foreground">
+                              {tool.daysSinceCheck}d ago
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-orange-600 font-medium">
+                              Never
+                            </p>
+                          )}
+                          <p className="text-[10px] font-bold text-blue-600">
+                            R{tool.purchasePrice}
                           </p>
-                        ) : (
-                          <p className="text-[10px] text-orange-600 font-medium">
-                            Never
-                          </p>
-                        )}
+                        </div>
                       </div>
 
                       {/* Check Required Indicator */}
-                      {tool.needsCheck && (
+                      {tool.needsCheck ? (
                         <div className="absolute top-1 right-1">
                           <div className="h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+                        </div>
+                      ) : (
+                        <div className="absolute top-1 right-1">
+                          <CheckCircle2 className="h-3 w-3 text-green-600" />
                         </div>
                       )}
                     </div>

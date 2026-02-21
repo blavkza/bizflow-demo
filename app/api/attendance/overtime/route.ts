@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         where.OR = [
           { employee: { departmentId: user.employee.departmentId } },
           { freeLancer: { departmentId: user.employee.departmentId } },
-          { Trainer: { departmentId: user.employee.departmentId } },
+          { Trainee: { departmentId: user.employee.departmentId } },
         ];
       }
 
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
           freeLancer: {
             include: { department: true },
           },
-          trainer: {
+          trainee: {
             include: { department: true },
           },
         },
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
         where: {
           OR: [
             { employeeId: employeeId, date: date },
-            { trainerId: employeeId, date: date },
+            { traineeId: employeeId, date: date },
           ],
         },
       });
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     const {
       employeeId: inputEmployeeId,
       freelancerId: inputFreelancerId,
-      trainerId: inputTrainerId,
+      traineeId: inputTraineeId,
       startTime,
       hours,
       reason,
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     let employeeId = null;
     let freelancerId = null;
-    let trainerId = null;
+    let traineeId = null;
 
     if (inputEmployeeId) {
       const employee = await db.employee.findFirst({
@@ -156,20 +156,20 @@ export async function POST(request: NextRequest) {
       if (freelancer) {
         freelancerId = freelancer.id;
       }
-    } else if (inputTrainerId) {
-      const trainer = await db.trainer.findFirst({
+    } else if (inputTraineeId) {
+      const trainee = await db.trainee.findFirst({
         where: {
-          OR: [{ id: inputTrainerId }, { trainerNumber: inputTrainerId }],
+          OR: [{ id: inputTraineeId }, { traineeNumber: inputTraineeId }],
         },
       });
-      if (trainer) {
-        trainerId = trainer.id;
+      if (trainee) {
+        traineeId = trainee.id;
       }
     }
 
-    if (!employeeId && !freelancerId && !trainerId) {
+    if (!employeeId && !freelancerId && !traineeId) {
       return NextResponse.json(
-        { error: "Employee, Freelancer or Trainer not found" },
+        { error: "Employee, Freelancer or Trainee not found" },
         { status: 404 },
       );
     }
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
         OR: [
           ...(employeeId ? [{ employeeId, date }] : []),
           ...(freelancerId ? [{ freeLancerId: freelancerId, date }] : []),
-          ...(trainerId ? [{ trainerId, date }] : []),
+          ...(traineeId ? [{ traineeId, date }] : []),
         ],
       },
     });
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
         data: {
           employeeId,
           freeLancerId: freelancerId,
-          trainerId: trainerId,
+          traineeId: traineeId,
           date: date,
           startTime: startTime ? new Date(startTime) : new Date(),
           duration: hours ? parseFloat(hours) : null,
@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
               ? { employeeId }
               : freelancerId
                 ? { freeLancerId: freelancerId }
-                : { trainerId },
+                : { traineeId },
           ],
         },
       });
@@ -259,7 +259,7 @@ export async function PATCH(request: NextRequest) {
       include: {
         employee: true,
         freeLancer: true,
-        trainer: true,
+        trainee: true,
       },
     });
 
@@ -269,7 +269,7 @@ export async function PATCH(request: NextRequest) {
         where: {
           employeeId: updated.employeeId || undefined,
           freeLancerId: updated.freeLancerId || undefined,
-          trainerId: updated.trainerId || undefined,
+          traineeId: updated.traineeId || undefined,
           date: updated.date,
         },
       });
@@ -291,3 +291,4 @@ export async function PATCH(request: NextRequest) {
     );
   }
 }
+

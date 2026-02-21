@@ -29,8 +29,8 @@ export function SummaryCards({ attendanceRecords }: SummaryCardsProps) {
   const totalEmployees = attendanceRecords.filter(
     (record) => record.employeeId,
   ).length;
-  const totalTrainers = attendanceRecords.filter(
-    (record) => record.freeLancerId || record.trainerId,
+  const totalTrainees = attendanceRecords.filter(
+    (record) => record.freeLancerId || record.traineeId,
   ).length;
   const totalPersons = attendanceRecords.length;
 
@@ -88,11 +88,11 @@ export function SummaryCards({ attendanceRecords }: SummaryCardsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Trainers</CardTitle>
+          <CardTitle className="text-sm font-medium">Trainees</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">{totalTrainers}</div>
-          <p className="text-xs text-muted-foreground">Active trainers</p>
+          <div className="text-2xl font-bold">{totalTrainees}</div>
+          <p className="text-xs text-muted-foreground">Active trainees</p>
         </CardContent>
       </Card>
 
@@ -164,3 +164,4 @@ export function SummaryCards({ attendanceRecords }: SummaryCardsProps) {
     </div>
   );
 }
+

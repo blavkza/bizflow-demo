@@ -85,6 +85,8 @@ export async function POST(req: Request) {
           newToolData.employeeId = workerId;
         } else if (workerType === "FREELANCER") {
           newToolData.freelancerId = workerId;
+        } else if (workerType === "TRAINEE") {
+          newToolData.traineeId = workerId;
         }
 
         const newTool = await tx.tool.create({
@@ -160,6 +162,21 @@ export async function POST(req: Request) {
             type: "TOOLS",
             priority: "MEDIUM",
             channels: ["IN_APP", "PUSH"],
+            isRead: false,
+            actionUrl: actionUrl,
+          },
+        });
+      } else if (tool.traineeId) {
+        // Trainee Notification
+        // In-App Notification only for now as no push function for trainees
+        await db.employeeNotification.create({
+          data: {
+            traineeId: tool.traineeId,
+            title: title,
+            message: message,
+            type: "TOOLS",
+            priority: "MEDIUM",
+            channels: ["IN_APP"],
             isRead: false,
             actionUrl: actionUrl,
           },

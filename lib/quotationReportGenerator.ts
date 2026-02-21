@@ -93,7 +93,7 @@ export class QuotationReportGenerator {
     companyInfo?: CompanyInfo | null,
     optionsOrCombineServices:
       | boolean
-      | { combineServices?: boolean; hideItemPrices?: boolean } = true
+      | { combineServices?: boolean; hideItemPrices?: boolean } = true,
   ): string {
     let combineServices = true;
     let hideItemPrices = false;
@@ -115,7 +115,7 @@ export class QuotationReportGenerator {
     // --- DATA PREPARATION ---
     const issueDate = new Date(quotation.issueDate).toLocaleDateString("en-GB");
     const validUntil = new Date(quotation.validUntil).toLocaleDateString(
-      "en-GB"
+      "en-GB",
     );
 
     const cName = companyInfo?.companyName || "NECS ENGINEERS";
@@ -297,7 +297,13 @@ export class QuotationReportGenerator {
     const finalSubtotalExVat = subtotalNet - globalDiscVal;
     const vatRatio = subtotalNet > 0 ? finalSubtotalExVat / subtotalNet : 1;
     const finalVat = totalVat * vatRatio;
-    const finalTotal = finalSubtotalExVat + finalVat;
+
+    // Total BEFORE interest
+    const totalBeforeInterest = finalSubtotalExVat + finalVat;
+
+    // Grand Total INCLUDING interest
+    const interestAmount = this.decimalToNumber(quotation.interestAmount);
+    const finalTotal = totalBeforeInterest + interestAmount;
 
     const totalDiscountDisplay = totalDiscountMoney + globalDiscVal;
 
@@ -336,7 +342,7 @@ export class QuotationReportGenerator {
 
     // Helper function to render details in individual items (non-combined view)
     const renderDetailsForIndividualItem = (
-      details: string | null | undefined
+      details: string | null | undefined,
     ): string => {
       if (!details) return "";
 
@@ -438,7 +444,7 @@ export class QuotationReportGenerator {
           }</td>
           <td class="col-vat">${this.formatMoney(combinedServiceData.vat)}</td>
           <td class="col-total"><strong>${this.formatMoney(
-            combinedServiceData.total
+            combinedServiceData.total,
           )}</strong></td>
           `
               : ""
@@ -720,30 +726,55 @@ export class QuotationReportGenerator {
                 totalDiscountDisplay > 0
                   ? `
               <tr>
-                <td class="label-cell">DISCOUNT:</td>
-                <td class="text-right">R${this.formatMoney(
-                  totalDiscountDisplay
-                )}</td>
+                <td class="label-cell">TOTAL DISCOUNT:</td>
+                <td class="text-right">R${this.formatMoney(totalDiscountDisplay)}</td>
               </tr>`
                   : ""
               }
               
               <tr>
-                <td class="label-cell">SUBTOTAL:</td>
-                <td class="text-right">R${this.formatMoney(subtotalNet)}</td>
+                <td class="label-cell">SUBTOTAL (NET):</td>
+                <td class="text-right">R${this.formatMoney(finalSubtotalExVat)}</td>
               </tr>
               
               <tr>
                 <td class="label-cell">VAT 15%:</td>
                 <td class="text-right">R${this.formatMoney(finalVat)}</td>
               </tr>
+
+              ${
+                interestAmount > 0
+                  ? `
+              <tr>
+                <td class="label-cell" style="color: #ea580c">INTEREST (${quotation.interestRate}%):</td>
+                <td class="text-right" style="color: #ea580c">+ R${this.formatMoney(interestAmount)}</td>
+              </tr>
+              <tr>
+                <td class="label-cell" style="color: #666; font-size: 9px;">TERM:</td>
+                <td class="text-right" style="color: #666; font-size: 9px;">${
+                  quotation.installmentPeriod === "30days"
+                    ? "30 Days"
+                    : quotation.installmentPeriod === "1to3months"
+                      ? "1-3 Months"
+                      : quotation.installmentPeriod === "3to6months"
+                        ? "3-6 Months"
+                        : quotation.installmentPeriod === "6to9months"
+                          ? "6-9 Months"
+                          : quotation.installmentPeriod === "9to12months"
+                            ? "9-12 Months"
+                            : quotation.installmentPeriod || ""
+                }</td>
+              </tr>`
+                  : ""
+              }
               
-              <tr style="border-top: 2px solid ${headerGreenText}; color: ${headerGreenText};">
-                <td class="label-cell" style="font-size: 12px;">TOTAL (ZAR):</td>
+               <tr style="border-top: 2px solid ${headerGreenText}; color: ${headerGreenText};">
+                <td class="label-cell" style="font-size: 12px;">GRAND TOTAL (ZAR):</td>
                 <td class="text-right" style="font-size: 12px;">R${this.formatMoney(
-                  finalTotal
+                  finalTotal,
                 )}</td>
               </tr>
+
 
               ${
                 quotation.depositRequired
@@ -751,8 +782,14 @@ export class QuotationReportGenerator {
               <tr>
                 <td class="label-cell" style="color: ${colorRed}">DEPOSIT REQ:</td>
                 <td class="text-right" style="color: ${colorRed}">R${this.formatMoney(
-                      this.decimalToNumber(quotation.depositAmount)
-                    )}</td>
+                  this.decimalToNumber(quotation.depositAmount),
+                )}</td>
+              </tr>
+              <tr style="border-top: 1px solid #ddd;">
+                <td class="label-cell">BALANCE DUE:</td>
+                <td class="text-right">R${this.formatMoney(
+                  finalTotal - this.decimalToNumber(quotation.depositAmount),
+                )}</td>
               </tr>`
                   : ""
               }

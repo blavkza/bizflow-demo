@@ -63,8 +63,8 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
   const totalFreelancers = attendanceRecords.filter(
     (record) => record.freeLancerId,
   ).length;
-  const totalTrainers = attendanceRecords.filter(
-    (record) => record.trainerId,
+  const totalTrainees = attendanceRecords.filter(
+    (record) => record.traineeId,
   ).length;
   const totalPersons = attendanceRecords.length;
 
@@ -164,8 +164,8 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
               <span className="font-semibold">{totalFreelancers}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Trainers</span>
-              <span className="font-semibold">{totalTrainers}</span>
+              <span>Trainees</span>
+              <span className="font-semibold">{totalTrainees}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Attendance Rate</span>
@@ -351,13 +351,13 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-100">
                   <div className="text-xs font-semibold text-orange-600">T</div>
                 </div>
-                <span>Trainers with OT</span>
+                <span>Trainees with OT</span>
               </div>
               <span className="font-semibold">
                 {
                   attendanceRecords.filter(
                     (r) =>
-                      r.trainerId &&
+                      r.traineeId &&
                       safeDecimalToNumber(r.overtimeHours || 0) > 0,
                   ).length
                 }
@@ -431,3 +431,4 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
     </div>
   );
 }
+

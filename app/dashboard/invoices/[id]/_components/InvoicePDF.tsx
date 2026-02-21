@@ -10,13 +10,43 @@ export function InvoicePDF({ invoice, forwardedRef }: InvoicePDFProps) {
   const secondaryColor = "#F3F4F6"; // Gray-100
   const accentColor = "#10B981"; // Emerald-500
 
-  const subtotal = invoice.items.reduce(
-    (sum, item) => sum + Number(item.quantity) * Number(item.unitPrice),
-    0
+  function toNumber(value: any): number {
+    if (value === null || value === undefined) return 0;
+    return Number(value);
+  }
+
+  const subtotalGross = invoice.items.reduce(
+    (sum, item) => sum + toNumber(item.quantity) * toNumber(item.unitPrice),
+    0,
   );
-  const taxAmount = Number(invoice.taxAmount) || 0;
-  const discount = Number(invoice.discountAmount);
-  const total = subtotal + taxAmount - discount;
+
+  const totalItemDiscounts = invoice.items.reduce((sum, item) => {
+    const qty = toNumber(item.quantity);
+    const price = toNumber(item.unitPrice);
+    const base = qty * price;
+    const discVal = toNumber(item.itemDiscountAmount);
+    let itemDisc = 0;
+    if (item.itemDiscountType === "PERCENTAGE") {
+      itemDisc = base * (discVal / 100);
+    } else {
+      itemDisc = discVal;
+    }
+    return sum + itemDisc;
+  }, 0);
+
+  const subtotalAfterItemDiscounts = subtotalGross - totalItemDiscounts;
+
+  let globalDiscountMoney = 0;
+  const globalDiscVal = toNumber(invoice.discountAmount);
+  if (invoice.discountType === "PERCENTAGE") {
+    globalDiscountMoney = subtotalAfterItemDiscounts * (globalDiscVal / 100);
+  } else {
+    globalDiscountMoney = globalDiscVal;
+  }
+
+  const taxAmount = toNumber(invoice.taxAmount);
+  const interestAmount = toNumber(invoice.interestAmount);
+  const total = toNumber(invoice.totalAmount);
 
   return (
     <div
@@ -194,45 +224,90 @@ export function InvoicePDF({ invoice, forwardedRef }: InvoicePDFProps) {
                 className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
               >
                 <td className="p-1 border-t border-gray-200">
-                  {item.description}
+                  <p className="font-medium">{item.description}</p>
+                  {toNumber(item.itemDiscountAmount) > 0 && (
+                    <p className="text-[10px] text-red-500">
+                      Less Discount:{" "}
+                      {item.itemDiscountType === "PERCENTAGE"
+                        ? `${item.itemDiscountAmount}%`
+                        : `R${toNumber(item.itemDiscountAmount).toFixed(2)}`}
+                    </p>
+                  )}
                 </td>
                 <td className="p-1 text-center border-t border-gray-200">
-                  {item.quantity}
+                  {toNumber(item.quantity)}
                 </td>
                 <td className="p-1 text-right border-t border-gray-200">
-                  R{Number(item.unitPrice).toFixed(2)}
+                  R{toNumber(item.unitPrice).toFixed(2)}
                 </td>
                 <td className="p-1 text-right border-t border-gray-200">
-                  R{(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}
+                  R
+                  {(toNumber(item.quantity) * toNumber(item.unitPrice)).toFixed(
+                    2,
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
 
-        {/* Totals - Compact */}
         <div className="flex justify-end">
-          <div className="w-1/3 text-xs">
+          <div className="w-1/2 text-xs">
             <div className="flex justify-between py-1 border-b border-gray-200">
-              <span>Subtotal:</span>
-              <span>R{subtotal.toFixed(2)}</span>
+              <span className="text-gray-600">Subtotal (Gross):</span>
+              <span>R{subtotalGross.toFixed(2)}</span>
+            </div>
+
+            {totalItemDiscounts > 0 && (
+              <div className="flex justify-between py-1 border-b border-gray-200 text-red-600">
+                <span>Item Discounts:</span>
+                <span>-R{totalItemDiscounts.toFixed(2)}</span>
+              </div>
+            )}
+
+            {globalDiscountMoney > 0 && (
+              <div className="flex justify-between py-1 border-b border-gray-200 text-red-600">
+                <span>
+                  Global Discount{" "}
+                  {invoice.discountType === "PERCENTAGE"
+                    ? `(${invoice.discountAmount}%)`
+                    : ""}
+                  :
+                </span>
+                <span>-R{globalDiscountMoney.toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between py-1 border-b border-gray-200 text-gray-600 font-medium">
+              <span>Taxable Amount:</span>
+              <span>
+                R
+                {(
+                  subtotalGross -
+                  totalItemDiscounts -
+                  globalDiscountMoney
+                ).toFixed(2)}
+              </span>
             </div>
 
             {taxAmount > 0 && (
               <div className="flex justify-between py-1 border-b border-gray-200">
-                <span>Tax ({((taxAmount / subtotal) * 100).toFixed(2)}%):</span>
+                <span>Tax ({toNumber(invoice.taxRate)}%):</span>
                 <span>R{taxAmount.toFixed(2)}</span>
               </div>
             )}
 
-            {discount > 0 && (
-              <div className="flex justify-between py-1 border-b border-gray-200">
-                <span>Discount:</span>
-                <span>R{discount}</span>
+            {interestAmount > 0 && (
+              <div className="flex justify-between py-1 border-b border-gray-200 text-orange-600">
+                <span>
+                  Interest ({toNumber(invoice.interestRate).toFixed(2)}%):
+                </span>
+                <span>+R{interestAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="flex justify-between py-1 font-semibold text-sm">
-              <span>Total Due:</span>
+
+            <div className="flex justify-between py-1 font-bold text-sm border-t border-gray-300 mt-1 pt-2">
+              <span>TOTAL AMOUNT:</span>
               <span style={{ color: accentColor }}>R{total.toFixed(2)}</span>
             </div>
           </div>

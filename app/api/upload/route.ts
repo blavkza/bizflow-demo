@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     const employeeId = formData.get("employeeId") as string | null;
     const settingsId = formData.get("settingsId") as string | null;
     const freelancerId = formData.get("freelancerId") as string | null;
-    const trainerId = formData.get("trainerId") as string | null;
+    const traineeId = formData.get("traineeId") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -74,8 +74,8 @@ export async function POST(request: Request) {
             ? settingsId
             : type === "freelancer"
               ? freelancerId
-              : type === "trainer"
-                ? trainerId
+              : type === "trainee"
+                ? traineeId
                 : userId;
 
     if (
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       (type === "employee" && !employeeId) ||
       (type === "settings" && !settingsId) ||
       (type === "freelancer" && !freelancerId) ||
-      (type === "trainer" && !trainerId)
+      (type === "trainee" && !traineeId)
     ) {
       return NextResponse.json(
         { error: `Missing ${type} ID` },
@@ -201,9 +201,9 @@ export async function POST(request: Request) {
         where: { id: freelancerId },
         data: { avatar: cloudinaryData.secure_url },
       });
-    } else if (type === "trainer" && trainerId) {
-      await db.trainer.update({
-        where: { id: trainerId },
+    } else if (type === "trainee" && traineeId) {
+      await db.trainee.update({
+        where: { id: traineeId },
         data: { avatar: cloudinaryData.secure_url },
       });
     } else {
@@ -229,3 +229,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

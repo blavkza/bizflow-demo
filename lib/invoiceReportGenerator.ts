@@ -88,7 +88,7 @@ export class InvoiceReportGenerator {
   static generateInvoiceReportHTML(
     invoice: InvoiceProps,
     companyInfo?: CompanyInfo | null,
-    combineServices: boolean = true
+    combineServices: boolean = true,
   ): string {
     // --- COLORS ---
     const colorRed = "#990000";
@@ -253,7 +253,7 @@ export class InvoiceReportGenerator {
         unitPrice: averageUnitPrice,
         linePrice: totalLinePrice,
         discountInput: serviceItemsForCombining.some(
-          (s) => s.discountInput !== "0.00"
+          (s) => s.discountInput !== "0.00",
         )
           ? combinedDiscountPercent
           : "0.00",
@@ -276,7 +276,13 @@ export class InvoiceReportGenerator {
     const finalSubtotalExVat = subtotalNet - globalDiscVal;
     const vatRatio = subtotalNet > 0 ? finalSubtotalExVat / subtotalNet : 1;
     const finalVat = totalVat * vatRatio;
-    const finalTotal = finalSubtotalExVat + finalVat;
+
+    // Total BEFORE interest
+    const totalBeforeInterest = finalSubtotalExVat + finalVat;
+
+    // Grand Total INCLUDING interest
+    const interestAmount = this.decimalToNumber(invoice.interestAmount);
+    const finalTotal = totalBeforeInterest + interestAmount;
 
     const totalDiscountDisplay = totalDiscountMoney + globalDiscVal;
 
@@ -366,7 +372,7 @@ export class InvoiceReportGenerator {
     // Payments Logic
     const totalPaid = (invoice.payments || []).reduce(
       (sum: number, p: any) => sum + this.decimalToNumber(p.amount),
-      0
+      0,
     );
     const balanceDue = finalTotal - totalPaid;
 
@@ -492,13 +498,38 @@ export class InvoiceReportGenerator {
             <table class="totals-table">
               ${
                 totalDiscountDisplay > 0
-                  ? `<tr><td class="label-cell">DISCOUNT:</td><td class="text-right">R${this.formatMoney(totalDiscountDisplay)}</td></tr>`
+                  ? `<tr><td class="label-cell">TOTAL DISCOUNT:</td><td class="text-right">R${this.formatMoney(totalDiscountDisplay)}</td></tr>`
                   : ""
               }
-              <tr><td class="label-cell">SUBTOTAL:</td><td class="text-right">R${this.formatMoney(subtotalNet)}</td></tr>
+              <tr><td class="label-cell">SUBTOTAL (NET):</td><td class="text-right">R${this.formatMoney(finalSubtotalExVat)}</td></tr>
               <tr><td class="label-cell">VAT 15%:</td><td class="text-right">R${this.formatMoney(finalVat)}</td></tr>
+              ${
+                interestAmount > 0
+                  ? `
+              <tr>
+                <td class="label-cell" style="color: #ea580c">INTEREST (${this.decimalToNumber(invoice.interestRate)}%):</td>
+                <td class="text-right" style="color: #ea580c">+ R${this.formatMoney(interestAmount)}</td>
+              </tr>
+              <tr>
+                <td class="label-cell" style="color: #666; font-size: 9px;">TERM:</td>
+                <td class="text-right" style="color: #666; font-size: 9px;">${
+                  invoice.installmentPeriod === "30days"
+                    ? "30 Days"
+                    : invoice.installmentPeriod === "1to3months"
+                      ? "1-3 Months"
+                      : invoice.installmentPeriod === "3to6months"
+                        ? "3-6 Months"
+                        : invoice.installmentPeriod === "6to9months"
+                          ? "6-9 Months"
+                          : invoice.installmentPeriod === "9to12months"
+                            ? "9-12 Months"
+                            : invoice.installmentPeriod || ""
+                }</td>
+              </tr>`
+                  : ""
+              }
               <tr style="border-top: 2px solid ${headerGreenText}; color: ${headerGreenText};">
-                <td class="label-cell" style="font-size: 12px;">TOTAL:</td>
+                <td class="label-cell" style="font-size: 12px;">GRAND TOTAL:</td>
                 <td class="text-right" style="font-size: 12px;">R${this.formatMoney(finalTotal)}</td>
               </tr>
               ${
@@ -507,7 +538,9 @@ export class InvoiceReportGenerator {
               <tr><td class="label-cell" style="color: ${colorGold}">PAID:</td><td class="text-right" style="color: ${colorGold}">R${this.formatMoney(totalPaid)}</td></tr>
               <tr><td class="label-cell" style="color: ${colorRed}">BALANCE DUE:</td><td class="text-right" style="color: ${colorRed}">R${this.formatMoney(balanceDue)}</td></tr>
               `
-                  : ""
+                  : `
+              <tr><td class="label-cell" style="color: ${colorRed}">BALANCE DUE:</td><td class="text-right" style="color: ${colorRed}">R${this.formatMoney(balanceDue)}</td></tr>
+              `
               }
             </table>
           </div>

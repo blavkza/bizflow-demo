@@ -76,8 +76,9 @@ export async function POST(req: Request) {
       0,
     );
 
-    // Total amount is discounted subtotal + tax
-    const totalAmount = discountedSubtotal + totalTax;
+    // Total amount is discounted subtotal + tax + interest
+    const totalAmount =
+      discountedSubtotal + totalTax + (data.interestAmount || 0);
 
     // Calculate effective tax rate based on discounted subtotal
     const taxRate =
@@ -112,6 +113,9 @@ export async function POST(req: Request) {
             discountType: data.discountType,
             paymentTerms: data.paymentTerms,
             notes: data.notes,
+            installmentPeriod: data.installmentPeriod,
+            interestRate: data.interestRate,
+            interestAmount: data.interestAmount,
             creator: creator.id,
             totalInvoicesGenerated: 1,
             lastGeneratedAt: new Date(),
@@ -139,6 +143,9 @@ export async function POST(req: Request) {
             totalAmount, // Final total (discounted subtotal + tax)
             paymentTerms: data.paymentTerms,
             notes: data.notes,
+            installmentPeriod: data.installmentPeriod,
+            interestRate: data.interestRate,
+            interestAmount: data.interestAmount,
             createdBy: creator.id,
             isRecurring: true,
             recurringId: recurringInvoice.id,

@@ -110,9 +110,7 @@ export function ToolForm({
       condition: tool?.condition || "GOOD",
       primaryImage: tool?.primaryImage || "",
       images: tool?.images || [],
-      canBeRented: tool
-        ? tool.rentalRateDaily !== null && tool.rentalRateDaily !== undefined
-        : true, // Default to true for new tools
+      canBeRented: tool ? !!tool.canBeRented : true, // Default to true for new tools
     },
   });
 

@@ -159,14 +159,14 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
                         <Badge variant="outline" className="text-[10px] h-4">
                           {checkin.personType === "freelancer" ? (
                             <UserCog className="w-2.5 h-2.5 mr-1" />
-                          ) : checkin.personType === "trainer" ? (
+                          ) : checkin.personType === "trainee" ? (
                             <Zap className="w-2.5 h-2.5 mr-1 text-amber-500" />
                           ) : (
                             <User className="w-2.5 h-2.5 mr-1" />
                           )}
                           {checkin.personType === "freelancer"
                             ? "FL"
-                            : checkin.personType === "trainer"
+                            : checkin.personType === "trainee"
                               ? "TRN"
                               : "EMP"}
                         </Badge>
@@ -430,3 +430,4 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
     </>
   );
 }
+

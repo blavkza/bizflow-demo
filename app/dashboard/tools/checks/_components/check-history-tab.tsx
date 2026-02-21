@@ -202,9 +202,14 @@ export function CheckHistoryTab({ checkHistory }: CheckHistoryTabProps) {
                             <p className="text-xs text-muted-foreground truncate">
                               {check.toolSerialNumber}
                             </p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(check.checkDate), "PP")}
-                            </p>
+                            <div className="flex justify-between items-center mt-0.5">
+                              <p className="text-[10px] text-muted-foreground">
+                                {format(new Date(check.checkDate), "PP")}
+                              </p>
+                              <p className="text-[10px] font-bold text-blue-600">
+                                R{check.toolPurchasePrice}
+                              </p>
+                            </div>
                           </div>
                         </div>
 
@@ -243,12 +248,30 @@ export function CheckHistoryTab({ checkHistory }: CheckHistoryTabProps) {
                         </div>
 
                         {check.damageCost > 0 && (
-                          <div className="p-1.5 bg-red-50 border border-red-200 rounded text-xs text-red-900 mb-1">
-                            <p className="font-medium">
-                              Damage: R {check.damageCost.toFixed(2)}
+                          <div
+                            className={`p-1.5 border rounded text-xs mb-1 ${
+                              check.deductFromWorker
+                                ? "bg-amber-50 border-amber-200 text-amber-900"
+                                : "bg-red-50 border-red-200 text-red-900"
+                            }`}
+                          >
+                            <p className="font-medium flex justify-between">
+                              <span>
+                                Damage: R {check.damageCost.toFixed(2)}
+                              </span>
+                              {check.deductFromWorker && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-amber-100 text-[9px] h-3 px-1"
+                                >
+                                  DEDUCTED
+                                </Badge>
+                              )}
                             </p>
                             {check.damageDescription && (
-                              <p className="text-red-700 text-[10px] mt-0.5 line-clamp-1">
+                              <p
+                                className={`${check.deductFromWorker ? "text-amber-700" : "text-red-700"} text-[10px] mt-0.5 line-clamp-1`}
+                              >
                                 {check.damageDescription}
                               </p>
                             )}

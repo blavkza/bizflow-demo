@@ -117,7 +117,7 @@ export async function POST(req: Request) {
     // Cap global discount
     globalDiscountMoney = Math.min(
       globalDiscountMoney,
-      subtotalAfterItemDiscounts
+      subtotalAfterItemDiscounts,
     );
 
     // 3. PASS 3: Distribute Global Discount & Calculate Tax
@@ -212,7 +212,7 @@ export async function POST(req: Request) {
             taxRate: effectiveTaxRate,
             discountAmount: inputGlobalDiscountVal,
             discountType: data.discountType,
-            totalAmount,
+            totalAmount: totalAmount + safeFloat(data.interestAmount),
 
             // Deposit
             depositRequired: data.depositRequired || false,
@@ -221,6 +221,11 @@ export async function POST(req: Request) {
               calculatedDepositAmount > 0 ? calculatedDepositAmount : null,
             depositRate:
               data.depositType === "PERCENTAGE" ? data.depositAmount : 0,
+
+            // Installment
+            installmentPeriod: data.installmentPeriod || null,
+            interestRate: data.interestRate || 0,
+            interestAmount: data.interestAmount || 0,
 
             createdBy: creator.id,
           },
@@ -323,7 +328,7 @@ export async function POST(req: Request) {
 
         // E. Handle Shop Products (Stock & Sale Creation)
         const itemsWithProducts = finalItems.filter(
-          (item) => item.shopProductId
+          (item) => item.shopProductId,
         );
 
         if (itemsWithProducts.length > 0) {
@@ -458,7 +463,7 @@ export async function POST(req: Request) {
       {
         timeout: 30000,
         maxWait: 30000,
-      }
+      },
     );
 
     // --- NOTIFICATION ---

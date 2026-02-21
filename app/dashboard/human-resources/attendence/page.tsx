@@ -164,13 +164,13 @@ export default function AttendancePage() {
         departmentOptions={departmentOptions}
         attendanceRecords={attendanceRecords}
         filteredAttendance={attendanceRecords.filter((record) => {
-          const person = record.employee || record.freeLancer || record.trainer;
+          const person = record.employee || record.freeLancer || record.trainee;
           const personName = `${person?.firstName || ""} ${person?.lastName || ""}`;
           const personId = record.employee
             ? record.employee.employeeNumber
             : record.freeLancer
               ? record.freeLancer.freeLancerNumber
-              : record.trainer?.trainerNumber || "";
+              : record.trainee?.traineeNumber || "";
 
           const matchesSearch =
             personName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -217,8 +217,8 @@ export default function AttendancePage() {
               payload.employeeId = data.employeeId;
             } else if (data.freelancerId) {
               payload.freelancerId = data.freelancerId;
-            } else if (data.trainerId) {
-              payload.trainerId = data.trainerId;
+            } else if (data.traineeId) {
+              payload.traineeId = data.traineeId;
             }
 
             if (data.lat && data.lng) {
@@ -276,7 +276,7 @@ export default function AttendancePage() {
 
             const { id, address, location, coordinates } = scanData;
             const isFreelancer = id.startsWith("FRL") || id.startsWith("FL-");
-            const isTrainer = id.startsWith("TRN") || id.startsWith("TR-");
+            const isTrainee = id.startsWith("TRN") || id.startsWith("TR-");
 
             const payload: any = {
               method: "BARCODE",
@@ -286,8 +286,8 @@ export default function AttendancePage() {
 
             if (isFreelancer) {
               payload.freelancerId = id;
-            } else if (isTrainer) {
-              payload.trainerId = id;
+            } else if (isTrainee) {
+              payload.traineeId = id;
             } else {
               payload.employeeId = id;
             }
@@ -337,3 +337,4 @@ export default function AttendancePage() {
     </div>
   );
 }
+

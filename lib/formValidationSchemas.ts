@@ -26,7 +26,7 @@ import {
   UserRole,
   UserStatus,
   UserType,
-  TrainerStatus,
+  TraineeStatus,
 } from "@prisma/client";
 import { optional, z } from "zod";
 
@@ -623,6 +623,12 @@ export const InvoiceSchema = z.object({
   frequency: z.nativeEnum(RecurringFrequency).optional(),
   interval: z.number().min(1).max(365).default(1).optional(),
   endDate: z.date().optional().nullable(),
+
+  // Installment / Interest
+  installmentPeriod: z.string().optional().nullable(),
+  interestRate: z.number().optional().nullable(),
+  interestAmount: z.number().optional().nullable(),
+  payRemainingImmediately: z.boolean().default(false),
 });
 
 export const RecurringInvoiceSchema = z.object({
@@ -664,6 +670,12 @@ export const RecurringInvoiceSchema = z.object({
 
   paymentTerms: z.string().optional(),
   notes: z.string().optional(),
+
+  // Installment
+  installmentPeriod: z.string().optional().nullable(),
+  interestRate: z.number().optional().nullable(),
+  interestAmount: z.number().optional().nullable(),
+  payRemainingImmediately: z.boolean().default(false),
 });
 
 export type RecurringInvoiceFormData = z.infer<typeof RecurringInvoiceSchema>;
@@ -728,6 +740,12 @@ export const QuotationSchema = z.object({
   depositRequired: z.boolean().default(false),
   depositType: z.enum(["AMOUNT", "PERCENTAGE"]).optional(),
   depositAmount: z.number().min(0).optional(),
+
+  // Installment
+  installmentPeriod: z.string().optional().nullable(),
+  interestRate: z.number().optional().nullable(),
+  interestAmount: z.number().optional().nullable(),
+  payRemainingImmediately: z.boolean().default(false),
 });
 
 export const PRODUCT_CATEGORIES = [
@@ -776,6 +794,14 @@ export const GeneralSettingsSchema = z.object({
   creditNoteTerms: z.string().optional(),
   supplierListNote: z.string().optional(),
   supplierListTerms: z.string().optional(),
+  // Deposit Payment Schedule
+  depositPaymentEnabled: z.boolean().default(false),
+  depositPercentage: z.number().min(1).max(100).default(60),
+  interest30Days: z.number().min(0).max(100).default(18),
+  interest1To3Months: z.number().min(0).max(100).default(40),
+  interest3To6Months: z.number().min(0).max(100).default(45),
+  interest6To9Months: z.number().min(0).max(100).default(60),
+  interest9To12Months: z.number().min(0).max(100).default(70),
 });
 
 export type GeneralSettingsSchemaType = z.infer<typeof GeneralSettingsSchema>;
@@ -1110,7 +1136,7 @@ export const packageFormSchema = z.object({
 
 export type PackageFormValues = z.infer<typeof packageFormSchema>;
 
-export const trainerSchema = z.object({
+export const traineeSchema = z.object({
   firstName: z.string().min(1, { message: "First name is required" }),
   lastName: z.string().min(1, { message: "Last name is required" }),
   phone: z.string().min(1, { message: "Phone number is required" }),
@@ -1158,7 +1184,7 @@ export const trainerSchema = z.object({
     .default(0.0),
   hireDate: z.date({ required_error: "Hire date is required" }),
   terminationDate: z.date().optional().nullable(),
-  status: z.nativeEnum(TrainerStatus).default("ACTIVE"),
+  status: z.nativeEnum(TraineeStatus).default("ACTIVE"),
   city: z.string().or(z.literal("")),
   province: z.string().or(z.literal("")),
   postalCode: z.string().or(z.literal("")),
@@ -1196,4 +1222,4 @@ export const trainerSchema = z.object({
   reliable: z.boolean().optional(),
 });
 
-export type trainerSchemaType = z.infer<typeof trainerSchema>;
+export type traineeSchemaType = z.infer<typeof traineeSchema>;

@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const {
       employeeId,
       freelancerId,
-      trainerId,
+      traineeId,
       location,
       notes,
       method = CheckInMethod.MANUAL,
@@ -72,15 +72,15 @@ export async function POST(request: NextRequest) {
     const halfDayThreshold = hrSettings?.halfDayThreshold || 4.0;
     const workingHoursPerDay = hrSettings?.workingHoursPerDay || 8;
 
-    if (!employeeId && !freelancerId && !trainerId) {
+    if (!employeeId && !freelancerId && !traineeId) {
       return NextResponse.json(
-        { error: "Employee ID, Freelancer ID or Trainer ID is required" },
+        { error: "Employee ID, Freelancer ID or Trainee ID is required" },
         { status: 400 },
       );
     }
 
     let person: any = null;
-    let personType: "employee" | "freelancer" | "trainer" = "employee";
+    let personType: "employee" | "freelancer" | "trainee" = "employee";
 
     if (employeeId) {
       person = await db.employee.findFirst({
@@ -108,9 +108,9 @@ export async function POST(request: NextRequest) {
       });
       personType = "freelancer";
     } else {
-      person = await db.trainer.findFirst({
+      person = await db.trainee.findFirst({
         where: {
-          OR: [{ id: trainerId }, { trainerNumber: trainerId }],
+          OR: [{ id: traineeId }, { traineeNumber: traineeId }],
         },
         include: {
           department: true,
@@ -121,13 +121,13 @@ export async function POST(request: NextRequest) {
           },
         },
       });
-      personType = "trainer";
+      personType = "trainee";
     }
 
     if (!person) {
       return NextResponse.json(
         {
-          error: `${personType === "employee" ? "Employee" : personType === "freelancer" ? "Freelancer" : "Trainer"} not found`,
+          error: `${personType === "employee" ? "Employee" : personType === "freelancer" ? "Freelancer" : "Trainee"} not found`,
         },
         { status: 404 },
       );
@@ -171,14 +171,14 @@ export async function POST(request: NextRequest) {
     // 5. VALIDATION CHECKS
     // ---------------------------------------------------------
 
-    // Check if employee or trainer is on leave
-    if (personType === "employee" || personType === "trainer") {
+    // Check if employee or trainee is on leave
+    if (personType === "employee" || personType === "trainee") {
       const isOnLeave = await checkIfEmployeeOnLeave(person, attendanceDate);
 
       if (isOnLeave && !bypassResult.bypassCheckIn) {
         return NextResponse.json(
           {
-            error: `${personType === "employee" ? "Employee" : "Trainer"} is on approved leave for this shift`,
+            error: `${personType === "employee" ? "Employee" : "Trainee"} is on approved leave for this shift`,
             leaveType: isOnLeave.leaveType,
             reason: isOnLeave.reason,
           },
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
             })
           : await db.attendanceRecord.findFirst({
               where: {
-                trainerId: person.id,
+                traineeId: person.id,
                 date: attendanceDate,
               },
             });
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
     if (existingRecord && existingRecord.checkIn) {
       return NextResponse.json(
         {
-          error: `${personType === "employee" ? "Employee" : personType === "freelancer" ? "Freelancer" : "Trainer"} already checked in for this shift`,
+          error: `${personType === "employee" ? "Employee" : personType === "freelancer" ? "Freelancer" : "Trainee"} already checked in for this shift`,
           existingRecordId: existingRecord.id,
         },
         { status: 400 },
@@ -421,7 +421,7 @@ export async function POST(request: NextRequest) {
     } else if (personType === "freelancer") {
       attendanceData.freeLancerId = person.id;
     } else {
-      attendanceData.trainerId = person.id;
+      attendanceData.traineeId = person.id;
     }
 
     const attendanceDateUTC = attendanceDate;
@@ -459,8 +459,8 @@ export async function POST(request: NextRequest) {
                       include: { department: true },
                     }
                   : false,
-              trainer:
-                personType === "trainer"
+              trainee:
+                personType === "trainee"
                   ? {
                       include: { department: true },
                     }
@@ -479,7 +479,7 @@ export async function POST(request: NextRequest) {
                   ? { employeeId: person.id, date: attendanceDateUTC }
                   : personType === "freelancer"
                     ? { freeLancerId: person.id, date: attendanceDateUTC }
-                    : { trainerId: person.id, date: attendanceDateUTC },
+                    : { traineeId: person.id, date: attendanceDateUTC },
             });
 
             if (raceRecord) {
@@ -495,8 +495,8 @@ export async function POST(request: NextRequest) {
                     personType === "freelancer"
                       ? { include: { department: true } }
                       : false,
-                  trainer:
-                    personType === "trainer"
+                  trainee:
+                    personType === "trainee"
                       ? { include: { department: true } }
                       : false,
                 },
@@ -525,8 +525,8 @@ export async function POST(request: NextRequest) {
                     include: { department: true },
                   }
                 : false,
-            trainer:
-              personType === "trainer"
+            trainee:
+              personType === "trainee"
                 ? {
                     include: { department: true },
                   }
@@ -544,7 +544,7 @@ export async function POST(request: NextRequest) {
 
       // Send notification
       if (
-        (personType === "employee" || personType === "trainer") &&
+        (personType === "employee" || personType === "trainee") &&
         person.expoPushToken
       ) {
         try {
@@ -552,7 +552,7 @@ export async function POST(request: NextRequest) {
 
           await sendPushNotification({
             employeeId: personType === "employee" ? person.id : undefined,
-            trainerId: personType === "trainer" ? person.id : undefined,
+            traineeId: personType === "trainee" ? person.id : undefined,
             title: "Check-in Recorded",
             body: `Your check-in was ${checkInStatus}`,
             data: { attendanceId: attendanceRecord.id },
@@ -608,7 +608,7 @@ export async function POST(request: NextRequest) {
 // ---------------------------------------------------------
 async function checkAttendanceBypassSimple(
   assigneeId: string,
-  assigneeType: "employee" | "freelancer" | "trainer",
+  assigneeType: "employee" | "freelancer" | "trainee",
   date: Date,
 ): Promise<{
   hasBypass: boolean;
@@ -653,7 +653,7 @@ async function checkAttendanceBypassSimple(
         some: { id: assigneeId },
       };
     } else {
-      where.trainers = {
+      where.trainees = {
         some: { id: assigneeId },
       };
     }
@@ -685,12 +685,12 @@ async function checkAttendanceBypassSimple(
                 },
               }
             : false,
-        trainers:
-          assigneeType === "trainer"
+        trainees:
+          assigneeType === "trainee"
             ? {
                 select: {
                   id: true,
-                  trainerNumber: true,
+                  traineeNumber: true,
                   firstName: true,
                   lastName: true,
                 },
@@ -915,7 +915,7 @@ async function triggerAutoAttendanceForLeave() {
       },
     });
 
-    const trainers = await db.trainer.findMany({
+    const trainees = await db.trainee.findMany({
       where: {
         status: "ACTIVE",
         leaveRequests: {
@@ -1014,13 +1014,13 @@ async function triggerAutoAttendanceForLeave() {
       }
     }
 
-    // Process Trainers
-    for (const trainer of trainers) {
+    // Process Trainees
+    for (const trainee of trainees) {
       try {
-        if (trainer.attendanceRecords.length > 0) continue;
+        if (trainee.attendanceRecords.length > 0) continue;
 
         const shouldCreateRecord = await shouldCreateLeaveAttendanceRecord(
-          trainer,
+          trainee,
           today,
         );
 
@@ -1034,17 +1034,17 @@ async function triggerAutoAttendanceForLeave() {
 
           if (isWeekend) {
             scheduledKnockInTime =
-              trainer.scheduledWeekendKnockIn || trainer.scheduledKnockIn;
+              trainee.scheduledWeekendKnockIn || trainee.scheduledKnockIn;
             scheduledKnockOutTime =
-              trainer.scheduledWeekendKnockOut || trainer.scheduledKnockOut;
+              trainee.scheduledWeekendKnockOut || trainee.scheduledKnockOut;
           } else {
-            scheduledKnockInTime = trainer.scheduledKnockIn;
-            scheduledKnockOutTime = trainer.scheduledKnockOut;
+            scheduledKnockInTime = trainee.scheduledKnockIn;
+            scheduledKnockOutTime = trainee.scheduledKnockOut;
           }
 
           const attendanceRecord = await db.attendanceRecord.create({
             data: {
-              trainerId: trainer.id,
+              traineeId: trainee.id,
               date: today,
               status: shouldCreateRecord.status!,
               scheduledKnockIn: scheduledKnockInTime,
@@ -1056,17 +1056,17 @@ async function triggerAutoAttendanceForLeave() {
           createdRecords.push(attendanceRecord);
         }
 
-        if (shouldCreateRecord.shouldCreate && trainer.expoPushToken) {
+        if (shouldCreateRecord.shouldCreate && trainee.expoPushToken) {
           await sendPushNotification({
-            trainerId: trainer.id,
+            traineeId: trainee.id,
             title: "Leave Attendance Recorded",
             body: `Your attendance for today was recorded as leave`,
-            data: { trainerId: trainer.id },
+            data: { traineeId: trainee.id },
           } as any);
         }
       } catch (error) {
         console.error(
-          `Auto-attendance error for trainer ${trainer.id}:`,
+          `Auto-attendance error for trainee ${trainee.id}:`,
           error,
         );
       }
@@ -1151,3 +1151,4 @@ function getLeaveTypeDisplayName(leaveType: string): string {
       return "Leave";
   }
 }
+

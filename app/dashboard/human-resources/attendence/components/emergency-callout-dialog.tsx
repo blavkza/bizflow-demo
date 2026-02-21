@@ -35,14 +35,14 @@ export function EmergencyCallOutDialog({
 }: EmergencyCallOutDialogProps) {
   const [employees, setEmployees] = useState<any[]>([]);
   const [freelancers, setFreelancers] = useState<any[]>([]);
-  const [trainers, setTrainers] = useState<any[]>([]);
+  const [trainees, setTrainees] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     employeeIds: [] as string[],
     freelancerIds: [] as string[],
-    trainerIds: [] as string[],
+    traineeIds: [] as string[],
     title: "Emergency Call Out",
     message:
       "You are required for an emergency call out. Please respond immediately.",
@@ -67,20 +67,20 @@ export function EmergencyCallOutDialog({
       const [empRes, freeRes, trainRes] = await Promise.all([
         fetch("/api/employees"),
         fetch("/api/freelancers"),
-        fetch("/api/trainers"),
+        fetch("/api/trainees"),
       ]);
 
       const [empData, freeData, trainData] = await Promise.all([
         empRes.ok ? empRes.json() : { employees: [] },
         freeRes.ok ? freeRes.json() : { freelancers: [] },
-        trainRes.ok ? trainRes.json() : { trainers: [] },
+        trainRes.ok ? trainRes.json() : { trainees: [] },
       ]);
 
       setEmployees(Array.isArray(empData.employees) ? empData.employees : []);
       setFreelancers(
         Array.isArray(freeData.freelancers) ? freeData.freelancers : [],
       );
-      setTrainers(Array.isArray(trainData.trainers) ? trainData.trainers : []);
+      setTrainees(Array.isArray(trainData.trainees) ? trainData.trainees : []);
     } catch (error) {
       toast.error("Failed to load staff");
     } finally {
@@ -92,7 +92,7 @@ export function EmergencyCallOutDialog({
     const totalSelected =
       formData.employeeIds.length +
       formData.freelancerIds.length +
-      formData.trainerIds.length;
+      formData.traineeIds.length;
 
     if (totalSelected === 0 || !formData.title || !formData.startTime) {
       toast.error("Please fill in all required fields");
@@ -139,7 +139,7 @@ export function EmergencyCallOutDialog({
       setFormData({
         employeeIds: [],
         freelancerIds: [],
-        trainerIds: [],
+        traineeIds: [],
         title: "Emergency Call Out",
         message:
           "You are required for an emergency call out. Please respond immediately.",
@@ -161,8 +161,8 @@ export function EmergencyCallOutDialog({
       label: `[FREE] ${free.firstName} ${free.lastName} (${free.freeLancerNumber})`,
       value: `free-${free.id}`,
     })),
-    ...(trainers || []).map((train) => ({
-      label: `[TRAIN] ${train.firstName} ${train.lastName} (${train.trainerNumber})`,
+    ...(trainees || []).map((train) => ({
+      label: `[TRAIN] ${train.firstName} ${train.lastName} (${train.traineeNumber})`,
       value: `train-${train.id}`,
     })),
   ];
@@ -170,7 +170,7 @@ export function EmergencyCallOutDialog({
   const selectedValues = [
     ...formData.employeeIds.map((id) => `emp-${id}`),
     ...formData.freelancerIds.map((id) => `free-${id}`),
-    ...formData.trainerIds.map((id) => `train-${id}`),
+    ...formData.traineeIds.map((id) => `train-${id}`),
   ];
 
   const handleStaffChange = (vals: string[]) => {
@@ -180,11 +180,11 @@ export function EmergencyCallOutDialog({
     const freelancerIds = vals
       .filter((v) => v.startsWith("free-"))
       .map((v) => v.replace("free-", ""));
-    const trainerIds = vals
+    const traineeIds = vals
       .filter((v) => v.startsWith("train-"))
       .map((v) => v.replace("train-", ""));
 
-    setFormData({ ...formData, employeeIds, freelancerIds, trainerIds });
+    setFormData({ ...formData, employeeIds, freelancerIds, traineeIds });
   };
 
   return (
@@ -208,7 +208,7 @@ export function EmergencyCallOutDialog({
               options={staffOptions}
               selected={selectedValues}
               onChange={handleStaffChange}
-              placeholder="Select employees, freelancers or trainers..."
+              placeholder="Select employees, freelancers or trainees..."
               loading={isLoading}
             />
           </div>
@@ -260,7 +260,7 @@ export function EmergencyCallOutDialog({
               isSubmitting ||
               (formData.employeeIds.length === 0 &&
                 formData.freelancerIds.length === 0 &&
-                formData.trainerIds.length === 0)
+                formData.traineeIds.length === 0)
             }
           >
             {isSubmitting ? (
@@ -277,3 +277,4 @@ export function EmergencyCallOutDialog({
     </Dialog>
   );
 }
+

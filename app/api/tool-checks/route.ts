@@ -30,17 +30,38 @@ export async function POST(req: Request) {
       toolId,
       employeeId,
       freelancerId,
-      trainerId,
+      traineeId,
       condition,
       isPresent,
       isLost,
       damageCost,
       damageDescription,
+      pushToMaintenance,
       notes,
     } = body;
 
     if (!toolId) {
       return new NextResponse("Tool ID is required", { status: 400 });
+    }
+
+    // Check if tool was already checked in the last 7 days
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const existingCheck = await db.toolCheck.findFirst({
+      where: {
+        toolId,
+        checkDate: {
+          gte: sevenDaysAgo,
+        },
+      },
+    });
+
+    if (existingCheck) {
+      return new NextResponse(
+        "This tool has already been checked in the last 7 days",
+        { status: 400 },
+      );
     }
 
     // Create the tool check
@@ -49,7 +70,7 @@ export async function POST(req: Request) {
         toolId,
         employeeId,
         freelancerId,
-        trainerId,
+        traineeId,
         condition,
         isPresent: isPresent ?? true,
         isLost: isLost ?? false,
@@ -57,6 +78,7 @@ export async function POST(req: Request) {
         damageDescription,
         notes,
         checkedBy: user.id,
+        deductFromWorker: body.deductFromWorker ?? false,
       },
       include: {
         tool: true,
@@ -76,27 +98,97 @@ export async function POST(req: Request) {
             freeLancerNumber: true,
           },
         },
-        trainer: {
+        trainee: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            trainerNumber: true,
+            traineeNumber: true,
           },
         },
       },
     });
 
     // If tool is lost or damaged, update the tool status
-    if (isLost || (damageCost && parseFloat(damageCost) > 0)) {
-      await db.tool.update({
-        where: { id: toolId },
-        data: {
-          status: isLost ? "LOST" : "DAMAGED",
-          condition,
-          damageCost: damageCost ? parseFloat(damageCost) : undefined,
-          damageDescription: damageDescription || undefined,
-        },
+    if (
+      isLost ||
+      (damageCost && parseFloat(damageCost) > 0) ||
+      pushToMaintenance
+    ) {
+      await db.$transaction(async (tx) => {
+        const status = isLost
+          ? "LOST"
+          : pushToMaintenance
+            ? "MAINTENANCE"
+            : "DAMAGED";
+
+        await tx.tool.update({
+          where: { id: toolId },
+          data: {
+            status,
+            condition: isLost ? "LOST" : condition,
+            damageCost: damageCost ? parseFloat(damageCost) : undefined,
+            damageDescription: damageDescription || undefined,
+            // If lost, keep allocation but set quantity to 0
+            ...(isLost && {
+              quantity: 0,
+            }),
+            // If pushed to maintenance, remove from worker
+            ...(pushToMaintenance && {
+              employeeId: null,
+              freelancerId: null,
+              traineeId: null,
+              allocatedDate: null,
+            }),
+          },
+        });
+
+        if (pushToMaintenance) {
+          const workerName = toolCheck.employee
+            ? `${toolCheck.employee.firstName} ${toolCheck.employee.lastName}`
+            : toolCheck.freelancer
+              ? `${toolCheck.freelancer.firstName} ${toolCheck.freelancer.lastName}`
+              : toolCheck.trainee
+                ? `${toolCheck.trainee.firstName} ${toolCheck.trainee.lastName}`
+                : "Inspector";
+
+          await tx.toolMaintenance.create({
+            data: {
+              toolId,
+              toolName: toolCheck.tool.name,
+              serialNumber: toolCheck.tool.serialNumber,
+              quantity: toolCheck.tool.quantity,
+              reportedBy: workerName,
+              issueDescription:
+                damageDescription ||
+                "Tool reported as damaged during inspection and sent to maintenance.",
+              cost: damageCost ? parseFloat(damageCost) : 0,
+              status: "PENDING",
+              priority: "MEDIUM",
+              notes: notes || "Moved to maintenance from tool check dialog.",
+            },
+          });
+
+          // Create an approved ToolReturn record
+          await tx.toolReturn.create({
+            data: {
+              toolId,
+              employeeId: toolCheck.employeeId,
+              freelancerId: toolCheck.freelancerId,
+              traineeId: toolCheck.traineeId,
+              quantity: toolCheck.tool.quantity,
+              status: "MAINTENANCE",
+              condition: condition as any,
+              damageDescription:
+                damageDescription || "Sent to maintenance during check.",
+              damageCost: damageCost ? parseFloat(damageCost) : 0,
+              isApproved: true,
+              processedById: user.id,
+              adminNotes:
+                "Automatically returned and approved via Tool Check (Maintenance)",
+            },
+          });
+        }
       });
     }
 
@@ -123,7 +215,7 @@ export async function GET(req: Request) {
     const toolId = searchParams.get("toolId");
     const employeeId = searchParams.get("employeeId");
     const freelancerId = searchParams.get("freelancerId");
-    const trainerId = searchParams.get("trainerId");
+    const traineeId = searchParams.get("traineeId");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
@@ -132,7 +224,7 @@ export async function GET(req: Request) {
     if (toolId) where.toolId = toolId;
     if (employeeId) where.employeeId = employeeId;
     if (freelancerId) where.freelancerId = freelancerId;
-    if (trainerId) where.trainerId = trainerId;
+    if (traineeId) where.traineeId = traineeId;
 
     if (startDate || endDate) {
       where.checkDate = {};
@@ -150,6 +242,7 @@ export async function GET(req: Request) {
             serialNumber: true,
             category: true,
             images: true,
+            purchasePrice: true,
           },
         },
         employee: {
@@ -168,12 +261,12 @@ export async function GET(req: Request) {
             freeLancerNumber: true,
           },
         },
-        trainer: {
+        trainee: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            trainerNumber: true,
+            traineeNumber: true,
           },
         },
       },
@@ -190,17 +283,20 @@ export async function GET(req: Request) {
       toolSerialNumber: check.tool.serialNumber,
       toolCategory: check.tool.category,
       toolImage: check.tool.images?.[0] || null,
+      toolPurchasePrice: check.tool.purchasePrice
+        ? parseFloat(check.tool.purchasePrice.toString())
+        : 0,
       workerName: check.employee
         ? `${check.employee.firstName} ${check.employee.lastName}`
         : check.freelancer
           ? `${check.freelancer.firstName} ${check.freelancer.lastName}`
-          : check.trainer
-            ? `${check.trainer.firstName} ${check.trainer.lastName}`
+          : check.trainee
+            ? `${check.trainee.firstName} ${check.trainee.lastName}`
             : "N/A",
       workerNumber:
         check.employee?.employeeNumber ||
         check.freelancer?.freeLancerNumber ||
-        check.trainer?.trainerNumber ||
+        check.trainee?.traineeNumber ||
         "N/A",
       checkDate: check.checkDate,
       condition: check.condition,
@@ -213,6 +309,7 @@ export async function GET(req: Request) {
       notes: check.notes,
       checkedBy: check.checkedBy,
       createdAt: check.createdAt,
+      deductFromWorker: check.deductFromWorker,
     }));
 
     return NextResponse.json(formattedChecks);

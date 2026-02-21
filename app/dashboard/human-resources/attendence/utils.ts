@@ -292,7 +292,7 @@ export function getDisplayStatus(record: AttendanceRecord): string {
   const person =
     (record as any).employee ||
     (record as any).freeLancer ||
-    (record as any).trainer;
+    (record as any).trainee;
   const scheduledKnockIn = person?.scheduledKnockIn;
 
   if (!scheduledKnockIn) {
@@ -320,3 +320,4 @@ export function getDisplayStatus(record: AttendanceRecord): string {
     return "Absent";
   }
 }
+

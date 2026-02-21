@@ -8,7 +8,7 @@ const safeNumber = (val: any) => (val ? Number(val) : 0);
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -82,7 +82,7 @@ export async function PUT(
     }
     globalDiscountMoney = Math.min(
       globalDiscountMoney,
-      subtotalAfterItemDiscounts
+      subtotalAfterItemDiscounts,
     );
 
     //  Distribute Global Discount & Calculate Tax ---
@@ -159,7 +159,7 @@ export async function PUT(
             discountType: body.discountType || null,
             discountAmount: inputGlobalDiscountVal,
 
-            totalAmount: totalAmount,
+            totalAmount: totalAmount + safeNumber(body.interestAmount),
 
             depositRequired: body.depositRequired,
             depositType: body.depositType,
@@ -167,6 +167,10 @@ export async function PUT(
               calculatedDepositMoney > 0 ? calculatedDepositMoney : null,
             depositRate:
               body.depositType === "PERCENTAGE" ? inputDepositVal : 0,
+
+            installmentPeriod: body.installmentPeriod || null,
+            interestRate: body.interestRate || 0,
+            interestAmount: body.interestAmount || 0,
 
             paymentTerms: body.paymentTerms,
             notes: body.notes,
@@ -197,7 +201,7 @@ export async function PUT(
       {
         maxWait: 5000,
         timeout: 20000,
-      }
+      },
     );
 
     return NextResponse.json(result);
@@ -208,7 +212,7 @@ export async function PUT(
     }
     return new NextResponse(
       JSON.stringify({ message: "Failed to update quotation" }),
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -216,7 +220,7 @@ export async function PUT(
 // --- GET ---
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { userId } = await auth();
@@ -266,7 +270,7 @@ export async function GET(
 // --- DELETE ---
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const id = params.id;

@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       const { workerId, workerType, checkIn, checkOut } = entry;
       const isEmployee = workerType === "employee";
       const isFreelancer = workerType === "freelancer";
-      const isTrainer = workerType === "trainer";
+      const isTrainee = workerType === "trainee";
 
       let worker;
       if (isEmployee) {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
           where: { id: workerId },
         });
       } else {
-        worker = await db.trainer.findUnique({
+        worker = await db.trainee.findUnique({
           where: { id: workerId },
         });
       }
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
         results.push({
           workerId,
           status: "error",
-          message: `${isEmployee ? "Employee" : isFreelancer ? "Freelancer" : "Trainer"} not found`,
+          message: `${isEmployee ? "Employee" : isFreelancer ? "Freelancer" : "Trainee"} not found`,
         });
         continue;
       }
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
                 date: recordDate,
               },
             }
-          : { trainerId_date: { trainerId: worker.id, date: recordDate } };
+          : { traineeId_date: { traineeId: worker.id, date: recordDate } };
 
       const dataBatch: any = {
         date: recordDate,
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       } else if (isFreelancer) {
         dataBatch.freeLancerId = worker.id;
       } else {
-        dataBatch.trainerId = worker.id;
+        dataBatch.traineeId = worker.id;
       }
 
       // Upsert Attendance Record
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
         } else if (isFreelancer) {
           otData.freeLancerId = worker.id;
         } else {
-          otData.trainerId = worker.id;
+          otData.traineeId = worker.id;
         }
 
         const otRequest = await db.overtimeRequest.upsert({
@@ -226,3 +226,4 @@ async function calculateHoursAndStatus(
     workedPercentage: Math.round(workedPercentage),
   };
 }
+

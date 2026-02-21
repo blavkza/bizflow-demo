@@ -14,7 +14,7 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const employeeId = searchParams.get("employeeId");
     const freelancerId = searchParams.get("freelancerId");
-    const trainerId = searchParams.get("trainerId");
+    const traineeId = searchParams.get("traineeId");
 
     // Get allocated tools
     const where: any = {
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
 
     if (employeeId) where.employeeId = employeeId;
     if (freelancerId) where.freelancerId = freelancerId;
-    if (trainerId) where.trainerId = trainerId;
+    if (traineeId) where.traineeId = traineeId;
 
     const tools = await db.tool.findMany({
       where,
@@ -46,12 +46,12 @@ export async function GET(req: Request) {
             freeLancerNumber: true,
           },
         },
-        trainer: {
+        trainee: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
-            trainerNumber: true,
+            traineeNumber: true,
           },
         },
         toolChecks: {
@@ -98,22 +98,25 @@ export async function GET(req: Request) {
           ? `${tool.employee.firstName} ${tool.employee.lastName}`
           : tool.freelancer
             ? `${tool.freelancer.firstName} ${tool.freelancer.lastName}`
-            : tool.trainer
-              ? `${tool.trainer.firstName} ${tool.trainer.lastName}`
+            : tool.trainee
+              ? `${tool.trainee.firstName} ${tool.trainee.lastName}`
               : "N/A",
         workerNumber:
           tool.employee?.employeeNumber ||
           tool.freelancer?.freeLancerNumber ||
-          tool.trainer?.trainerNumber ||
+          tool.trainee?.traineeNumber ||
           "N/A",
         employeeId: tool.employeeId,
         freelancerId: tool.freelancerId,
-        trainerId: tool.trainerId,
+        traineeId: tool.traineeId,
         lastCheckDate,
         daysSinceCheck,
         needsCheck,
         lastCheckCondition: lastCheck?.condition || null,
         lastCheckNotes: lastCheck?.notes || null,
+        purchasePrice: tool.purchasePrice
+          ? parseFloat(tool.purchasePrice.toString())
+          : 0,
       };
     });
 

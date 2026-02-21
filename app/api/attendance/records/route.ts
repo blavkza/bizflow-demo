@@ -5,7 +5,7 @@ import {
   AttendanceStatus,
   EmployeeStatus,
   FreeLancerStatus,
-  TrainerStatus,
+  TraineeStatus,
   UserRole,
 } from "@prisma/client";
 
@@ -94,22 +94,22 @@ export async function GET(request: NextRequest) {
       status: FreeLancerStatus.ACTIVE,
     };
 
-    const activeTrainersWhere: any = {
-      status: TrainerStatus.ACTIVE,
+    const activeTraineesWhere: any = {
+      status: TraineeStatus.ACTIVE,
     };
 
     // Apply department filter if not full access
     if (!hasFullAccess && user.employee?.departmentId) {
       activeEmployeesWhere.departmentId = user.employee.departmentId;
       activeFreelancersWhere.departmentId = user.employee.departmentId;
-      activeTrainersWhere.departmentId = user.employee.departmentId;
+      activeTraineesWhere.departmentId = user.employee.departmentId;
     }
 
     // Further filter by requested department if specified and allowed
     if (department && department !== "All Departments") {
       activeEmployeesWhere.department = { name: department };
       activeFreelancersWhere.department = { name: department };
-      activeTrainersWhere.department = { name: department };
+      activeTraineesWhere.department = { name: department };
     }
 
     // Get all active employees with their scheduled times
@@ -168,9 +168,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Get all active trainers with their scheduled times
-    const activeTrainers = await db.trainer.findMany({
-      where: activeTrainersWhere,
+    // Get all active trainees with their scheduled times
+    const activeTrainees = await db.trainee.findMany({
+      where: activeTraineesWhere,
       include: {
         department: true,
         attendanceRecords: {
@@ -359,14 +359,14 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    // Transform trainer data
-    const trainerRecords = activeTrainers.map((trainer) => {
-      const todayRecord = trainer.attendanceRecords[0];
+    // Transform trainee data
+    const traineeRecords = activeTrainees.map((trainee) => {
+      const todayRecord = trainee.attendanceRecords[0];
       const {
         knockIn: scheduledKnockIn,
         knockOut: scheduledKnockOut,
         isWeekend,
-      } = getScheduledTimes(trainer, targetDate);
+      } = getScheduledTimes(trainee, targetDate);
 
       let status: AttendanceStatus;
       let displayStatus: string;
@@ -374,18 +374,18 @@ export async function GET(request: NextRequest) {
       if (todayRecord) {
         status = todayRecord.status;
         displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
-      } else if (trainer.leaveRequests && trainer.leaveRequests.length > 0) {
-        const leave = trainer.leaveRequests[0];
+      } else if (trainee.leaveRequests && trainee.leaveRequests.length > 0) {
+        const leave = trainee.leaveRequests[0];
         status = getLeaveStatus(leave.leaveType);
         displayStatus = getStatusDisplayName(status, {
           notes: `Approved Leave: ${leave.leaveType}`,
         });
       } else {
         const calculatedStatus = calculateAttendanceStatus(
-          trainer,
+          trainee,
           currentTime,
           targetDate,
-          "trainer",
+          "trainee",
           scheduledKnockIn,
           scheduledKnockOut,
           isWeekend,
@@ -395,23 +395,23 @@ export async function GET(request: NextRequest) {
       }
 
       return {
-        id: todayRecord?.id || `virtual-${trainer.id}`,
-        trainerId: trainer.id,
-        trainer: {
-          id: trainer.id,
-          firstName: trainer.firstName,
-          lastName: trainer.lastName,
-          trainerNumber: trainer.trainerNumber,
-          avatar: trainer.avatar,
-          position: trainer.position,
-          department: trainer.department,
+        id: todayRecord?.id || `virtual-${trainee.id}`,
+        traineeId: trainee.id,
+        trainee: {
+          id: trainee.id,
+          firstName: trainee.firstName,
+          lastName: trainee.lastName,
+          traineeNumber: trainee.traineeNumber,
+          avatar: trainee.avatar,
+          position: trainee.position,
+          department: trainee.department,
           scheduledKnockIn: scheduledKnockIn,
           scheduledKnockOut: scheduledKnockOut,
-          scheduledWeekendKnockIn: trainer.scheduledWeekendKnockIn,
-          scheduledWeekendKnockOut: trainer.scheduledWeekendKnockOut,
-          workingDays: trainer.workingDays,
-          overtimeHourRate: trainer.overtimeHourRate,
-          emergencyCallOutRate: trainer.emergencyCallOutRate,
+          scheduledWeekendKnockIn: trainee.scheduledWeekendKnockIn,
+          scheduledWeekendKnockOut: trainee.scheduledWeekendKnockOut,
+          workingDays: trainee.workingDays,
+          overtimeHourRate: trainee.overtimeHourRate,
+          emergencyCallOutRate: trainee.emergencyCallOutRate,
         },
         employee: null,
         freeLancer: null,
@@ -433,7 +433,7 @@ export async function GET(request: NextRequest) {
         displayStatus,
         isVirtualRecord: !todayRecord,
         isWeekend: isWeekend,
-        personType: "trainer" as const,
+        personType: "trainee" as const,
         createdAt: todayRecord?.createdAt,
         updatedAt: todayRecord?.updatedAt,
       };
@@ -443,7 +443,7 @@ export async function GET(request: NextRequest) {
     const allRecords = [
       ...employeeRecords,
       ...freelancerRecords,
-      ...trainerRecords,
+      ...traineeRecords,
     ];
 
     // Filter by status if specified
@@ -480,7 +480,7 @@ function calculateAttendanceStatus(
   person: any,
   currentTime: Date,
   targetDate: Date,
-  personType: "employee" | "freelancer" | "trainer",
+  personType: "employee" | "freelancer" | "trainee",
   scheduledKnockIn: string | null,
   scheduledKnockOut: string | null,
   isWeekend: boolean,
@@ -616,3 +616,4 @@ function getStatusDisplayName(status: AttendanceStatus, record?: any): string {
       return status;
   }
 }
+

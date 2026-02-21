@@ -10,7 +10,7 @@ export interface AttendanceRecord {
   id: string;
   employeeId: string | null;
   freeLancerId: string | null;
-  trainerId: string | null;
+  traineeId: string | null;
   employee?: {
     id: string;
     employeeNumber: string;
@@ -41,9 +41,9 @@ export interface AttendanceRecord {
     workingDays: string[];
     overtimeHourRate: number;
   } | null;
-  trainer?: {
+  trainee?: {
     id: string;
-    trainerNumber: string;
+    traineeNumber: string;
     firstName: string;
     lastName: string;
     avatar?: string | null;
@@ -80,7 +80,7 @@ export interface AttendanceRecord {
   updatedAt: Date;
   displayStatus?: string;
   isVirtualRecord?: boolean;
-  personType?: "employee" | "freelancer" | "trainer";
+  personType?: "employee" | "freelancer" | "trainee";
 }
 
 export interface CheckInRecord {
@@ -89,7 +89,7 @@ export interface CheckInRecord {
   employeeId: string;
   employeeNumber: string;
   employeeAvatar: string | null;
-  personType: "employee" | "freelancer" | "trainer";
+  personType: "employee" | "freelancer" | "trainee";
   method: CheckInMethod;
   location: string;
   address?: string;
@@ -122,7 +122,7 @@ export interface Department {
 export interface ManualCheckInData {
   employeeId?: string;
   freelancerId?: string;
-  trainerId?: string;
+  traineeId?: string;
   location: string;
   notes: string;
   lat?: number;
@@ -147,7 +147,7 @@ export interface EmergencyCallOut {
   id: string;
   employeeId: string | null;
   freeLancerId: string | null;
-  trainerId: string | null;
+  traineeId: string | null;
   employee?: {
     id: string;
     employeeNumber: string;
@@ -170,9 +170,9 @@ export interface EmergencyCallOut {
       name: string;
     } | null;
   } | null;
-  trainer?: {
+  trainee?: {
     id: string;
-    trainerNumber: string;
+    traineeNumber: string;
     firstName: string;
     lastName: string;
     avatar?: string | null;
@@ -205,3 +205,4 @@ export interface EmergencyCallOut {
   duration: number | null;
   notes: string | null;
 }
+

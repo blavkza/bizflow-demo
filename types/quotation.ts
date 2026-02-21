@@ -50,6 +50,9 @@ export type QuotationWithRelations = Quotation & {
   depositRequired?: boolean;
   depositType?: "AMOUNT" | "PERCENTAGE";
   depositAmount?: number | Decimal | null;
+  installmentPeriod?: string | null;
+  interestRate?: number | Decimal | null;
+  interestAmount?: number | Decimal | null;
 };
 
 export type QuotationFormValues = {

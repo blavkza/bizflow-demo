@@ -12,7 +12,7 @@ Added a new `ToolCheck` model to the Prisma schema with the following fields:
 
 - `id` - Unique identifier
 - `toolId` - Reference to the tool being checked
-- `employeeId/freelancerId/trainerId` - Reference to the worker
+- `employeeId/freelancerId/traineeId` - Reference to the worker
 - `checkDate` - When the check was conducted
 - `condition` - Tool condition (NEW, GOOD, FAIR, POOR, DAMAGED)
 - `isPresent` - Whether the tool is present
@@ -28,7 +28,7 @@ Added a new `ToolCheck` model to the Prisma schema with the following fields:
 - Tool → ToolCheck (one-to-many)
 - Employee → ToolCheck (one-to-many)
 - FreeLancer → ToolCheck (one-to-many)
-- Trainer → ToolCheck (one-to-many)
+- Trainee → ToolCheck (one-to-many)
 
 ## API Endpoints
 
@@ -43,7 +43,7 @@ Added a new `ToolCheck` model to the Prisma schema with the following fields:
   "toolId": "string",
   "employeeId": "string?",
   "freelancerId": "string?",
-  "trainerId": "string?",
+  "traineeId": "string?",
   "condition": "GOOD | FAIR | POOR | DAMAGED | NEW",
   "isPresent": boolean,
   "isLost": boolean,
@@ -69,7 +69,7 @@ Added a new `ToolCheck` model to the Prisma schema with the following fields:
 - `toolId` - Filter by specific tool
 - `employeeId` - Filter by employee
 - `freelancerId` - Filter by freelancer
-- `trainerId` - Filter by trainer
+- `traineeId` - Filter by trainee
 - `startDate` - Filter checks from date
 - `endDate` - Filter checks to date
 
@@ -83,7 +83,7 @@ Added a new `ToolCheck` model to the Prisma schema with the following fields:
 
 - `employeeId` - Filter by employee
 - `freelancerId` - Filter by freelancer
-- `trainerId` - Filter by trainer
+- `traineeId` - Filter by trainee
 
 **Features:**
 
@@ -209,3 +209,4 @@ The feature respects existing permissions:
 - Requires `WORKER_TOOLS_VIEW` permission or higher role
 - CEO, Admin Manager, and General Manager have full access
 - Checks are attributed to the user who conducted them
+

@@ -45,12 +45,12 @@ interface Worker {
   number: string;
   position: string;
   department: string;
-  type: "employee" | "freelancer" | "trainer";
+  type: "employee" | "freelancer" | "trainee";
 }
 
 interface AttendanceEntry {
   workerId: string;
-  workerType: "employee" | "freelancer" | "trainer";
+  workerType: "employee" | "freelancer" | "trainee";
   name: string;
   checkIn: string;
   checkOut: string;
@@ -70,7 +70,7 @@ export function BulkPastAttendanceDialog({
   const [isFetching, setIsFetching] = useState(false);
 
   const [workerTypeFilter, setWorkerTypeFilter] = useState<
-    "all" | "employee" | "freelancer" | "trainer"
+    "all" | "employee" | "freelancer" | "trainee"
   >("all");
   const [commonCheckIn, setCommonCheckIn] = useState("07:00");
   const [commonCheckOut, setCommonCheckOut] = useState("17:00");
@@ -256,7 +256,7 @@ export function BulkPastAttendanceDialog({
             Bulk Past Attendance
           </DialogTitle>
           <DialogDescription className="text-sm">
-            Record attendance for multiple employees, freelancers and trainers
+            Record attendance for multiple employees, freelancers and trainees
             for a specific past date.
           </DialogDescription>
         </DialogHeader>
@@ -347,15 +347,15 @@ export function BulkPastAttendanceDialog({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setWorkerTypeFilter("trainer")}
+                  onClick={() => setWorkerTypeFilter("trainee")}
                   className={cn(
                     "flex-1 text-[10px] font-bold py-1.5 rounded-md transition-all",
-                    workerTypeFilter === "trainer"
+                    workerTypeFilter === "trainee"
                       ? "bg-white text-primary shadow-sm"
                       : "text-muted-foreground hover:text-primary",
                   )}
                 >
-                  TRAINERS
+                  TRAINEES
                 </button>
               </div>
 
@@ -525,7 +525,7 @@ export function BulkPastAttendanceDialog({
                     No workers selected
                   </p>
                   <p className="text-xs text-muted-foreground max-w-xs mt-1">
-                    Select employees, freelancers or trainers from the left
+                    Select employees, freelancers or trainees from the left
                     panel to start recording their attendance
                   </p>
                 </div>
@@ -556,7 +556,7 @@ export function BulkPastAttendanceDialog({
                                 ? "EMPLOYEE"
                                 : entry.workerType === "freelancer"
                                   ? "FREELANCER"
-                                  : "TRAINER"}
+                                  : "TRAINEE"}
                             </span>
                           </div>
                         </div>
@@ -659,3 +659,5 @@ export function BulkPastAttendanceDialog({
     </Dialog>
   );
 }
+
+
