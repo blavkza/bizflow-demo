@@ -48,9 +48,13 @@ export default function WarningsTab({
     switch (warningFilter) {
       case "active":
         return warnings.filter((warning) =>
-          ["ACTIVE", "APPEALED", "NEXT_STEP", "NEXT_STEP_ACCEPTED"].includes(
-            getWarningStatus(warning),
-          ),
+          [
+            "ACTIVE",
+            "APPEALED",
+            "NEXT_STEP",
+            "NEXT_STEP_ACCEPTED",
+            "REJECTED",
+          ].includes(getWarningStatus(warning)),
         );
       case "resolved":
         return warnings.filter(
@@ -428,8 +432,9 @@ export default function WarningsTab({
                                     }
                                     className="text-green-600 border-green-600 hover:bg-green-50"
                                   >
-                                    {status === "APPEALED"
-                                      ? "Review Appeal"
+                                    {status === "APPEALED" ||
+                                    status === "NEXT_STEP_ACCEPTED"
+                                      ? "Review Response"
                                       : "Mark as Resolved"}
                                   </Button>
                                 </div>

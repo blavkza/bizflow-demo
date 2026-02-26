@@ -100,7 +100,7 @@ export function PayrollEditDialog({
   const baseAmount = useMemo(() => employee.baseAmount || 0, [employee]);
   const grossAmount = useMemo(
     () => (employee.baseAmount || 0) + (employee.overtimeAmount || 0),
-    [employee]
+    [employee],
   );
 
   // Load HR settings
@@ -195,7 +195,7 @@ export function PayrollEditDialog({
     type: string,
     isPercentage: boolean,
     percentageRate: number | undefined,
-    isDeduction: boolean = false
+    isDeduction: boolean = false,
   ): number => {
     if (!isPercentage || !percentageRate) return 0;
 
@@ -225,7 +225,7 @@ export function PayrollEditDialog({
   // Helper function to get bonus setting value
   const getBonusSettingValue = (
     bonusType: string,
-    settings: HRSettings
+    settings: HRSettings,
   ): any => {
     switch (bonusType) {
       case "ANNUAL_BONUS":
@@ -258,7 +258,7 @@ export function PayrollEditDialog({
   // Helper function to get deduction setting value
   const getDeductionSettingValue = (
     deductionType: string,
-    settings: HRSettings
+    settings: HRSettings,
   ): any => {
     switch (deductionType) {
       case "TAX":
@@ -275,7 +275,7 @@ export function PayrollEditDialog({
         return settings.savingsEnabled;
       case "FUNERAL_BENEFIT":
         return settings.funeralBenefitEnabled;
-      case "DAMAGE_LOSS":
+      case "TOOLS":
         return settings.damageLossEnabled;
       case "OVERPAYMENT":
         return settings.overpaymentEnabled;
@@ -314,12 +314,12 @@ export function PayrollEditDialog({
       const mergedBonuses = mergeBonusLists(
         allPossibleBonuses,
         employeeBonuses,
-        hrSettings
+        hrSettings,
       );
       const mergedDeductions = mergeDeductionLists(
         allPossibleDeductions,
         employeeDeductions,
-        hrSettings
+        hrSettings,
       );
 
       setBonuses(mergedBonuses);
@@ -330,7 +330,7 @@ export function PayrollEditDialog({
       const initialActiveBonuses = mergedBonuses.map((bonus) => {
         // Check if this bonus is enabled in HR settings
         const isEnabledInSettings = parseHRSettingsBoolean(
-          getBonusSettingValue(bonus.type, hrSettings)
+          getBonusSettingValue(bonus.type, hrSettings),
         );
 
         return isEnabledInSettings;
@@ -339,7 +339,7 @@ export function PayrollEditDialog({
       const initialActiveDeductions = mergedDeductions.map((deduction) => {
         // Check if this deduction is enabled in HR settings
         const isEnabledInSettings = parseHRSettingsBoolean(
-          getDeductionSettingValue(deduction.type, hrSettings)
+          getDeductionSettingValue(deduction.type, hrSettings),
         );
 
         return isEnabledInSettings;
@@ -363,7 +363,7 @@ export function PayrollEditDialog({
               bonus.type,
               true,
               bonus.percentageRate,
-              false
+              false,
             );
           }
         }
@@ -377,7 +377,7 @@ export function PayrollEditDialog({
               deduction.type,
               true,
               deduction.percentageRate,
-              true
+              true,
             );
           } else if (!deduction.isPercentage) {
             // For fixed amount deductions, use settings value
@@ -402,7 +402,7 @@ export function PayrollEditDialog({
 
   // Generate ALL bonuses from HR settings (including disabled ones)
   const generateAllBonusesFromSettings = (
-    settings: HRSettings
+    settings: HRSettings,
   ): BonusCalculation[] => {
     const bonuses: BonusCalculation[] = [];
 
@@ -491,7 +491,7 @@ export function PayrollEditDialog({
 
   // Generate ALL deductions from HR settings (including disabled ones)
   const generateAllDeductionsFromSettings = (
-    settings: HRSettings
+    settings: HRSettings,
   ): DeductionCalculation[] => {
     const deductions: DeductionCalculation[] = [];
 
@@ -542,8 +542,8 @@ export function PayrollEditDialog({
         percentageRate: settings.savingsMaxPercentage || 15,
       },
       {
-        type: "DAMAGE_LOSS",
-        description: "Damage/Loss",
+        type: "TOOLS",
+        description: "Tools",
         isPercentage: true,
         percentageRate: settings.damageLossMaxPercentage || 20,
       },
@@ -606,11 +606,11 @@ export function PayrollEditDialog({
   const mergeBonusLists = (
     allBonuses: BonusCalculation[],
     employeeBonuses: BonusCalculation[],
-    settings: HRSettings
+    settings: HRSettings,
   ): BonusCalculation[] => {
     return allBonuses.map((bonus) => {
       const existingBonus = employeeBonuses.find(
-        (eb) => eb.type === bonus.type
+        (eb) => eb.type === bonus.type,
       );
       if (existingBonus) {
         return {
@@ -629,11 +629,11 @@ export function PayrollEditDialog({
   const mergeDeductionLists = (
     allDeductions: DeductionCalculation[],
     employeeDeductions: DeductionCalculation[],
-    settings: HRSettings
+    settings: HRSettings,
   ): DeductionCalculation[] => {
     return allDeductions.map((deduction) => {
       const existingDeduction = employeeDeductions.find(
-        (ed) => ed.type === deduction.type
+        (ed) => ed.type === deduction.type,
       );
       if (existingDeduction) {
         return {
@@ -665,7 +665,7 @@ export function PayrollEditDialog({
           bonus.type,
           true,
           bonus.percentageRate,
-          false
+          false,
         );
       }
       setBonuses(newBonuses);
@@ -689,7 +689,7 @@ export function PayrollEditDialog({
           deduction.type,
           true,
           deduction.percentageRate,
-          true
+          true,
         );
       } else if (!deduction.isPercentage) {
         // Use fixed amount from settings
@@ -997,7 +997,7 @@ export function PayrollEditDialog({
                                     {" "}
                                     (Default:{" "}
                                     {formatCurrency(
-                                      hrSettings.funeralBenefitAmount
+                                      hrSettings.funeralBenefitAmount,
                                     )}
                                     )
                                   </span>
@@ -1008,7 +1008,7 @@ export function PayrollEditDialog({
                                     {" "}
                                     (Max:{" "}
                                     {formatCurrency(
-                                      hrSettings.uniformPPEMaxDeduction
+                                      hrSettings.uniformPPEMaxDeduction,
                                     )}
                                     )
                                   </span>
@@ -1019,7 +1019,7 @@ export function PayrollEditDialog({
                                     {" "}
                                     (Max:{" "}
                                     {formatCurrency(
-                                      hrSettings.medicalAidMaxDeduction
+                                      hrSettings.medicalAidMaxDeduction,
                                     )}
                                     )
                                   </span>

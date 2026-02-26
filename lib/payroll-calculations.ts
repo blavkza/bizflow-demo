@@ -409,16 +409,16 @@ export function calculateDeductions(
     }
   }
 
-  // 4. Damage/Loss
+  // 4. Tools (Deductions for Damage/Loss)
   if (hrSettings.damageLossEnabled) {
     const maxDamage =
       (grossAmount * (hrSettings.damageLossMaxPercentage || 25)) / 100;
     const actualDamage = damageLossAmount;
     if (actualDamage > 0) {
       addNonStatutoryDeduction({
-        type: "DAMAGE_LOSS",
+        type: "TOOLS",
         amount: Math.min(actualDamage, maxDamage),
-        description: "Damage/Loss",
+        description: "Tools",
         isPercentage: false,
         isStatutory: false,
       });

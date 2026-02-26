@@ -172,7 +172,7 @@ export type DeductionType =
   | "LOAN_REPAYMENT"
   | "FUNERAL_BENEFIT"
   | "SAVINGS"
-  | "DAMAGE_LOSS"
+  | "TOOLS"
   | "OTHER_DEDUCTION";
 
 // Update PayrollCalculationData

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -43,14 +43,18 @@ export default function ResolveWarningDialog({
   const [adminDecision, setAdminDecision] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // Reset state when warning changes
-  useState(() => {
-    if (warning?.status === "APPEALED") {
-      setStatus("REJECTED");
-    } else {
-      setStatus("RESOLVED");
+  // Reset state when warning changes or dialog opens
+  useEffect(() => {
+    if (open && warning) {
+      if (warning.status === "APPEALED") {
+        setStatus("REJECTED");
+      } else {
+        setStatus("RESOLVED");
+      }
+      setNotes("");
+      setAdminDecision("");
     }
-  });
+  }, [open, warning]);
 
   const handleAction = async () => {
     if (status === "RESOLVED" && !notes.trim()) {
@@ -98,9 +102,9 @@ export default function ResolveWarningDialog({
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
-              <Label className="text-xs uppercase text-muted-foreground">
+              <Label className="text-xs uppercase text-muted-foreground font-bold">
                 Original Reason
               </Label>
               <p className="text-sm border p-2 rounded bg-muted/30">
@@ -115,6 +119,34 @@ export default function ResolveWarningDialog({
                 <p className="text-sm border border-amber-200 p-2 rounded bg-amber-50 italic">
                   "{warning.appealReason}"
                 </p>
+              </div>
+            )}
+            {warning.adminDecision && (
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-blue-600 font-bold">
+                  Issued Next Steps
+                </Label>
+                <p className="text-sm border border-blue-200 p-2 rounded bg-blue-50">
+                  {warning.adminDecision}
+                </p>
+              </div>
+            )}
+            {warning.workerResponse === "ACCEPTED" && (
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-green-600 font-bold">
+                  Worker Acknowledgment
+                </Label>
+                <div className="text-sm border border-green-200 p-2 rounded bg-green-50 flex flex-col">
+                  <span className="font-medium text-green-800">ACCEPTED</span>
+                  <span className="text-xs text-green-600 mt-1">
+                    Acknowledged on{" "}
+                    {warning.workerResponseDate
+                      ? new Date(
+                          warning.workerResponseDate,
+                        ).toLocaleDateString()
+                      : "N/A"}
+                  </span>
+                </div>
               </div>
             )}
           </div>
