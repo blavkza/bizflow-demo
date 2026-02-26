@@ -24,8 +24,9 @@ interface LeaveRequestsTabProps {
   onLeaveStatusUpdate: (
     id: string,
     status: "APPROVED" | "REJECTED",
-    comments?: string
+    comments?: string,
   ) => Promise<boolean>;
+  onDocumentUpload: (id: string, documentUrl: string) => Promise<boolean>;
 }
 
 export default function LeaveRequestsTab({
@@ -36,6 +37,7 @@ export default function LeaveRequestsTab({
   hasFullAccess,
   onLeaveSubmit,
   onLeaveStatusUpdate,
+  onDocumentUpload,
 }: LeaveRequestsTabProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
@@ -101,6 +103,7 @@ export default function LeaveRequestsTab({
             request={request}
             onApprove={() => onLeaveStatusUpdate(request.id, "APPROVED")}
             onReject={() => onLeaveStatusUpdate(request.id, "REJECTED")}
+            onDocumentUpload={onDocumentUpload}
             canEditLeave={canEditLeave}
             hasFullAccess={hasFullAccess}
           />

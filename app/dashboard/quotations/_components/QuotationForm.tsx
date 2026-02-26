@@ -19,6 +19,7 @@ import {
 import {
   Form,
   FormControl,
+  FormField,
   FormItem,
   FormLabel,
   FormMessage,
@@ -365,6 +366,10 @@ export function QuotationForm({
     amountDue: 0,
     itemDiscounts: [],
   });
+  const [showDefaultTerms, setShowDefaultTerms] = useState(false);
+  const [defaultTerms, setDefaultTerms] = useState("");
+  const [prevImmediateState, setPrevImmediateState] = useState(false);
+  const prevImmediateValueRef = useRef<boolean | undefined>(undefined);
 
   const [searchInputs, setSearchInputs] = useState<{ [key: number]: string }>(
     {},
@@ -428,7 +433,7 @@ export function QuotationForm({
       interestRate: data?.interestRate ? Number(data.interestRate) : 0,
       installmentPeriod: data?.installmentPeriod || null,
       interestAmount: data?.interestAmount ? Number(data.interestAmount) : 0,
-      payRemainingImmediately: (data as any)?.payRemainingImmediately || false,
+      payRemainingImmediately: (data as any)?.payRemainingImmediately ?? true,
       description: data?.description || "",
       paymentTerms: data?.paymentTerms || "",
       notes: data?.notes || "",
@@ -617,16 +622,26 @@ export function QuotationForm({
       const { data } = await response.json();
 
       const defaultSetting = data;
-      if (type === "create" && defaultSetting) {
-        form.setValue("paymentTerms", defaultSetting.paymentTerms || "");
-        form.setValue("notes", defaultSetting.note || "");
-        // Auto-populate deposit percentage from settings if schedule is enabled
-        if (defaultSetting.depositPaymentEnabled) {
-          form.setValue("depositType", "PERCENTAGE");
-          form.setValue(
-            "depositAmount",
-            defaultSetting.depositPercentage ?? 60,
-          );
+      if (defaultSetting) {
+        setDefaultTerms(defaultSetting.paymentTerms || "");
+        if (type === "create") {
+          form.setValue("paymentTerms", defaultSetting.paymentTerms || "");
+          form.setValue("notes", defaultSetting.note || "");
+          setShowDefaultTerms(!!defaultSetting.paymentTerms);
+          // Auto-populate deposit percentage from settings if schedule is enabled
+          if (defaultSetting.depositPaymentEnabled) {
+            form.setValue("depositType", "PERCENTAGE");
+            form.setValue(
+              "depositAmount",
+              defaultSetting.depositPercentage ?? 60,
+            );
+          }
+        } else {
+          // Edit mode: check if current terms match default
+          const currentTerms = form.getValues("paymentTerms");
+          if (currentTerms && currentTerms === defaultSetting.paymentTerms) {
+            setShowDefaultTerms(true);
+          }
         }
       }
       if (defaultSetting) {
@@ -722,6 +737,24 @@ export function QuotationForm({
     fetchItems();
     fetchSettings();
   }, []);
+
+  // Sync Default Terms with Immediate Payment
+  const immediateValue = form.watch("payRemainingImmediately");
+  useEffect(() => {
+    if (
+      prevImmediateValueRef.current !== undefined &&
+      immediateValue !== prevImmediateValueRef.current
+    ) {
+      if (immediateValue) {
+        setShowDefaultTerms(true);
+        form.setValue("paymentTerms", defaultTerms);
+      } else {
+        setShowDefaultTerms(false);
+        form.setValue("paymentTerms", "");
+      }
+    }
+    prevImmediateValueRef.current = immediateValue;
+  }, [immediateValue, defaultTerms]);
 
   const handleSearchInputChange = (index: number, value: string) => {
     setSearchInputs((prev) => ({ ...prev, [index]: value }));
@@ -1496,52 +1529,65 @@ export function QuotationForm({
 
                       {/* Deposit % and Pay Immediately Switch */}
                       <div className="space-y-3">
-                        <FormItem>
-                          <FormLabel className="text-xs">Deposit (%)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              value={form.watch("depositAmount") || ""}
-                              onChange={(e) => {
-                                handleDepositChange(
-                                  true,
-                                  "PERCENTAGE",
-                                  parseFloat(e.target.value) || 0,
-                                );
-                              }}
-                            />
-                          </FormControl>
-                        </FormItem>
+                        <FormField
+                          control={form.control}
+                          name="depositAmount"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs">
+                                Deposit (%)
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  value={field.value || ""}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    field.onChange(val);
+                                    handleDepositChange(
+                                      true,
+                                      "PERCENTAGE",
+                                      val,
+                                    );
+                                  }}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
 
-                        <FormItem className="flex flex-row items-center justify-between rounded-md border p-2 bg-background/50">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-xs font-medium">
-                              Immediately after work done
-                            </FormLabel>
-                            <div className="text-[10px] text-muted-foreground leading-tight">
-                              Remaining balance due upon completion
-                            </div>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={form.watch("payRemainingImmediately")}
-                              onCheckedChange={(checked) => {
-                                form.setValue(
-                                  "payRemainingImmediately",
-                                  checked,
-                                );
-                                if (checked) {
-                                  setSelectedInstallmentPeriod("");
-                                  form.setValue("interestRate", 0);
-                                }
-                                calculateTotals();
-                              }}
-                            />
-                          </FormControl>
-                        </FormItem>
+                        <FormField
+                          control={form.control}
+                          name="payRemainingImmediately"
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-md border p-2 bg-background/50">
+                              <div className="space-y-0.5">
+                                <FormLabel className="text-xs font-medium">
+                                  Immediately after work done
+                                </FormLabel>
+                                <div className="text-[10px] text-muted-foreground leading-tight">
+                                  Remaining balance due upon completion
+                                </div>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={(checked) => {
+                                    field.onChange(checked);
+                                    if (checked) {
+                                      setSelectedInstallmentPeriod("");
+                                      form.setValue("interestRate", 0);
+                                    }
+                                    calculateTotals();
+                                  }}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                       </div>
 
                       {/* Payment Term & Interest Section (Hidden if Pay Immediately is ON) */}
@@ -1785,28 +1831,31 @@ export function QuotationForm({
                         </FormControl>
                       </FormItem>
 
-                      <FormItem className="flex flex-row items-center justify-between rounded-md border p-2 bg-background/50">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-xs font-medium">
-                            Immediately after work done
-                          </FormLabel>
-                          <div className="text-[10px] text-muted-foreground leading-tight">
-                            Remaining balance due upon completion
-                          </div>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={form.watch("payRemainingImmediately")}
-                            onCheckedChange={(checked) => {
-                              form.setValue("payRemainingImmediately", checked);
-                              if (checked) {
-                                form.setValue("interestRate", 0);
-                              }
-                              calculateTotals();
-                            }}
-                          />
-                        </FormControl>
-                      </FormItem>
+                      <FormField
+                        control={form.control}
+                        name="payRemainingImmediately"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-md border p-2 bg-background/50">
+                            <div className="space-y-0.5">
+                              <FormLabel className="text-xs font-medium">
+                                Immediately after work done
+                              </FormLabel>
+                              <div className="text-[10px] text-muted-foreground leading-tight">
+                                Remaining balance due upon completion
+                              </div>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value}
+                                onCheckedChange={(checked) => {
+                                  field.onChange(checked);
+                                  calculateTotals();
+                                }}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
 
                       {!form.watch("payRemainingImmediately") && (
                         <FormItem>
@@ -1933,8 +1982,27 @@ export function QuotationForm({
             </FormItem>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-              <FormItem>
-                <FormLabel>Payment Terms</FormLabel>
+              <FormItem className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <FormLabel>Payment Terms</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground">
+                      Default Terms
+                    </span>
+                    <Switch
+                      checked={showDefaultTerms}
+                      onCheckedChange={(checked) => {
+                        setShowDefaultTerms(checked);
+                        if (checked) {
+                          form.setValue("paymentTerms", defaultTerms);
+                        } else {
+                          form.setValue("paymentTerms", "");
+                        }
+                        calculateTotals();
+                      }}
+                    />
+                  </div>
+                </div>
                 <FormControl>
                   <Editor
                     placeholder="Payment terms and conditions..."

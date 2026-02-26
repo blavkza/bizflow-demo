@@ -99,14 +99,14 @@ export function calculateBonuses(
   baseAmount: number,
   overtimeAmount: number,
   hrSettings: HRSettings,
-  employeeType: "EMPLOYEE" | "FREELANCER",
+  employeeType: "EMPLOYEE" | "FREELANCER" | "TRAINEE",
   performanceMetrics?: PerformanceMetrics,
-  attendanceBreakdown?: any
+  attendanceBreakdown?: any,
 ): BonusCalculation[] {
   const bonuses: BonusCalculation[] = [];
   const currentMonth = new Date().getMonth() + 1;
 
-  if (employeeType !== "EMPLOYEE") return bonuses;
+  if (employeeType === "FREELANCER") return bonuses;
 
   const score = performanceMetrics
     ? calculatePerformanceScore(performanceMetrics)
@@ -246,9 +246,13 @@ export function calculateBonuses(
   // 10. Attendance Bonus
   if (hrSettings.attendanceBonusEnabled && attendanceBreakdown) {
     const totalDays = attendanceBreakdown.totalDays || 22;
-    const absentDays = attendanceBreakdown.absentDays || 0;
+    const absentCount =
+      attendanceBreakdown.effectiveAbsentDays !== undefined
+        ? attendanceBreakdown.effectiveAbsentDays
+        : attendanceBreakdown.absentDays || 0;
+
     const attendanceRate =
-      totalDays > 0 ? ((totalDays - absentDays) / totalDays) * 100 : 0;
+      totalDays > 0 ? ((totalDays - absentCount) / totalDays) * 100 : 0;
 
     if (attendanceRate >= 95) {
       const percentage = hrSettings.attendanceBonusPercentage || 2;
@@ -285,30 +289,30 @@ export function calculateDeductions(
   grossAmount: number,
   baseAmount: number,
   hrSettings: HRSettings,
-  employeeType: "EMPLOYEE" | "FREELANCER",
+  employeeType: "EMPLOYEE" | "FREELANCER" | "TRAINEE",
   pensionAmount: number,
   medicalTaxCredit: number,
   existingLoans: number = 0,
-  warnings: string[] = []
+  warnings: string[] = [],
 ): { deductions: DeductionCalculation[]; nonStatutoryDeductionAmount: number } {
   const deductions: DeductionCalculation[] = [];
   let totalNonStatutoryDeduction = 0;
 
   const maxNonStatutoryDeduction = roundCurrency(
-    grossAmount * STATUTORY_LIMITS.BCEA_DEDUCTION_CAP
+    grossAmount * STATUTORY_LIMITS.BCEA_DEDUCTION_CAP,
   );
 
   if (employeeType === "FREELANCER") {
     if (hrSettings.taxEnabled) {
       warnings.push(
-        "⚠️ FREELANCER TAX WARNING: 25% withholding is estimated. For SARS compliance, ensure:"
+        "⚠️ FREELANCER TAX WARNING: 25% withholding is estimated. For SARS compliance, ensure:",
       );
       warnings.push("   1. IRP30 directive from SARS OR");
       warnings.push("   2. Provisional tax registration OR");
       warnings.push("   3. Exemption certificate if applicable");
 
       const taxAmount = roundCurrency(
-        grossAmount * STATUTORY_LIMITS.FREELANCER_TAX_RATE
+        grossAmount * STATUTORY_LIMITS.FREELANCER_TAX_RATE,
       );
       if (taxAmount > 0) {
         deductions.push({
@@ -334,7 +338,7 @@ export function calculateDeductions(
       if (roundedAmount > 0) {
         deductions.push({ ...deduction, amount: roundedAmount });
         totalNonStatutoryDeduction = roundCurrency(
-          totalNonStatutoryDeduction + roundedAmount
+          totalNonStatutoryDeduction + roundedAmount,
         );
       }
     }
@@ -349,7 +353,7 @@ export function calculateDeductions(
 
     warnings.push(`ℹ️ UIF: Employee contribution = R${amount.toFixed(2)} (1%)`);
     warnings.push(
-      `ℹ️ UIF: Employer contribution = R${amount.toFixed(2)} (1%) - Add to EMP201`
+      `ℹ️ UIF: Employer contribution = R${amount.toFixed(2)} (1%) - Add to EMP201`,
     );
 
     // FIXED: SARS audit-friendly wording
@@ -380,7 +384,7 @@ export function calculateDeductions(
 
   // --- FIXED: SDL Notification ---
   warnings.push(
-    "ℹ️ SDL: Skills Development Levy (1% of gross) is employer responsibility."
+    "ℹ️ SDL: Skills Development Levy (1% of gross) is employer responsibility.",
   );
   warnings.push("   Amount: R" + roundCurrency(grossAmount * 0.01).toFixed(2));
 
@@ -392,7 +396,7 @@ export function calculateDeductions(
     if (uniformCost > 0) {
       const amount = Math.min(
         uniformCost,
-        hrSettings.uniformPPEMaxDeduction || 500
+        hrSettings.uniformPPEMaxDeduction || 500,
       );
       addNonStatutoryDeduction({
         type: "UNIFORM_PPE",
@@ -518,7 +522,7 @@ export function calculateDeductions(
     const taxAmount = calculateTax(
       taxableIncome,
       hrSettings.taxTableYear || "2024",
-      medicalTaxCredit
+      medicalTaxCredit,
     );
 
     if (taxAmount > 0) {
@@ -542,7 +546,7 @@ export function calculateDeductions(
 function calculateTax(
   monthlyTaxableIncome: number,
   taxYear: string,
-  monthlyMedicalCredit: number
+  monthlyMedicalCredit: number,
 ): number {
   const annualIncome = monthlyTaxableIncome * 12;
   let annualTax = 0;
@@ -581,7 +585,7 @@ function calculateTax(
   // FIXED: Apply medical credit at MONTHLY level
   const finalMonthlyTax = Math.max(
     0,
-    monthlyTaxBeforeMedical - monthlyMedicalCredit
+    monthlyTaxBeforeMedical - monthlyMedicalCredit,
   );
 
   return roundCurrency(finalMonthlyTax);
@@ -591,21 +595,21 @@ export function calculatePayroll(
   baseAmount: number,
   overtimeAmount: number,
   hrSettings: HRSettings,
-  employeeType: "EMPLOYEE" | "FREELANCER",
+  employeeType: "EMPLOYEE" | "FREELANCER" | "TRAINEE",
   performanceMetrics?: PerformanceMetrics,
   attendanceBreakdown?: any,
   existingLoans: number = 0,
-  dependants: number = 0
+  dependants: number = 0,
 ): PayrollCalculationResult {
   const warnings: string[] = [];
 
   // Tax year validation
   if (hrSettings.taxTableYear === "2025") {
     warnings.push(
-      "⚠️ 2025 TAX WARNING: Using 2024 tax tables. SARS has not published 2025 rates."
+      "⚠️ 2025 TAX WARNING: Using 2024 tax tables. SARS has not published 2025 rates.",
     );
     warnings.push(
-      "   Update when SARS gazettes 2025 tax tables (usually February)."
+      "   Update when SARS gazettes 2025 tax tables (usually February).",
     );
   }
 
@@ -636,11 +640,11 @@ export function calculatePayroll(
     hrSettings,
     employeeType,
     performanceMetrics,
-    attendanceBreakdown
+    attendanceBreakdown,
   );
 
   const totalBonus = roundCurrency(
-    bonuses.reduce((sum, b) => sum + b.amount, 0)
+    bonuses.reduce((sum, b) => sum + b.amount, 0),
   );
   const grossAmount = roundCurrency(baseAmount + overtimeAmount + totalBonus);
 
@@ -656,11 +660,11 @@ export function calculatePayroll(
     pensionAmount,
     medicalTaxCredit,
     existingLoans,
-    warnings
+    warnings,
   );
 
   const totalDeduction = roundCurrency(
-    deductions.reduce((sum, d) => sum + d.amount, 0)
+    deductions.reduce((sum, d) => sum + d.amount, 0),
   );
 
   // 5. Net Amount
@@ -670,10 +674,10 @@ export function calculatePayroll(
   const nonStatutoryPercent = nonStatutoryDeductionAmount / grossAmount;
   if (nonStatutoryPercent > STATUTORY_LIMITS.BCEA_DEDUCTION_CAP) {
     warnings.push(
-      "⚠️ BCEA COMPLIANCE: Non-statutory deductions may exceed 25% limit"
+      "⚠️ BCEA COMPLIANCE: Non-statutory deductions may exceed 25% limit",
     );
     warnings.push(
-      `   Actual: ${(nonStatutoryPercent * 100).toFixed(2)}%, Limit: 25%`
+      `   Actual: ${(nonStatutoryPercent * 100).toFixed(2)}%, Limit: 25%`,
     );
   }
 
@@ -683,10 +687,10 @@ export function calculatePayroll(
     const hourlyRate = netAmount / hoursWorked;
     if (hourlyRate < STATUTORY_LIMITS.MINIMUM_WAGE) {
       warnings.push(
-        "⚠️ MINIMUM WAGE ADVISORY: Net hourly rate may be below minimum wage"
+        "⚠️ MINIMUM WAGE ADVISORY: Net hourly rate may be below minimum wage",
       );
       warnings.push(
-        `   Actual: R${hourlyRate.toFixed(2)}/hr, Minimum: R${STATUTORY_LIMITS.MINIMUM_WAGE}/hr`
+        `   Actual: R${hourlyRate.toFixed(2)}/hr, Minimum: R${STATUTORY_LIMITS.MINIMUM_WAGE}/hr`,
       );
     }
   }
@@ -711,7 +715,7 @@ export function calculatePayroll(
 export function generateEMP201Report(
   payrollResult: PayrollCalculationResult,
   employeeId: string,
-  period: string
+  period: string,
 ): any {
   const uifAmount = payrollResult.deductions
     .filter((d) => d.type === "UIF")
@@ -735,7 +739,7 @@ export function generateEMP201Report(
         w.includes("UIF") ||
         w.includes("TAX") ||
         w.includes("SARS") ||
-        w.includes("SDL")
+        w.includes("SDL"),
     ),
   };
 }

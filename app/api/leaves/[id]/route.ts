@@ -27,9 +27,32 @@ export async function PATCH(
 
     const { id } = params;
     const body = await request.json();
-    const { status, comments } = body;
+    const { status, comments, documentUrl } = body;
 
-    const updateData: any = { status };
+    const updateData: any = {};
+    if (status) updateData.status = status;
+    if (comments) updateData.comments = comments;
+    if (documentUrl) updateData.documentUrl = documentUrl;
+
+    // Fetch existing request to check for originalLeaveType restoration
+    const existingRequest = await db.leaveRequest.findUnique({
+      where: { id },
+    });
+
+    if (!existingRequest) {
+      return new NextResponse("Leave request not found", { status: 404 });
+    }
+
+    let leaveTypeRestored = false;
+    let newLeaveType = existingRequest.leaveType;
+
+    if (documentUrl && existingRequest.originalLeaveType) {
+      updateData.leaveType = existingRequest.originalLeaveType;
+      updateData.originalLeaveType = null;
+      updateData.submitToAdmin = false;
+      leaveTypeRestored = true;
+      newLeaveType = existingRequest.originalLeaveType;
+    }
 
     if (status === "APPROVED") {
       updateData.approvedBy = creator.name;
@@ -50,6 +73,43 @@ export async function PATCH(
       where: { id },
       data: updateData,
     });
+
+    // If leave type was restored and it was already approved, update attendance records
+    if (leaveTypeRestored && leaveRequest.status === "APPROVED") {
+      const leaveStatusMap: Record<string, string> = {
+        ANNUAL: "ANNUAL_LEAVE",
+        SICK: "SICK_LEAVE",
+        MATERNITY: "MATERNITY_LEAVE",
+        PATERNITY: "PATERNITY_LEAVE",
+        STUDY: "STUDY_LEAVE",
+        UNPAID: "UNPAID_LEAVE",
+        COMPASSIONATE: "UNPAID_LEAVE",
+      };
+
+      const upperType = (newLeaveType || "").toUpperCase();
+      const attendanceStatus = (leaveStatusMap[upperType] as any) || "ABSENT";
+
+      await db.attendanceRecord.updateMany({
+        where: {
+          OR: [
+            { employeeId: leaveRequest.employeeId || undefined },
+            { freeLancerId: leaveRequest.freeLancerId || undefined },
+            { traineeId: (leaveRequest as any).traineeId || undefined },
+          ].filter((c) => Object.values(c)[0] !== undefined),
+          date: {
+            gte: new Date(leaveRequest.startDate),
+            lte: new Date(leaveRequest.endDate),
+          },
+          notes: {
+            contains: "Approved Leave:",
+          },
+        },
+        data: {
+          status: attendanceStatus,
+          notes: `Approved Leave: ${newLeaveType} (Document Uploaded)`,
+        },
+      });
+    }
 
     if (status === "APPROVED" || status === "REJECTED") {
       const title = `Leave Request ${

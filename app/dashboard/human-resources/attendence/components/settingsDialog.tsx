@@ -89,18 +89,21 @@ interface BypassRule {
   updatedAt: Date;
   employees: ApiEmployee[];
   freelancers: ApiFreelancer[];
+  trainees?: any[]; // Simplified for now
 }
 
 interface SettingsDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSaveRules?: (rules: BypassRule[]) => void;
+  editingRule?: BypassRule | null;
 }
 
 export function SettingsDialog({
   isOpen,
   onOpenChange,
   onSaveRules,
+  editingRule,
 }: SettingsDialogProps) {
   const [rules, setRules] = useState<BypassRule[]>([]);
   const [newRule, setNewRule] = useState({
@@ -124,10 +127,11 @@ export function SettingsDialog({
   const [selectedFreelancers, setSelectedFreelancers] = useState<
     ApiFreelancer[]
   >([]);
+  const [selectedTrainees, setSelectedTrainees] = useState<any[]>([]);
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [freelancerSearch, setFreelancerSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"employees" | "freelancers">(
-    "employees"
+    "employees",
   );
 
   // Fetch assignees and existing rules when dialog opens
@@ -135,8 +139,37 @@ export function SettingsDialog({
     if (isOpen) {
       fetchAssignees();
       fetchBypassRules();
+
+      if (editingRule) {
+        setNewRule({
+          bypassCheckIn: editingRule.bypassCheckIn,
+          bypassCheckOut: editingRule.bypassCheckOut,
+          customCheckInTime: editingRule.customCheckInTime || "none",
+          customCheckOutTime: editingRule.customCheckOutTime || "none",
+          reason: editingRule.reason || "",
+          startDate: new Date(editingRule.startDate),
+          endDate: new Date(editingRule.endDate),
+        });
+        setSelectedEmployees(editingRule.employees || []);
+        setSelectedFreelancers(editingRule.freelancers || []);
+        setSelectedTrainees(editingRule.trainees || []);
+      } else {
+        // Reset form for new rule
+        setNewRule({
+          bypassCheckIn: false,
+          bypassCheckOut: false,
+          customCheckInTime: "none",
+          customCheckOutTime: "none",
+          reason: "",
+          startDate: undefined,
+          endDate: undefined,
+        });
+        setSelectedEmployees([]);
+        setSelectedFreelancers([]);
+        setSelectedTrainees([]);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, editingRule]);
 
   const fetchAssignees = async () => {
     try {
@@ -154,7 +187,7 @@ export function SettingsDialog({
         : employeesResponse.data?.employees?.employees || [];
 
       const freelancersData = Array.isArray(
-        freelancersResponse.data?.freelancers
+        freelancersResponse.data?.freelancers,
       )
         ? freelancersResponse.data.freelancers
         : freelancersResponse.data?.freelancers?.freelancers || [];
@@ -190,7 +223,8 @@ export function SettingsDialog({
               employees: Array.isArray(rule.employees)
                 ? rule.employees.map((emp: any) => ({
                     id: emp.id,
-                    employeeNumber: emp.employeeNumber || emp.employeeId || "N/A",
+                    employeeNumber:
+                      emp.employeeNumber || emp.employeeId || "N/A",
                     name:
                       emp.name ||
                       `${emp.firstName || ""} ${emp.lastName || ""}`.trim() ||
@@ -273,7 +307,7 @@ export function SettingsDialog({
 
   const isFreelancerSelected = (freelancerId: string) => {
     return selectedFreelancers.some(
-      (freelancer) => freelancer.id === freelancerId
+      (freelancer) => freelancer.id === freelancerId,
     );
   };
 
@@ -281,7 +315,7 @@ export function SettingsDialog({
   const handleEmployeeSelect = (employee: ApiEmployee) => {
     if (isEmployeeSelected(employee.id)) {
       setSelectedEmployees(
-        selectedEmployees.filter((emp) => emp.id !== employee.id)
+        selectedEmployees.filter((emp) => emp.id !== employee.id),
       );
     } else {
       setSelectedEmployees([...selectedEmployees, employee]);
@@ -291,7 +325,7 @@ export function SettingsDialog({
   const handleFreelancerSelect = (freelancer: ApiFreelancer) => {
     if (isFreelancerSelected(freelancer.id)) {
       setSelectedFreelancers(
-        selectedFreelancers.filter((f) => f.id !== freelancer.id)
+        selectedFreelancers.filter((f) => f.id !== freelancer.id),
       );
     } else {
       setSelectedFreelancers([...selectedFreelancers, freelancer]);
@@ -320,13 +354,13 @@ export function SettingsDialog({
   // Remove selected assignee
   const removeEmployee = (employeeId: string) => {
     setSelectedEmployees(
-      selectedEmployees.filter((emp) => emp.id !== employeeId)
+      selectedEmployees.filter((emp) => emp.id !== employeeId),
     );
   };
 
   const removeFreelancer = (freelancerId: string) => {
     setSelectedFreelancers(
-      selectedFreelancers.filter((f) => f.id !== freelancerId)
+      selectedFreelancers.filter((f) => f.id !== freelancerId),
     );
   };
 
@@ -404,6 +438,7 @@ export function SettingsDialog({
         reason: newRule.reason || null,
         employeeIds: selectedEmployees.map((emp) => emp.id),
         freelancerIds: selectedFreelancers.map((freelancer) => freelancer.id),
+        traineeIds: selectedTrainees.map((t) => t.id),
         customCheckInTime:
           newRule.customCheckInTime && newRule.customCheckInTime !== "none"
             ? newRule.customCheckInTime
@@ -414,7 +449,12 @@ export function SettingsDialog({
             : null,
       };
 
-      const response = await axios.post("/api/attendance-bypass", ruleData);
+      const response = editingRule
+        ? await axios.put(
+            `/api/attendance-bypass?id=${editingRule.id}`,
+            ruleData,
+          )
+        : await axios.post("/api/attendance-bypass", ruleData);
 
       // Process the new rule for state
       const newRuleData = response.data.bypassRule;
@@ -478,7 +518,7 @@ export function SettingsDialog({
     } catch (error: any) {
       console.error("Error creating bypass rule:", error);
       toast.error(
-        error.response?.data?.error || "Failed to create bypass rule"
+        error.response?.data?.error || "Failed to create bypass rule",
       );
     } finally {
       setIsSaving(false);
@@ -775,7 +815,7 @@ export function SettingsDialog({
                       <div className="divide-y">
                         {filteredFreelancers.map((freelancer) => {
                           const isSelected = isFreelancerSelected(
-                            freelancer.id
+                            freelancer.id,
                           );
                           return (
                             <div
@@ -861,7 +901,7 @@ export function SettingsDialog({
                             variant="outline"
                             className={cn(
                               "w-full justify-start text-left font-normal",
-                              !newRule.startDate && "text-muted-foreground"
+                              !newRule.startDate && "text-muted-foreground",
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -893,7 +933,7 @@ export function SettingsDialog({
                             variant="outline"
                             className={cn(
                               "w-full justify-start text-left font-normal",
-                              !newRule.endDate && "text-muted-foreground"
+                              !newRule.endDate && "text-muted-foreground",
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -1105,8 +1145,14 @@ export function SettingsDialog({
                                   Bypass Rule
                                 </h4>
                                 <span className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary">
-                                  {totalAssignees} assignee
-                                  {totalAssignees !== 1 ? "s" : ""}
+                                  {totalAssignees +
+                                    (rule.trainees?.length || 0)}{" "}
+                                  assignee
+                                  {totalAssignees +
+                                    (rule.trainees?.length || 0) !==
+                                  1
+                                    ? "s"
+                                    : ""}
                                 </span>
                               </div>
                             </div>
@@ -1171,17 +1217,49 @@ export function SettingsDialog({
                                             )}
                                           </div>
                                         );
-                                      }
+                                      },
                                     )}
                                   </div>
                                 </div>
                               )}
 
-                              {employeeCount === 0 && freelancerCount === 0 && (
-                                <div className="text-sm text-muted-foreground italic">
-                                  No assignees found for this rule
+                              {/* Trainees Section */}
+                              {rule.trainees && rule.trainees.length > 0 && (
+                                <div>
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Zap className="h-4 w-4" />
+                                    <span className="text-sm font-medium">
+                                      Trainees ({rule.trainees.length})
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {rule.trainees.map((trainee, index) => (
+                                      <div
+                                        key={trainee.id || index}
+                                        className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs"
+                                      >
+                                        <span>
+                                          {trainee.firstName} {trainee.lastName}
+                                        </span>
+                                        {trainee.traineeNumber && (
+                                          <span className="text-xs opacity-75 ml-1">
+                                            ({trainee.traineeNumber})
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                               )}
+
+                              {employeeCount === 0 &&
+                                freelancerCount === 0 &&
+                                (!rule.trainees ||
+                                  rule.trainees.length === 0) && (
+                                  <div className="text-sm text-muted-foreground italic">
+                                    No assignees found for this rule
+                                  </div>
+                                )}
                             </div>
 
                             {rule.reason && (

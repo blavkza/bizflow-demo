@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import axios from "axios";
 import { TraineeWithDetails } from "../../type";
+import { SendEmailDialog } from "@/components/SendEmailDialog";
 
 interface HeaderProps {
   trainee: TraineeWithDetails;
@@ -200,11 +201,11 @@ export default function Header({
           </Dialog>
         )}
 
-        {/* Send Invoice Button */}
-        <Button>
-          <Mail className="mr-2 h-4 w-4" />
-          Send Invoice
-        </Button>
+        {/* Send Email Button */}
+        <SendEmailDialog
+          recipientName={name}
+          recipientEmail={trainee.email || ""}
+        />
       </div>
 
       <AvatarUploadDialog

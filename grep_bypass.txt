@@ -1,0 +1,74 @@
+147:    // 3. CHECK FOR ATTENDANCE BYPASS RULES
+149:    const bypassResult = await checkAttendanceBypassSimple(
+161:    // Just record if bypass has custom time
+163:      bypassResult.bypassCheckIn &&
+164:      bypassResult.customCheckInTime &&
+165:      bypassResult.customCheckInTime !== "none"
+167:      customCheckInTimeUsed = bypassResult.customCheckInTime;
+178:      if (isOnLeave && !bypassResult.bypassCheckIn) {
+199:      if (!bypassResult.bypassCheckIn) {
+208:        `Bypass allowed check-in on non-working day (${attendanceDay})`,
+246:    // 6. DETERMINE SCHEDULE (PRIORITY: BYPASS > WEEKEND > NORMAL)
+252:    // A. PRIORITY 1: BYPASS TIME (Schedule Override)
+254:      bypassResult.bypassCheckIn &&
+255:      bypassResult.customCheckInTime &&
+256:      bypassResult.customCheckInTime !== "none"
+258:      scheduledKnockInTime = bypassResult.customCheckInTime;
+264:        `Schedule Override: Using Bypass Time ${scheduledKnockInTime} as Knock-In Schedule`,
+285:    let bypassApplied = false;
+288:    // If bypass has a custom check-in time, check lateness relative to THAT time
+290:      bypassResult.bypassCheckIn &&
+291:      bypassResult.customCheckInTime &&
+292:      bypassResult.customCheckInTime !== "none"
+294:      bypassApplied = true;
+296:      const [bypassHours, bypassMinutes] = bypassResult.customCheckInTime
+300:      // Create bypass schedule time in UTC
+301:      const bypassScheduleUTC = new Date(attendanceDate);
+302:      bypassScheduleUTC.setUTCHours(bypassHours - 2, bypassMinutes, 0, 0);
+305:      const bypassLateThreshold = new Date(
+306:        bypassScheduleUTC.getTime() + gracePeriodMinutes * 60000,
+309:      if (currentTimeUTC > bypassLateThreshold) {
+313:          `✓ MARKED AS LATE for bypass schedule ${bypassResult.customCheckInTime}`,
+319:          `✓ On time for bypass schedule ${bypassResult.customCheckInTime}`,
+323:    // Generic bypass (no custom time) - force present
+324:    else if (bypassResult.bypassCheckIn) {
+325:      bypassApplied = true;
+328:      console.log("✓ Generic Bypass: Forcing PRESENT status");
+330:    // Standard schedule check (no bypass)
+398:      bypassApplied: bypassApplied,
+399:      bypassRuleId: bypassResult.rule?.id || null,
+409:    // Add note about bypass schedule change
+411:      bypassApplied &&
+412:      scheduledKnockInTime === bypassResult.customCheckInTime
+416:        `Schedule changed to ${scheduledKnockInTime} by Bypass`;
+435:      bypassApplied: bypassApplied,
+579:        bypassApplied: bypassApplied,
+607:// SIMPLIFIED BYPASS CHECK FUNCTION
+609:async function checkAttendanceBypassSimple(
+614:  hasBypass: boolean;
+615:  bypassCheckIn: boolean;
+616:  bypassCheckOut: boolean;
+622:    console.log(`\n=== BYPASS CHECK WITH FLEXIBLE DATE RANGE ===`);
+642:        { bypassCheckIn: true },
+663:    const bypassRule = await db.attendanceBypassRule.findFirst({
+703:    if (bypassRule) {
+705:      const ruleStart = new Date(bypassRule.startDate);
+706:      const ruleEnd = new Date(bypassRule.endDate);
+714:        console.log(`Returning no bypass...`);
+716:          hasBypass: false,
+717:          bypassCheckIn: false,
+718:          bypassCheckOut: false,
+723:        hasBypass: true,
+724:        bypassCheckIn: bypassRule.bypassCheckIn,
+725:        bypassCheckOut: bypassRule.bypassCheckOut || false,
+726:        customCheckInTime: bypassRule.customCheckInTime,
+727:        customCheckOutTime: bypassRule.customCheckOutTime,
+728:        rule: bypassRule,
+732:    console.log(`\n✗ No bypass rule found in database`);
+734:      hasBypass: false,
+735:      bypassCheckIn: false,
+736:      bypassCheckOut: false,
+739:    console.error("Error in simple bypass check:", error.message);
+741:      hasBypass: false,
+742:      bypassCheckIn: false,
+743:      bypassCheckOut: false,

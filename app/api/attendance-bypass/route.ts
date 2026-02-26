@@ -216,13 +216,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check freelancers
-    if (freelancerIds.length > 0) {
-      const existingFreelancerRules = await db.attendanceBypassRule.findMany({
+    // Check trainees
+    const traineeIds = data.traineeIds || [];
+    if (traineeIds.length > 0) {
+      const existingTraineeRules = await db.attendanceBypassRule.findMany({
         where: {
-          freelancers: {
+          trainees: {
             some: {
-              id: { in: freelancerIds },
+              id: { in: traineeIds },
             },
           },
           AND: [
@@ -231,24 +232,24 @@ export async function POST(request: NextRequest) {
           ],
         },
         include: {
-          freelancers: {
-            select: { id: true, freeLancerNumber: true },
+          trainees: {
+            select: { id: true, traineeNumber: true },
           },
         },
       });
 
-      if (existingFreelancerRules.length > 0) {
-        const conflictingFreelancers = existingFreelancerRules.flatMap((rule) =>
-          rule.freelancers.filter((f) => freelancerIds.includes(f.id)),
+      if (existingTraineeRules.length > 0) {
+        const conflictingTrainees = existingTraineeRules.flatMap((rule) =>
+          rule.trainees.filter((t) => traineeIds.includes(t.id)),
         );
 
-        if (conflictingFreelancers.length > 0) {
-          const freelancerNumbers = conflictingFreelancers
-            .map((f) => f.freeLancerNumber)
+        if (conflictingTrainees.length > 0) {
+          const traineeNumbers = conflictingTrainees
+            .map((t) => t.traineeNumber)
             .join(", ");
           return NextResponse.json(
             {
-              error: `Bypass rules already exist for freelancers: ${freelancerNumbers} during the specified period`,
+              error: `Bypass rules already exist for trainees: ${traineeNumbers} during the specified period`,
             },
             { status: 409 },
           );
@@ -280,6 +281,12 @@ export async function POST(request: NextRequest) {
                 connect: freelancerIds.map((id: any) => ({ id })),
               }
             : undefined,
+        trainees:
+          traineeIds.length > 0
+            ? {
+                connect: traineeIds.map((id: any) => ({ id })),
+              }
+            : undefined,
       },
       include: {
         employees: {
@@ -295,6 +302,15 @@ export async function POST(request: NextRequest) {
           select: {
             id: true,
             freeLancerNumber: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+          },
+        },
+        trainees: {
+          select: {
+            id: true,
+            traineeNumber: true,
             firstName: true,
             lastName: true,
             position: true,
@@ -376,6 +392,7 @@ export async function PUT(request: NextRequest) {
       include: {
         employees: { select: { id: true } },
         freelancers: { select: { id: true } },
+        trainees: { select: { id: true } },
       },
     });
 
@@ -407,6 +424,9 @@ export async function PUT(request: NextRequest) {
     const removedFreelancerIds = existingFreelancerIds.filter(
       (id) => !updatedFreelancerIds.includes(id),
     );
+
+    const existingTraineeIds = existingRule.trainees.map((t) => t.id);
+    const updatedTraineeIds = data.traineeIds || existingTraineeIds;
 
     // Validate dates if provided
     if (data.startDate || data.endDate) {
@@ -458,6 +478,12 @@ export async function PUT(request: NextRequest) {
                 set: data.freelancerIds.map((id: string) => ({ id })),
               }
             : undefined,
+        trainees:
+          data.traineeIds !== undefined
+            ? {
+                set: data.traineeIds.map((id: string) => ({ id })),
+              }
+            : undefined,
       },
       include: {
         employees: {
@@ -473,6 +499,15 @@ export async function PUT(request: NextRequest) {
           select: {
             id: true,
             freeLancerNumber: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+          },
+        },
+        trainees: {
+          select: {
+            id: true,
+            traineeNumber: true,
             firstName: true,
             lastName: true,
             position: true,

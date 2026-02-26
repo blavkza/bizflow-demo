@@ -18,6 +18,13 @@ const isPublicRoute = createRouteMatcher([
   "/api/comments-mobile(.*)",
   "/api/employee-notifications(.*)",
   "/api/employees/(.*)/push-token",
+  "/api/inngest(.*)",
+  "/api/overtime/(.*)",
+  "/inngest(.*)",
+  "/.netlify/functions/inngest(.*)",
+  "/.redwood/functions/inngest(.*)",
+  "/x/inngest(.*)",
+  "/(.*)/inngest(.*)",
 ]);
 
 const allowedOrigins = [
@@ -36,7 +43,7 @@ function setCorsHeaders(req: Request, res: NextResponse): NextResponse {
   const isAllowedOrigin =
     !origin ||
     allowedOrigins.some(
-      (allowed) => origin.includes(allowed) || allowed.includes(origin)
+      (allowed) => origin.includes(allowed) || allowed.includes(origin),
     );
 
   if (isAllowedOrigin) {
@@ -45,7 +52,7 @@ function setCorsHeaders(req: Request, res: NextResponse): NextResponse {
 
   res.headers.set(
     "Access-Control-Allow-Methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD"
+    "GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD",
   );
   res.headers.set(
     "Access-Control-Allow-Headers",
@@ -59,7 +66,7 @@ function setCorsHeaders(req: Request, res: NextResponse): NextResponse {
       "Expo-Runtime-Version",
       "Clerk-Auth",
       "Expo-Push-Token",
-    ].join(", ")
+    ].join(", "),
   );
   res.headers.set("Access-Control-Allow-Credentials", "true");
   res.headers.set("Access-Control-Max-Age", "86400");
@@ -93,7 +100,7 @@ export default clerkMiddleware(async (auth, req) => {
           error: "Unauthorized",
           message: "Please sign in to access this resource",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 

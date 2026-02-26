@@ -80,7 +80,12 @@ export interface AttendanceRecord {
   updatedAt: Date;
   displayStatus?: string;
   isVirtualRecord?: boolean;
+  nextDayStatus?: string;
   personType?: "employee" | "freelancer" | "trainee";
+  overtimeAvailability?: {
+    id: string;
+    status: "PENDING" | "AVAILABLE" | "UNAVAILABLE";
+  } | null;
 }
 
 export interface CheckInRecord {
@@ -188,6 +193,39 @@ export interface EmergencyCallOut {
   requestedBy: string;
   requestedUser?: {
     name: string;
+    employee?: {
+      id: string;
+      employeeNumber: string;
+      firstName: string;
+      lastName: string;
+      avatar?: string | null;
+      position: string;
+      department?: {
+        name: string;
+      } | null;
+    } | null;
+    freeLancer?: {
+      id: string;
+      freeLancerNumber: string;
+      firstName: string;
+      lastName: string;
+      avatar?: string | null;
+      position: string;
+      department?: {
+        name: string;
+      } | null;
+    } | null;
+    trainee?: {
+      id: string;
+      traineeNumber: string;
+      firstName: string;
+      lastName: string;
+      avatar?: string | null;
+      position: string;
+      department?: {
+        name: string;
+      } | null;
+    } | null;
   };
   requestedAt: string;
   acceptedAt: string | null;
@@ -205,4 +243,3 @@ export interface EmergencyCallOut {
   duration: number | null;
   notes: string | null;
 }
-

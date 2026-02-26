@@ -80,6 +80,10 @@ export async function GET(request: NextRequest) {
         ? person.scheduledWeekendKnockOut || person.scheduledKnockOut
         : person.scheduledKnockOut;
 
+      const scheduledKnockInStr = isWeekend
+        ? person.scheduledWeekendKnockIn || person.scheduledKnockIn
+        : person.scheduledKnockIn;
+
       if (!scheduledKnockOutStr) continue;
 
       try {
@@ -94,6 +98,13 @@ export async function GET(request: NextRequest) {
         const day = scheduledTime.getUTCDate();
 
         const scheduledEnd = new Date(year, month, day, h, m, 0);
+
+        // Construct scheduled start time to cap regular hours
+        let scheduledStart = new Date(year, month, day, 8, 0, 0); // Default 08:00
+        if (scheduledKnockInStr) {
+          const [sh, sm] = scheduledKnockInStr.split(":").map(Number);
+          scheduledStart = new Date(year, month, day, sh, sm, 0);
+        }
 
         // Adjust for night shift if necessary (if knockout is earlier than check-in or specific case)
         // For simplicity here, we assume if it's "yesterday's" record and knockOut is morning, it's today.
@@ -127,17 +138,27 @@ export async function GET(request: NextRequest) {
 
         if (shouldCheckOut) {
           // Perform checkout
+          // Calculate regular hours: from actual check-in (capped at scheduled start) to scheduled end
+          const checkIn = record.checkIn;
+          const effectiveStart = new Date(
+            Math.max(checkIn.getTime(), scheduledStart.getTime()),
+          );
+          const grossHours =
+            (scheduledEnd.getTime() - effectiveStart.getTime()) /
+            (1000 * 60 * 60);
+          const breakHours = (record.breakDuration || 0) / 60;
+          let calculatedRegularHours = Math.max(0, grossHours - breakHours);
+          calculatedRegularHours = Math.round(calculatedRegularHours * 10) / 10;
+
           // Note: Since this is a cron job, we use the record's check-in location or null
           await db.attendanceRecord.update({
             where: { id: record.id },
             data: {
               checkOut: new Date(), // Actual time of checkout
               checkOutAddress: reason,
-              status: AttendanceStatus.ABSENT, // As per business rule for early/late checkout issues
+              // status: AttendanceStatus.ABSENT, // Removed as per request: workers shouldn't be absent if they worked
               notes: (record.notes ? record.notes + " | " : "") + reason,
-              // We'll calculate hours here or let the standard check-out API handles it if we redirected.
-              // For backend cron, we do a simple update.
-              regularHours: record.regularHours || 0,
+              regularHours: calculatedRegularHours,
               overtimeHours: 0,
             },
           });

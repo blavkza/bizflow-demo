@@ -158,6 +158,9 @@ export async function GET() {
               amount: true,
             },
           },
+          user: {
+            select: { id: true },
+          },
         },
       }),
       db.department.findMany(),
@@ -173,6 +176,7 @@ export async function GET() {
 
       return {
         id: employee.id,
+        userId: employee.user?.id || null, // The linked User's DB id (needed for callout dispatch)
         employeeId: employee.employeeNumber,
         name: `${employee.firstName} ${employee.lastName}`,
         email: employee.email,

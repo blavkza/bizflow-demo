@@ -25,7 +25,7 @@ interface CompanyInfo {
 export class ProjectReportGenerator {
   static generateProjectReportHTML(
     project: Project,
-    companyInfo?: CompanyInfo | null
+    companyInfo?: CompanyInfo | null,
   ): string {
     const companyName = companyInfo?.companyName || "YOUR COMPANY NAME";
     const companyAddress = companyInfo?.address || "";
@@ -65,7 +65,7 @@ export class ProjectReportGenerator {
     const totalInvoiced =
       project.invoices?.reduce(
         (sum, invoice) => sum + Number(invoice.totalAmount || 0),
-        0
+        0,
       ) || 0;
     const totalExpenses =
       project.invoices?.reduce((sum, invoice) => {
@@ -92,7 +92,7 @@ export class ProjectReportGenerator {
       : null;
     const daysUntilDeadline = deadline
       ? Math.ceil(
-          (deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+          (deadline.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
         )
       : null;
 
@@ -389,6 +389,58 @@ export class ProjectReportGenerator {
           </div>
 
           <div class="section">
+            <div class="section-title">Project Team</div>
+            <div class="info-grid">
+              <div>
+                <div class="info-item">
+                  <span class="info-label">Project Leader:</span> ${project.manager?.name || "Unassigned"}
+                </div>
+                ${
+                  project.assistantEmployees &&
+                  project.assistantEmployees.length > 0
+                    ? `
+                <div class="info-item">
+                  <span class="info-label">Employees:</span> ${project.assistantEmployees
+                    .map((emp) => emp.name)
+                    .join(", ")}
+                </div>
+                `
+                    : ""
+                }
+              </div>
+              <div>
+                ${
+                  project.assistantFreelancers &&
+                  project.assistantFreelancers.length > 0
+                    ? `
+                <div class="info-item">
+                  <span class="info-label">Freelancers:</span> ${project.assistantFreelancers
+                    .map((free) => `${free.firstName} ${free.lastName}`)
+                    .join(", ")}
+                </div>
+                `
+                    : ""
+                }
+                ${
+                  project.assistantTrainees &&
+                  project.assistantTrainees.length > 0
+                    ? `
+                <div class="info-item">
+                  <span class="info-label">Trainees:</span> ${project.assistantTrainees
+                    .map(
+                      (trainee) => `${trainee.firstName} ${trainee.lastName}`,
+                    )
+                    .join(", ")}
+                </div>
+                `
+                    : ""
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+
             <div class="section-title">Project Progress</div>
             <div class="stats-grid">
               <div class="stat-card">
@@ -482,9 +534,19 @@ export class ProjectReportGenerator {
   ${project.tasks
     .slice(0, 10)
     .map((task) => {
-      const assignee = task.assignees?.[0]
-        ? `${task.assignees[0].firstName} ${task.assignees[0].lastName || ""}`
-        : "Unassigned";
+      const assignees = [
+        ...(task.assignees?.map(
+          (emp) => `${emp.firstName} ${emp.lastName || ""}`,
+        ) || []),
+        ...(task.freeLancerAssignees?.map(
+          (free) => `${free.firstName} ${free.lastName || ""}`,
+        ) || []),
+        ...(task.traineeAssignees?.map(
+          (trainee) => `${trainee.firstName} ${trainee.lastName || ""}`,
+        ) || []),
+      ];
+      const assigneeStr =
+        assignees.length > 0 ? assignees.join(", ") : "Unassigned";
 
       const progress =
         task.status === "COMPLETED"
@@ -510,7 +572,8 @@ export class ProjectReportGenerator {
               ${task.priority}
             </span>
           </td>
-          <td>${assignee}</td>
+          <td>${assigneeStr}</td>
+
           <td>${dueDate}</td>
           <td>
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -572,7 +635,7 @@ export class ProjectReportGenerator {
                     <td>${invoice.issueDate ? new Date(invoice.issueDate).toLocaleDateString() : "N/A"}</td>
                     <td>${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "N/A"}</td>
                   </tr>
-                `
+                `,
                   )
                   .join("")}
               </tbody>

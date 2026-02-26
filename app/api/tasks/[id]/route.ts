@@ -39,6 +39,7 @@ export async function PUT(
       estimatedHours,
       assigneeIds = [],
       freelancerIds = [],
+      traineeIds = [],
       taskLeaderId,
     } = body;
 
@@ -96,6 +97,22 @@ export async function PUT(
       }
     }
 
+    if (traineeIds.length > 0) {
+      const existingTrainees = await db.trainee.findMany({
+        where: { id: { in: traineeIds } },
+      });
+
+      if (existingTrainees.length !== traineeIds.length) {
+        const missingIds = traineeIds.filter(
+          (id: string) => !existingTrainees.some((tr) => tr.id === id),
+        );
+        return NextResponse.json(
+          { error: `Trainees not found: ${missingIds.join(", ")}` },
+          { status: 404 },
+        );
+      }
+    }
+
     const updateData: any = {
       title,
       description: description || null,
@@ -145,6 +162,20 @@ export async function PUT(
         }
 
         if (
+          traineeIds.length > 0 ||
+          (existingTask as any).traineeAssignees?.length > 0
+        ) {
+          await tx.task.update({
+            where: { id },
+            data: {
+              traineeAssignees: {
+                set: traineeIds.map((id: string) => ({ id })),
+              },
+            },
+          });
+        }
+
+        if (
           status === "COMPLETED" &&
           existingTask.status !== "COMPLETED" &&
           existingTask.subtask.length > 0
@@ -188,6 +219,15 @@ export async function PUT(
             avatar: true,
           },
         },
+        traineeAssignees: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatar: true,
+          },
+        },
+
         subtask: true,
         project: {
           select: {
@@ -285,6 +325,28 @@ export async function PUT(
           data: freelancerNotifications,
         });
       }
+
+      if (
+        (fullUpdatedTask as any).traineeAssignees &&
+        (fullUpdatedTask as any).traineeAssignees.length > 0
+      ) {
+        const detailMessage = `Task: ${(fullUpdatedTask as any).title}\nProject: ${(fullUpdatedTask as any).project?.title}\nStatus: ${(fullUpdatedTask as any).status}\nPriority: ${(fullUpdatedTask as any).priority || "N/A"}\nDue: ${(fullUpdatedTask as any).dueDate ? new Date((fullUpdatedTask as any).dueDate).toLocaleDateString() : "N/A"}\nUpdated by: ${updater.name}`;
+
+        const traineeNotifications = (
+          fullUpdatedTask as any
+        ).traineeAssignees.map((trainee: any) => ({
+          traineeId: trainee.id,
+          title: "Task Updated",
+          message: detailMessage,
+          type: NotificationType.Task,
+          isRead: false,
+          actionUrl: `/dashboard/projects/${(fullUpdatedTask as any).projectId}/tasks/${(fullUpdatedTask as any).id}`,
+        }));
+
+        await db.employeeNotification.createMany({
+          data: traineeNotifications,
+        });
+      }
     }
 
     return NextResponse.json(fullUpdatedTask);
@@ -325,6 +387,7 @@ export async function DELETE(
     where: { id },
     include: {
       assignees: true,
+      traineeAssignees: true,
       project: {
         select: {
           id: true,
@@ -372,6 +435,26 @@ export async function DELETE(
       console.log(
         `Deletion notifications sent to ${employeeNotifications.length} employees.`,
       );
+    }
+
+    if (
+      (task as any).traineeAssignees &&
+      (task as any).traineeAssignees.length > 0
+    ) {
+      const traineeNotifications = (task as any).traineeAssignees.map(
+        (trainee: any) => ({
+          traineeId: trainee.id,
+          title: "Task Deleted",
+          message: `Task "${task.title}" has been deleted by ${user.name}.`,
+          type: NotificationType.Task,
+          isRead: false,
+          actionUrl: `/dashboard/projects/${task.project.id}`,
+        }),
+      );
+
+      await db.employeeNotification.createMany({
+        data: traineeNotifications,
+      });
     }
 
     return NextResponse.json(
@@ -442,6 +525,16 @@ export async function GET(
             avatar: true,
           },
         },
+        traineeAssignees: {
+          select: {
+            firstName: true,
+            lastName: true,
+            id: true,
+            position: true,
+            avatar: true,
+          },
+        },
+
         subtask: {
           orderBy: {
             order: "asc",

@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       permissions,
       phone,
       status,
+      traineeId,
     } = body;
 
     if (permissions && !Array.isArray(permissions)) {
@@ -37,6 +38,13 @@ export async function POST(req: Request) {
     if (userType === UserType.EMPLOYEE && !employeeId) {
       return NextResponse.json(
         { error: "Employee must be selected for employee users" },
+        { status: 400 },
+      );
+    }
+
+    if (userType === UserType.TRAINEE && !traineeId) {
+      return NextResponse.json(
+        { error: "Trainee must be selected for trainee users" },
         { status: 400 },
       );
     }
@@ -64,6 +72,20 @@ export async function POST(req: Request) {
       if (existingFreelancerUser) {
         return NextResponse.json(
           { error: "This freelancer is already linked to another user" },
+          { status: 400 },
+        );
+      }
+    }
+
+    // Check if trainee is already linked to a user
+    if (traineeId) {
+      const existingTraineeUser = await db.user.findFirst({
+        where: { traineeId },
+      });
+
+      if (existingTraineeUser) {
+        return NextResponse.json(
+          { error: "This trainee is already linked to another user" },
           { status: 400 },
         );
       }
@@ -102,6 +124,11 @@ export async function POST(req: Request) {
       userData.freeLancerId = freelancerId;
     }
 
+    // Link trainee if provided
+    if (traineeId) {
+      userData.traineeId = traineeId;
+    }
+
     const user = await db.user.create({
       data: userData,
       include: {
@@ -120,6 +147,15 @@ export async function POST(req: Request) {
             firstName: true,
             lastName: true,
             freeLancerNumber: true,
+            position: true,
+          },
+        },
+        trainee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            traineeNumber: true,
             position: true,
           },
         },
@@ -166,7 +202,16 @@ export async function GET() {
             firstName: true,
             lastName: true,
             position: true,
-            avatar: true, // Assuming avatar exists on Freelancer model too, if not remove or check schema
+            avatar: true,
+          },
+        },
+        trainee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+            avatar: true,
           },
         },
       },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,13 @@ import { leaveTypes } from "../types";
 import { useToast } from "@/hooks/use-toast";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Info, AlertCircle, CheckCircle2, Calendar } from "lucide-react";
+import {
+  Info,
+  AlertCircle,
+  CheckCircle2,
+  Calendar,
+  Loader2,
+} from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 
 type Employee = {
@@ -60,10 +66,14 @@ export default function LeaveRequestForm({
     reason: "",
     contactInfo: "",
     emergencyAvailability: false,
+    documentUrl: "",
+    submitToAdmin: false,
   });
 
   const [calculatedDays, setCalculatedDays] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
@@ -225,10 +235,13 @@ export default function LeaveRequestForm({
         reason: "",
         contactInfo: "",
         emergencyAvailability: false,
+        documentUrl: "",
+        submitToAdmin: false,
       });
       setCalculatedDays(0);
       setSelectedEmployee(null);
       setLeaveUsage(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
       // Error handling is done in the parent component
     } finally {
@@ -671,6 +684,110 @@ export default function LeaveRequestForm({
             <Label htmlFor="emergencyAvailability" className="cursor-pointer">
               Available for Emergencies?
             </Label>
+          </div>
+
+          <div className="space-y-4 border p-4 rounded-md">
+            <h4 className="text-sm font-medium">Documentation</h4>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="submitToAdmin"
+                checked={formData.submitToAdmin}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    submitToAdmin: checked,
+                    // If they will submit to admin, they might not upload now
+                  }))
+                }
+              />
+              <Label htmlFor="submitToAdmin" className="cursor-pointer">
+                I will submit document to Admin later
+              </Label>
+            </div>
+
+            {!formData.submitToAdmin && (
+              <div className="space-y-2">
+                <Label htmlFor="document">
+                  Upload Document (Doctor's Note / Letter)
+                </Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    id="document"
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        try {
+                          setIsUploadingDoc(true);
+                          const uploadFormData = new FormData();
+                          uploadFormData.append("file", file);
+                          uploadFormData.append("type", "leave-document");
+
+                          const response = await fetch("/api/upload", {
+                            method: "POST",
+                            body: uploadFormData,
+                          });
+
+                          const data = await response.json();
+                          if (response.ok) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              documentUrl: data.url,
+                            }));
+                            toast({
+                              title: "Upload Successful",
+                              description: "Document has been uploaded.",
+                            });
+                          } else {
+                            throw new Error(data.error || "Upload failed");
+                          }
+                        } catch (err: any) {
+                          toast({
+                            title: "Upload Failed",
+                            description: err.message,
+                            variant: "destructive",
+                          });
+                        } finally {
+                          setIsUploadingDoc(false);
+                        }
+                      }
+                    }}
+                    accept=".pdf,image/*"
+                    disabled={isUploadingDoc}
+                  />
+                  {isUploadingDoc && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                </div>
+                {formData.documentUrl && (
+                  <p className="text-xs text-green-600 flex items-center">
+                    <CheckCircle2 className="h-3 w-3 mr-1" /> Document uploaded
+                    successfully
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Required for non-unpaid leave types. Accepted formats: PDF,
+                  Images. Max 5MB.
+                </p>
+              </div>
+            )}
+
+            {formData.leaveType &&
+              formData.leaveType !== "UNPAID" &&
+              !formData.documentUrl &&
+              !formData.submitToAdmin && (
+                <div className="p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800 flex items-start space-x-2">
+                  <AlertCircle className="h-4 w-4 mt-0.5" />
+                  <span>
+                    <strong>Important:</strong> Requesting{" "}
+                    {getLeaveTypeLabel(formData.leaveType)} without a document
+                    will automatically convert this to{" "}
+                    <strong>UNPAID LEAVE</strong> until a document is provided.
+                  </span>
+                </div>
+              )}
           </div>
         </div>
 

@@ -76,6 +76,7 @@ export const QuotationInfoCard = ({
           <span className="text-muted-foreground">Valid Until:</span>
           <span>{format(new Date(quotation.validUntil), "MMM dd, yyyy")}</span>
         </div>
+        <div>this will represent everything weed in the mean time</div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">Status:</span>
           <StatusBadge status={quotation.status} />
@@ -107,7 +108,7 @@ export const QuotationInfoCard = ({
                     Discount
                     {quotation.discountType === DiscountType.PERCENTAGE &&
                       quotation.discountAmount &&
-                      ` (${quotation.discountAmount}%)`}
+                      ` (${Number(quotation.discountAmount)}%)`}
                     :
                   </span>
                   <span>-{formatCurrency(discountAmount)}</span>
@@ -162,9 +163,12 @@ export const QuotationInfoCard = ({
                 Number(quotation.interestAmount) > 0 && (
                   <div className="space-y-2 pt-2 border-t">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">
-                        Interest ({quotation.interestRate}%):
-                      </span>
+                      {quotation.interestRate && (
+                        <span className="text-muted-foreground">
+                          Interest: ({Number(quotation.interestRate)}%):
+                        </span>
+                      )}
+
                       <span className="text-orange-600 font-medium">
                         +{formatCurrency(quotation.interestAmount)}
                       </span>
@@ -182,7 +186,8 @@ export const QuotationInfoCard = ({
                                 ? "6-9 Months"
                                 : quotation.installmentPeriod === "9to12months"
                                   ? "9-12 Months"
-                                  : quotation.installmentPeriod}
+                                  : quotation.installmentPeriod ||
+                                    "Balance on Completion"}
                       </span>
                     </div>
                   </div>

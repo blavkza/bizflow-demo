@@ -132,7 +132,7 @@ export function EmploymentDetailsCard({
             <p className="text-sm font-medium">Contract End Date</p>
             <p className="text-sm text-muted-foreground">
               {new Date(
-                employee.terminationDate || "Not Assigned"
+                employee.terminationDate || "Not Assigned",
               ).toLocaleDateString()}
             </p>
           </div>
@@ -188,6 +188,16 @@ export function EmploymentDetailsCard({
           </p>
           <p className="text-sm  font-semibold">
             R {employee.overtimeHourRate?.toFixed(2) || "0.00"} per hour
+          </p>
+        </div>
+
+        {/* Emergency Call Out Rate */}
+        <div>
+          <p className="text-sm font-medium flex items-center text-blue-600">
+            Emergency Call Out Rate
+          </p>
+          <p className="text-sm font-semibold">
+            R {employee.emergencyCallOutRate?.toFixed(2) || "0.00"} per call out
           </p>
         </div>
 

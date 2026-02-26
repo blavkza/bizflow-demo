@@ -113,6 +113,7 @@ export async function PUT(
       scheduledWeekendKnockIn,
       terminationDate,
       contractType,
+      emergencyCallOutRate,
     } = body;
 
     const { userId } = await auth();
@@ -162,6 +163,7 @@ export async function PUT(
         scheduledWeekendKnockIn,
         terminationDate,
         contractType,
+        emergencyCallOutRate: emergencyCallOutRate || 0,
         generalSettingId: campany?.id,
       },
     });

@@ -73,6 +73,18 @@ export async function POST(
             body: `The mission at ${callOut.destination} has officially started.`,
             data: { url: `/emergency-callouts/${callOut.id}` },
           });
+
+          await db.notification.create({
+            data: {
+              userId: assistant.userId,
+              title: "🚀 Call-Out Started",
+              message: `The mission at ${callOut.destination} has officially started.`,
+              type: "EMERGENCY",
+              priority: "MEDIUM",
+              actionUrl: `/emergency-callouts/${callOut.id}`,
+              metadata: { callOutId: id },
+            },
+          });
         }
       }
     } catch (err) {

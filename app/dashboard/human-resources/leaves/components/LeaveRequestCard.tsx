@@ -1,10 +1,20 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LeaveRequest } from "../types";
-import { Calendar, Clock, CheckCircle, XCircle } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  CheckCircle,
+  XCircle,
+  FileText,
+  Upload,
+  Loader2,
+  FileWarning,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import RejectLeaveDialog from "./RejectLeaveDialog";
 
 interface LeaveRequestCardProps {
@@ -13,16 +23,21 @@ interface LeaveRequestCardProps {
   request: LeaveRequest;
   onApprove: () => void;
   onReject: (comments: string) => Promise<boolean>;
+  onDocumentUpload: (id: string, documentUrl: string) => Promise<boolean>;
 }
 
 export default function LeaveRequestCard({
   request,
   onApprove,
   onReject,
+  onDocumentUpload,
   canEditLeave,
   hasFullAccess,
 }: LeaveRequestCardProps) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -76,6 +91,38 @@ export default function LeaveRequestCard({
 
   const handleRejectWithReason = async (comments: string) => {
     return await onReject(comments);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsUploadingDoc(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", "leave-document");
+      formData.append("leaveRequestId", request.id);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Upload failed");
+
+      await onDocumentUpload(request.id, data.url);
+    } catch (err: any) {
+      toast({
+        title: "Upload Failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingDoc(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -143,6 +190,20 @@ export default function LeaveRequestCard({
                     </Badge>
                   </div>
                 )}
+                {request.originalLeaveType && (
+                  <div className="mt-1 flex items-center space-x-2">
+                    <Badge
+                      variant="outline"
+                      className="text-xs text-amber-700 bg-amber-50 border-amber-200"
+                    >
+                      Intended: {request.originalLeaveType}
+                    </Badge>
+                    <span className="text-[10px] text-amber-600 italic flex items-center">
+                      <FileWarning className="h-3 w-3 mr-1" /> Missing
+                      Documentation
+                    </span>
+                  </div>
+                )}
                 <div className="mt-1">
                   {request.emergencyAvailability ? (
                     <Badge
@@ -150,7 +211,7 @@ export default function LeaveRequestCard({
                       className="text-xs bg-green-50 text-green-700 border-green-200"
                     >
                       <CheckCircle className="mr-1 h-3 w-3" />
-                      Available for Emergency
+                      Available for Emergency Call Out
                     </Badge>
                   ) : (
                     <Badge
@@ -158,7 +219,7 @@ export default function LeaveRequestCard({
                       className="text-xs bg-red-50 text-red-700 border-red-200"
                     >
                       <XCircle className="mr-1 h-3 w-3" />
-                      Not Available for Emergency
+                      Not Available for Emergency Call Out
                     </Badge>
                   )}
                 </div>
@@ -170,25 +231,101 @@ export default function LeaveRequestCard({
                 </div>
               </div>
             </div>
-            {/* ALWAYS SHOW APPROVE/REJECT BUTTONS FOR PENDING REQUESTS */}
-
             {(canEditLeave || hasFullAccess) &&
               request.status === "PENDING" && (
-                <div className="flex space-x-2">
-                  <Button size="sm" onClick={onApprove}>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Approve
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => setRejectDialogOpen(true)}
-                  >
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Reject
-                  </Button>
+                <div className="flex flex-col space-y-2">
+                  <div className="flex space-x-2">
+                    <Button size="sm" onClick={onApprove}>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => setRejectDialogOpen(true)}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Reject
+                    </Button>
+                  </div>
+
+                  {!request.documentUrl && (
+                    <div className="flex flex-col items-end">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        onChange={handleFileChange}
+                        accept=".pdf,image/*"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingDoc}
+                      >
+                        {isUploadingDoc ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Upload className="mr-2 h-4 w-4" />
+                        )}
+                        Upload Document
+                      </Button>
+                      {request.submitToAdmin && (
+                        <span className="text-[10px] text-amber-600 font-medium italic mt-1">
+                          * Employee will submit to admin
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
+
+            {(canEditLeave || hasFullAccess) &&
+              request.status !== "PENDING" &&
+              !request.documentUrl && (
+                <div className="flex flex-col items-end space-y-1">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept=".pdf,image/*"
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingDoc}
+                  >
+                    {isUploadingDoc ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Upload className="mr-2 h-4 w-4" />
+                    )}
+                    Upload Document
+                  </Button>
+                  {request.submitToAdmin && (
+                    <span className="text-[10px] text-amber-600 font-medium italic">
+                      * Employee will submit to admin
+                    </span>
+                  )}
+                </div>
+              )}
+
+            {request.documentUrl && (
+              <Button size="sm" variant="outline" asChild>
+                <a
+                  href={request.documentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  View Document
+                </a>
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

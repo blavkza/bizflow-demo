@@ -89,6 +89,16 @@ export default function UsersList({
             .includes(searchTerm.toLowerCase()) ||
           user.freelancer.freeLancerNumber
             .toLowerCase()
+            .includes(searchTerm.toLowerCase()))) ||
+      (user.trainee &&
+        (user.trainee.firstName
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
+          user.trainee.lastName
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          user.trainee.traineeNumber
+            .toLowerCase()
             .includes(searchTerm.toLowerCase())));
 
     if (selectedTab === "all") return matchesSearch;
@@ -222,6 +232,13 @@ export default function UsersList({
                             {user.freelancer.freeLancerNumber})
                           </div>
                         )}
+                        {user.trainee && (
+                          <div className="text-xs text-muted-foreground">
+                            <strong>Linked Trainee:</strong>{" "}
+                            {user.trainee.firstName} {user.trainee.lastName} (
+                            {user.trainee.traineeNumber})
+                          </div>
+                        )}
                         <div className="text-xs text-muted-foreground">
                           {user.lastLogin ? (
                             <>
@@ -321,6 +338,7 @@ export default function UsersList({
                 userType: currentUser.userType,
                 employeeId: currentUser.employeeId,
                 freelancerId: currentUser.freelancerId,
+                traineeId: currentUser.traineeId,
                 permissions: currentUser.permissions,
               }}
               onCancel={() => setIsEditDialogOpen(false)}

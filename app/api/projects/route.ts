@@ -49,6 +49,7 @@ export async function POST(req: Request) {
       scheduledStartTime,
       assistantEmployeeIds,
       assistantFreelancerIds,
+      assistantTraineeIds,
       toolIds,
       tasks,
       maintenanceId,
@@ -114,6 +115,9 @@ export async function POST(req: Request) {
         assistantFreelancers: {
           connect: assistantFreelancerIds?.map((id: string) => ({ id })) || [],
         },
+        assistantTrainees: {
+          connect: assistantTraineeIds?.map((id: string) => ({ id })) || [],
+        },
         tools: {
           connect: toolIds?.map((id: string) => ({ id })) || [],
         },
@@ -122,6 +126,7 @@ export async function POST(req: Request) {
         manager: { select: { employeeId: true, name: true } },
         assistantEmployees: { include: { user: true } },
         assistantFreelancers: { include: { user: true } },
+        assistantTrainees: { include: { user: true } },
         client: true,
       },
     });
@@ -142,6 +147,10 @@ export async function POST(req: Request) {
 
     project.assistantFreelancers.forEach((free) => {
       if (free.user) assistantUsers.add(free.user.id);
+    });
+
+    project.assistantTrainees.forEach((trainee) => {
+      if (trainee.user) assistantUsers.add(trainee.user.id);
     });
 
     // Also include the manager
@@ -203,6 +212,9 @@ export async function POST(req: Request) {
               connect:
                 taskData.freelancerIds?.map((id: string) => ({ id })) || [],
             },
+            traineeAssignees: {
+              connect: taskData.traineeIds?.map((id: string) => ({ id })) || [],
+            },
           },
         });
 
@@ -253,6 +265,20 @@ export async function POST(req: Request) {
           await db.employeeNotification.createMany({
             data: taskData.freelancerIds.map((freelancerId: string) => ({
               freeLancerId: freelancerId,
+              title: "New Task Assigned",
+              message: `Task: ${task.title}\nProject: ${project.title}\nDetails: ${task.description || "No description"}\nAssigned by: ${creater.name}`,
+              type: NotificationType.Task,
+              isRead: false,
+              actionUrl: `/dashboard/projects/${project.id}/tasks/${task.id}`,
+            })),
+          });
+        }
+
+        // Notifications for task assignees (trainees)
+        if (taskData.traineeIds && taskData.traineeIds.length > 0) {
+          await db.employeeNotification.createMany({
+            data: taskData.traineeIds.map((traineeId: string) => ({
+              traineeId: traineeId,
               title: "New Task Assigned",
               message: `Task: ${task.title}\nProject: ${project.title}\nDetails: ${task.description || "No description"}\nAssigned by: ${creater.name}`,
               type: NotificationType.Task,
@@ -359,6 +385,21 @@ export async function POST(req: Request) {
           }),
         ),
       );
+    }
+
+    // Notifications for assistant trainees
+    if (assistantTraineeIds && assistantTraineeIds.length > 0) {
+      const assistantMessage = `You have been assigned as an assistant to project ${project.title} : ${project.projectNumber} by ${creater.name}.`;
+
+      await db.employeeNotification.createMany({
+        data: assistantTraineeIds.map((id: string) => ({
+          traineeId: id,
+          title: "Project Assistant",
+          message: assistantMessage,
+          type: "EMPLOYEE",
+          actionUrl: `/dashboard/projects/${project.id}`,
+        })),
+      });
     }
 
     return NextResponse.json({ project, notification });

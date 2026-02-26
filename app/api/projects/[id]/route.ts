@@ -65,6 +65,7 @@ export async function PUT(
       scheduledStartTime,
       assistantEmployeeIds,
       assistantFreelancerIds,
+      assistantTraineeIds,
       toolIds,
     } = validation.data;
 
@@ -132,6 +133,9 @@ export async function PUT(
         assistantFreelancers: {
           set: assistantFreelancerIds?.map((id: string) => ({ id })) || [],
         },
+        assistantTrainees: {
+          set: assistantTraineeIds?.map((id: string) => ({ id })) || [],
+        },
         tools: {
           set: toolIds?.map((id: string) => ({ id })) || [],
         },
@@ -140,6 +144,7 @@ export async function PUT(
         manager: true,
         assistantEmployees: { include: { user: true } },
         assistantFreelancers: { include: { user: true } },
+        assistantTrainees: { include: { user: true } },
       },
     });
 
@@ -152,6 +157,10 @@ export async function PUT(
 
     project.assistantFreelancers.forEach((free) => {
       if (free.user) assistantUsers.add(free.user.id);
+    });
+
+    project.assistantTrainees.forEach((trainee) => {
+      if (trainee.user) assistantUsers.add(trainee.user.id);
     });
 
     // Also include the manager
@@ -268,6 +277,25 @@ export async function PUT(
       );
     }
 
+    // Notify Assistant Trainees on update
+    if (project.assistantTrainees.length > 0) {
+      const assistantMessage = `Project ${project.title} has been updated by ${user.name}.`;
+
+      await Promise.all(
+        project.assistantTrainees.map(async (trainee) => {
+          await db.employeeNotification.create({
+            data: {
+              traineeId: trainee.id,
+              title: "Project Updated",
+              message: assistantMessage,
+              type: "EMPLOYEE",
+              actionUrl: `/dashboard/projects/${project.id}`,
+            },
+          });
+        }),
+      );
+    }
+
     return NextResponse.json({ project, notification });
   } catch (error) {
     console.error("[PROJECT_UPDATE_ERROR]", error);
@@ -344,13 +372,18 @@ export async function GET(
         },
         assistantEmployees: true,
         assistantFreelancers: true,
+        assistantTrainees: true,
         tools: true,
+
         tasks: {
           include: {
             assignees: {
               select: { firstName: true, lastName: true, avatar: true },
             },
             freeLancerAssignees: {
+              select: { firstName: true, lastName: true, avatar: true },
+            },
+            traineeAssignees: {
               select: { firstName: true, lastName: true, avatar: true },
             },
           },

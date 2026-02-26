@@ -19,13 +19,23 @@ export async function POST(request: Request) {
     const settingsId = formData.get("settingsId") as string | null;
     const freelancerId = formData.get("freelancerId") as string | null;
     const traineeId = formData.get("traineeId") as string | null;
+    const leaveRequestId = formData.get("leaveRequestId") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     // Validate file type and size
-    if (!file.type.startsWith("image/")) {
+    if (type === "leave-document") {
+      if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+        return NextResponse.json(
+          {
+            error: "Only images and PDF files are allowed for leave documents",
+          },
+          { status: 400 },
+        );
+      }
+    } else if (!file.type.startsWith("image/")) {
       return NextResponse.json(
         { error: "Only image files are allowed" },
         { status: 400 },
@@ -76,7 +86,9 @@ export async function POST(request: Request) {
               ? freelancerId
               : type === "trainee"
                 ? traineeId
-                : userId;
+                : type === "leave-document"
+                  ? leaveRequestId
+                  : userId;
 
     if (
       (type === "client" && !clientId) ||
@@ -109,10 +121,15 @@ export async function POST(request: Request) {
       `data:${file.type};base64,${buffer.toString("base64")}`,
     );
     cloudinaryFormData.append("upload_preset", uploadPreset);
-    cloudinaryFormData.append("folder", "avatars");
+    cloudinaryFormData.append(
+      "folder",
+      type === "leave-document" ? "leave_documents" : "avatars",
+    );
     cloudinaryFormData.append(
       "public_id",
-      `${type}_${entityId}_avatar_${timestamp}`,
+      type === "leave-document"
+        ? `leave_doc_${entityId}_${timestamp}`
+        : `${type}_${entityId}_avatar_${timestamp}`,
     );
     const cloudinaryResponse = await fetch(cloudinaryUrl, {
       method: "POST",
@@ -124,6 +141,15 @@ export async function POST(request: Request) {
     if (!cloudinaryResponse.ok) {
       console.error("Cloudinary error:", cloudinaryData);
       throw new Error(cloudinaryData.error?.message || "Upload failed");
+    }
+
+    if (type === "leave-document") {
+      // Just return the URL, don't update any entity yet
+      return NextResponse.json({
+        url: cloudinaryData.secure_url,
+        public_id: cloudinaryData.public_id,
+        message: "Document uploaded successfully",
+      });
     }
 
     // Update the appropriate entity in database
@@ -229,4 +255,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

@@ -18,6 +18,9 @@ export interface LeaveRequest {
   department: string;
   requestedBy?: string;
   emergencyAvailability?: boolean;
+  documentUrl?: string | null;
+  submitToAdmin?: boolean;
+  originalLeaveType?: string | null;
 }
 
 export interface LeaveBalances {

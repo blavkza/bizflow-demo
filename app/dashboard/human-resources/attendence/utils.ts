@@ -137,6 +137,12 @@ export function getStatusColor(
     case AttendanceStatus.LATE:
       return "bg-yellow-100 text-yellow-800";
     case AttendanceStatus.ABSENT:
+      if (displayStatus === "Day Off") {
+        return "bg-gray-100 text-gray-800 border-gray-200";
+      }
+      if (displayStatus === "Scheduled to work") {
+        return "bg-blue-50 text-blue-600 border-blue-200";
+      }
       return "bg-red-100 text-red-800";
     case AttendanceStatus.ANNUAL_LEAVE:
       return "bg-blue-100 text-blue-800";
@@ -320,4 +326,3 @@ export function getDisplayStatus(record: AttendanceRecord): string {
     return "Absent";
   }
 }
-

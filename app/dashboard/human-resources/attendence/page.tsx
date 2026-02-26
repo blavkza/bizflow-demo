@@ -25,7 +25,9 @@ import {
   BulkPastAttendanceDialog,
   SummaryCards,
   EmergencyCallOutDialog,
+  AttendancePageSkeleton,
 } from "./components";
+import { AdminCreateCallOutDialog } from "../../emergency-callouts/_components/AdminCreateCallOutDialog";
 
 export default function AttendancePage() {
   const router = useRouter();
@@ -41,6 +43,7 @@ export default function AttendancePage() {
   const [isEmergencyCallOutOpen, setIsEmergencyCallOutOpen] = useState(false);
   const [checkInType, setCheckInType] = useState<"in" | "out">("in");
   const [isLoading, setIsLoading] = useState(false);
+  const [showAllCallOuts, setShowAllCallOuts] = useState(false);
 
   const { userId } = useAuth();
 
@@ -87,9 +90,25 @@ export default function AttendancePage() {
   });
 
   // Fetch call-out history
-  const { data: calloutHistory, isLoading: calloutsLoading } = useQuery({
-    queryKey: ["callout-history", selectedDate],
-    queryFn: () => fetchCallOutHistory(selectedDate),
+  const {
+    data: calloutHistory,
+    isLoading: calloutsLoading,
+    refetch: refetchCallOuts,
+  } = useQuery({
+    queryKey: ["callout-history", showAllCallOuts ? "ALL" : selectedDate],
+    queryFn: () =>
+      fetchCallOutHistory(showAllCallOuts ? undefined : selectedDate),
+    enabled: !userLoading,
+  });
+
+  // NEW: Fetch HR Settings
+  const { data: hrSettings } = useQuery({
+    queryKey: ["hr-settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/settings/hr");
+      if (!res.ok) return null;
+      return res.json();
+    },
     enabled: !userLoading,
   });
 
@@ -124,9 +143,7 @@ export default function AttendancePage() {
   );
 
   if (userLoading) {
-    return (
-      <div className="flex items-center justify-center p-8">Loading...</div>
-    );
+    return <AttendancePageSkeleton />;
   }
 
   if (!userLoading && canViewAttendance === false && hasFullAccess === false) {
@@ -183,6 +200,9 @@ export default function AttendancePage() {
         checkinsLoading={checkinsLoading}
         calloutsLoading={calloutsLoading}
         bypassRules={bypassRules}
+        hrSettings={hrSettings}
+        showAllCallOuts={showAllCallOuts}
+        setShowAllCallOuts={setShowAllCallOuts}
       />
 
       <BulkPastAttendanceDialog
@@ -330,11 +350,11 @@ export default function AttendancePage() {
         }}
       />
 
-      <EmergencyCallOutDialog
+      <AdminCreateCallOutDialog
         open={isEmergencyCallOutOpen}
         onOpenChange={setIsEmergencyCallOutOpen}
+        onSuccess={refetchCallOuts}
       />
     </div>
   );
 }
-

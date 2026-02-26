@@ -213,10 +213,15 @@ async function calculateHoursAndStatus(
     regularHours = actualHoursWorked;
     overtimeHours = 0;
     workedPercentage = (actualHoursWorked / workingHoursForDay) * 100;
-    newStatus =
-      actualHoursWorked >= halfDayThreshold
-        ? currentStatus
-        : AttendanceStatus.ABSENT;
+    if (actualHoursWorked >= halfDayThreshold) {
+      if (actualHoursWorked < workingHoursForDay * 0.8) {
+        newStatus = AttendanceStatus.HALF_DAY;
+      } else {
+        newStatus = currentStatus;
+      }
+    } else {
+      newStatus = AttendanceStatus.ABSENT;
+    }
   }
 
   return {
@@ -226,4 +231,3 @@ async function calculateHoursAndStatus(
     workedPercentage: Math.round(workedPercentage),
   };
 }
-

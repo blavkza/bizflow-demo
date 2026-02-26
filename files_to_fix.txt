@@ -1,0 +1,16 @@
+./app/api/dashboard/route.ts
+./app/api/inngest/route.ts
+./app/api/payroll/calculate/route.ts
+./app/api/sidebar/stats/route.ts
+./app/dashboard/human-resources/attendence/components/attendance-skeleton.tsx
+./app/dashboard/human-resources/attendence/components/attendance-tabs.tsx
+./app/dashboard/human-resources/attendence/components/index.ts
+./app/dashboard/human-resources/attendence/components/overtime-requests-list.tsx
+./components/app-sidebar.tsx
+./components/sidebar/sidebar-items.tsx
+./components/sidebar/utils/sidebar-data.ts
+./lib/inngest/functions.ts
+./prisma/schema.employee.partial
+./prisma/schema.prisma
+./prisma/schema.prisma.backup
+./prisma/schema_backup.prisma

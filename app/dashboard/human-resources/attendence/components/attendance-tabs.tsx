@@ -7,6 +7,7 @@ import { CheckInsList } from "./checkins-list";
 import { ReportsSection } from "./reports-section";
 import { OvertimeRequestsList } from "./overtime-requests-list";
 import { CallOutList } from "./callout-list";
+import { BypassSection } from "./bypass-section";
 
 interface AttendanceTabsProps {
   searchTerm: string;
@@ -26,6 +27,9 @@ interface AttendanceTabsProps {
   checkinsLoading: boolean;
   calloutsLoading: boolean;
   bypassRules: any[];
+  hrSettings?: any;
+  showAllCallOuts: boolean;
+  setShowAllCallOuts: (show: boolean) => void;
 }
 
 export function AttendanceTabs({
@@ -46,18 +50,30 @@ export function AttendanceTabs({
   checkinsLoading,
   calloutsLoading,
   bypassRules,
+  hrSettings,
+  showAllCallOuts,
+  setShowAllCallOuts,
 }: AttendanceTabsProps) {
   const filteredCallouts = callouts.filter((c) => {
-    const person = c.employee || c.freeLancer || c.trainee;
+    const person =
+      c.employee ||
+      c.freeLancer ||
+      c.trainee ||
+      c.requestedUser?.employee ||
+      c.requestedUser?.freeLancer ||
+      c.requestedUser?.trainee;
     const name = person
-      ? `${person.firstName || ""} ${person.lastName || ""}`
-          .trim()
-          .toLowerCase()
-      : "";
+      ? `${person.firstName || ""} ${person.lastName || ""}`.trim() ||
+        c.requestedUser?.name ||
+        ""
+      : c.requestedUser?.name || "";
     const id = (
       c.employee?.employeeNumber ||
       c.freeLancer?.freeLancerNumber ||
       c.trainee?.traineeNumber ||
+      c.requestedUser?.employee?.employeeNumber ||
+      c.requestedUser?.freeLancer?.freeLancerNumber ||
+      c.requestedUser?.trainee?.traineeNumber ||
       ""
     ).toLowerCase();
     const title = (c.title || "").toLowerCase();
@@ -76,6 +92,7 @@ export function AttendanceTabs({
         <TabsTrigger value="checkins">All Check-ins</TabsTrigger>
         <TabsTrigger value="callouts">Emergency Call Outs</TabsTrigger>
         <TabsTrigger value="overtime">Overtime Requests</TabsTrigger>
+        <TabsTrigger value="bypass">Attendance Bypass</TabsTrigger>
         <TabsTrigger value="reports">Reports</TabsTrigger>
       </TabsList>
       <FiltersSection
@@ -94,6 +111,7 @@ export function AttendanceTabs({
           records={filteredAttendance}
           loading={recordsLoading}
           bypassRules={bypassRules} // PASS DOWN
+          hrSettings={hrSettings} // NEW PROP
           onClearFilters={() => {
             setSearchTerm("");
             setSelectedDepartment("All Departments");
@@ -107,11 +125,24 @@ export function AttendanceTabs({
       </TabsContent>
 
       <TabsContent value="callouts" className="space-y-4">
-        <CallOutList records={filteredCallouts} loading={calloutsLoading} />
+        <CallOutList
+          records={filteredCallouts}
+          loading={calloutsLoading}
+          showAllHistory={showAllCallOuts}
+          onToggleHistory={() => setShowAllCallOuts(!showAllCallOuts)}
+          selectedDate={selectedDate}
+        />
+      </TabsContent>
+
+      <TabsContent value="bypass" className="space-y-4">
+        <BypassSection initialRules={bypassRules} />
       </TabsContent>
 
       <TabsContent value="reports" className="space-y-4">
-        <ReportsSection attendanceRecords={attendanceRecords} />
+        <ReportsSection
+          attendanceRecords={attendanceRecords}
+          loading={recordsLoading}
+        />
       </TabsContent>
 
       <TabsContent value="overtime" className="space-y-4">
@@ -132,4 +163,3 @@ export function AttendanceTabs({
     </Tabs>
   );
 }
-

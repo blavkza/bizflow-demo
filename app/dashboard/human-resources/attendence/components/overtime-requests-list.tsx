@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Check, X, Clock, Calendar, Info } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { OvertimeRequestsListSkeleton } from "./attendance-skeleton";
 
 interface OvertimeRequestsListProps {
   selectedDate?: string;
@@ -88,13 +89,7 @@ export function OvertimeRequestsList({
   });
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-muted-foreground animate-pulse">
-          Loading overtime requests...
-        </div>
-      </div>
-    );
+    return <OvertimeRequestsListSkeleton />;
   }
 
   if (filteredRequests.length === 0) {
@@ -225,4 +220,3 @@ export function OvertimeRequestsList({
     </div>
   );
 }
-

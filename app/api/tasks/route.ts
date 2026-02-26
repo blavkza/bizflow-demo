@@ -114,6 +114,22 @@ async function createSingleTask(data: any, creator: any) {
         { status: 404 },
       );
     }
+  } // Validate trainees exist
+
+  if (validatedData?.traineeIds?.length || 0 > 0) {
+    const existingTrainees = await db.trainee.findMany({
+      where: { id: { in: validatedData.traineeIds } },
+    });
+
+    if (existingTrainees.length !== validatedData?.traineeIds?.length) {
+      const missingIds = validatedData?.traineeIds?.filter(
+        (id: string) => !existingTrainees.some((t) => t.id === id),
+      );
+      return NextResponse.json(
+        { error: `Trainees not found: ${missingIds?.join(", ")}` },
+        { status: 404 },
+      );
+    }
   }
 
   const lastTask = await db.task.findFirst({
@@ -152,10 +168,16 @@ async function createSingleTask(data: any, creator: any) {
             connect:
               validatedData.freelancerIds?.map((id: string) => ({ id })) || [],
           },
+          traineeAssignees: {
+            connect:
+              validatedData.traineeIds?.map((id: string) => ({ id })) || [],
+          },
         },
         include: {
           assignees: true,
           freeLancerAssignees: true,
+          traineeAssignees: true,
+
           project: { select: { title: true } },
         },
       });
@@ -367,10 +389,15 @@ async function createSingleTaskInBatch(
             connect:
               taskData.freelancerIds?.map((id: string) => ({ id })) || [],
           },
+          traineeAssignees: {
+            connect: taskData.traineeIds?.map((id: string) => ({ id })) || [],
+          },
         },
         include: {
           assignees: true,
           freeLancerAssignees: true,
+          traineeAssignees: true,
+
           project: { select: { title: true } },
         },
       });

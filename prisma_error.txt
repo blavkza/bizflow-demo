@@ -1,0 +1,6 @@
+Environment variables loaded from .env
+Prisma schema loaded from prisma\schema.prisma
+Error: 
+EPERM: operation not permitted, rename 'C:\Users\Lucia\private\PRODUCTION\copy\financialApp\node_modules\.prisma\client\query-engine-windows.exe.tmp8776' -> 'C:\Users\Lucia\private\PRODUCTION\copy\financialApp\node_modules\.prisma\client\query-engine-windows.exe'
+
+

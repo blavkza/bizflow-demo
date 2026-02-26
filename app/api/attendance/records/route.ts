@@ -134,6 +134,10 @@ export async function GET(request: NextRequest) {
           },
           take: 1,
         },
+        overtimeAvailability: {
+          where: { date: targetDate },
+          take: 1,
+        },
       },
       orderBy: {
         firstName: "asc",
@@ -160,6 +164,10 @@ export async function GET(request: NextRequest) {
             startDate: { lte: targetDate },
             endDate: { gte: targetDate },
           },
+          take: 1,
+        },
+        overtimeAvailability: {
+          where: { date: targetDate },
           take: 1,
         },
       },
@@ -190,6 +198,10 @@ export async function GET(request: NextRequest) {
           },
           take: 1,
         },
+        overtimeAvailability: {
+          where: { date: targetDate },
+          take: 1,
+        },
       },
       orderBy: {
         firstName: "asc",
@@ -198,246 +210,365 @@ export async function GET(request: NextRequest) {
 
     const currentTime = new Date();
 
+    const tomorrowDate = new Date(targetDate);
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    const tomorrowDayName = dayNames[tomorrowDate.getDay()];
+
     // Transform employee data
-    const employeeRecords = activeEmployees.map((employee) => {
-      const todayRecord = employee.AttendanceRecord[0];
-      const {
-        knockIn: scheduledKnockIn,
-        knockOut: scheduledKnockOut,
-        isWeekend,
-      } = getScheduledTimes(employee, targetDate);
-
-      let status: AttendanceStatus;
-      let displayStatus: string;
-
-      if (todayRecord) {
-        status = todayRecord.status;
-        displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
-      } else if (employee.leaveRequests && employee.leaveRequests.length > 0) {
-        const leave = employee.leaveRequests[0];
-        status = getLeaveStatus(leave.leaveType);
-        displayStatus = getStatusDisplayName(status, {
-          notes: `Approved Leave: ${leave.leaveType}`,
-        });
-      } else {
-        const calculatedStatus = calculateAttendanceStatus(
-          employee,
-          currentTime,
-          targetDate,
-          "employee",
-          scheduledKnockIn,
-          scheduledKnockOut,
+    const employeeRecords = await Promise.all(
+      activeEmployees.map(async (employee) => {
+        const todayRecord = employee.AttendanceRecord[0];
+        const {
+          knockIn: scheduledKnockIn,
+          knockOut: scheduledKnockOut,
           isWeekend,
-        );
-        status = calculatedStatus.status;
-        displayStatus = calculatedStatus.displayStatus;
-      }
+        } = getScheduledTimes(employee, targetDate);
 
-      return {
-        id: todayRecord?.id || `virtual-${employee.id}`,
-        employeeId: employee.id,
-        employee: {
-          id: employee.id,
-          firstName: employee.firstName,
-          lastName: employee.lastName,
-          employeeNumber: employee.employeeNumber,
-          avatar: employee.avatar,
-          position: employee.position,
-          department: employee.department,
-          scheduledKnockIn: scheduledKnockIn,
-          scheduledKnockOut: scheduledKnockOut,
-          scheduledWeekendKnockIn: employee.scheduledWeekendKnockIn,
-          scheduledWeekendKnockOut: employee.scheduledWeekendKnockOut,
-          workingDays: employee.workingDays,
-          overtimeHourRate: employee.overtimeHourRate,
-          emergencyCallOutRate: employee.emergencyCallOutRate,
-        },
-        freeLancer: null,
-        date: targetDate.toISOString(),
-        checkIn: todayRecord?.checkIn,
-        checkOut: todayRecord?.checkOut,
-        checkInMethod: todayRecord?.checkInMethod,
-        checkInAddress: todayRecord?.checkInAddress,
-        checkInLat: todayRecord?.checkInLat,
-        checkInLng: todayRecord?.checkInLng,
-        regularHours: todayRecord?.regularHours,
-        overtimeHours: todayRecord?.overtimeHours,
-        notes: todayRecord?.notes,
-        breakStart: todayRecord?.breakStart,
-        breakEnd: todayRecord?.breakEnd,
-        breakDuration: todayRecord?.breakDuration,
-        breaks: todayRecord?.breaks || [],
-        status,
-        displayStatus,
-        isVirtualRecord: !todayRecord,
-        isWeekend: isWeekend,
-        personType: "employee" as const,
-        createdAt: todayRecord?.createdAt,
-        updatedAt: todayRecord?.updatedAt,
-      };
-    });
+        let status: AttendanceStatus;
+        let displayStatus: string;
+
+        if (todayRecord) {
+          status = todayRecord.status;
+          displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
+        } else if (
+          employee.leaveRequests &&
+          employee.leaveRequests.length > 0
+        ) {
+          const leave = employee.leaveRequests[0];
+          status = getLeaveStatus(leave.leaveType);
+          displayStatus = getStatusDisplayName(status, {
+            notes: `Approved Leave: ${leave.leaveType}`,
+          });
+        } else {
+          const calculatedStatus = calculateAttendanceStatus(
+            employee,
+            currentTime,
+            targetDate,
+            "employee",
+            scheduledKnockIn,
+            scheduledKnockOut,
+            isWeekend,
+          );
+          status = calculatedStatus.status;
+          displayStatus = calculatedStatus.displayStatus;
+        }
+
+        // Calculate Next Day Status
+        let nextDayStatus = "Day-off";
+        const workingDays = Array.isArray(employee.workingDays)
+          ? employee.workingDays
+          : employee.workingDays
+            ? JSON.parse(employee.workingDays as any)
+            : [];
+
+        if (workingDays.includes(tomorrowDayName)) {
+          nextDayStatus = "Scheduled to work";
+        }
+
+        const tomorrowLeave = await db.leaveRequest.findFirst({
+          where: {
+            employeeId: employee.id,
+            status: "APPROVED",
+            startDate: { lte: tomorrowDate },
+            endDate: { gte: tomorrowDate },
+          },
+        });
+
+        if (tomorrowLeave) {
+          nextDayStatus = "Will be on leave";
+        }
+
+        const overtimeAvailabilityRecord =
+          employee.overtimeAvailability?.[0] || null;
+
+        return {
+          id: todayRecord?.id || `virtual-${employee.id}`,
+          employeeId: employee.id,
+          employee: {
+            id: employee.id,
+            firstName: employee.firstName,
+            lastName: employee.lastName,
+            employeeNumber: employee.employeeNumber,
+            avatar: employee.avatar,
+            position: employee.position,
+            department: employee.department,
+            scheduledKnockIn: scheduledKnockIn,
+            scheduledKnockOut: scheduledKnockOut,
+            scheduledWeekendKnockIn: employee.scheduledWeekendKnockIn,
+            scheduledWeekendKnockOut: employee.scheduledWeekendKnockOut,
+            workingDays: employee.workingDays,
+            overtimeHourRate: employee.overtimeHourRate,
+            emergencyCallOutRate: employee.emergencyCallOutRate,
+          },
+          freeLancer: null,
+          date: targetDate.toISOString(),
+          checkIn: todayRecord?.checkIn,
+          checkOut: todayRecord?.checkOut,
+          checkInMethod: todayRecord?.checkInMethod,
+          checkInAddress: todayRecord?.checkInAddress,
+          checkInLat: todayRecord?.checkInLat,
+          checkInLng: todayRecord?.checkInLng,
+          regularHours: todayRecord?.regularHours,
+          overtimeHours: todayRecord?.overtimeHours,
+          notes: todayRecord?.notes,
+          breakStart: todayRecord?.breakStart,
+          breakEnd: todayRecord?.breakEnd,
+          breakDuration: todayRecord?.breakDuration,
+          breaks: todayRecord?.breaks || [],
+          status,
+          displayStatus,
+          nextDayStatus,
+          isVirtualRecord: !todayRecord,
+          isWeekend: isWeekend,
+          personType: "employee" as const,
+          createdAt: todayRecord?.createdAt,
+          updatedAt: todayRecord?.updatedAt,
+          overtimeAvailability: overtimeAvailabilityRecord
+            ? {
+                id: overtimeAvailabilityRecord.id,
+                status: overtimeAvailabilityRecord.status,
+              }
+            : null,
+        };
+      }),
+    );
 
     // Transform freelancer data
-    const freelancerRecords = activeFreelancers.map((freelancer) => {
-      const todayRecord = freelancer.attendanceRecords[0];
-      const {
-        knockIn: scheduledKnockIn,
-        knockOut: scheduledKnockOut,
-        isWeekend,
-      } = getScheduledTimes(freelancer, targetDate);
-
-      let status: AttendanceStatus;
-      let displayStatus: string;
-
-      if (todayRecord) {
-        status = todayRecord.status;
-        displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
-      } else if (
-        freelancer.leaveRequests &&
-        freelancer.leaveRequests.length > 0
-      ) {
-        const leave = freelancer.leaveRequests[0];
-        status = getLeaveStatus(leave.leaveType);
-        displayStatus = getStatusDisplayName(status, {
-          notes: `Approved Leave: ${leave.leaveType}`,
-        });
-      } else {
-        const calculatedStatus = calculateAttendanceStatus(
-          freelancer,
-          currentTime,
-          targetDate,
-          "freelancer",
-          scheduledKnockIn,
-          scheduledKnockOut,
+    const freelancerRecords = await Promise.all(
+      activeFreelancers.map(async (freelancer) => {
+        const todayRecord = freelancer.attendanceRecords[0];
+        const {
+          knockIn: scheduledKnockIn,
+          knockOut: scheduledKnockOut,
           isWeekend,
-        );
-        status = calculatedStatus.status;
-        displayStatus = calculatedStatus.displayStatus;
-      }
+        } = getScheduledTimes(freelancer, targetDate);
 
-      return {
-        id: todayRecord?.id || `virtual-${freelancer.id}`,
-        freeLancerId: freelancer.id,
-        freeLancer: {
-          id: freelancer.id,
-          firstName: freelancer.firstName,
-          lastName: freelancer.lastName,
-          freeLancerNumber: freelancer.freeLancerNumber,
-          avatar: freelancer.avatar,
-          position: freelancer.position,
-          department: freelancer.department,
-          scheduledKnockIn: scheduledKnockIn,
-          scheduledKnockOut: scheduledKnockOut,
-          scheduledWeekendKnockIn: freelancer.scheduledWeekendKnockIn,
-          scheduledWeekendKnockOut: freelancer.scheduledWeekendKnockOut,
-          workingDays: freelancer.workingDays,
-          overtimeHourRate: freelancer.overtimeHourRate,
-          emergencyCallOutRate: freelancer.emergencyCallOutRate,
-        },
-        employee: null,
-        date: targetDate.toISOString(),
-        checkIn: todayRecord?.checkIn,
-        checkOut: todayRecord?.checkOut,
-        checkInMethod: todayRecord?.checkInMethod,
-        checkInAddress: todayRecord?.checkInAddress,
-        checkInLat: todayRecord?.checkInLat,
-        checkInLng: todayRecord?.checkInLng,
-        regularHours: todayRecord?.regularHours,
-        overtimeHours: todayRecord?.overtimeHours,
-        notes: todayRecord?.notes,
-        breakStart: todayRecord?.breakStart,
-        breakEnd: todayRecord?.breakEnd,
-        breakDuration: todayRecord?.breakDuration,
-        breaks: todayRecord?.breaks || [],
-        status,
-        displayStatus,
-        isVirtualRecord: !todayRecord,
-        isWeekend: isWeekend,
-        personType: "freelancer" as const,
-        createdAt: todayRecord?.createdAt,
-        updatedAt: todayRecord?.updatedAt,
-      };
-    });
+        let status: AttendanceStatus;
+        let displayStatus: string;
+
+        if (todayRecord) {
+          status = todayRecord.status;
+          displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
+        } else if (
+          freelancer.leaveRequests &&
+          freelancer.leaveRequests.length > 0
+        ) {
+          const leave = freelancer.leaveRequests[0];
+          status = getLeaveStatus(leave.leaveType);
+          displayStatus = getStatusDisplayName(status, {
+            notes: `Approved Leave: ${leave.leaveType}`,
+          });
+        } else {
+          const calculatedStatus = calculateAttendanceStatus(
+            freelancer,
+            currentTime,
+            targetDate,
+            "freelancer",
+            scheduledKnockIn,
+            scheduledKnockOut,
+            isWeekend,
+          );
+          status = calculatedStatus.status;
+          displayStatus = calculatedStatus.displayStatus;
+        }
+
+        // Calculate Next Day Status
+        let nextDayStatus = "Day-off";
+        const workingDays = Array.isArray(freelancer.workingDays)
+          ? freelancer.workingDays
+          : freelancer.workingDays
+            ? JSON.parse(freelancer.workingDays as any)
+            : [];
+
+        if (workingDays.includes(tomorrowDayName)) {
+          nextDayStatus = "Scheduled to work";
+        }
+
+        const tomorrowLeave = await db.leaveRequest.findFirst({
+          where: {
+            freeLancerId: freelancer.id,
+            status: "APPROVED",
+            startDate: { lte: tomorrowDate },
+            endDate: { gte: tomorrowDate },
+          },
+        });
+
+        if (tomorrowLeave) {
+          nextDayStatus = "Will be on leave";
+        }
+
+        const overtimeAvailabilityRecord =
+          freelancer.overtimeAvailability?.[0] || null;
+
+        return {
+          id: todayRecord?.id || `virtual-${freelancer.id}`,
+          freeLancerId: freelancer.id,
+          freeLancer: {
+            id: freelancer.id,
+            firstName: freelancer.firstName,
+            lastName: freelancer.lastName,
+            freeLancerNumber: freelancer.freeLancerNumber,
+            avatar: freelancer.avatar,
+            position: freelancer.position,
+            department: freelancer.department,
+            scheduledKnockIn: scheduledKnockIn,
+            scheduledKnockOut: scheduledKnockOut,
+            scheduledWeekendKnockIn: freelancer.scheduledWeekendKnockIn,
+            scheduledWeekendKnockOut: freelancer.scheduledWeekendKnockOut,
+            workingDays: freelancer.workingDays,
+            overtimeHourRate: freelancer.overtimeHourRate,
+            emergencyCallOutRate: freelancer.emergencyCallOutRate,
+          },
+          employee: null,
+          date: targetDate.toISOString(),
+          checkIn: todayRecord?.checkIn,
+          checkOut: todayRecord?.checkOut,
+          checkInMethod: todayRecord?.checkInMethod,
+          checkInAddress: todayRecord?.checkInAddress,
+          checkInLat: todayRecord?.checkInLat,
+          checkInLng: todayRecord?.checkInLng,
+          regularHours: todayRecord?.regularHours,
+          overtimeHours: todayRecord?.overtimeHours,
+          notes: todayRecord?.notes,
+          breakStart: todayRecord?.breakStart,
+          breakEnd: todayRecord?.breakEnd,
+          breakDuration: todayRecord?.breakDuration,
+          breaks: todayRecord?.breaks || [],
+          status,
+          displayStatus,
+          nextDayStatus,
+          isVirtualRecord: !todayRecord,
+          isWeekend: isWeekend,
+          personType: "freelancer" as const,
+          createdAt: todayRecord?.createdAt,
+          updatedAt: todayRecord?.updatedAt,
+          overtimeAvailability: overtimeAvailabilityRecord
+            ? {
+                id: overtimeAvailabilityRecord.id,
+                status: overtimeAvailabilityRecord.status,
+              }
+            : null,
+        };
+      }),
+    );
 
     // Transform trainee data
-    const traineeRecords = activeTrainees.map((trainee) => {
-      const todayRecord = trainee.attendanceRecords[0];
-      const {
-        knockIn: scheduledKnockIn,
-        knockOut: scheduledKnockOut,
-        isWeekend,
-      } = getScheduledTimes(trainee, targetDate);
-
-      let status: AttendanceStatus;
-      let displayStatus: string;
-
-      if (todayRecord) {
-        status = todayRecord.status;
-        displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
-      } else if (trainee.leaveRequests && trainee.leaveRequests.length > 0) {
-        const leave = trainee.leaveRequests[0];
-        status = getLeaveStatus(leave.leaveType);
-        displayStatus = getStatusDisplayName(status, {
-          notes: `Approved Leave: ${leave.leaveType}`,
-        });
-      } else {
-        const calculatedStatus = calculateAttendanceStatus(
-          trainee,
-          currentTime,
-          targetDate,
-          "trainee",
-          scheduledKnockIn,
-          scheduledKnockOut,
+    const traineeRecords = await Promise.all(
+      activeTrainees.map(async (trainee) => {
+        const todayRecord = trainee.attendanceRecords[0];
+        const {
+          knockIn: scheduledKnockIn,
+          knockOut: scheduledKnockOut,
           isWeekend,
-        );
-        status = calculatedStatus.status;
-        displayStatus = calculatedStatus.displayStatus;
-      }
+        } = getScheduledTimes(trainee, targetDate);
 
-      return {
-        id: todayRecord?.id || `virtual-${trainee.id}`,
-        traineeId: trainee.id,
-        trainee: {
-          id: trainee.id,
-          firstName: trainee.firstName,
-          lastName: trainee.lastName,
-          traineeNumber: trainee.traineeNumber,
-          avatar: trainee.avatar,
-          position: trainee.position,
-          department: trainee.department,
-          scheduledKnockIn: scheduledKnockIn,
-          scheduledKnockOut: scheduledKnockOut,
-          scheduledWeekendKnockIn: trainee.scheduledWeekendKnockIn,
-          scheduledWeekendKnockOut: trainee.scheduledWeekendKnockOut,
-          workingDays: trainee.workingDays,
-          overtimeHourRate: trainee.overtimeHourRate,
-          emergencyCallOutRate: trainee.emergencyCallOutRate,
-        },
-        employee: null,
-        freeLancer: null,
-        date: targetDate.toISOString(),
-        checkIn: todayRecord?.checkIn,
-        checkOut: todayRecord?.checkOut,
-        checkInMethod: todayRecord?.checkInMethod,
-        checkInAddress: todayRecord?.checkInAddress,
-        checkInLat: todayRecord?.checkInLat,
-        checkInLng: todayRecord?.checkInLng,
-        regularHours: todayRecord?.regularHours,
-        overtimeHours: todayRecord?.overtimeHours,
-        notes: todayRecord?.notes,
-        breakStart: todayRecord?.breakStart,
-        breakEnd: todayRecord?.breakEnd,
-        breakDuration: todayRecord?.breakDuration,
-        breaks: todayRecord?.breaks || [],
-        status,
-        displayStatus,
-        isVirtualRecord: !todayRecord,
-        isWeekend: isWeekend,
-        personType: "trainee" as const,
-        createdAt: todayRecord?.createdAt,
-        updatedAt: todayRecord?.updatedAt,
-      };
-    });
+        let status: AttendanceStatus;
+        let displayStatus: string;
+
+        if (todayRecord) {
+          status = todayRecord.status;
+          displayStatus = getStatusDisplayName(todayRecord.status, todayRecord);
+        } else if (trainee.leaveRequests && trainee.leaveRequests.length > 0) {
+          const leave = trainee.leaveRequests[0];
+          status = getLeaveStatus(leave.leaveType);
+          displayStatus = getStatusDisplayName(status, {
+            notes: `Approved Leave: ${leave.leaveType}`,
+          });
+        } else {
+          const calculatedStatus = calculateAttendanceStatus(
+            trainee,
+            currentTime,
+            targetDate,
+            "trainee",
+            scheduledKnockIn,
+            scheduledKnockOut,
+            isWeekend,
+          );
+          status = calculatedStatus.status;
+          displayStatus = calculatedStatus.displayStatus;
+        }
+
+        // Calculate Next Day Status
+        let nextDayStatus = "Day-off";
+        const workingDays = Array.isArray(trainee.workingDays)
+          ? trainee.workingDays
+          : trainee.workingDays
+            ? JSON.parse(trainee.workingDays as any)
+            : [];
+
+        if (workingDays.includes(tomorrowDayName)) {
+          nextDayStatus = "Scheduled to work";
+        }
+
+        const tomorrowLeave = await db.leaveRequest.findFirst({
+          where: {
+            traineeId: trainee.id,
+            status: "APPROVED",
+            startDate: { lte: tomorrowDate },
+            endDate: { gte: tomorrowDate },
+          },
+        });
+
+        if (tomorrowLeave) {
+          nextDayStatus = "Will be on leave";
+        }
+
+        const overtimeAvailabilityRecord =
+          trainee.overtimeAvailability?.[0] || null;
+
+        return {
+          id: todayRecord?.id || `virtual-${trainee.id}`,
+          traineeId: trainee.id,
+          trainee: {
+            id: trainee.id,
+            firstName: trainee.firstName,
+            lastName: trainee.lastName,
+            traineeNumber: trainee.traineeNumber,
+            avatar: trainee.avatar,
+            position: trainee.position,
+            department: trainee.department,
+            scheduledKnockIn: scheduledKnockIn,
+            scheduledKnockOut: scheduledKnockOut,
+            scheduledWeekendKnockIn: trainee.scheduledWeekendKnockIn,
+            scheduledWeekendKnockOut: trainee.scheduledWeekendKnockOut,
+            workingDays: trainee.workingDays,
+            overtimeHourRate: trainee.overtimeHourRate,
+            emergencyCallOutRate: trainee.emergencyCallOutRate,
+          },
+          employee: null,
+          freeLancer: null,
+          date: targetDate.toISOString(),
+          checkIn: todayRecord?.checkIn,
+          checkOut: todayRecord?.checkOut,
+          checkInMethod: todayRecord?.checkInMethod,
+          checkInAddress: todayRecord?.checkInAddress,
+          checkInLat: todayRecord?.checkInLat,
+          checkInLng: todayRecord?.checkInLng,
+          regularHours: todayRecord?.regularHours,
+          overtimeHours: todayRecord?.overtimeHours,
+          notes: todayRecord?.notes,
+          breakStart: todayRecord?.breakStart,
+          breakEnd: todayRecord?.breakEnd,
+          breakDuration: todayRecord?.breakDuration,
+          breaks: todayRecord?.breaks || [],
+          status,
+          displayStatus,
+          nextDayStatus,
+          isVirtualRecord: !todayRecord,
+          isWeekend: isWeekend,
+          personType: "trainee" as const,
+          createdAt: todayRecord?.createdAt,
+          updatedAt: todayRecord?.updatedAt,
+          overtimeAvailability: overtimeAvailabilityRecord
+            ? {
+                id: overtimeAvailabilityRecord.id,
+                status: overtimeAvailabilityRecord.status,
+              }
+            : null,
+        };
+      }),
+    );
 
     // Combine both employee and freelancer records
     const allRecords = [
@@ -508,6 +639,19 @@ function calculateAttendanceStatus(
   }
 
   if (!isToday) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const targetStart = new Date(targetDate);
+    targetStart.setHours(0, 0, 0, 0);
+
+    if (targetStart > todayStart) {
+      // For future working days, show as Scheduled to work
+      return {
+        status: AttendanceStatus.ABSENT,
+        displayStatus: "Scheduled to work",
+      };
+    }
+
     // For past dates without record, mark as absent
     return {
       status: AttendanceStatus.ABSENT,
@@ -616,4 +760,3 @@ function getStatusDisplayName(status: AttendanceStatus, record?: any): string {
       return status;
   }
 }
-

@@ -19,8 +19,9 @@ interface LeaveTabsProps {
   onLeaveStatusUpdate: (
     id: string,
     status: "APPROVED" | "REJECTED",
-    comments?: string
+    comments?: string,
   ) => Promise<boolean>;
+  onDocumentUpload: (id: string, documentUrl: string) => Promise<boolean>;
 }
 
 export default function LeaveTabs({
@@ -32,6 +33,7 @@ export default function LeaveTabs({
   currentUser,
   onLeaveSubmit,
   onLeaveStatusUpdate,
+  onDocumentUpload,
 }: LeaveTabsProps) {
   return (
     <Tabs defaultValue="requests" className="space-y-4">
@@ -47,6 +49,7 @@ export default function LeaveTabs({
           currentUser={currentUser}
           onLeaveSubmit={onLeaveSubmit}
           onLeaveStatusUpdate={onLeaveStatusUpdate}
+          onDocumentUpload={onDocumentUpload}
           canEditLeave={canEditLeave}
           hasFullAccess={hasFullAccess}
         />

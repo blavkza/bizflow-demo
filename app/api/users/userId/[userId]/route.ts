@@ -356,6 +356,40 @@ export async function GET(
             },
           },
         },
+        trainee: {
+          include: {
+            department: {
+              include: {
+                manager: true,
+                parent: true,
+                children: true,
+              },
+            },
+            attendanceRecords: {
+              orderBy: {
+                date: "desc",
+              },
+              take: 60,
+            },
+            assignedTasks: {
+              include: {
+                subtask: true,
+                timeEntries: true,
+                project: true,
+              },
+              orderBy: {
+                createdAt: "desc",
+              },
+            },
+            payments: {
+              orderBy: {
+                createdAt: "desc",
+              },
+            },
+            documents: true,
+            notes: true,
+          },
+        },
 
         timeEntries: {
           include: {
@@ -525,6 +559,36 @@ export async function GET(
           },
           orderBy: {
             id: "desc",
+          },
+          take: 10,
+        },
+
+        // Call-Out Leader records
+        callOutLeaders: {
+          include: {
+            emergencyCallOut: {
+              include: {
+                requestedUser: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+          orderBy: {
+            id: "desc",
+          },
+          take: 10,
+        },
+
+        // Emergency Call-Outs requested by the user
+        emergencyCallOuts: {
+          include: {
+            requestedUser: {
+              select: { name: true },
+            },
+          },
+          orderBy: {
+            startTime: "desc",
           },
           take: 10,
         },

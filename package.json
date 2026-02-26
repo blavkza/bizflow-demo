@@ -68,6 +68,7 @@
     "formidable": "^3.5.4",
     "framer-motion": "^12.16.0",
     "html2canvas": "^1.4.1",
+    "inngest": "^3.52.3",
     "input-otp": "1.4.1",
     "is-number": "^7.0.0",
     "jspdf": "^3.0.4",

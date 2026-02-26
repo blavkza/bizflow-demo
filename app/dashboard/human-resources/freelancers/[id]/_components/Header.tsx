@@ -19,6 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import axios from "axios";
+import { SendEmailDialog } from "@/components/SendEmailDialog";
 
 interface FreelancerWithDetails {
   id: string;
@@ -55,7 +56,7 @@ export default function Header({
 }: HeaderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    freelancer.avatar ?? null
+    freelancer.avatar ?? null,
   );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isReliable, setIsReliable] = useState(freelancer.reliable);
@@ -108,7 +109,7 @@ export default function Header({
       setIsReliable(checked);
       fetchFreelancer(); // Refresh the data
       toast.success(
-        `Freelancer marked as ${checked ? "reliable" : "not reliable"}`
+        `Freelancer marked as ${checked ? "reliable" : "not reliable"}`,
       );
     } catch (error) {
       console.error("Error updating reliability status:", error);
@@ -219,11 +220,11 @@ export default function Header({
           </Dialog>
         )}
 
-        {/* Send Invoice Button */}
-        <Button>
-          <Mail className="mr-2 h-4 w-4" />
-          Send Invoice
-        </Button>
+        {/* Send Email Button */}
+        <SendEmailDialog
+          recipientName={name}
+          recipientEmail={freelancer.email || ""}
+        />
       </div>
 
       <AvatarUploadDialog

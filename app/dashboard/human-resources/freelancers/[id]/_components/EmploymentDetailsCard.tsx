@@ -21,6 +21,7 @@ interface FreelancerWithDetails {
   terminationDate?: string;
   scheduledWeekendKnockIn: string;
   scheduledWeekendKnockOut: string;
+  emergencyCallOutRate?: number;
 }
 
 export function EmploymentDetailsCard({
@@ -157,7 +158,7 @@ export function EmploymentDetailsCard({
             <p className="text-sm font-medium">Contract End Date</p>
             <p className="text-sm text-muted-foreground">
               {new Date(
-                freelancer.terminationDate || "Not Assigned"
+                freelancer.terminationDate || "Not Assigned",
               ).toLocaleDateString()}
             </p>
           </div>
@@ -226,6 +227,17 @@ export function EmploymentDetailsCard({
           </p>
           <p className="text-sm  font-semibold">
             R {freelancer.overtimeHourRate?.toFixed(2) || "0.00"} per hour
+          </p>
+        </div>
+
+        {/* Emergency Call Out Rate */}
+        <div>
+          <p className="text-sm font-medium flex items-center text-blue-600">
+            Emergency Call Out Rate
+          </p>
+          <p className="text-sm font-semibold">
+            R {freelancer.emergencyCallOutRate?.toFixed(2) || "0.00"} per call
+            out
           </p>
         </div>
 

@@ -17,6 +17,7 @@ import {
   Zap,
   Moon,
   AlertCircle,
+  Hourglass,
 } from "lucide-react";
 import { AttendanceRecord } from "../types";
 import {
@@ -29,18 +30,21 @@ import {
   isLeaveStatus,
 } from "../utils";
 import { useRouter } from "next/navigation";
+import { AttendanceListSkeleton } from "./attendance-skeleton";
 
 interface AttendanceListProps {
   records: AttendanceRecord[];
   loading: boolean;
-  bypassRules?: any[]; // NEW PROP
+  bypassRules?: any[];
+  hrSettings?: any; // NEW PROP
   onClearFilters: () => void;
 }
 
 export function AttendanceList({
   records,
   loading,
-  bypassRules = [], // NEW DEFAULT
+  bypassRules = [],
+  hrSettings, // NEW PROP
   onClearFilters,
 }: AttendanceListProps) {
   const router = useRouter();
@@ -75,6 +79,39 @@ export function AttendanceList({
     const checkInDate = new Date(record.checkIn);
     const checkOutDate = new Date(record.checkOut);
     return checkInDate.getDate() !== checkOutDate.getDate();
+  };
+
+  const identifyBreakType = (startTime: Date) => {
+    if (!hrSettings) {
+      return startTime.getHours() < 12 ? "Tea Time" : "Lunch Time";
+    }
+
+    const hour = startTime.getHours();
+    const mins = startTime.getMinutes();
+    const timeStr = `${hour.toString().padStart(2, "0")}:${mins
+      .toString()
+      .padStart(2, "0")}`;
+
+    if (hrSettings.teaTimeWindowStart && hrSettings.teaTimeWindowEnd) {
+      if (
+        timeStr >= hrSettings.teaTimeWindowStart &&
+        timeStr <= hrSettings.teaTimeWindowEnd
+      ) {
+        return "Tea Time";
+      }
+    }
+
+    if (hrSettings.lunchTimeWindowStart && hrSettings.lunchTimeWindowEnd) {
+      if (
+        timeStr >= hrSettings.lunchTimeWindowStart &&
+        timeStr <= hrSettings.lunchTimeWindowEnd
+      ) {
+        return "Lunch Time";
+      }
+    }
+
+    // Default fallback based on time if not in windows
+    return hour < 12 ? "Tea Time" : "Lunch Time";
   };
 
   const formatDate = (date: Date | string): string => {
@@ -342,10 +379,16 @@ export function AttendanceList({
 
     // Custom status labels for checked-in workers
     if (record.status === "PRESENT") {
+      if (record.checkOut) {
+        return "Present & Knock-off";
+      }
       return "Present & Working";
     }
 
     if (record.status === "LATE") {
+      if (record.checkOut) {
+        return "Present & Arrived Late & Knock-off";
+      }
       return "Present & Arrived Late";
     }
 
@@ -353,14 +396,8 @@ export function AttendanceList({
       const activeBreak = record.breaks?.find((b: any) => !b.endTime);
       if (activeBreak) {
         const startTime = new Date(activeBreak.startTime);
-        // Using 12:00 as a simple threshold for Tea vs Lunch
-        // Assuming SAST or local time for the hour check
-        const hour = startTime.getHours();
-        if (hour < 12) {
-          return "Present & On Tea Time";
-        } else {
-          return "Present & On Lunch Time";
-        }
+        const breakType = identifyBreakType(startTime);
+        return `Present & On ${breakType}`;
       }
       return "Present & On Break";
     }
@@ -383,13 +420,7 @@ export function AttendanceList({
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-muted-foreground">
-          Loading attendance records...
-        </div>
-      </div>
-    );
+    return <AttendanceListSkeleton />;
   }
 
   if (records.length === 0) {
@@ -536,7 +567,6 @@ export function AttendanceList({
                           variant="outline"
                           className="text-xs bg-purple-50 text-purple-700 border-purple-200"
                         >
-                          <Moon className="w-3 h-3 mr-1" />
                           Night Shift
                         </Badge>
                       )}
@@ -558,6 +588,62 @@ export function AttendanceList({
                       </p>
                     )}
 
+                    {/* Overtime Availability Badge */}
+                    {(() => {
+                      const oa = record.overtimeAvailability;
+                      if (!oa) {
+                        return (
+                          <div className="flex items-center gap-1 mt-1">
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-gray-50 text-gray-400 border-gray-200"
+                            >
+                              <Hourglass className="w-3 h-3 mr-1" />
+                              OT: Not Notified
+                            </Badge>
+                          </div>
+                        );
+                      }
+                      if (oa.status === "AVAILABLE") {
+                        return (
+                          <div className="flex items-center gap-1 mt-1">
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-green-50 text-green-700 border-green-200"
+                            >
+                              <Zap className="w-3 h-3 mr-1" />
+                              OT: Available
+                            </Badge>
+                          </div>
+                        );
+                      }
+                      if (oa.status === "UNAVAILABLE") {
+                        return (
+                          <div className="flex items-center gap-1 mt-1">
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-red-50 text-red-700 border-red-200"
+                            >
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              OT: Unavailable
+                            </Badge>
+                          </div>
+                        );
+                      }
+                      // PENDING
+                      return (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Badge
+                            variant="outline"
+                            className="text-xs bg-amber-50 text-amber-700 border-amber-200"
+                          >
+                            <Hourglass className="w-3 h-3 mr-1" />
+                            OT: Awaiting Response
+                          </Badge>
+                        </div>
+                      );
+                    })()}
+
                     <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />
                       <span>
@@ -570,6 +656,23 @@ export function AttendanceList({
                         )}
                       </span>
                     </div>
+
+                    {record.nextDayStatus && (
+                      <div className="flex items-center gap-2 mt-1 text-xs">
+                        <Calendar className="h-3 w-3 text-muted-foreground" />
+                        <span
+                          className={`font-medium ${
+                            record.nextDayStatus === "Will be on leave"
+                              ? "text-purple-600"
+                              : record.nextDayStatus === "Scheduled to work"
+                                ? "text-green-600"
+                                : "text-gray-500"
+                          }`}
+                        >
+                          Tomorrow: {record.nextDayStatus}
+                        </span>
+                      </div>
+                    )}
 
                     {isValidScheduledTime(scheduledKnockIn) ? (
                       <div className="flex items-center gap-2 mt-1">
@@ -650,7 +753,7 @@ export function AttendanceList({
                                   0,
                                   0,
                                 );
-                                const now = new Date();
+                                if (!now) return "Not Checked In";
                                 if (now < todayScheduled) {
                                   const diffMs =
                                     todayScheduled.getTime() - now.getTime();
@@ -679,6 +782,61 @@ export function AttendanceList({
                               }
                             })()}
                           </span>
+                        </div>
+                      )}
+
+                    {record.checkIn &&
+                      !record.checkOut &&
+                      isValidScheduledTime(scheduledKnockOut) && (
+                        <div className="flex items-center gap-2 mt-1 text-xs">
+                          {(() => {
+                            try {
+                              const scheduledTime = new Date(
+                                `1970-01-01T${scheduledKnockOut}`,
+                              );
+                              const knockOutToday = new Date();
+                              knockOutToday.setHours(
+                                scheduledTime.getHours(),
+                                scheduledTime.getMinutes(),
+                                0,
+                                0,
+                              );
+
+                              if (!now) return null;
+
+                              const diffMs =
+                                knockOutToday.getTime() - now.getTime();
+                              const absDiffMins = Math.floor(
+                                Math.abs(diffMs) / 60000,
+                              );
+                              const hours = Math.floor(absDiffMins / 60);
+                              const mins = absDiffMins % 60;
+                              const timeStr =
+                                hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+
+                              if (diffMs > 0) {
+                                return (
+                                  <>
+                                    <Clock className="h-3 w-3 text-blue-500" />
+                                    <span className="text-blue-600 font-medium">
+                                      Knock-off in {timeStr}
+                                    </span>
+                                  </>
+                                );
+                              } else {
+                                return (
+                                  <>
+                                    <Clock className="h-3 w-3 text-red-500 animate-pulse" />
+                                    <span className="text-red-600 font-bold">
+                                      Overtime({timeStr})
+                                    </span>
+                                  </>
+                                );
+                              }
+                            } catch (error) {
+                              return null;
+                            }
+                          })()}
                         </div>
                       )}
                   </div>
@@ -746,6 +904,55 @@ export function AttendanceList({
                                 <span className="text-[10px] text-muted-foreground">
                                   ({brk.duration}m)
                                 </span>
+                              )}
+                              {!brk.endTime && now && (
+                                <div className="flex flex-col text-[10px] font-medium mt-0.5">
+                                  {(() => {
+                                    const startTime = new Date(brk.startTime);
+                                    const breakName =
+                                      identifyBreakType(startTime);
+
+                                    let totalAllowanceMins = 30;
+                                    const totalDaily =
+                                      hrSettings?.totalBreakDurationMinutes ||
+                                      60;
+
+                                    if (breakName === "Lunch Time") {
+                                      totalAllowanceMins =
+                                        totalDaily >= 90 ? 60 : 45;
+                                    } else {
+                                      totalAllowanceMins =
+                                        totalDaily >= 90 ? 30 : 15;
+                                    }
+
+                                    const elapsedMs =
+                                      now.getTime() - startTime.getTime();
+                                    const elapsedMins = Math.floor(
+                                      elapsedMs / 60000,
+                                    );
+                                    const remainingMins =
+                                      totalAllowanceMins - elapsedMins;
+
+                                    return (
+                                      <div className="flex flex-col">
+                                        <span className="text-orange-600">
+                                          {breakName}({elapsedMins}m/
+                                          {totalAllowanceMins}m)
+                                        </span>
+                                        {remainingMins > 0 ? (
+                                          <span className="text-orange-400">
+                                            ({remainingMins}m left)
+                                          </span>
+                                        ) : (
+                                          <span className="text-red-500 font-bold animate-pulse">
+                                            (Overtime: {Math.abs(remainingMins)}
+                                            m)
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
                               )}
                             </div>
                           ))
@@ -873,4 +1080,3 @@ export function AttendanceList({
     </div>
   );
 }
-

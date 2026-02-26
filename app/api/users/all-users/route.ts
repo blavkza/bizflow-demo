@@ -26,6 +26,15 @@ export async function GET() {
             position: true,
           },
         },
+        trainee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            traineeNumber: true,
+            position: true,
+          },
+        },
       },
     });
 

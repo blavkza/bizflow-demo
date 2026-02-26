@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  engineType = "binary"
 }
 
 datasource db {
@@ -35,9 +36,13 @@ model User {
   permissions          UserPermission[]
   employeeId           String?            @unique
   userType             UserType           @default(ADMIN)
+  freeLancerId         String?            @unique
+  traineeId            String?            @unique
   GeneralSetting       GeneralSetting[]
   activityLogs         ActivityLog[]
   apiKeys              ApiKey[]
+  CallOutAssistant     CallOutAssistant[]
+  callOutLeaders       CallOutLeader[]
   ChatSession          ChatSession[]
   dashboardSettings    DashboardSettings?
   managedDepartments   Department[]       @relation("DepartmentManager")
@@ -57,17 +62,16 @@ model User {
   recurringInvoices    RecurringInvoice[]
   createdReports       Report[]
   sessions             Session[]
-  timeEntries          TimeEntry[]
   managedTasks         Task[]             @relation("TaskLeader")
+  timeEntries          TimeEntry[]
   resolvedToolRequests ToolRequest[]      @relation("ResolvedRequests")
   processedReturns     ToolReturn[]       @relation("ProcessedReturns")
   createdTransactions  Transaction[]
   employee             Employee?          @relation(fields: [employeeId], references: [id])
-  freeLancerId         String?            @unique
   freeLancer           FreeLancer?        @relation(fields: [freeLancerId], references: [id])
+  trainee              Trainee?           @relation(fields: [traineeId], references: [id])
   Vendor               Vendor[]
   workLogs             WorkLog[]
-  CallOutAssistant     CallOutAssistant[]
 
   @@map("users")
 }
@@ -86,49 +90,49 @@ model Session {
 }
 
 model GeneralSetting {
-  id                 String       @id @default(cuid())
-  userId             String
-  companyName        String
-  taxId              String
-  phone              String
-  phone2             String?
-  phone3             String?
-  website            String?
-  paymentTerms       String?
-  note               String?
-  bankAccount        String?
-  bankAccount2       String?
-  bankName           String?
-  bankName2          String?
-  logo               String?
-  email              String
-  Address            String
-  city               String
-  province           String
-  postCode           String
-  createdAt          DateTime     @default(now())
-  creditNoteNote     String?
-  creditNoteTerms    String?
-  deliveryNoteNote   String?
-  deliveryNoteTerms  String?
-  proFormaNote       String?
-  proFormaTerms      String?
-  purchaseOrderNote  String?
-  purchaseOrderTerms String?
-  supplierListNote   String?
-  supplierListTerms  String?
-  depositPaymentEnabled Boolean @default(false)
-  depositPercentage     Float   @default(60)
-  interest30Days        Float   @default(18)
-  interest1To3Months    Float   @default(40)
-  interest3To6Months    Float   @default(45)
-  interest6To9Months    Float   @default(60)
-  interest9To12Months   Float   @default(70)
-  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  Employee           Employee[]
-  FreeLancer         FreeLancer[]
-  Trainee            Trainee[]
-  Trainer            Trainer[]
+  id                    String       @id @default(cuid())
+  userId                String
+  companyName           String
+  taxId                 String
+  phone                 String
+  phone2                String?
+  phone3                String?
+  website               String?
+  paymentTerms          String?
+  note                  String?
+  bankAccount           String?
+  bankAccount2          String?
+  bankName              String?
+  bankName2             String?
+  logo                  String?
+  email                 String
+  Address               String
+  city                  String
+  province              String
+  postCode              String
+  createdAt             DateTime     @default(now())
+  creditNoteNote        String?
+  creditNoteTerms       String?
+  deliveryNoteNote      String?
+  deliveryNoteTerms     String?
+  proFormaNote          String?
+  proFormaTerms         String?
+  purchaseOrderNote     String?
+  purchaseOrderTerms    String?
+  supplierListNote      String?
+  supplierListTerms     String?
+  depositPaymentEnabled Boolean      @default(false)
+  depositPercentage     Float        @default(60)
+  interest1To3Months    Float        @default(40)
+  interest30Days        Float        @default(18)
+  interest3To6Months    Float        @default(45)
+  interest6To9Months    Float        @default(60)
+  interest9To12Months   Float        @default(70)
+  user                  User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Employee              Employee[]
+  FreeLancer            FreeLancer[]
+  Trainee               Trainee[]
+  Trainer               Trainer[]
 
   @@map("GeneralSettings")
 }
@@ -330,12 +334,12 @@ model Department {
   children         Department[]      @relation("DepartmentHierarchy")
   employees        Employee[]        @relation("DepartmentEmployees")
   freelancers      FreeLancer[]      @relation("DepartmentFreelancers")
-  trainees         Trainee[]         @relation("DepartmentTrainees")
-  trainers         Trainer[]         @relation("DepartmentTrainers")
   invoiceDocuments InvoiceDocument[]
   invoices         Invoice[]
   quotations       Quotation[]
   targets          Target[]
+  trainees         Trainee[]         @relation("DepartmentTrainees")
+  trainers         Trainer[]         @relation("DepartmentTrainers")
   expenses         Transaction[]
 
   @@map("departments")
@@ -351,7 +355,6 @@ model Employee {
   avatar                   String?
   position                 String
   departmentId             String?
-  generalSettingId         String?
   currency                 String                 @default("ZAR")
   hireDate                 DateTime
   terminationDate          DateTime?
@@ -399,36 +402,37 @@ model Employee {
   restrictions             String?
   riskLevel                String?
   overtimeHourRate         Float                  @default(50.00)
-  emergencyCallOutRate     Float                  @default(0.00)
   canCheckByGPS            Boolean                @default(false)
   expoPushToken            String?
   scheduledWeekendKnockIn  String?
   scheduledWeekendKnockOut String?
   dayOff                   Int                    @default(0)
+  generalSettingId         String?
+  emergencyCallOutRate     Float                  @default(0.00)
   leaveRequests            LeaveRequest[]
   Note                     Note[]
   AttendanceRecord         AttendanceRecord[]
+  CallOutAssistant         CallOutAssistant[]
+  callOutLeaders           CallOutLeader[]
   documents                Document[]
-  emergencyCallOuts        EmergencyCallOut[]
   employeeNotification     EmployeeNotification[]
   department               Department?            @relation("DepartmentEmployees", fields: [departmentId], references: [id])
   generalSetting           GeneralSetting?        @relation(fields: [generalSettingId], references: [id])
   kpiResults               KpiResult[]
   overtimeRequests         OvertimeRequest[]
+  overtimeAvailability     OvertimeAvailability[]
   payments                 Payment[]
   targets                  Target[]
+  toolChecks               ToolCheck[]
+  toolMovements            ToolMovement[]
   toolRequests             ToolRequest[]
   toolReturns              ToolReturn[]
+  tools                    Tool[]                 @relation("EmployeeTools")
   user                     User?
   Warning                  Warning[]
-  tools                    Tool[]                 @relation("EmployeeTools")
   bypassRules              AttendanceBypassRule[] @relation("BypassRuleEmployees")
-  assignedTasks            Task[]                 @relation("TaskAssignments")
-  CallOutAssistant         CallOutAssistant[]
   assistantInProjects      Project[]              @relation("ProjectAssistantEmployees")
-
-  toolMovements ToolMovement[]
-  toolChecks    ToolCheck[]
+  assignedTasks            Task[]                 @relation("TaskAssignments")
 
   @@index([departmentId])
   @@index([status])
@@ -445,7 +449,6 @@ model FreeLancer {
   avatar                   String?
   position                 String
   departmentId             String?
-  generalSettingId         String?
   salary                   Decimal                @db.Decimal(15, 2)
   currency                 String                 @default("ZAR")
   hireDate                 DateTime
@@ -492,34 +495,35 @@ model FreeLancer {
   restrictions             String?
   riskLevel                String?
   overtimeHourRate         Float                  @default(50.00)
-  emergencyCallOutRate     Float                  @default(0.00)
-  expoPushToken            String?
   scheduledWeekendKnockIn  String?
   scheduledWeekendKnockOut String?
+  generalSettingId         String?
+  expoPushToken            String?
+  emergencyCallOutRate     Float                  @default(0.00)
   leaveRequests            LeaveRequest[]
   notes                    Note[]
   attendanceRecords        AttendanceRecord[]
+  CallOutAssistant         CallOutAssistant[]
+  callOutLeaders           CallOutLeader[]
   documents                Document[]
-  emergencyCallOuts        EmergencyCallOut[]
   employeeNotification     EmployeeNotification[]
   department               Department?            @relation("DepartmentFreelancers", fields: [departmentId], references: [id])
   generalSetting           GeneralSetting?        @relation(fields: [generalSettingId], references: [id])
   kpiResults               KpiResult[]
   overtimeRequests         OvertimeRequest[]
+  overtimeAvailability     OvertimeAvailability[]
   payments                 Payment[]
   targets                  Target[]
+  toolChecks               ToolCheck[]
+  toolMovements            ToolMovement[]
   toolRequests             ToolRequest[]
   toolReturns              ToolReturn[]
-  warnings                 Warning[]
   tools                    Tool[]                 @relation("FreelancerTools")
+  user                     User?
+  warnings                 Warning[]
   bypassRules              AttendanceBypassRule[] @relation("BypassRuleFreelancers")
   assignedTasks            Task[]                 @relation("FreeLancerTaskAssignments")
   assistantInProjects      Project[]              @relation("ProjectAssistantFreelancers")
-  user                     User?
-  CallOutAssistant         CallOutAssistant[]
-
-  toolMovements ToolMovement[]
-  toolChecks    ToolCheck[]
 
   @@index([departmentId])
   @@index([status])
@@ -590,44 +594,36 @@ model Trainee {
   leaveRequests            LeaveRequest[]
   notes                    Note[]
   attendanceRecords        AttendanceRecord[]
+  CallOutAssistant         CallOutAssistant[]
+  callOutLeaders           CallOutLeader[]
   documents                Document[]
-  emergencyCallOuts        EmergencyCallOut[]
   employeeNotification     EmployeeNotification[]
-  department               Department?            @relation("DepartmentTrainees", fields: [departmentId], references: [id])
-  generalSetting           GeneralSetting?        @relation(fields: [generalSettingId], references: [id])
   kpiResults               KpiResult[]
   overtimeRequests         OvertimeRequest[]
+  overtimeAvailability     OvertimeAvailability[]
   payments                 Payment[]
   targets                  Target[]
+  toolChecks               ToolCheck[]
+  toolMovements            ToolMovement[]
   toolRequests             ToolRequest[]
   toolReturns              ToolReturn[]
-  warnings                 Warning[]
   tools                    Tool[]                 @relation("TraineeTools")
+  department               Department?            @relation("DepartmentTrainees", fields: [departmentId], references: [id])
+  generalSetting           GeneralSetting?        @relation(fields: [generalSettingId], references: [id])
+  user                     User?
+  warnings                 Warning[]
   bypassRules              AttendanceBypassRule[] @relation("BypassRuleTrainees")
-  assignedTasks            Task[]                 @relation("TraineeTaskAssignments")
   assistantInProjects      Project[]              @relation("ProjectAssistantTrainees")
-  CallOutAssistant         CallOutAssistant[]
-
-  toolMovements ToolMovement[]
-  toolChecks    ToolCheck[]
+  assignedTasks            Task[]                 @relation("TraineeTaskAssignments")
 
   @@index([departmentId])
   @@index([status])
   @@map("trainees")
 }
 
-enum TraineeStatus {
-  ACTIVE
-  INACTIVE
-  TERMINATED
-  SUSPENDED
-  PROSPECT
-  BLACKLISTED
-}
-
 model Trainer {
-  id                       String        @id @default(cuid())
-  trainerNumber            String        @unique
+  id                       String          @id @default(cuid())
+  trainerNumber            String          @unique
   firstName                String
   lastName                 String
   email                    String?
@@ -637,11 +633,11 @@ model Trainer {
   specialization           String?
   departmentId             String?
   generalSettingId         String?
-  salary                   Decimal       @db.Decimal(15, 2)
-  currency                 String        @default("ZAR")
+  salary                   Decimal         @db.Decimal(15, 2)
+  currency                 String          @default("ZAR")
   hireDate                 DateTime
   terminationDate          DateTime?
-  status                   TrainerStatus @default(ACTIVE)
+  status                   TrainerStatus   @default(ACTIVE)
   idNumber                 String?
   taxNumber                String?
   nationality              String?
@@ -650,7 +646,7 @@ model Trainer {
   city                     String?
   province                 String?
   postalCode               String?
-  country                  String        @default("South Africa")
+  country                  String          @default("South Africa")
   emergencyName            String?
   emergencyPhone           String?
   emergencyRelation        String?
@@ -665,29 +661,21 @@ model Trainer {
   scheduledKnockIn         String?
   scheduledKnockOut        String?
   workingDays              String[]
-  createdAt                DateTime      @default(now())
-  updatedAt                DateTime      @updatedAt
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
   createdBy                String?
   additionalInfo           String?
-  overtimeHourRate         Float         @default(50.00)
-  emergencyCallOutRate     Float         @default(0.00)
+  overtimeHourRate         Float           @default(50.00)
+  emergencyCallOutRate     Float           @default(0.00)
   expoPushToken            String?
   scheduledWeekendKnockIn  String?
   scheduledWeekendKnockOut String?
-  department               Department?   @relation("DepartmentTrainers", fields: [departmentId], references: [id])
+  department               Department?     @relation("DepartmentTrainers", fields: [departmentId], references: [id])
   generalSetting           GeneralSetting? @relation(fields: [generalSettingId], references: [id])
 
   @@index([departmentId])
   @@index([status])
   @@map("trainers")
-}
-
-enum TrainerStatus {
-  ACTIVE
-  INACTIVE
-  TERMINATED
-  SUSPENDED
-  PROSPECT
 }
 
 model AttendanceBypassRule {
@@ -740,12 +728,14 @@ model AttendanceRecord {
   bypassApplied     Boolean          @default(false)
   bypassRuleId      String?
   customCheckInTime DateTime?
-  overtimeRequestId String?
-  employee          Employee?        @relation(fields: [employeeId], references: [id])
-  freeLancer        FreeLancer?      @relation(fields: [freeLancerId], references: [id])
-  traineeId         String?
-  trainee           Trainee?         @relation(fields: [traineeId], references: [id])
-  overtimeRequest   OvertimeRequest? @relation(fields: [overtimeRequestId], references: [id])
+  overtimeRequestId      String?
+  overtimeAvailabilityId String?
+  traineeId              String?
+  employee               Employee?             @relation(fields: [employeeId], references: [id])
+  freeLancer             FreeLancer?           @relation(fields: [freeLancerId], references: [id])
+  overtimeRequest        OvertimeRequest?      @relation(fields: [overtimeRequestId], references: [id])
+  overtimeAvailability   OvertimeAvailability? @relation(fields: [overtimeAvailabilityId], references: [id])
+  trainee                Trainee?              @relation(fields: [traineeId], references: [id])
   breaks            BreakRecord[]
 
   @@unique([employeeId, date])
@@ -781,9 +771,9 @@ model Warning {
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   freeLancerId    String?
+  traineeId       String?
   employee        Employee?   @relation(fields: [employeeId], references: [id])
   freeLancer      FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  traineeId       String?
   trainee         Trainee?    @relation(fields: [traineeId], references: [id])
 
   @@map("warnings")
@@ -805,13 +795,16 @@ model LeaveRequest {
   rejectedBy            String?
   rejectedDate          DateTime?
   comments              String?
-  emergencyAvailability Boolean     @default(false)
   createdAt             DateTime    @default(now())
   updatedAt             DateTime    @updatedAt
   freeLancerId          String?
+  emergencyAvailability Boolean     @default(false)
+  traineeId             String?
+  documentUrl           String?
+  submitToAdmin         Boolean     @default(false)
+  originalLeaveType     LeaveType?
   employee              Employee?   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   freeLancer            FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  traineeId             String?
   trainee               Trainee?    @relation(fields: [traineeId], references: [id])
 
   @@index([employeeId])
@@ -981,13 +974,13 @@ model Payment {
   deductionAmount   Decimal            @default(0) @db.Decimal(15, 2)
   netAmount         Decimal            @db.Decimal(15, 2)
   performanceScore  Int?
+  traineeId         String?
   paymentBonuses    PaymentBonus[]
   paymentDeductions PaymentDeduction[]
   employee          Employee?          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   freeLancer        FreeLancer?        @relation(fields: [freeLancerId], references: [id], onDelete: Cascade)
-  traineeId         String?
-  trainee           Trainee?           @relation(fields: [traineeId], references: [id], onDelete: Cascade)
   Payroll           Payroll?           @relation(fields: [payrollId], references: [id])
+  trainee           Trainee?           @relation(fields: [traineeId], references: [id], onDelete: Cascade)
   transaction       Transaction?       @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
@@ -1168,15 +1161,15 @@ model Client {
   tradingName        String?
   Note               Note[]
   documents          Document[]
+  emergencyCallOuts  EmergencyCallOut[]
   invoiceDocuments   InvoiceDocument[]
   invoices           Invoice[]
+  Maintenance        Maintenance[]
   projects           Project[]
   quotations         Quotation[]
   recurringInvoices  RecurringInvoice[]
   toolRentals        ToolRental[]
   transactions       Transaction[]
-  emergencyCallOuts  EmergencyCallOut[]
-  Maintenance        Maintenance[]
 
   @@index([status])
   @@index([type])
@@ -1197,7 +1190,6 @@ model Project {
   startDate            DateTime?
   endDate              DateTime?
   deadline             DateTime?
-  scheduledStartTime   String?
   budget               Decimal?          @db.Decimal(15, 2)
   budgetSpent          Decimal?          @db.Decimal(15, 2)
   currency             String            @default("ZAR")
@@ -1208,6 +1200,7 @@ model Project {
   billingType          BillingType?
   projectType          ProjectType       @default(NEW_PROJECT)
   serviceId            String?
+  scheduledStartTime   String?
   Folder               Folder[]
   Note                 Note[]
   comment              comment[]
@@ -1215,11 +1208,8 @@ model Project {
   Expense              Expense[]
   invoiceDocuments     InvoiceDocument[]
   invoices             Invoice[]
+  maintenances         Maintenance[]
   teamMembers          ProjectTeam[]
-  assistantEmployees   Employee[]        @relation("ProjectAssistantEmployees")
-  assistantFreelancers FreeLancer[]      @relation("ProjectAssistantFreelancers")
-  assistantTrainees    Trainee[]         @relation("ProjectAssistantTrainees")
-  tools                Tool[]            @relation("ProjectTools")
   client               Client?           @relation(fields: [clientId], references: [id])
   manager              User              @relation(fields: [managerId], references: [id])
   service              Service?          @relation(fields: [serviceId], references: [id])
@@ -1227,10 +1217,12 @@ model Project {
   tasks                Task[]
   timeEntries          TimeEntry[]
   toolInterUses        ToolInterUse[]
+  toolMovements        ToolMovement[]
   workLogs             WorkLog[]
-
-  toolMovements ToolMovement[]
-  maintenances  Maintenance[]
+  assistantEmployees   Employee[]        @relation("ProjectAssistantEmployees")
+  assistantFreelancers FreeLancer[]      @relation("ProjectAssistantFreelancers")
+  assistantTrainees    Trainee[]         @relation("ProjectAssistantTrainees")
+  tools                Tool[]            @relation("ProjectTools")
 
   @@index([clientId])
   @@index([status])
@@ -1268,9 +1260,9 @@ model ProjectTeam {
   canUploadFiles   Boolean  @default(false)
   canEditFile      Boolean  @default(false)
   canViewFinancial Boolean  @default(false)
-  canAddWorkLog    Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+  canAddWorkLog    Boolean  @default(false)
   project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user             User     @relation(fields: [userId], references: [id])
 
@@ -1290,25 +1282,25 @@ model Task {
   isAIGenerated       Boolean      @default(false)
   dueDate             DateTime?
   completedAt         DateTime?
-  startTime           DateTime?
-  endTime             DateTime?
-  allocatedTime       String?
   estimatedHours      Decimal?     @db.Decimal(8, 2)
   actualHours         Decimal?     @db.Decimal(8, 2)
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
   freelancerId        String?
+  allocatedTime       String?
+  endTime             DateTime?
+  startTime           DateTime?
+  taskLeaderId        String?
   traineeId           String?
   subtask             Subtask[]
   comment             comment[]
   documents           Document[]
   project             Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskLeader          User?        @relation("TaskLeader", fields: [taskLeaderId], references: [id])
   timeEntries         TimeEntry[]
   freeLancerAssignees FreeLancer[] @relation("FreeLancerTaskAssignments")
   assignees           Employee[]   @relation("TaskAssignments")
   traineeAssignees    Trainee[]    @relation("TraineeTaskAssignments")
-  taskLeaderId        String?
-  taskLeader          User?        @relation("TaskLeader", fields: [taskLeaderId], references: [id])
 
   @@index([projectId])
   @@index([status])
@@ -1359,12 +1351,12 @@ model Document {
   employee         Employee?         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   folder           Folder?           @relation(fields: [folderId], references: [id], onDelete: Cascade)
   freeLancer       FreeLancer?       @relation(fields: [freeLancerId], references: [id])
-  trainee          Trainee?          @relation(fields: [traineeId], references: [id])
   lender           Lender?           @relation(fields: [lenderId], references: [id], onDelete: Cascade)
   loan             Loan?             @relation(fields: [loanId], references: [id], onDelete: Cascade)
   loanPayment      LoanPayment?      @relation(fields: [loanPaymentId], references: [id], onDelete: Cascade)
   Project          Project?          @relation(fields: [projectId], references: [id])
   Task             Task?             @relation(fields: [taskId], references: [id])
+  trainee          Trainee?          @relation(fields: [traineeId], references: [id])
   transaction      Transaction?      @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   vender           Vendor?           @relation(fields: [venderId], references: [id], onDelete: Cascade)
 
@@ -1412,13 +1404,13 @@ model Note {
   freeLancerId  String?
   color         String?
   pinned        Boolean      @default(false)
+  traineeId     String?
   client        Client?      @relation(fields: [clientId], references: [id], onDelete: Cascade)
   employee      Employee?    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   folder        Folder?      @relation(fields: [folderId], references: [id], onDelete: Cascade)
   freeLancer    FreeLancer?  @relation(fields: [freeLancerId], references: [id])
-  traineeId     String?
-  trainee       Trainee?     @relation(fields: [traineeId], references: [id])
   Project       Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  trainee       Trainee?     @relation(fields: [traineeId], references: [id])
   transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
@@ -1533,54 +1525,55 @@ model BudgetAlert {
 }
 
 model Invoice {
-  id              String            @id @default(cuid())
-  invoiceNumber   String            @unique
-  clientId        String
-  project         String?
-  amount          Decimal           @db.Decimal(15, 2)
-  currency        String            @default("ZAR")
-  status          InvoiceStatus     @default(DRAFT)
-  issueDate       DateTime
-  dueDate         DateTime
-  paidDate        DateTime?
-  description     String?
-  taxAmount       Decimal?          @db.Decimal(15, 2)
-  taxRate         Decimal?          @db.Decimal(5, 2)
-  discountAmount  Decimal?          @db.Decimal(15, 2)
-  discountType    DiscountType?     @default(AMOUNT)
-  totalAmount     Decimal           @db.Decimal(15, 2)
-  paymentTerms    String?
-  notes           String?
-  terms           String?
-  createdBy       String
-  isRecurring     Boolean           @default(false)
-  recurringId     String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  projectId       String?
-  departmentId    String?
-  depositAmount   Decimal?          @db.Decimal(15, 2)
-  depositRequired Boolean           @default(false)
-  depositType     DepositType?      @default(AMOUNT)
-  depositRate     Decimal?          @db.Decimal(15, 2)
-  installmentPeriod  String?
-  interestRate       Decimal?          @db.Decimal(5, 2)
-  interestAmount     Decimal?          @db.Decimal(15, 2)
-  packageId       String?
-  subpackageId    String?
-  Expense         Expense[]
-  items           InvoiceItem[]
-  payments        InvoicePayment[]
-  client          Client            @relation(fields: [clientId], references: [id])
-  creator         User              @relation(fields: [createdBy], references: [id])
-  Department      Department?       @relation(fields: [departmentId], references: [id])
-  package         Package?          @relation(fields: [packageId], references: [id])
-  Project         Project?          @relation(fields: [projectId], references: [id])
-  recurring       RecurringInvoice? @relation(fields: [recurringId], references: [id])
-  subpackage      Subpackage?       @relation(fields: [subpackageId], references: [id])
-  toolRentals     ToolRental[]
-  Transaction     Transaction[]
-  Maintenance     Maintenance[]
+  id                      String            @id @default(cuid())
+  invoiceNumber           String            @unique
+  clientId                String
+  project                 String?
+  amount                  Decimal           @db.Decimal(15, 2)
+  currency                String            @default("ZAR")
+  status                  InvoiceStatus     @default(DRAFT)
+  issueDate               DateTime
+  dueDate                 DateTime
+  paidDate                DateTime?
+  description             String?
+  taxAmount               Decimal?          @db.Decimal(15, 2)
+  taxRate                 Decimal?          @db.Decimal(5, 2)
+  discountAmount          Decimal?          @db.Decimal(15, 2)
+  discountType            DiscountType?     @default(AMOUNT)
+  totalAmount             Decimal           @db.Decimal(15, 2)
+  paymentTerms            String?
+  notes                   String?
+  terms                   String?
+  createdBy               String
+  isRecurring             Boolean           @default(false)
+  recurringId             String?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+  projectId               String?
+  departmentId            String?
+  depositAmount           Decimal?          @db.Decimal(15, 2)
+  depositRequired         Boolean           @default(false)
+  depositType             DepositType?      @default(AMOUNT)
+  depositRate             Decimal?          @db.Decimal(15, 2)
+  packageId               String?
+  subpackageId            String?
+  installmentPeriod       String?
+  interestAmount          Decimal?          @db.Decimal(15, 2)
+  interestRate            Decimal?          @db.Decimal(5, 2)
+  payRemainingImmediately Boolean           @default(false)
+  Expense                 Expense[]
+  items                   InvoiceItem[]
+  payments                InvoicePayment[]
+  client                  Client            @relation(fields: [clientId], references: [id])
+  creator                 User              @relation(fields: [createdBy], references: [id])
+  Department              Department?       @relation(fields: [departmentId], references: [id])
+  package                 Package?          @relation(fields: [packageId], references: [id])
+  Project                 Project?          @relation(fields: [projectId], references: [id])
+  recurring               RecurringInvoice? @relation(fields: [recurringId], references: [id])
+  subpackage              Subpackage?       @relation(fields: [subpackageId], references: [id])
+  Maintenance             Maintenance[]
+  toolRentals             ToolRental[]
+  Transaction             Transaction[]
 
   @@index([clientId])
   @@index([status])
@@ -1611,38 +1604,39 @@ model InvoiceItem {
 }
 
 model RecurringInvoice {
-  id                     String             @id @default(cuid())
-  clientId               String
-  frequency              RecurringFrequency
-  interval               Int                @default(1)
-  startDate              DateTime
-  endDate                DateTime?
-  nextDate               DateTime
-  status                 RecurringStatus    @default(ACTIVE)
-  description            String?
-  items                  Json
-  currency               String             @default("ZAR")
-  taxRate                Decimal?           @db.Decimal(5, 2)
-  discountAmount         Decimal?           @db.Decimal(15, 2)
-  discountType           DiscountType?      @default(AMOUNT)
-  paymentTerms           String?
-  notes                  String?
-  totalInvoicesGenerated Int                @default(0)
-  lastGeneratedAt        DateTime?
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
-  creator                String
-  depositAmount          Decimal?           @db.Decimal(15, 2)
-  depositRequired        Boolean            @default(false)
-  depositType            DepositType?       @default(AMOUNT)
-  depositRate            Decimal?           @db.Decimal(15, 2)
-  installmentPeriod      String?
-  interestRate           Decimal?           @db.Decimal(5, 2)
-  interestAmount         Decimal?           @db.Decimal(15, 2)
-  invoices               Invoice[]
-  client                 Client             @relation(fields: [clientId], references: [id])
-  user                   User               @relation(fields: [creator], references: [id])
-  maintenances           Maintenance[]
+  id                      String             @id @default(cuid())
+  clientId                String
+  frequency               RecurringFrequency
+  interval                Int                @default(1)
+  startDate               DateTime
+  endDate                 DateTime?
+  nextDate                DateTime
+  status                  RecurringStatus    @default(ACTIVE)
+  description             String?
+  items                   Json
+  currency                String             @default("ZAR")
+  taxRate                 Decimal?           @db.Decimal(5, 2)
+  discountAmount          Decimal?           @db.Decimal(15, 2)
+  discountType            DiscountType?      @default(AMOUNT)
+  paymentTerms            String?
+  notes                   String?
+  totalInvoicesGenerated  Int                @default(0)
+  lastGeneratedAt         DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  creator                 String
+  depositAmount           Decimal?           @db.Decimal(15, 2)
+  depositRequired         Boolean            @default(false)
+  depositType             DepositType?       @default(AMOUNT)
+  depositRate             Decimal?           @db.Decimal(15, 2)
+  installmentPeriod       String?
+  interestAmount          Decimal?           @db.Decimal(15, 2)
+  interestRate            Decimal?           @db.Decimal(5, 2)
+  payRemainingImmediately Boolean            @default(false)
+  invoices                Invoice[]
+  maintenances            Maintenance[]
+  client                  Client             @relation(fields: [clientId], references: [id])
+  user                    User               @relation(fields: [creator], references: [id])
 
   @@map("recurring_invoices")
 }
@@ -1754,53 +1748,54 @@ model DocumentPayment {
 }
 
 model Quotation {
-  id                 String          @id @default(cuid())
-  quotationNumber    String          @unique
-  clientId           String
-  projectId          String?
-  amount             Decimal         @db.Decimal(15, 2)
-  currency           String          @default("ZAR")
-  status             QuotationStatus @default(DRAFT)
-  issueDate          DateTime
-  validUntil         DateTime
-  acceptedDate       DateTime?
-  rejectedDate       DateTime?
-  title              String?
-  description        String?
-  taxAmount          Decimal?        @db.Decimal(15, 2)
-  taxRate            Decimal?        @db.Decimal(5, 2)
-  discountAmount     Decimal?        @db.Decimal(15, 2)
-  discountType       DiscountType?   @default(AMOUNT)
-  totalAmount        Decimal         @db.Decimal(15, 2)
-  terms              String?
-  notes              String?
-  paymentTerms       String?
-  deliveryTerms      String?
-  convertedToInvoice Boolean         @default(false)
-  invoiceId          String?
-  createdBy          String
-  followUpDate       DateTime?
-  reminderSent       Boolean         @default(false)
-  createdAt          DateTime        @default(now())
-  updatedAt          DateTime        @updatedAt
-  departmentId       String?
-  depositAmount      Decimal?        @db.Decimal(15, 2)
-  depositRequired    Boolean         @default(false)
-  depositType        DepositType?    @default(AMOUNT)
-  depositRate        Decimal?        @db.Decimal(15, 2)
-  installmentPeriod  String?
-  interestRate       Decimal?        @db.Decimal(5, 2)
-  interestAmount     Decimal?        @db.Decimal(15, 2)
-  packageId          String?
-  subpackageId       String?
-  items              QuotationItem[]
-  client             Client          @relation(fields: [clientId], references: [id])
-  creator            User            @relation(fields: [createdBy], references: [id])
-  Department         Department?     @relation(fields: [departmentId], references: [id])
-  package            Package?        @relation(fields: [packageId], references: [id])
-  project            Project?        @relation(fields: [projectId], references: [id])
-  subpackage         Subpackage?     @relation(fields: [subpackageId], references: [id])
-  toolRentals        ToolRental[]
+  id                      String          @id @default(cuid())
+  quotationNumber         String          @unique
+  clientId                String
+  projectId               String?
+  amount                  Decimal         @db.Decimal(15, 2)
+  currency                String          @default("ZAR")
+  status                  QuotationStatus @default(DRAFT)
+  issueDate               DateTime
+  validUntil              DateTime
+  acceptedDate            DateTime?
+  rejectedDate            DateTime?
+  title                   String?
+  description             String?
+  taxAmount               Decimal?        @db.Decimal(15, 2)
+  taxRate                 Decimal?        @db.Decimal(5, 2)
+  discountAmount          Decimal?        @db.Decimal(15, 2)
+  discountType            DiscountType?   @default(AMOUNT)
+  totalAmount             Decimal         @db.Decimal(15, 2)
+  terms                   String?
+  notes                   String?
+  paymentTerms            String?
+  deliveryTerms           String?
+  convertedToInvoice      Boolean         @default(false)
+  invoiceId               String?
+  createdBy               String
+  followUpDate            DateTime?
+  reminderSent            Boolean         @default(false)
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+  departmentId            String?
+  depositAmount           Decimal?        @db.Decimal(15, 2)
+  depositRequired         Boolean         @default(false)
+  depositType             DepositType?    @default(AMOUNT)
+  depositRate             Decimal?        @db.Decimal(15, 2)
+  packageId               String?
+  subpackageId            String?
+  installmentPeriod       String?
+  interestAmount          Decimal?        @db.Decimal(15, 2)
+  interestRate            Decimal?        @db.Decimal(5, 2)
+  payRemainingImmediately Boolean         @default(false)
+  items                   QuotationItem[]
+  client                  Client          @relation(fields: [clientId], references: [id])
+  creator                 User            @relation(fields: [createdBy], references: [id])
+  Department              Department?     @relation(fields: [departmentId], references: [id])
+  package                 Package?        @relation(fields: [packageId], references: [id])
+  project                 Project?        @relation(fields: [projectId], references: [id])
+  subpackage              Subpackage?     @relation(fields: [subpackageId], references: [id])
+  toolRentals             ToolRental[]
 
   @@index([clientId])
   @@index([status])
@@ -2380,52 +2375,49 @@ model ChatSession {
 }
 
 model Tool {
-  id                String        @id @default(cuid())
-  name              String
-  description       String?
-  serialNumber      String?
-  code              String?
-  category          String?
-  canBeRented       Boolean       @default(true)
-  purchasePrice     Decimal       @default(0) @db.Decimal(12, 2)
-  purchaseDate      DateTime?     @db.Date
-  rentalRateDaily   Decimal?      @db.Decimal(10, 2)
-  rentalRateWeekly  Decimal?      @db.Decimal(10, 2)
-  rentalRateMonthly Decimal?      @db.Decimal(10, 2)
-  quantity          Int           @default(1)
-  employeeId        String?
-  freelancerId      String?
-  returnDate        DateTime?
-  status            ToolStatus    @default(AVAILABLE)
-  condition         ToolCondition @default(GOOD)
-  damageCost        Decimal?      @default(0) @db.Decimal(10, 2)
-  damageDescription String?
-  primaryImage      String?
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  createdBy         String?
-  additionalInfo    String?
-  images            String[]
-  parentToolId      String?
-  allocatedDate     DateTime?
-
-  // Relations
+  id                    String               @id @default(cuid())
+  name                  String
+  description           String?
+  category              String?
+  canBeRented           Boolean              @default(true)
+  purchasePrice         Decimal              @default(0) @db.Decimal(12, 2)
+  purchaseDate          DateTime?            @db.Date
+  rentalRateDaily       Decimal?             @db.Decimal(10, 2)
+  rentalRateWeekly      Decimal?             @db.Decimal(10, 2)
+  rentalRateMonthly     Decimal?             @db.Decimal(10, 2)
+  condition             ToolCondition        @default(GOOD)
+  primaryImage          String?
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  createdBy             String?
+  serialNumber          String?
+  code                  String?
+  quantity              Int                  @default(1)
+  employeeId            String?
+  freelancerId          String?
+  returnDate            DateTime?
+  damageCost            Decimal?             @default(0) @db.Decimal(10, 2)
+  damageDescription     String?
+  additionalInfo        String?
+  parentToolId          String?
+  allocatedDate         DateTime?
+  images                String[]
+  status                ToolStatus           @default(AVAILABLE)
+  traineeId             String?
   rentalRequests        RentalRequest[]
+  toolChecks            ToolCheck[]
   InterUse              ToolInterUse[]
-  maintenanceLogs       ToolMaintenanceLog[]
-  rentals               ToolRental[]
   workerMaintenanceLogs ToolMaintenance[]
+  maintenanceLogs       ToolMaintenanceLog[]
+  movements             ToolMovement[]
+  rentals               ToolRental[]
   returns               ToolReturn[]
-  projects              Project[]            @relation("ProjectTools")
   employee              Employee?            @relation("EmployeeTools", fields: [employeeId], references: [id])
   freelancer            FreeLancer?          @relation("FreelancerTools", fields: [freelancerId], references: [id])
-  traineeId             String?
-  trainee               Trainee?             @relation("TraineeTools", fields: [traineeId], references: [id])
   parentTool            Tool?                @relation("ToolHierarchy", fields: [parentToolId], references: [id])
   subTools              Tool[]               @relation("ToolHierarchy")
-
-  movements  ToolMovement[]
-  toolChecks ToolCheck[]
+  trainee               Trainee?             @relation("TraineeTools", fields: [traineeId], references: [id])
+  projects              Project[]            @relation("ProjectTools")
 
   @@map("tools")
 }
@@ -2495,23 +2487,14 @@ model ToolMovement {
   notes        String?
   createdAt    DateTime         @default(now())
   createdBy    String
-
-  tool       Tool        @relation(fields: [toolId], references: [id], onDelete: Cascade)
-  employee   Employee?   @relation(fields: [employeeId], references: [id])
-  freelancer FreeLancer? @relation(fields: [freelancerId], references: [id])
-  traineeId  String?
-  trainee    Trainee?    @relation(fields: [traineeId], references: [id])
-  project    Project?    @relation(fields: [projectId], references: [id])
+  traineeId    String?
+  employee     Employee?        @relation(fields: [employeeId], references: [id])
+  freelancer   FreeLancer?      @relation(fields: [freelancerId], references: [id])
+  project      Project?         @relation(fields: [projectId], references: [id])
+  tool         Tool             @relation(fields: [toolId], references: [id], onDelete: Cascade)
+  trainee      Trainee?         @relation(fields: [traineeId], references: [id])
 
   @@map("tool_movements")
-}
-
-enum ToolMovementType {
-  CHECK_OUT
-  CHECK_IN
-  ADJUSTMENT
-  MAINTENANCE_OUT
-  MAINTENANCE_IN
 }
 
 model ToolMaintenanceLog {
@@ -2603,12 +2586,12 @@ model Target {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   freeLancerId String?
+  traineeId    String?
   kpis         Kpi[]
   updates      TargetUpdate[]
   department   Department?    @relation(fields: [departmentId], references: [id])
   employee     Employee?      @relation(fields: [employeeId], references: [id])
   freeLancer   FreeLancer?    @relation(fields: [freeLancerId], references: [id])
-  traineeId    String?
   trainee      Trainee?       @relation(fields: [traineeId], references: [id])
 
   @@index([employeeId])
@@ -2660,8 +2643,8 @@ model KpiResult {
   traineeId    String?
   employee     Employee?   @relation(fields: [employeeId], references: [id])
   freeLancer   FreeLancer? @relation(fields: [freeLancerId], references: [id])
-  trainee      Trainee?    @relation(fields: [traineeId], references: [id])
   kpi          Kpi         @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+  trainee      Trainee?    @relation(fields: [traineeId], references: [id])
 
   @@unique([kpiId, employeeId, period])
   @@index([kpiId])
@@ -2745,10 +2728,10 @@ model OvertimeRequest {
   requestedAt       DateTime           @default(now())
   approvedAt        DateTime?
   approvedBy        String?
+  traineeId         String?
   attendanceRecords AttendanceRecord[]
   employee          Employee?          @relation(fields: [employeeId], references: [id])
   freeLancer        FreeLancer?        @relation(fields: [freeLancerId], references: [id])
-  traineeId         String?
   trainee           Trainee?           @relation(fields: [traineeId], references: [id])
 
   @@map("overtime_requests")
@@ -2770,10 +2753,10 @@ model EmployeeNotification {
   updatedAt    DateTime              @updatedAt
   employeeId   String?
   freeLancerId String?
+  traineeId    String?
   employee     Employee?             @relation(fields: [employeeId], references: [id])
   freeLancer   FreeLancer?           @relation(fields: [freeLancerId], references: [id])
   Trainee      Trainee?              @relation(fields: [traineeId], references: [id])
-  traineeId    String?
 
   @@index([isRead])
   @@index([type])
@@ -2794,98 +2777,90 @@ model NotificationTemplate {
   @@map("notification_templates")
 }
 
-enum CallOutStatus {
-  PENDING
-  ACCEPTED
-  DECLINED
-  CANCELLED
-  COMPLETED
-  IN_PROGRESS
-  ASSISTANT_CONFIRMED
-}
-
-enum CallOutType {
-  MAINTENANCE
-  INVOICE
-}
-
-enum VehicleType {
-  COMPANY_VEHICLE
-  PERSONAL_VEHICLE
-  PUBLIC_TRANSPORT
-  E_HAILING
-}
-
-enum AssistantStatus {
-  PENDING
-  ACCEPTED
-  DECLINED
-}
-
 model EmergencyCallOut {
-  id              String        @id @default(cuid())
-  employeeId      String?
-  freeLancerId    String?
-  title           String
-  message         String?
-  startTime       DateTime
-  status          CallOutStatus @default(PENDING)
-  requestedBy     String
-  requestedAt     DateTime      @default(now())
-  acceptedAt      DateTime?
-  declinedAt      DateTime?
-  declinedReason  String?
-  completedAt     DateTime?
-  checkIn         DateTime?
-  checkInAddress  String?
-  checkInLat      Float?
-  checkInLng      Float?
-  checkOut        DateTime?
-  checkOutAddress String?
-  checkOutLat     Float?
-  checkOutLng     Float?
-  duration        Float?
-  earnings        Decimal?      @db.Decimal(15, 2)
-  hourlyRateUsed  Float?
-  notes           String?
-
-  // New Fields for Workflow
-  type         CallOutType?
-  destination  String?
-  vehicle      VehicleType?
-  description  String?
-  isTeamLeader Boolean      @default(false)
-
-  clientId      String?
-  client        Client?            @relation(fields: [clientId], references: [id])
-  employee      Employee?          @relation(fields: [employeeId], references: [id])
-  freeLancer    FreeLancer?        @relation(fields: [freeLancerId], references: [id])
-  requestedUser User               @relation(fields: [requestedBy], references: [id])
-  assistants    CallOutAssistant[]
-  Trainee       Trainee?           @relation(fields: [traineeId], references: [id])
-  traineeId     String?
+  id               String             @id @default(cuid())
+  title            String
+  message          String?
+  startTime        DateTime
+  status           CallOutStatus      @default(PENDING)
+  requestedBy      String
+  requestedAt      DateTime           @default(now())
+  selectedLeaderId String?            // Which CallOutLeader was chosen by admin
+  acceptedAt       DateTime?
+  declinedAt       DateTime?
+  declinedReason   String?
+  completedAt      DateTime?
+  checkIn          DateTime?
+  checkInAddress   String?
+  checkInLat       Float?
+  checkInLng       Float?
+  checkOut         DateTime?
+  checkOutAddress  String?
+  checkOutLat      Float?
+  checkOutLng      Float?
+  duration         Float?
+  notes            String?
+  type             CallOutType?
+  destination      String?
+  vehicle          VehicleType?
+  description      String?
+  allowAssistants  Boolean            @default(true)  // Admin toggle: can leader add assistants
+  workerCount      Int                @default(1)
+  clientId         String?
+  earnings           Decimal?           @db.Decimal(15, 2)
+  hourlyRateUsed     Float?
+  reportDiagnosis    String?
+  reportProposal     String?
+  reportSolution     String?
+  reportProgress     String?
+  reportPendingTasks String?
+  leaders            CallOutLeader[]
+  assistants       CallOutAssistant[]
+  client           Client?            @relation(fields: [clientId], references: [id])
+  requestedUser    User               @relation(fields: [requestedBy], references: [id])
 
   @@map("emergency_call_outs")
 }
 
 model CallOutAssistant {
-  id                 String          @id @default(cuid())
+  id                 String           @id @default(cuid())
   emergencyCallOutId String
   userId             String?
   employeeId         String?
   freelancerId       String?
-  status             AssistantStatus @default(PENDING)
-  earnings           Decimal?        @db.Decimal(15, 2)
+  status             AssistantStatus  @default(PENDING)
+  earnings           Decimal?         @db.Decimal(15, 2)
   hourlyRateUsed     Float?
-
-  emergencyCallOut EmergencyCallOut @relation(fields: [emergencyCallOutId], references: [id], onDelete: Cascade)
-  user             User?            @relation(fields: [userId], references: [id])
-  employee         Employee?        @relation(fields: [employeeId], references: [id])
-  freelancer       FreeLancer?      @relation(fields: [freelancerId], references: [id])
-  traineeId        String?
-  trainee          Trainee?         @relation(fields: [traineeId], references: [id])
+  traineeId          String?
+  emergencyCallOut   EmergencyCallOut @relation(fields: [emergencyCallOutId], references: [id], onDelete: Cascade)
+  employee           Employee?        @relation(fields: [employeeId], references: [id])
+  freelancer         FreeLancer?      @relation(fields: [freelancerId], references: [id])
+  trainee            Trainee?         @relation(fields: [traineeId], references: [id])
+  user               User?            @relation(fields: [userId], references: [id])
 
   @@map("call_out_assistants")
+}
+
+model CallOutLeader {
+  id                 String           @id @default(cuid())
+  emergencyCallOutId String
+  userId             String?
+  employeeId         String?
+  freelancerId       String?
+  traineeId          String?
+  status             LeaderStatus     @default(PENDING)
+  acceptedAt         DateTime?
+  declinedAt         DateTime?
+  declinedReason     String?
+  responseReason     String?
+  createdAt          DateTime         @default(now())
+  emergencyCallOut   EmergencyCallOut @relation(fields: [emergencyCallOutId], references: [id], onDelete: Cascade)
+  user               User?            @relation(fields: [userId], references: [id])
+  employee           Employee?        @relation(fields: [employeeId], references: [id])
+  freelancer         FreeLancer?      @relation(fields: [freelancerId], references: [id])
+  trainee            Trainee?         @relation(fields: [traineeId], references: [id])
+
+  @@map("call_out_leaders")
 }
 
 model ApiKey {
@@ -3050,7 +3025,6 @@ model Loan {
   amount            Float
   interestRate      Float
   startDate         DateTime
-  firstPaymentDate  DateTime? // When the first repayment is due
   endDate           DateTime?
   termMonths        Int?
   description       String?
@@ -3065,6 +3039,7 @@ model Loan {
   interestType      InterestType          @default(FIXED)
   primeMargin       Float?                @default(0)
   createdBy         String?
+  firstPaymentDate  DateTime?
   documents         Document[]
   payments          LoanPayment[]
   creator           User?                 @relation(fields: [createdBy], references: [id])
@@ -3107,21 +3082,17 @@ model Lender {
   updatedAt              DateTime                @updatedAt
   interestRate           Float?
   termMonths             Int?
-  loanCalculationMethod  LoanCalculationMethod? // Deprecated: Use loanCalculationMethods
-  loanCalculationMethods LoanCalculationMethod[] @default([]) // Array of supported methods
-
-  // Deprecated: Migrating to LenderInterestTier model
-  interestRate3Months  Float?
-  interestRate6Months  Float?
-  interestRate9Months  Float?
-  interestRate12Months Float?
-
-  interestTiers LenderInterestTier[] // Dynamic tiered rates for FIXED_INTEREST
-
-  createdBy String?
-  documents Document[]
-  creator   User?      @relation(fields: [createdBy], references: [id])
-  loans     Loan[]
+  createdBy              String?
+  interestRate12Months   Float?
+  interestRate3Months    Float?
+  interestRate6Months    Float?
+  interestRate9Months    Float?
+  loanCalculationMethod  LoanCalculationMethod?
+  loanCalculationMethods LoanCalculationMethod[] @default([])
+  documents              Document[]
+  interestTiers          LenderInterestTier[]
+  creator                User?                   @relation(fields: [createdBy], references: [id])
+  loans                  Loan[]
 
   @@map("lenders")
 }
@@ -3129,13 +3100,13 @@ model Lender {
 model LenderInterestTier {
   id           String   @id @default(cuid())
   lenderId     String
-  lender       Lender   @relation(fields: [lenderId], references: [id], onDelete: Cascade)
-  termMonths   Int // e.g. 3, 6, 9, 12, 18, 24...
-  interestRate Float // The fixed interest rate for this term
+  termMonths   Int
+  interestRate Float
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  lender       Lender   @relation(fields: [lenderId], references: [id], onDelete: Cascade)
 
-  @@unique([lenderId, termMonths]) // Ensure unique tier per lender per term
+  @@unique([lenderId, termMonths])
   @@map("lender_interest_tiers")
 }
 
@@ -3156,11 +3127,11 @@ model ToolRequest {
   reason        String?
   quantity      Int                 @default(1)
   resolvedById  String?
+  traineeId     String?
   employee      Employee?           @relation(fields: [employeeId], references: [id])
   freelancer    FreeLancer?         @relation(fields: [freelancerId], references: [id])
-  traineeId     String?
-  trainee       Trainee?            @relation(fields: [traineeId], references: [id])
   resolvedBy    User?               @relation("ResolvedRequests", fields: [resolvedById], references: [id])
+  trainee       Trainee?            @relation(fields: [traineeId], references: [id])
 
   @@map("tool_requests")
 }
@@ -3171,7 +3142,6 @@ model ToolReturn {
   employeeId        String?
   freelancerId      String?
   quantity          Int
-  status            ToolStatus
   condition         ToolCondition
   damageDescription String?
   damageCost        Decimal?      @default(0) @db.Decimal(10, 2)
@@ -3181,12 +3151,13 @@ model ToolReturn {
   updatedAt         DateTime      @updatedAt
   adminNotes        String?
   isApproved        Boolean       @default(false)
+  status            ToolStatus
+  traineeId         String?
   employee          Employee?     @relation(fields: [employeeId], references: [id])
   freelancer        FreeLancer?   @relation(fields: [freelancerId], references: [id])
-  traineeId         String?
-  trainee           Trainee?      @relation(fields: [traineeId], references: [id])
   processedBy       User?         @relation("ProcessedReturns", fields: [processedById], references: [id])
   tool              Tool          @relation(fields: [toolId], references: [id])
+  trainee           Trainee?      @relation(fields: [traineeId], references: [id])
 
   @@map("tool_returns")
 }
@@ -3219,7 +3190,6 @@ model ToolCheck {
   toolId            String
   employeeId        String?
   freelancerId      String?
-  traineeId         String?
   checkDate         DateTime      @default(now())
   condition         ToolCondition
   isPresent         Boolean       @default(true)
@@ -3231,15 +3201,120 @@ model ToolCheck {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   deductFromWorker  Boolean       @default(false)
-
-  tool       Tool        @relation(fields: [toolId], references: [id])
-  employee   Employee?   @relation(fields: [employeeId], references: [id])
-  freelancer FreeLancer? @relation(fields: [freelancerId], references: [id])
-  trainee    Trainee?    @relation(fields: [traineeId], references: [id])
+  traineeId         String?
+  employee          Employee?     @relation(fields: [employeeId], references: [id])
+  freelancer        FreeLancer?   @relation(fields: [freelancerId], references: [id])
+  tool              Tool          @relation(fields: [toolId], references: [id])
+  trainee           Trainee?      @relation(fields: [traineeId], references: [id])
 
   @@index([toolId])
   @@index([checkDate])
   @@map("tool_checks")
+}
+
+model Maintenance {
+  id                    String                   @id @default(cuid())
+  type                  MaintenanceType
+  clientId              String
+  date                  DateTime
+  location              String
+  task                  String
+  schedule              DateTime?
+  invoiceId             String?
+  status                ServiceMaintenanceStatus @default(PENDING)
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  customFrequencyMonths Int?
+  frequency             MaintenanceFrequency?
+  projectId             String?
+  recurringInvoiceId    String?
+  visits                MaintenanceVisit[]
+  client                Client                   @relation(fields: [clientId], references: [id])
+  invoice               Invoice?                 @relation(fields: [invoiceId], references: [id])
+  project               Project?                 @relation(fields: [projectId], references: [id])
+  recurringInvoice      RecurringInvoice?        @relation(fields: [recurringInvoiceId], references: [id])
+
+  @@map("maintenances")
+}
+
+model MaintenanceVisit {
+  id            String                   @id @default(cuid())
+  maintenanceId String
+  location      String
+  date          DateTime
+  task          String?
+  status        ServiceMaintenanceStatus @default(PENDING)
+  completedAt   DateTime?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  maintenance   Maintenance              @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
+
+  @@map("maintenance_visits")
+}
+
+enum TraineeStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+  SUSPENDED
+  PROSPECT
+  BLACKLISTED
+}
+
+enum TrainerStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+  SUSPENDED
+  PROSPECT
+}
+
+enum ToolMovementType {
+  CHECK_OUT
+  CHECK_IN
+  ADJUSTMENT
+  MAINTENANCE_OUT
+  MAINTENANCE_IN
+}
+
+enum CallOutStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  COMPLETED
+  IN_PROGRESS
+  ASSISTANT_CONFIRMED
+  AWAITING_APPROVAL
+}
+
+enum CallOutType {
+  MAINTENANCE
+  INVOICE
+  NOT_SURE
+}
+
+enum VehicleType {
+  COMPANY_VEHICLE
+  PERSONAL_VEHICLE
+  PUBLIC_TRANSPORT
+  E_HAILING
+}
+
+enum AssistantStatus {
+  PENDING      // Invited
+  ACCEPTED     // Accepted - awaiting admin approval
+  DECLINED     // Declined
+  SELECTED     // Admin approved
+  NOT_ACCEPTED // Not chosen or didn't respond
+}
+
+enum LeaderStatus {
+  PENDING      // Notified, hasn't responded yet
+  ACCEPTED     // Worker accepted — awaiting admin selection
+  DECLINED     // Worker declined
+  SELECTED     // Admin chose this person — full mission access granted
+  NOT_ACCEPTED // Admin chose someone else before this person responded
 }
 
 enum MaintenanceStatus {
@@ -3375,14 +3450,6 @@ enum UserPermission {
   Freelancer_EDIT
   Freelancer_DELETE
   Freelancer_VIEW
-  Trainee_CREATE
-  Trainee_EDIT
-  Trainee_DELETE
-  Trainee_VIEW
-  Trainer_CREATE
-  Trainer_EDIT
-  Trainer_DELETE
-  Trainer_VIEW
   DEPARTMENT_CREATE
   DEPARTMENT_EDIT
   DEPARTMENT_DELETE
@@ -3486,6 +3553,14 @@ enum UserPermission {
   TOOL_MAINTENANCE_CREATE
   TOOL_MAINTENANCE_EDIT
   TOOL_MAINTENANCE_DELETE
+  Trainer_CREATE
+  Trainer_EDIT
+  Trainer_DELETE
+  Trainer_VIEW
+  Trainee_CREATE
+  Trainee_EDIT
+  Trainee_DELETE
+  Trainee_VIEW
 }
 
 enum DepositType {
@@ -3504,8 +3579,8 @@ enum AttendanceStatus {
   MATERNITY_LEAVE
   PATERNITY_LEAVE
   STUDY_LEAVE
-  COMPASSIONATE_LEAVE
   ON_BREAK
+  COMPASSIONATE_LEAVE
 }
 
 enum CheckInMethod {
@@ -3835,8 +3910,6 @@ enum NotificationType {
   CATEGORY
   EMPLOYEE
   FREELANCER
-  TRAINEE
-  TRAINER
   ATTENDANCE
   LEAVE
   WARNING
@@ -3852,6 +3925,8 @@ enum NotificationType {
   SERVICE
   Task
   EMERGENCY
+  TRAINER
+  TRAINEE
 }
 
 enum NotificationPriority {
@@ -4066,6 +4141,7 @@ enum UserType {
   ADMIN
   EMPLOYEE
   FREELANCER
+  TRAINEE
 }
 
 enum PackageType {
@@ -4096,55 +4172,15 @@ enum LoanPaymentType {
 }
 
 enum LoanCalculationMethod {
-  COMPOUND_INTEREST // Monthly compound interest (reducing balance)
-  FIXED_INTEREST // Long-term fixed interest (flat rate, total interest upfront)
-  AMORTIZED // Deprecated
-  FLAT // Deprecated
+  COMPOUND_INTEREST
+  FIXED_INTEREST
+  AMORTIZED
+  FLAT
 }
 
 enum InterestType {
   FIXED
   PRIME_LINKED
-}
-
-model Maintenance {
-  id                    String                   @id @default(cuid())
-  type                  MaintenanceType
-  clientId              String
-  client                Client                   @relation(fields: [clientId], references: [id])
-  date                  DateTime
-  location              String
-  task                  String
-  schedule              DateTime?
-  invoiceId             String?
-  invoice               Invoice?                 @relation(fields: [invoiceId], references: [id])
-  recurringInvoiceId    String?
-  recurringInvoice      RecurringInvoice?        @relation(fields: [recurringInvoiceId], references: [id])
-  status                ServiceMaintenanceStatus @default(PENDING)
-  createdAt             DateTime                 @default(now())
-  updatedAt             DateTime                 @updatedAt
-  projectId             String?
-  project               Project?                 @relation(fields: [projectId], references: [id])
-  frequency             MaintenanceFrequency?
-  customFrequencyMonths Int?
-  visits                MaintenanceVisit[]
-
-  @@map("maintenances")
-}
-
-model MaintenanceVisit {
-  id            String                   @id @default(cuid())
-  maintenanceId String
-  maintenance   Maintenance              @relation(fields: [maintenanceId], references: [id], onDelete: Cascade)
-  location      String
-  date          DateTime
-  task          String?
-  status        ServiceMaintenanceStatus @default(PENDING)
-  completedAt   DateTime?
-  createdAt     DateTime                 @default(now())
-  updatedAt     DateTime                 @updatedAt
-
-  @@map("maintenance_visits")
 }
 
 enum ServiceMaintenanceStatus {
@@ -4163,4 +4199,27 @@ enum MaintenanceFrequency {
   WEEKLY
   MONTHLY
   CUSTOM
+}
+
+enum AvailabilityStatus {
+  PENDING
+  AVAILABLE
+  UNAVAILABLE
+}
+
+model OvertimeAvailability {
+  id           String             @id @default(cuid())
+  employeeId   String?
+  freeLancerId String?
+  traineeId    String?
+  date         DateTime           @db.Date
+  status       AvailabilityStatus @default(PENDING)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  employee     Employee?          @relation(fields: [employeeId], references: [id])
+  freeLancer   FreeLancer?        @relation(fields: [freeLancerId], references: [id])
+  trainee      Trainee?           @relation(fields: [traineeId], references: [id])
+  attendanceRecords AttendanceRecord[]
+
+  @@map("overtime_availability")
 }

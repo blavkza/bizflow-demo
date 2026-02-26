@@ -20,9 +20,19 @@ export async function POST(
 
     const { id } = await params;
     const body = await req.json();
-    const { lat, lng, address } = body;
+    const {
+      lat,
+      lng,
+      address,
+      diagnosis,
+      proposal,
+      solution,
+      progress,
+      pendingTasks,
+    } = body;
 
-    const callOut = (await db.emergencyCallOut.findUnique({
+    // Include requestedUser with all worker-type sub-relations for unified rate lookup.
+    const callOut = await db.emergencyCallOut.findUnique({
       where: { id },
       include: {
         assistants: {
@@ -31,6 +41,7 @@ export async function POST(
               include: {
                 employee: { select: { emergencyCallOutRate: true } },
                 freeLancer: { select: { emergencyCallOutRate: true } },
+                trainee: { select: { emergencyCallOutRate: true } },
               },
             },
           },
@@ -39,10 +50,11 @@ export async function POST(
           include: {
             employee: { select: { emergencyCallOutRate: true } },
             freeLancer: { select: { emergencyCallOutRate: true } },
+            trainee: { select: { emergencyCallOutRate: true } },
           },
         },
-      } as any,
-    })) as any;
+      },
+    });
 
     if (!callOut) {
       return NextResponse.json(
@@ -53,7 +65,7 @@ export async function POST(
 
     if (callOut.requestedBy !== user.id && user.userType !== "ADMIN") {
       const isAssistant = callOut.assistants.some(
-        (a: any) => a.userId === user.id && a.status === "ACCEPTED",
+        (a) => a.userId === user.id && a.status === "ACCEPTED",
       );
       if (!isAssistant) {
         return NextResponse.json(
@@ -64,21 +76,16 @@ export async function POST(
     }
 
     const checkOutTime = new Date();
-    const checkInTime = new Date(callOut.checkIn);
+    const checkInTime = new Date(callOut.checkIn!);
     const durationHours =
       (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
-    // Fetch call-out details (rates are already included in the findUnique if we update it)
-    // Actually, let's update the findUnique to include the new emergencyCallOutRate field
-
-    // Helper to get effective rate for a user
-    const getEffectiveRate = (u: any) => {
-      return (
-        u?.employee?.emergencyCallOutRate ||
-        u?.freeLancer?.emergencyCallOutRate ||
-        0
-      );
-    };
+    // Unified rate helper — works for employee, freelancer, or trainee user
+    const getEffectiveRate = (u: any) =>
+      u?.employee?.emergencyCallOutRate ||
+      u?.freeLancer?.emergencyCallOutRate ||
+      u?.trainee?.emergencyCallOutRate ||
+      0;
 
     const requesterRate = getEffectiveRate(callOut.requestedUser);
     const requesterEarnings = durationHours * requesterRate;
@@ -95,6 +102,11 @@ export async function POST(
         duration: durationHours,
         hourlyRateUsed: requesterRate,
         earnings: requesterEarnings,
+        reportDiagnosis: diagnosis,
+        reportProposal: proposal,
+        reportSolution: solution,
+        reportProgress: progress,
+        reportPendingTasks: pendingTasks,
       },
     });
 
@@ -125,6 +137,18 @@ export async function POST(
             title: "✅ Call-Out Completed",
             body: `The mission at ${callOut.destination} has been completed.`,
             data: { url: `/emergency-callouts/${callOut.id}` },
+          });
+
+          await db.notification.create({
+            data: {
+              userId: assistant.userId,
+              title: "✅ Call-Out Completed",
+              message: `The mission at ${callOut.destination} has been completed.`,
+              type: "EMERGENCY",
+              priority: "MEDIUM",
+              actionUrl: `/emergency-callouts/${callOut.id}`,
+              metadata: { callOutId: id },
+            },
           });
         }
       }

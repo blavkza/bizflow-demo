@@ -14,6 +14,8 @@ export async function POST(request: NextRequest) {
       reason,
       contactInfo,
       emergencyAvailability,
+      documentUrl,
+      submitToAdmin,
     } = body;
 
     let employee = null;
@@ -57,7 +59,6 @@ export async function POST(request: NextRequest) {
       data: {
         employeeId: employee?.id,
         freeLancerId: freelancer?.id,
-        leaveType,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
         days: parseInt(days),
@@ -66,6 +67,12 @@ export async function POST(request: NextRequest) {
         emergencyAvailability: Boolean(emergencyAvailability),
         status: "PENDING",
         requestedDate: new Date(),
+        documentUrl,
+        submitToAdmin: Boolean(submitToAdmin),
+        originalLeaveType:
+          !documentUrl && leaveType !== "UNPAID" ? leaveType : null,
+        leaveType:
+          !documentUrl && leaveType !== "UNPAID" ? "UNPAID" : leaveType,
       },
     });
 
@@ -164,6 +171,9 @@ export async function GET(request: NextRequest) {
         department: person?.department?.name || "No Department",
         isFreelancer,
         emergencyAvailability: request.emergencyAvailability,
+        documentUrl: request.documentUrl,
+        submitToAdmin: request.submitToAdmin,
+        originalLeaveType: request.originalLeaveType,
       };
     });
 

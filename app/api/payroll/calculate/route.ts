@@ -37,8 +37,8 @@ export async function GET(request: Request) {
     const startDate = new Date(year, monthNum - 1, 1);
     const endDate = new Date(year, monthNum, 0); // Last day of the month
 
-    // Calculate working days in month
-    const workingDaysInMonth = getWorkingDaysInMonth(year, monthNum);
+    // Use fixed working days from HR settings (e.g. 26 as requested)
+    const workingDaysInMonth = hrSettings.workingDaysPerMonth || 22;
 
     const user = await db.user.findUnique({
       where: { userId },
@@ -79,12 +79,13 @@ export async function GET(request: Request) {
       select: {
         employeeId: true,
         freeLancerId: true,
+        traineeId: true,
       },
     });
 
     const paidWorkerIds = new Set(
       existingPayments
-        .flatMap((p) => [p.employeeId, p.freeLancerId])
+        .flatMap((p) => [p.employeeId, p.freeLancerId, p.traineeId])
         .filter(Boolean) as string[],
     );
 
@@ -187,6 +188,55 @@ export async function GET(request: Request) {
       );
     }
 
+    let trainees: any[] = [];
+    const traineeWhere: any = {
+      status: "ACTIVE",
+      hireDate: {
+        lte: endDate,
+      },
+    };
+
+    if (!hasFullAccess && user.employee?.departmentId) {
+      traineeWhere.departmentId = user.employee.departmentId;
+    }
+
+    if (workerType === "all" || workerType === "trainees") {
+      const allTrainees = await db.trainee.findMany({
+        where: traineeWhere,
+        include: {
+          department: {
+            include: {
+              manager: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+          attendanceRecords: {
+            where: {
+              date: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+            select: {
+              id: true,
+              date: true,
+              status: true,
+              regularHours: true,
+              overtimeHours: true,
+              checkIn: true,
+              checkOut: true,
+            },
+          },
+        },
+      });
+
+      // Filter out those who are already paid
+      trainees = allTrainees.filter((t) => !paidWorkerIds.has(t.id));
+    }
+
     // --- STEP 3: Process only the remaining (unpaid) workers ---
 
     // Process employees
@@ -194,7 +244,7 @@ export async function GET(request: Request) {
       employees.map(async (employee) => {
         return calculateWorkerPayroll(
           employee,
-          false,
+          "EMPLOYEE",
           workingDaysInMonth,
           hrSettings,
           startDate,
@@ -208,7 +258,21 @@ export async function GET(request: Request) {
       freelancers.map((freelancer) => {
         return calculateWorkerPayroll(
           freelancer,
-          true,
+          "FREELANCER",
+          workingDaysInMonth,
+          hrSettings,
+          startDate,
+          endDate,
+        );
+      }),
+    );
+
+    // Process trainees
+    const traineeCalculations = await Promise.all(
+      trainees.map((trainee) => {
+        return calculateWorkerPayroll(
+          trainee,
+          "TRAINEE",
           workingDaysInMonth,
           hrSettings,
           startDate,
@@ -220,6 +284,7 @@ export async function GET(request: Request) {
     const allCalculations = [
       ...employeeCalculations,
       ...freelancerCalculations,
+      ...traineeCalculations,
     ];
 
     return NextResponse.json(allCalculations);
@@ -234,16 +299,21 @@ export async function GET(request: Request) {
 
 async function calculateWorkerPayroll(
   worker: any,
-  isFreelancer: boolean,
+  workerType: "EMPLOYEE" | "FREELANCER" | "TRAINEE",
   workingDaysInMonth: number,
   hrSettings: any,
   startDate: Date,
   endDate: Date,
 ) {
-  const attendanceRecords = isFreelancer
-    ? worker.attendanceRecords
-    : worker.AttendanceRecord;
-  const salaryType = isFreelancer ? "DAILY" : worker.salaryType || "MONTHLY";
+  const isFreelancer = workerType === "FREELANCER";
+  const isTrainee = workerType === "TRAINEE";
+
+  const attendanceRecords =
+    isFreelancer || isTrainee
+      ? worker.attendanceRecords
+      : worker.AttendanceRecord;
+  const salaryType =
+    isFreelancer || isTrainee ? "DAILY" : worker.salaryType || "MONTHLY";
 
   // Use worker's individual overtime rate
   const overtimeHourRate =
@@ -253,8 +323,8 @@ async function calculateWorkerPayroll(
   let dailyRate = 0;
   let monthlySalary = 0;
 
-  if (isFreelancer) {
-    // Freelancers: use salary field as daily rate
+  if (isFreelancer || isTrainee) {
+    // Freelancers/Trainees: use salary field as daily rate
     dailyRate = Number(worker.salary) || 0;
     monthlySalary = dailyRate * workingDaysInMonth;
   } else {
@@ -273,7 +343,11 @@ async function calculateWorkerPayroll(
   // PROACTIVE: Fetch all approved overtime requests for this worker in the date range
   const approvedOvertimeRequests = await db.overtimeRequest.findMany({
     where: {
-      OR: [{ employeeId: worker.id }, { freeLancerId: worker.id }],
+      OR: [
+        { employeeId: worker.id },
+        { freeLancerId: worker.id },
+        { traineeId: worker.id },
+      ],
       status: "APPROVED",
       // date filter is handled by matching records, but we could add it here too
     },
@@ -287,8 +361,14 @@ async function calculateWorkerPayroll(
   // Fetch completed Emergency Call Outs where worker was the requester (Team Leader)
   const completedCallOutsAsLeader = await db.emergencyCallOut.findMany({
     where: {
-      OR: [{ employeeId: worker.id }, { freeLancerId: worker.id }],
       status: "COMPLETED",
+      leaders: {
+        some: isFreelancer
+          ? { freelancerId: worker.id }
+          : isTrainee
+            ? { traineeId: worker.id }
+            : { employeeId: worker.id },
+      },
       checkIn: {
         gte: startDate,
         lte: endDate,
@@ -299,7 +379,11 @@ async function calculateWorkerPayroll(
   // Fetch completed Emergency Call Outs where worker was an Assistant
   const completedCallOutsAsAssistant = await db.callOutAssistant.findMany({
     where: {
-      OR: [{ employeeId: worker.id }, { freelancerId: worker.id }],
+      OR: [
+        { employeeId: worker.id },
+        { freelancerId: worker.id },
+        { traineeId: worker.id },
+      ],
       emergencyCallOut: {
         status: "COMPLETED",
         checkIn: {
@@ -341,12 +425,17 @@ async function calculateWorkerPayroll(
   let totalOvertimeHours = callOutHours;
   let totalOvertimeAmount = callOutEarnings;
 
-  const paidDays = attendanceRecords.filter((record: any) => {
+  const paidDays = attendanceRecords.reduce((acc: number, record: any) => {
     const isPaidDay =
       record.status !== AttendanceStatus.ABSENT &&
       record.status !== AttendanceStatus.UNPAID_LEAVE;
 
-    if (isPaidDay && record.overtimeHours) {
+    if (!isPaidDay) return acc;
+
+    // Weight: Half Days count as 0.5, everything else (Present/Late/Leave) counts as 1.0
+    const weight = record.status === AttendanceStatus.HALF_DAY ? 0.5 : 1.0;
+
+    if (record.overtimeHours) {
       const recordDateStr = new Date(record.date).toISOString().split("T")[0];
 
       // Only count overtime if it was approved for this date
@@ -357,19 +446,15 @@ async function calculateWorkerPayroll(
         // Calculate overtime amount at individual rate
         const overtimeAmount = overtimeHours * overtimeHourRate;
         totalOvertimeAmount += overtimeAmount;
-      } else {
-        console.log(
-          `Overtime for ${worker.firstName} on ${recordDateStr} ignored because not approved.`,
-        );
       }
     }
 
-    if (isPaidDay && record.regularHours) {
+    if (record.regularHours) {
       totalRegularHours += Number(record.regularHours);
     }
 
-    return isPaidDay;
-  }).length;
+    return acc + weight;
+  }, 0);
 
   // Calculate base amount based on salary type
   let baseAmount = 0;
@@ -378,13 +463,20 @@ async function calculateWorkerPayroll(
     // Freelancers and daily employees: daily rate × paid days
     baseAmount = parseFloat((dailyRate * paidDays).toFixed(2));
   } else {
-    // Monthly employees: full monthly salary minus unpaid leave deduction only
+    // Monthly employees: full monthly salary minus deductions for unpaid segments
+    // This includes Absent days, Unpaid Leave, and 0.5 for each Half Day.
+    const absentDays = attendanceRecords.filter(
+      (r: any) => r.status === AttendanceStatus.ABSENT,
+    ).length;
     const unpaidLeaveDays = attendanceRecords.filter(
-      (record: any) => record.status === AttendanceStatus.UNPAID_LEAVE,
+      (r: any) => r.status === AttendanceStatus.UNPAID_LEAVE,
+    ).length;
+    const halfDays = attendanceRecords.filter(
+      (r: any) => r.status === AttendanceStatus.HALF_DAY,
     ).length;
 
-    // Only deduct for unpaid leave days
-    const unpaidDeduction = dailyRate * unpaidLeaveDays;
+    const totalUnpaidWeight = absentDays + unpaidLeaveDays + halfDays * 0.5;
+    const unpaidDeduction = dailyRate * totalUnpaidWeight;
     baseAmount = parseFloat((monthlySalary - unpaidDeduction).toFixed(2));
   }
 
@@ -416,7 +508,11 @@ async function calculateWorkerPayroll(
     baseAmount,
     totalOvertimeAmount,
     hrSettings,
-    isFreelancer ? "FREELANCER" : "EMPLOYEE",
+    workerType === "FREELANCER"
+      ? "FREELANCER"
+      : workerType === "TRAINEE"
+        ? "TRAINEE"
+        : "EMPLOYEE",
     performanceMetrics, // Pass metrics to the engine
     attendanceBreakdown,
     0, // existingLoans placeholder
@@ -443,7 +539,8 @@ async function calculateWorkerPayroll(
     totalAmount: payrollCalculation.grossAmount,
     regularHours: parseFloat(totalRegularHours.toFixed(2)),
     isFreelancer,
-    employeeType: isFreelancer ? "FREELANCER" : "EMPLOYEE",
+    isTrainee,
+    employeeType: workerType,
     attendanceBreakdown,
     dailyRate,
     overtimeFixedRate: overtimeHourRate,
@@ -486,7 +583,10 @@ function calculateAttendanceBreakdown(records: any[]) {
   const leaveDays = records.filter(
     (record) =>
       record.status === AttendanceStatus.ANNUAL_LEAVE ||
-      record.status === AttendanceStatus.SICK_LEAVE,
+      record.status === AttendanceStatus.SICK_LEAVE ||
+      record.status === AttendanceStatus.MATERNITY_LEAVE ||
+      record.status === AttendanceStatus.PATERNITY_LEAVE ||
+      record.status === AttendanceStatus.STUDY_LEAVE,
   ).length;
 
   const absentDays = records.filter(
@@ -497,12 +597,16 @@ function calculateAttendanceBreakdown(records: any[]) {
     (record) => record.status === AttendanceStatus.UNPAID_LEAVE,
   ).length;
 
+  // Track effective loss of attendance for bonus calculation
+  const effectiveAbsentDays = absentDays + unpaidLeaveDays + halfDays * 0.5;
+
   return {
     presentDays,
     halfDays,
     leaveDays,
     absentDays,
     unpaidLeaveDays,
+    effectiveAbsentDays,
     totalDays: records.length,
   };
 }

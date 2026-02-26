@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -27,21 +28,36 @@ import {
   XCircle,
   Timer,
   Eye,
+  Zap,
+  History,
 } from "lucide-react";
 import { EmergencyCallOut } from "../types";
 import { formatTime } from "../utils";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { CallOutListSkeleton } from "./attendance-skeleton";
 
 interface CallOutListProps {
   records: EmergencyCallOut[];
   loading: boolean;
+  showAllHistory?: boolean;
+  onToggleHistory?: () => void;
+  selectedDate?: string;
 }
 
-export function CallOutList({ records, loading }: CallOutListProps) {
+export function CallOutList({
+  records,
+  loading,
+  showAllHistory,
+  onToggleHistory,
+  selectedDate,
+}: CallOutListProps) {
   const [selectedRecord, setSelectedRecord] = useState<EmergencyCallOut | null>(
     null,
   );
   const [showMap, setShowMap] = useState(false);
   const [mapType, setMapType] = useState<"checkin" | "checkout">("checkin");
+  const router = useRouter();
 
   const handleShowMap = (
     record: EmergencyCallOut,
@@ -58,26 +74,49 @@ export function CallOutList({ records, loading }: CallOutListProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-muted-foreground text-sm">
-          Loading call out records...
-        </div>
-      </div>
-    );
+    return <CallOutListSkeleton />;
   }
 
   if (records.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
+          {onToggleHistory && (
+            <div className="flex items-center space-x-2 mb-8 bg-muted/30 p-3 rounded-lg border border-primary/5">
+              <Switch
+                id="show-all-history-empty"
+                checked={showAllHistory}
+                onCheckedChange={onToggleHistory}
+              />
+              <Label
+                htmlFor="show-all-history-empty"
+                className="text-xs font-semibold cursor-pointer select-none flex items-center gap-1.5"
+              >
+                <History className="w-3.5 h-3.5 text-blue-500" />
+                View Full Mission History
+              </Label>
+            </div>
+          )}
           <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">
             No emergency call outs found
           </h3>
-          <p className="text-muted-foreground text-center">
-            There are no emergency call out records for the selected period.
+          <p className="text-muted-foreground text-center max-w-sm">
+            {showAllHistory
+              ? "No call out records exist in the entire database history."
+              : `No emergency call out records for ${selectedDate ? new Date(selectedDate).toLocaleDateString() : "the selected period"}. Try viewing full history.`}
           </p>
+          {!showAllHistory && onToggleHistory && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-6 gap-2"
+              onClick={onToggleHistory}
+            >
+              <History className="h-4 w-4" />
+              View All-Time History
+            </Button>
+          )}
         </CardContent>
       </Card>
     );
@@ -139,25 +178,73 @@ export function CallOutList({ records, loading }: CallOutListProps) {
   return (
     <>
       <div className="space-y-4">
+        {onToggleHistory && (
+          <div className="flex items-center justify-between mb-4 bg-white/50 dark:bg-slate-900/50 p-3 rounded-xl border border-primary/10 shadow-sm backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <History className="w-4 h-4 text-blue-600" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold tracking-tight">
+                  Call Out History
+                </h4>
+                <p className="text-[10px] text-muted-foreground">
+                  {showAllHistory
+                    ? "Viewing every recorded call out in the database"
+                    : `Currently showing call outs for ${selectedDate ? new Date(selectedDate).toLocaleDateString() : "selected date"}`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Label
+                htmlFor="show-all-history"
+                className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground cursor-pointer select-none"
+              >
+                {showAllHistory ? "Showing All" : "Date Filtered"}
+              </Label>
+              <Switch
+                id="show-all-history"
+                checked={showAllHistory}
+                onCheckedChange={onToggleHistory}
+              />
+            </div>
+          </div>
+        )}
         {records.map((record) => {
-          const person = record.employee || record.freeLancer || record.trainee;
-          const personType = record.employee
-            ? "employee"
-            : record.freeLancer
-              ? "freelancer"
-              : "trainee";
+          const person =
+            record.employee ||
+            record.freeLancer ||
+            record.trainee ||
+            record.requestedUser?.employee ||
+            record.requestedUser?.freeLancer ||
+            record.requestedUser?.trainee;
+          const personType =
+            record.employee || record.requestedUser?.employee
+              ? "employee"
+              : record.freeLancer || record.requestedUser?.freeLancer
+                ? "freelancer"
+                : "trainee";
           const personName = person
             ? `${person.firstName || ""} ${person.lastName || ""}`.trim() ||
+              record.requestedUser?.name ||
               "Unknown"
-            : "Unknown";
-          const personNumber = record.employee
-            ? record.employee.employeeNumber
-            : record.freeLancer
-              ? record.freeLancer.freeLancerNumber
-              : record.trainee?.traineeNumber;
+            : record.requestedUser?.name || "Unknown";
+          const personNumber =
+            record.employee?.employeeNumber ||
+            record.requestedUser?.employee?.employeeNumber ||
+            record.freeLancer?.freeLancerNumber ||
+            record.requestedUser?.freeLancer?.freeLancerNumber ||
+            record.trainee?.traineeNumber ||
+            record.requestedUser?.trainee?.traineeNumber;
 
           return (
-            <Card key={record.id} className="hover:shadow-md transition-shadow">
+            <Card
+              key={record.id}
+              className="hover:shadow-md transition-shadow cursor-pointer border-none shadow-sm ring-1 ring-slate-200 dark:ring-slate-800"
+              onClick={() =>
+                router.push(`/dashboard/emergency-callouts/${record.id}`)
+              }
+            >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   {/* Left Side - Person Info */}
@@ -176,7 +263,7 @@ export function CallOutList({ records, loading }: CallOutListProps) {
                     </Avatar>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <h3 className="font-semibold">{personName}</h3>
+                        <h3 className="font-semibold">Leader: {personName}</h3>
                         <Badge variant="outline" className="text-[10px] h-4">
                           {personType === "employee" ? (
                             <User className="w-2.5 h-2.5 mr-1" />
@@ -279,7 +366,10 @@ export function CallOutList({ records, loading }: CallOutListProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleShowMap(record, "checkin")}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleShowMap(record, "checkin");
+                            }}
                             className="h-5 w-5 p-0 hover:bg-green-50"
                             title="View check-in map"
                           >
@@ -320,7 +410,10 @@ export function CallOutList({ records, loading }: CallOutListProps) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleShowMap(record, "checkout")}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleShowMap(record, "checkout");
+                            }}
                             className="h-5 w-5 p-0 hover:bg-blue-50"
                             title="View check-out map"
                           >
@@ -486,4 +579,3 @@ export function CallOutList({ records, loading }: CallOutListProps) {
     </>
   );
 }
-

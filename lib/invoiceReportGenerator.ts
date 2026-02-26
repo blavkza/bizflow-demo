@@ -509,7 +509,9 @@ export class InvoiceReportGenerator {
               <tr>
                 <td class="label-cell" style="color: #ea580c">INTEREST (${this.decimalToNumber(invoice.interestRate)}%):</td>
                 <td class="text-right" style="color: #ea580c">+ R${this.formatMoney(interestAmount)}</td>
-              </tr>
+              </tr>`
+                  : ""
+              }
               <tr>
                 <td class="label-cell" style="color: #666; font-size: 9px;">TERM:</td>
                 <td class="text-right" style="color: #666; font-size: 9px;">${
@@ -523,15 +525,30 @@ export class InvoiceReportGenerator {
                           ? "6-9 Months"
                           : invoice.installmentPeriod === "9to12months"
                             ? "9-12 Months"
-                            : invoice.installmentPeriod || ""
+                            : invoice.installmentPeriod ||
+                              "Balance on Completion"
                 }</td>
-              </tr>`
-                  : ""
-              }
+              </tr>
               <tr style="border-top: 2px solid ${headerGreenText}; color: ${headerGreenText};">
                 <td class="label-cell" style="font-size: 12px;">GRAND TOTAL:</td>
                 <td class="text-right" style="font-size: 12px;">R${this.formatMoney(finalTotal)}</td>
               </tr>
+              ${
+                (invoice as any).depositRequired
+                  ? `
+              <tr>
+                <td class="label-cell" style="color: ${colorRed}">DEPOSIT REQ ${
+                  (invoice as any).depositType === "PERCENTAGE" &&
+                  (invoice as any).depositRate
+                    ? `(${this.decimalToNumber((invoice as any).depositRate)}%)`
+                    : ""
+                }:</td>
+                <td class="text-right" style="color: ${colorRed}">R${this.formatMoney(
+                  this.decimalToNumber((invoice as any).depositAmount),
+                )}</td>
+              </tr>`
+                  : ""
+              }
               ${
                 totalPaid > 0
                   ? `

@@ -226,6 +226,7 @@ export async function POST(req: Request) {
             installmentPeriod: data.installmentPeriod || null,
             interestRate: data.interestRate || 0,
             interestAmount: data.interestAmount || 0,
+            payRemainingImmediately: data.payRemainingImmediately ?? true,
 
             createdBy: creator.id,
           },

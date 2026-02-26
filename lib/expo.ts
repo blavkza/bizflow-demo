@@ -112,6 +112,58 @@ export async function sendPushFreelancer({
     console.error("Error in sendPushFreelancer:", error);
   }
 }
+export async function sendPushTrainee({
+  traineeId,
+  title,
+  body,
+  data,
+}: {
+  traineeId: string;
+  title: string;
+  body: string;
+  data?: any;
+}) {
+  try {
+    const trainee = await db.trainee.findUnique({
+      where: { id: traineeId },
+      select: { expoPushToken: true },
+    });
+
+    if (
+      !trainee?.expoPushToken ||
+      !Expo.isExpoPushToken(trainee.expoPushToken)
+    ) {
+      if (trainee?.expoPushToken) {
+        console.error(
+          `Invalid Push token for trainee: ${trainee.expoPushToken}`,
+        );
+      } else {
+        console.log(`No push token found for trainee ${traineeId}`);
+      }
+      return;
+    }
+
+    const messages = [
+      {
+        to: trainee.expoPushToken,
+        sound: "default" as const,
+        title: title,
+        body: body,
+        data: data || {},
+        priority: "high" as const,
+        channelId: "default_v4",
+      },
+    ];
+
+    const chunks = expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+      await expo.sendPushNotificationsAsync(chunk);
+    }
+  } catch (error) {
+    console.error("Error in sendPushTrainee:", error);
+  }
+}
+
 export async function sendPushToUser({
   userId,
   title,

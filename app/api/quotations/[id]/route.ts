@@ -171,6 +171,7 @@ export async function PUT(
             installmentPeriod: body.installmentPeriod || null,
             interestRate: body.interestRate || 0,
             interestAmount: body.interestAmount || 0,
+            payRemainingImmediately: body.payRemainingImmediately ?? true,
 
             paymentTerms: body.paymentTerms,
             notes: body.notes,

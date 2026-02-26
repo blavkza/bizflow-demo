@@ -16,6 +16,7 @@ export interface TraineeWithDetails {
   status: string;
   salary: number;
   overtimeHourRate?: number;
+  emergencyCallOutRate?: number;
   address: string;
   hireDate: string;
   terminationDate?: string;
@@ -54,4 +55,3 @@ export interface TraineeWithDetails {
   emergencyContacts?: any;
   payments?: any[];
 }
-

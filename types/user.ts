@@ -314,6 +314,7 @@ export interface User {
   userType: UserType;
   employeeId?: string;
   freelancerId?: string;
+  traineeId?: string;
   permissions: UserPermission[];
   avatar: string | null;
   status: UserStatus;
@@ -331,6 +332,13 @@ export interface User {
     firstName: string;
     lastName: string;
     freeLancerNumber: string;
+    position: string;
+  };
+  trainee?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    traineeNumber: string;
     position: string;
   };
 }

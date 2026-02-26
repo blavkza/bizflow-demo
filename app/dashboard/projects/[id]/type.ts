@@ -42,7 +42,14 @@ export interface Task {
     avatar: string;
     type?: "freelancer";
   }[];
+  traineeAssignees?: {
+    firstName: string;
+    lastName: string;
+    avatar: string;
+    type?: "trainee";
+  }[];
   taskNumber: string;
+
   dueDate: string;
   startTime?: string | null;
   endTime?: string | null;
@@ -191,7 +198,14 @@ export interface Project {
     lastName: string;
     avatar: string | null;
   }[];
+  assistantTrainees?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar: string | null;
+  }[];
   scheduledStartTime?: string | null;
+
   workLogs: WorkLog[];
   tools?: Tool[];
 }

@@ -35,6 +35,7 @@ import {
 import { CheckInRecord } from "../types";
 import { getCheckInMethodColor, safeDecimalToNumber } from "../utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CheckInsListSkeleton } from "./attendance-skeleton";
 
 interface CheckInsListProps {
   checkins: CheckInRecord[];
@@ -97,11 +98,7 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-8">
-        <div className="text-muted-foreground text-sm">Loading...</div>
-      </div>
-    );
+    return <CheckInsListSkeleton />;
   }
 
   return (
@@ -430,4 +427,3 @@ export function CheckInsList({ checkins, loading }: CheckInsListProps) {
     </>
   );
 }
-

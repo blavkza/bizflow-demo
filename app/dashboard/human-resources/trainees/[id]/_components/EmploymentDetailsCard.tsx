@@ -210,6 +210,17 @@ export function EmploymentDetailsCard({
           </p>
         </div>
 
+        {/* Emergency Call Out Rate */}
+        <div>
+          <p className="text-sm font-medium flex items-center text-blue-600">
+            Emergency Call Out Rate
+          </p>
+          <p className="text-sm font-semibold">
+            R {(Number(trainee.emergencyCallOutRate) || 0).toFixed(2)} per call
+            out
+          </p>
+        </div>
+
         {/* Working Days */}
         {workingDays.length > 0 && (
           <div>

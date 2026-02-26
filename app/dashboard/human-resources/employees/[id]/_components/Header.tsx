@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import axios from "axios";
 import { toast } from "sonner";
+import { SendEmailDialog } from "@/components/SendEmailDialog";
 
 interface HeaderProps {
   employee: EmployeeWithDetails;
@@ -38,7 +39,7 @@ export default function Header({
 }: HeaderProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
-    employee.avatar ?? null
+    employee.avatar ?? null,
   );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isUpdatingGPS, setIsUpdatingGPS] = useState(false);
@@ -81,7 +82,7 @@ export default function Header({
       toast.success(
         checked
           ? "GPS check-in enabled for employee"
-          : "GPS check-in disabled for employee"
+          : "GPS check-in disabled for employee",
       );
 
       // Refresh employee data
@@ -188,10 +189,10 @@ export default function Header({
           </Dialog>
         )}
 
-        <Button>
-          <Mail className="mr-2 h-4 w-4" />
-          Send Invoice
-        </Button>
+        <SendEmailDialog
+          recipientName={name}
+          recipientEmail={employee.email || ""}
+        />
       </div>
       <AvatarUploadDialog
         type="employee"

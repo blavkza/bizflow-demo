@@ -178,6 +178,8 @@ export async function PUT(
             installmentPeriod: invoiceData.installmentPeriod,
             interestRate: invoiceData.interestRate,
             interestAmount: invoiceData.interestAmount,
+            payRemainingImmediately:
+              invoiceData.payRemainingImmediately ?? true,
           },
         });
         recurringInvoiceData = { recurringId: existingRecurring.id };
@@ -209,6 +211,8 @@ export async function PUT(
             installmentPeriod: invoiceData.installmentPeriod,
             interestRate: invoiceData.interestRate,
             interestAmount: invoiceData.interestAmount,
+            payRemainingImmediately:
+              invoiceData.payRemainingImmediately ?? true,
             creator: updater.id,
           },
         });
@@ -253,6 +257,8 @@ export async function PUT(
             installmentPeriod: invoiceData.installmentPeriod || null,
             interestRate: invoiceData.interestRate || 0,
             interestAmount: invoiceData.interestAmount || 0,
+            payRemainingImmediately:
+              invoiceData.payRemainingImmediately ?? true,
 
             paymentTerms: invoiceData.paymentTerms,
             notes: invoiceData.notes,

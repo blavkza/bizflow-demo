@@ -719,12 +719,11 @@ async function calculateHoursAndStatus(
       regularHours = totalHoursWorked;
       overtimeHours = 0;
 
+      const checkOutDateTime = new Date(checkOutTime);
+      const scheduledEndDateTime = new Date(scheduledEndTime);
+
       if (scheduledHours > 0) {
         workedPercentage = (totalHoursWorked / scheduledHours) * 100;
-
-        // NEW LOGIC: Check if checked out BEFORE scheduled knock-out time
-        const checkOutDateTime = new Date(checkOutTime);
-        const scheduledEndDateTime = new Date(scheduledEndTime);
 
         console.log(`Checking if checked out early:`, {
           checkOutTime: checkOutDateTime.toISOString(),
@@ -732,12 +731,19 @@ async function calculateHoursAndStatus(
           isEarly: checkOutDateTime < scheduledEndDateTime,
         });
 
-        // If checked out BEFORE scheduled end time, mark as ABSENT
+        // If checked out BEFORE scheduled end time, mark as HALF_DAY (if threshold met) or ABSENT
         if (checkOutDateTime < scheduledEndDateTime) {
-          console.log(
-            `EARLY CHECK-OUT: Marking as ABSENT (checked out before scheduled time)`,
-          );
-          newStatus = AttendanceStatus.ABSENT;
+          if (totalHoursWorked >= halfDayThreshold) {
+            console.log(
+              `EARLY CHECK-OUT: Marking as HALF_DAY (total hours: ${totalHoursWorked.toFixed(2)})`,
+            );
+            newStatus = AttendanceStatus.HALF_DAY;
+          } else {
+            console.log(
+              `EARLY CHECK-OUT: Marking as ABSENT (total hours: ${totalHoursWorked.toFixed(2)})`,
+            );
+            newStatus = AttendanceStatus.ABSENT;
+          }
         }
         // Otherwise, check normal thresholds
         else if (totalHoursWorked >= halfDayThreshold) {
@@ -756,7 +762,15 @@ async function calculateHoursAndStatus(
         workedPercentage = (totalHoursWorked / workingHoursForDay) * 100;
 
         if (totalHoursWorked >= halfDayThreshold) {
-          newStatus = currentStatus;
+          // If they worked significant hours but not enough for full schedule (and didn't finish on time)
+          if (
+            workedPercentage < 90 &&
+            checkOutDateTime < scheduledEndDateTime
+          ) {
+            newStatus = AttendanceStatus.HALF_DAY;
+          } else {
+            newStatus = currentStatus;
+          }
         } else {
           newStatus = AttendanceStatus.ABSENT;
         }
@@ -786,7 +800,12 @@ async function calculateHoursAndStatus(
 
       // Use halfDayThreshold for status determination
       if (totalHoursWorked >= halfDayThreshold) {
-        newStatus = currentStatus;
+        // Since no schedule, if they worked significantly less than standard day, mark half-day
+        if (totalHoursWorked < workingHoursForDay * 0.8) {
+          newStatus = AttendanceStatus.HALF_DAY;
+        } else {
+          newStatus = currentStatus;
+        }
       } else {
         newStatus = AttendanceStatus.ABSENT;
       }
@@ -1135,6 +1154,20 @@ async function createAbsentRecords() {
           scheduledKnockOutTime = employee.scheduledKnockOut ?? null;
         }
 
+        // NEW: Only mark absent if their shift has already started
+        if (scheduledKnockInTime) {
+          const [sh, sm] = scheduledKnockInTime.split(":").map(Number);
+          const shiftStart = new Date(now); // Use 'now' from line 1068
+          shiftStart.setHours(sh, sm, 0, 0);
+
+          if (now < shiftStart) {
+            console.log(
+              `Skipping ${employee.firstName} - shift hasn't started yet (${scheduledKnockInTime})`,
+            );
+            continue;
+          }
+        }
+
         const attendanceRecord = await db.attendanceRecord.create({
           data: {
             employeeId: employee.id,
@@ -1214,7 +1247,11 @@ async function createAbsentRecords() {
 
         const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
         const todayDay = dayNames[today.getUTCDay()];
-        const workingDays = trainee.workingDays || [];
+        const workingDays = Array.isArray(trainee.workingDays)
+          ? trainee.workingDays
+          : trainee.workingDays
+            ? JSON.parse(trainee.workingDays as any)
+            : [];
 
         const isWorkingDay = workingDays.includes(todayDay);
 
@@ -1239,6 +1276,20 @@ async function createAbsentRecords() {
         } else {
           scheduledKnockInTime = trainee.scheduledKnockIn ?? null;
           scheduledKnockOutTime = trainee.scheduledKnockOut ?? null;
+        }
+
+        // NEW: Only mark absent if their shift has already started
+        if (scheduledKnockInTime) {
+          const [sh, sm] = scheduledKnockInTime.split(":").map(Number);
+          const shiftStart = new Date(now);
+          shiftStart.setHours(sh, sm, 0, 0);
+
+          if (now < shiftStart) {
+            console.log(
+              `Skipping Trainee ${trainee.firstName} - shift hasn't started yet (${scheduledKnockInTime})`,
+            );
+            continue;
+          }
         }
 
         const attendanceRecord = await db.attendanceRecord.create({
@@ -1280,5 +1331,3 @@ async function createAbsentRecords() {
     throw error;
   }
 }
-
-

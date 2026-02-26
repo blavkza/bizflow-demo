@@ -110,6 +110,8 @@ export async function PUT(
       scheduledWeekendKnockOut,
       scheduledWeekendKnockIn,
       terminationDate,
+      overtimeHourRate,
+      emergencyCallOutRate,
     } = body;
 
     const { userId } = await auth();
@@ -156,6 +158,8 @@ export async function PUT(
         scheduledWeekendKnockOut,
         scheduledWeekendKnockIn,
         terminationDate,
+        overtimeHourRate: overtimeHourRate || 0,
+        emergencyCallOutRate: emergencyCallOutRate || 0,
         generalSettingId: campany?.id,
       },
     });

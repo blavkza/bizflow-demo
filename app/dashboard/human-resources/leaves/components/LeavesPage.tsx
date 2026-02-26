@@ -43,7 +43,7 @@ export default function LeavesPage() {
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalances | null>(
-    null
+    null,
   );
   const [isLeaveLoading, setIsLeaveLoading] = useState(true);
   const [isNewLeaveOpen, setIsNewLeaveOpen] = useState(false);
@@ -67,7 +67,7 @@ export default function LeavesPage() {
   const canViewLeave = data?.permissions?.includes(UserPermission.Leave_VIEW);
 
   const canCreateLeave = data?.permissions?.includes(
-    UserPermission.Leave_CREATE
+    UserPermission.Leave_CREATE,
   );
 
   const canEditLeave = data?.permissions?.includes(UserPermission.Leave_EDIT);
@@ -154,7 +154,7 @@ export default function LeavesPage() {
   const handleUpdateLeaveStatus = async (
     id: string,
     status: "APPROVED" | "REJECTED",
-    comments?: string
+    comments?: string,
   ): Promise<boolean> => {
     try {
       const response = await fetch(`/api/leaves/${id}`, {
@@ -194,8 +194,8 @@ export default function LeavesPage() {
                         comments: comments || "Leave request rejected",
                       }),
                 }
-              : request
-          )
+              : request,
+          ),
         );
 
         toast({
@@ -212,6 +212,49 @@ export default function LeavesPage() {
       toast({
         title: "Error",
         description: `Failed to ${status.toLowerCase()} leave request`,
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const handleDocumentUpload = async (
+    id: string,
+    documentUrl: string,
+  ): Promise<boolean> => {
+    try {
+      const response = await fetch(`/api/leaves/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          documentUrl,
+        }),
+      });
+
+      if (response.ok) {
+        // Refresh leave requests
+        const requestsResponse = await fetch("/api/leaves");
+        if (requestsResponse.ok) {
+          const data = await requestsResponse.json();
+          setLeaveRequests(data);
+        }
+
+        toast({
+          title: "Document Uploaded",
+          description:
+            "The document has been uploaded and leave information updated.",
+        });
+        return true;
+      } else {
+        throw new Error("Failed to upload document");
+      }
+    } catch (error) {
+      console.error("Error uploading document:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update leave document",
         variant: "destructive",
       });
       return false;
@@ -280,6 +323,7 @@ export default function LeavesPage() {
         canEditLeave={canEditLeave}
         hasFullAccess={hasFullAccess}
         onLeaveStatusUpdate={handleUpdateLeaveStatus}
+        onDocumentUpload={handleDocumentUpload}
       />
     </div>
   );

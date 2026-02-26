@@ -1,7 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import 'leaflet/dist/leaflet.css';
+@import "leaflet/dist/leaflet.css";
 
 body {
   font-family: Arial, Helvetica, sans-serif;
@@ -94,7 +94,7 @@ body {
   }
 }
 
-@import 'react-quill-new/dist/quill.snow.css';
+@import "react-quill-new/dist/quill.snow.css";
 
 /* Custom scrollbar styling */
 .sidebar-content::-webkit-scrollbar {
@@ -223,10 +223,9 @@ body {
 
 /* Hide scrollbar for IE, Edge and Firefox */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
-
 
 /* Allow right-click in Quill editor */
 .allow-right-click .ql-container,
@@ -244,7 +243,7 @@ body {
 
 /* Sidebar scrollbar */
 .sidebar-scroll {
-  scrollbar-width: thin;               /* Firefox */
+  scrollbar-width: thin; /* Firefox */
   scrollbar-color: #cbd5e1 transparent; /* thumb track */
 }
 
@@ -274,4 +273,17 @@ body {
 /* Placeholder color in dark mode */
 .dark .ql-editor.ql-blank::before {
   color: rgba(255, 255, 255, 0.5) !important;
+}
+/* Pulse animation for live tracking */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
 }

@@ -670,7 +670,8 @@ export const ItemsTable = ({
                               ? "6-9 Months"
                               : quotation.installmentPeriod === "9to12months"
                                 ? "9-12 Months"
-                                : quotation.installmentPeriod}
+                                : quotation.installmentPeriod ||
+                                  "Balance on Completion"}
                     </span>
                   </span>
                   <span className="font-medium">

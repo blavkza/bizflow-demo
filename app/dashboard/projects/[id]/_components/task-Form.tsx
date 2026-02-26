@@ -87,8 +87,10 @@ export const taskSchema = z.object({
   allocatedTime: z.string().optional(),
   assigneeIds: z.array(z.string()).optional(),
   freelancerIds: z.array(z.string()).optional(),
+  traineeIds: z.array(z.string()).optional(),
   taskLeaderId: z.string().optional(),
   isAIGenerated: z.boolean().optional().default(false),
+
   subtasks: z.array(subtaskSchema).optional().default([]),
 });
 
@@ -115,6 +117,14 @@ type Freelancer = {
   email: string;
 };
 
+type Trainee = {
+  id: string;
+  traineeId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+};
+
 interface TaskFormProps {
   type: "create" | "update";
   data?: {
@@ -131,7 +141,9 @@ interface TaskFormProps {
     estimatedHours?: number;
     assignees?: { id: string }[];
     freeLancerAssignees?: { id: string }[];
+    traineeAssignees?: { id: string }[];
     isAIGenerated?: boolean;
+
     subtasks?: any[];
     taskLeaderId?: string;
   };
@@ -149,12 +161,18 @@ export default function TaskForm({
 }: TaskFormProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [freelancers, setFreelancers] = useState<Freelancer[]>([]);
+  const [trainees, setTrainees] = useState<Trainee[]>([]);
+
   const [users, setUsers] = useState<any[]>([]);
   const [projectAssistantEmployees, setProjectAssistantEmployees] = useState<
     any[]
   >([]);
   const [projectAssistantFreelancers, setProjectAssistantFreelancers] =
     useState<any[]>([]);
+  const [projectAssistantTrainees, setProjectAssistantTrainees] = useState<
+    any[]
+  >([]);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
@@ -178,7 +196,9 @@ export default function TaskForm({
       estimatedHours: data?.estimatedHours,
       assigneeIds: data?.assignees?.map((a) => a.id) || [],
       freelancerIds: data?.freeLancerAssignees?.map((f) => f.id) || [],
+      traineeIds: data?.traineeAssignees?.map((t) => t.id) || [],
       isAIGenerated: data?.isAIGenerated || false,
+
       subtasks: data?.subtasks || [],
       taskLeaderId: data?.taskLeaderId || "",
     },
@@ -202,7 +222,9 @@ export default function TaskForm({
           estimatedHours: undefined,
           assigneeIds: [],
           freelancerIds: [],
+          traineeIds: [],
           isAIGenerated: false,
+
           subtasks: [],
         },
       ],
@@ -237,16 +259,19 @@ export default function TaskForm({
   const separateAssignees = (selectedIds: string[]) => {
     const employeeIds: string[] = [];
     const freelancerIds: string[] = [];
+    const traineeIds: string[] = [];
 
     selectedIds.forEach((id) => {
       if (employees.some((emp) => emp.id === id)) {
         employeeIds.push(id);
       } else if (freelancers.some((freelancer) => freelancer.id === id)) {
         freelancerIds.push(id);
+      } else if (trainees.some((trainee) => trainee.id === id)) {
+        traineeIds.push(id);
       }
     });
 
-    return { employeeIds, freelancerIds };
+    return { employeeIds, freelancerIds, traineeIds };
   };
 
   const onSubmitSingle = async (values: z.infer<typeof taskSchema>) => {
@@ -323,20 +348,24 @@ export default function TaskForm({
 
   // Custom handler for multi-select changes in multi-task mode
   const handleMultiSelectChange = (index: number, selectedIds: string[]) => {
-    const { employeeIds, freelancerIds } = separateAssignees(selectedIds);
+    const { employeeIds, freelancerIds, traineeIds } =
+      separateAssignees(selectedIds);
 
-    // Update both fields in the form
+    // Update fields in the form
     multiTaskForm.setValue(`tasks.${index}.assigneeIds`, employeeIds);
     multiTaskForm.setValue(`tasks.${index}.freelancerIds`, freelancerIds);
+    multiTaskForm.setValue(`tasks.${index}.traineeIds`, traineeIds);
   };
 
   // Custom handler for multi-select changes in single task mode
   const handleSingleMultiSelectChange = (selectedIds: string[]) => {
-    const { employeeIds, freelancerIds } = separateAssignees(selectedIds);
+    const { employeeIds, freelancerIds, traineeIds } =
+      separateAssignees(selectedIds);
 
-    // Update both fields in the form
+    // Update fields in the form
     singleTaskForm.setValue("assigneeIds", employeeIds);
     singleTaskForm.setValue("freelancerIds", freelancerIds);
+    singleTaskForm.setValue("traineeIds", traineeIds);
   };
 
   const generateAITasks = async () => {
@@ -383,13 +412,16 @@ export default function TaskForm({
   const fetchAssignees = async () => {
     try {
       setIsLoading(true);
-      const [employeesResponse, freelancersResponse] = await Promise.all([
-        axios.get("/api/employees"),
-        axios.get("/api/freelancers"),
-      ]);
+      const [employeesResponse, freelancersResponse, traineesResponse] =
+        await Promise.all([
+          axios.get("/api/employees"),
+          axios.get("/api/freelancers"),
+          axios.get("/api/trainees"),
+        ]);
 
       setEmployees(employeesResponse.data.employees || []);
       setFreelancers(freelancersResponse.data.freelancers || []);
+      setTrainees(traineesResponse.data.trainees || []);
     } catch (err) {
       console.error("Error fetching assignees:", err);
       toast.error("Failed to load assignees");
@@ -403,6 +435,7 @@ export default function TaskForm({
       const response = await axios.get(`/api/projects/${projectId}`);
       setProjectAssistantEmployees(response.data.assistantEmployees || []);
       setProjectAssistantFreelancers(response.data.assistantFreelancers || []);
+      setProjectAssistantTrainees(response.data.assistantTrainees || []);
     } catch (err) {
       console.error("Error fetching project assistants:", err);
     }
@@ -464,6 +497,13 @@ export default function TaskForm({
     value: freelancer.id,
   }));
 
+  const traineeOptions = (
+    projectAssistantTrainees.length > 0 ? projectAssistantTrainees : trainees
+  ).map((trainee) => ({
+    label: `${trainee.firstName} ${trainee.lastName} (Trainee)`,
+    value: trainee.id,
+  }));
+
   const usersOptions = users
     .filter((user) => user.id && user.name)
     .map((user) => ({
@@ -471,14 +511,19 @@ export default function TaskForm({
       value: user.id,
     }));
 
-  const allAssigneeOptions = [...employeeOptions, ...freelancerOptions];
+  const allAssigneeOptions = [
+    ...employeeOptions,
+    ...freelancerOptions,
+    ...traineeOptions,
+  ];
 
   // Get combined selected IDs for display in multi-select
   const getCombinedSelectedIds = (
     assigneeIds: string[] = [],
     freelancerIds: string[] = [],
+    traineeIds: string[] = [],
   ) => {
-    return [...assigneeIds, ...freelancerIds];
+    return [...assigneeIds, ...freelancerIds, ...traineeIds];
   };
 
   return (
@@ -764,13 +809,16 @@ export default function TaskForm({
               />
 
               <FormItem className="md:col-span-2">
-                <FormLabel>Assistance (Employees & Freelancers)</FormLabel>
+                <FormLabel>
+                  Assistance (Staff, Freelancers & Trainees)
+                </FormLabel>
                 <FormControl>
                   <MultiSelect
                     options={allAssigneeOptions}
                     selected={getCombinedSelectedIds(
                       singleTaskForm.watch("assigneeIds"),
                       singleTaskForm.watch("freelancerIds"),
+                      singleTaskForm.watch("traineeIds"),
                     )}
                     onChange={handleSingleMultiSelectChange}
                     placeholder="Select assignees..."

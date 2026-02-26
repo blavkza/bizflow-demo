@@ -104,6 +104,8 @@ export async function POST(request: Request) {
             installmentPeriod: quotation.installmentPeriod,
             interestRate: quotation.interestRate,
             interestAmount: quotation.interestAmount,
+            payRemainingImmediately:
+              (quotation as any).payRemainingImmediately || false,
             notes: quotation.notes,
             terms: quotation.terms,
             createdBy: creator.id,

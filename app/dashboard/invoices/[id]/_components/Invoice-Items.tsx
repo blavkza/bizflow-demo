@@ -724,7 +724,8 @@ export default function InvoiceItems({
                             ? "6-9 Months"
                             : invoice.installmentPeriod === "9to12months"
                               ? "9-12 Months"
-                              : invoice.installmentPeriod}
+                              : invoice.installmentPeriod ||
+                                "Balance on Completion"}
                   </span>
                 </span>
                 <span className="font-medium">

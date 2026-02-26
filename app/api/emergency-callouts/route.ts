@@ -4,6 +4,9 @@ import { NextResponse } from "next/server";
 import { CallOutType, VehicleType, CallOutStatus } from "@prisma/client";
 import { sendPushToUser } from "@/lib/expo";
 
+// POST: Create ONE callout with multiple potential leaders.
+// Leaders are notified and can accept/decline independently.
+// Admin later selects which accepted leader gets the mission.
 export async function POST(req: Request) {
   try {
     const { userId: clerkId } = await auth();
@@ -11,11 +14,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await db.user.findUnique({
-      where: { userId: clerkId },
-      include: { employee: true, freeLancer: true },
-    });
-
+    const user = await db.user.findUnique({ where: { userId: clerkId } });
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
@@ -26,115 +25,129 @@ export async function POST(req: Request) {
       address,
       vehicle,
       description,
-      isTeamLeader,
-      assistantIds,
+      leaderIds, // Array of User IDs — potential leaders (required for admin dispatch)
       clientId,
       startTime,
+      allowAssistants = true, // Can the selected leader add assistants?
     } = body;
 
-    // Basic Validation
     if (!type || !address || !vehicle || !description) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        {
+          error: "Missing required fields: type, address, vehicle, description",
+        },
         { status: 400 },
       );
     }
 
-    // Create the Call-Out
+    // Fetch all potential leaders' user info
+    const leadersData =
+      leaderIds && Array.isArray(leaderIds) && leaderIds.length > 0
+        ? await db.user.findMany({
+            where: { id: { in: leaderIds } },
+            select: {
+              id: true,
+              name: true,
+              employeeId: true,
+              freeLancerId: true,
+              traineeId: true,
+            },
+          })
+        : [];
+
+    // Create ONE callout — requestedBy is the creator (admin or self-employee)
     const callOut = await db.emergencyCallOut.create({
       data: {
         requestedBy: user.id,
-        employeeId: user.employeeId,
-        freeLancerId: user.freeLancerId,
-        clientId: clientId || null, // Optional link to client
-
+        clientId: clientId && clientId !== "NONE" ? clientId : null,
         type: type as CallOutType,
         destination: address,
         vehicle: vehicle as VehicleType,
-        description: description,
-        isTeamLeader: !!isTeamLeader,
-
-        // Legacy Required Fields
+        description,
+        allowAssistants,
+        workerCount: 1,
         title: `Emergency Call-Out - ${new Date().toLocaleDateString()}`,
         startTime: startTime ? new Date(startTime) : new Date(),
-        status: "PENDING", // Initial status
+        status: "PENDING",
 
-        // Create Assistants if Team Leader
-        assistants:
-          isTeamLeader &&
-          assistantIds &&
-          Array.isArray(assistantIds) &&
-          assistantIds.length > 0
+        // Create leader records for all potential leaders
+        leaders:
+          leadersData.length > 0
             ? {
-                create: assistantIds.map((assistantUserId: string) => ({
-                  userId: assistantUserId,
-                  // We could also lookup employee/freelancer IDs here if needed,
-                  // but userId is sufficient for linking to the user account.
+                create: leadersData.map((l) => ({
+                  userId: l.id,
+                  employeeId: l.employeeId,
+                  freelancerId: l.freeLancerId,
+                  traineeId: l.traineeId,
+                  status: "PENDING",
                 })),
               }
             : undefined,
       },
       include: {
-        assistants: {
-          include: {
-            user: {
-              select: {
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
+        leaders: { include: { user: { select: { name: true } } } },
+        assistants: true,
+        requestedUser: { select: { name: true } },
       },
     });
 
-    // Notify Admins
+    // Notify all potential leaders by push & in-app
     try {
-      const admins = await db.user.findMany({
-        where: {
-          role: {
-            in: ["CHIEF_EXECUTIVE_OFFICER", "ADMIN_MANAGER", "GENERAL_MANAGER"],
-          },
-        },
-      });
-
-      if (admins.length > 0) {
-        await db.notification.createMany({
-          data: admins.map((admin) => ({
-            userId: admin.id,
-            title: "New Emergency Call-Out",
-            message: `${user.name} has requested an emergency call-out: ${description}`,
-            type: "ALERT",
-            priority: "HIGH",
-            actionUrl: `/dashboard/emergency-callouts/${callOut.id}`,
-            metadata: { callOutId: callOut.id },
-          })),
+      for (const leader of leadersData) {
+        await sendPushToUser({
+          userId: leader.id,
+          title: "🚨 Emergency Call-Out",
+          body: `You have been selected as a potential leader for an emergency call-out at ${address}. Accept to claim the mission.`,
+          data: { url: `/emergency-callouts/${callOut.id}` },
         });
-
-        // Also Send Push to Admins
-        for (const admin of admins) {
-          await sendPushToUser({
-            userId: admin.id,
-            title: "🚨 Emergency Call-Out",
-            body: `${user.name} requested a call-out for ${address}.`,
-            data: { url: `/dashboard/emergency-callouts/${callOut.id}` },
-          });
-        }
       }
 
-      // Notify Assistants (Optional but recommended)
-      if (assistantIds && assistantIds.length > 0) {
-        for (const assistantId of assistantIds) {
-          await sendPushToUser({
-            userId: assistantId,
-            title: "⚠️ Call-Out Invitation",
-            body: `You've been invited as an assistant by ${user.name} for an emergency call-out.`,
-            data: { url: `/emergency-callouts/${callOut.id}` },
+      // Create in-app notifications for potential leaders
+      await db.notification.createMany({
+        data: leadersData.map((l) => ({
+          userId: l.id,
+          title: "🚨 Emergency Call-Out Dispatch",
+          message: `You have been dispatched for a potential emergency call-out at ${address}.`,
+          type: "EMERGENCY",
+          priority: "HIGH",
+          actionUrl: `/emergency-callouts/${callOut.id}`,
+          metadata: { callOutId: callOut.id },
+        })),
+      });
+    } catch (e) {
+      console.error("Failed to notify leaders:", e);
+    }
+
+    // Notify admins if created by non-admin (self-request)
+    if (leadersData.length === 0) {
+      try {
+        const admins = await db.user.findMany({
+          where: {
+            role: {
+              in: [
+                "CHIEF_EXECUTIVE_OFFICER",
+                "ADMIN_MANAGER",
+                "GENERAL_MANAGER",
+              ],
+            },
+          },
+        });
+        if (admins.length > 0) {
+          await db.notification.createMany({
+            data: admins.map((admin) => ({
+              userId: admin.id,
+              title: "New Emergency Call-Out Request",
+              message: `${user.name} has requested an emergency call-out: ${description}`,
+              type: "EMERGENCY",
+              priority: "HIGH",
+              actionUrl: `/dashboard/emergency-callouts/${callOut.id}`,
+              metadata: { callOutId: callOut.id },
+            })),
           });
         }
+      } catch (e) {
+        console.error("Admin notify failed:", e);
       }
-    } catch (notifyError) {
-      console.error("Failed to notify admins:", notifyError);
     }
 
     return NextResponse.json(callOut);
@@ -154,32 +167,43 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await db.user.findUnique({
-      where: { userId: clerkId },
-    });
-
+    const user = await db.user.findUnique({ where: { userId: clerkId } });
     if (!user)
       return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-    // For now, return all callouts effectively, or filter based on role.
-    // If not Admin, maybe only show own?
-    // User request doesn't specify visibility, but "Admin Review" implies separate views.
-    // We'll return all for now to support the list view.
-
-    // Check if URL has query params for filtering
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
-    const myRequests = searchParams.get("myRequests") === "true";
+    const myCallouts = searchParams.get("myCallouts") === "true";
 
     let whereClause: any = {};
-    if (status) {
-      whereClause.status = status as CallOutStatus;
-    }
 
-    if (myRequests) {
-      whereClause.requestedBy = user.id;
+    if (status) whereClause.status = status as CallOutStatus;
+
+    if (myCallouts) {
+      // Show callouts where user is:
+      // 1. The creator
+      // 2. A leader who is still in the running (PENDING, ACCEPTED, SELECTED)
+      // 3. An assistant who is still in the running (PENDING, ACCEPTED, SELECTED)
+      whereClause.OR = [
+        { requestedBy: user.id },
+        {
+          leaders: {
+            some: {
+              userId: user.id,
+              status: { in: ["PENDING", "ACCEPTED", "SELECTED"] },
+            },
+          },
+        },
+        {
+          assistants: {
+            some: {
+              userId: user.id,
+              status: { in: ["PENDING", "ACCEPTED", "SELECTED"] },
+            },
+          },
+        },
+      ];
     }
-    // If user is assistant? optional TODO
 
     const callOuts = await db.emergencyCallOut.findMany({
       where: whereClause,
@@ -188,28 +212,30 @@ export async function GET(req: Request) {
           select: {
             name: true,
             email: true,
-            employee: {
-              select: { position: true },
-            },
-            freeLancer: {
-              select: { position: true, freeLancerNumber: true },
-            },
+            role: true,
+            userType: true,
+            employee: { select: { position: true } },
+            freeLancer: { select: { position: true } },
+            trainee: { select: { position: true } },
           },
+        },
+        // Leaders sorted: accepted first, then by acceptedAt ascending (first to accept = top)
+        leaders: {
+          include: {
+            user: { select: { name: true, avatar: true } },
+          },
+          orderBy: [
+            { status: "asc" }, // ACCEPTED < DECLINED < PENDING < SELECTED alphabetically
+            { acceptedAt: "asc" },
+          ],
         },
         assistants: {
           include: {
-            user: {
-              select: {
-                name: true,
-                avatar: true,
-              },
-            },
+            user: { select: { name: true, avatar: true } },
           },
         },
       },
-      orderBy: {
-        requestedAt: "desc",
-      },
+      orderBy: { requestedAt: "desc" },
     });
 
     return NextResponse.json(callOuts);

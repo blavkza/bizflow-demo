@@ -61,7 +61,11 @@ interface ProjectFormProps {
     endDate?: Date;
     deadline?: Date;
     scheduledStartTime?: string | null;
+    assistantEmployees?: { id: string }[];
+    assistantFreelancers?: { id: string }[];
+    assistantTrainees?: { id: string }[];
   };
+
   onCancel?: () => void;
   onSubmitSuccess?: () => void;
 }
@@ -83,10 +87,14 @@ export default function ProjectForm({
   const [freelancerOptions, setFreelancerOptions] = useState<ComboboxOption[]>(
     [],
   );
+  const [traineeOptions, setTraineeOptions] = useState<ComboboxOption[]>([]);
+
   const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [isLoadingFreelancers, setIsLoadingFreelancers] = useState(false);
+  const [isLoadingTrainees, setIsLoadingTrainees] = useState(false);
+
   const [maintenanceOptions, setMaintenanceOptions] = useState<
     ComboboxOption[]
   >([]);
@@ -109,6 +117,7 @@ export default function ProjectForm({
       scheduledStartTime: data?.scheduledStartTime || "",
       assistantEmployeeIds: [],
       assistantFreelancerIds: [],
+      assistantTraineeIds: [],
       tasks: [],
     },
   });
@@ -126,6 +135,7 @@ export default function ProjectForm({
 
   const assistantEmployeeIds = watch("assistantEmployeeIds") || [];
   const assistantFreelancerIds = watch("assistantFreelancerIds") || [];
+  const assistantTraineeIds = watch("assistantTraineeIds") || [];
 
   // Filter options for tasks based on project assistants
   const taskEmployeeOptions = employeeOptions.filter((opt) =>
@@ -133,6 +143,9 @@ export default function ProjectForm({
   );
   const taskFreelancerOptions = freelancerOptions.filter((opt) =>
     assistantFreelancerIds.includes(opt.value),
+  );
+  const taskTraineeOptions = traineeOptions.filter((opt) =>
+    assistantTraineeIds.includes(opt.value),
   );
 
   const { fields, append, remove } = useFieldArray({
@@ -232,6 +245,23 @@ export default function ProjectForm({
     }
   };
 
+  const fetchTrainees = async () => {
+    setIsLoadingTrainees(true);
+    try {
+      const response = await axios.get("/api/trainees");
+      const trainees = response?.data?.trainees || [];
+      const options = trainees.map((trainee: any) => ({
+        label: `${trainee.firstName} ${trainee.lastName}`,
+        value: trainee.id,
+      }));
+      setTraineeOptions(options);
+    } catch (err) {
+      console.error("Error fetching trainees:", err);
+    } finally {
+      setIsLoadingTrainees(false);
+    }
+  };
+
   const fetchMaintenances = async (clientId?: string) => {
     setIsLoadingMaintenances(true);
     try {
@@ -263,11 +293,34 @@ export default function ProjectForm({
   useEffect(() => {
     fetchUsers();
     fetchClients();
-    if (type === "create") {
-      fetchEmployees();
-      fetchFreelancers();
+    // Always fetch options regardless of type to ensure we can see/change assistants
+    fetchEmployees();
+    fetchFreelancers();
+    fetchTrainees();
+  }, []);
+
+  useEffect(() => {
+    if (data && type === "update") {
+      if (data.assistantEmployees) {
+        setValue(
+          "assistantEmployeeIds",
+          data.assistantEmployees.map((emp: any) => emp.id),
+        );
+      }
+      if (data.assistantFreelancers) {
+        setValue(
+          "assistantFreelancerIds",
+          data.assistantFreelancers.map((free: any) => free.id),
+        );
+      }
+      if (data.assistantTrainees) {
+        setValue(
+          "assistantTraineeIds",
+          data.assistantTrainees.map((trainee: any) => trainee.id),
+        );
+      }
     }
-  }, [type]);
+  }, [data, type, setValue]);
 
   return (
     <Form {...form}>
@@ -620,6 +673,26 @@ export default function ProjectForm({
               </FormItem>
             )}
           />
+
+          <FormField
+            control={control}
+            name="assistantTraineeIds"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Assistant of Trainees</FormLabel>
+                <FormControl>
+                  <MultiSelect
+                    options={traineeOptions}
+                    onChange={field.onChange}
+                    selected={field.value || []}
+                    placeholder="Select trainee assistants"
+                    maxCount={3}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
         {type === "create" && (
@@ -759,6 +832,30 @@ export default function ProjectForm({
                             onChange={field.onChange}
                             selected={field.value || []}
                             placeholder="Select freelancers"
+                            maxCount={3}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={control}
+                    name={`tasks.${index}.traineeIds`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assistance (Trainees)</FormLabel>
+                        <FormControl>
+                          <MultiSelect
+                            options={
+                              assistantTraineeIds.length > 0
+                                ? taskTraineeOptions
+                                : traineeOptions
+                            }
+                            onChange={field.onChange}
+                            selected={field.value || []}
+                            placeholder="Select trainees"
                             maxCount={3}
                           />
                         </FormControl>

@@ -41,6 +41,7 @@ export const createUserSchema = z
     userType: z.nativeEnum(UserType),
     employeeId: z.string().optional(),
     freelancerId: z.string().optional(),
+    traineeId: z.string().optional(),
     password: z
       .string()
       .min(8, { message: "Password must be at least 8 characters long!" })
@@ -78,6 +79,14 @@ export const createUserSchema = z
         path: ["freelancerId"],
       });
     }
+    // Trainee users must be linked to a trainee
+    if (data.userType === UserType.TRAINEE && !data.traineeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Trainee must be selected when user type is Trainee",
+        path: ["traineeId"],
+      });
+    }
   });
 
 export type createUserSchemaType = z.infer<typeof createUserSchema>;
@@ -92,6 +101,7 @@ export const updateUserSchema = z
     userType: z.nativeEnum(UserType),
     employeeId: z.string().optional(),
     freelancerId: z.string().optional(),
+    traineeId: z.string().optional(),
     permissions: z.array(z.nativeEnum(UserPermission)).default([]),
   })
   .superRefine((data, ctx) => {
@@ -109,6 +119,14 @@ export const updateUserSchema = z
         code: z.ZodIssueCode.custom,
         message: "Freelancer must be selected when user type is Freelancer",
         path: ["freelancerId"],
+      });
+    }
+    // Trainee users must be linked to a trainee
+    if (data.userType === UserType.TRAINEE && !data.traineeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Trainee must be selected when user type is Trainee",
+        path: ["traineeId"],
       });
     }
   });
@@ -233,6 +251,7 @@ export const projectTaskSchema = z.object({
   estimatedHours: z.number().optional(),
   assigneeIds: z.array(z.string()).optional(),
   freelancerIds: z.array(z.string()).optional(),
+  traineeIds: z.array(z.string()).optional(),
   taskLeaderId: z.string().optional(),
 });
 
@@ -251,6 +270,7 @@ export const projectSchema = z.object({
   scheduledStartTime: z.string().optional(),
   assistantEmployeeIds: z.array(z.string()).optional(),
   assistantFreelancerIds: z.array(z.string()).optional(),
+  assistantTraineeIds: z.array(z.string()).optional(),
   toolIds: z.array(z.string()).optional(),
   tasks: z.array(projectTaskSchema).optional(),
 });
@@ -290,6 +310,7 @@ export const taskSchema = z.object({
   estimatedHours: z.number().optional(),
   assigneeIds: z.array(z.string()).optional(),
   freelancerIds: z.array(z.string()).optional(),
+  traineeIds: z.array(z.string()).optional(),
   taskLeaderId: z.string().optional(),
   isAIGenerated: z.boolean().optional().default(false),
   subtasks: z.array(subtaskSchema).optional().default([]),
@@ -628,7 +649,7 @@ export const InvoiceSchema = z.object({
   installmentPeriod: z.string().optional().nullable(),
   interestRate: z.number().optional().nullable(),
   interestAmount: z.number().optional().nullable(),
-  payRemainingImmediately: z.boolean().default(false),
+  payRemainingImmediately: z.boolean().default(true),
 });
 
 export const RecurringInvoiceSchema = z.object({
@@ -675,7 +696,7 @@ export const RecurringInvoiceSchema = z.object({
   installmentPeriod: z.string().optional().nullable(),
   interestRate: z.number().optional().nullable(),
   interestAmount: z.number().optional().nullable(),
-  payRemainingImmediately: z.boolean().default(false),
+  payRemainingImmediately: z.boolean().default(true),
 });
 
 export type RecurringInvoiceFormData = z.infer<typeof RecurringInvoiceSchema>;
@@ -745,7 +766,7 @@ export const QuotationSchema = z.object({
   installmentPeriod: z.string().optional().nullable(),
   interestRate: z.number().optional().nullable(),
   interestAmount: z.number().optional().nullable(),
-  payRemainingImmediately: z.boolean().default(false),
+  payRemainingImmediately: z.boolean().default(true),
 });
 
 export const PRODUCT_CATEGORIES = [

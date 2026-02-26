@@ -3,6 +3,9 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { sendPushNotification } from "@/lib/expo";
 
+// POST: Admin dispatches an emergency callout to specific workers (by their User IDs).
+// After schema unification, we use requestedBy = target worker's User ID so the worker
+// can accept/decline the mission. The admin's identity is captured via the notification.
 export async function POST(request: Request) {
   try {
     const { userId } = await auth();
@@ -16,126 +19,108 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const {
-      employeeIds,
-      freelancerIds,
-      traineeIds,
+      // Accept either legacy separate arrays OR unified userIds array
+      userIds, // [NEW] Preferred: array of User IDs
+      employeeIds, // [LEGACY] kept for backward compat — treated as User IDs now
+      freelancerIds, // [LEGACY] same
+      traineeIds, // [LEGACY] same
       title,
       message,
       startTime,
+      type,
+      address,
+      vehicle,
+      description,
+      clientId,
+      assistantIds,
     } = body;
 
-    if (
-      (!employeeIds ||
-        !Array.isArray(employeeIds) ||
-        employeeIds.length === 0) &&
-      (!freelancerIds ||
-        !Array.isArray(freelancerIds) ||
-        freelancerIds.length === 0) &&
-      (!traineeIds || !Array.isArray(traineeIds) || traineeIds.length === 0)
-    ) {
+    // Combine all target worker User IDs into one list
+    const allTargetUserIds: string[] = [
+      ...(userIds || []),
+      ...(employeeIds || []),
+      ...(freelancerIds || []),
+      ...(traineeIds || []),
+    ];
+
+    if (allTargetUserIds.length === 0) {
       return NextResponse.json(
-        { error: "At least one recipient ID is required" },
+        { error: "At least one recipient User ID is required" },
         { status: 400 },
       );
     }
 
+    // Pre-fetch assistant data if any
+    const assistantsData =
+      assistantIds && Array.isArray(assistantIds) && assistantIds.length > 0
+        ? await db.user.findMany({
+            where: { id: { in: assistantIds } },
+            select: {
+              id: true,
+              employeeId: true,
+              freeLancerId: true,
+              traineeId: true,
+            },
+          })
+        : [];
+
+    const groupId =
+      allTargetUserIds.length > 1
+        ? Math.random().toString(36).substring(2, 15)
+        : undefined;
+
     const results = [];
 
-    // Process Employees
-    if (employeeIds && Array.isArray(employeeIds)) {
-      for (const employeeId of employeeIds) {
-        const callOut = await db.emergencyCallOut.create({
-          data: {
-            employeeId,
-            title,
-            message,
-            startTime: new Date(startTime),
-            requestedBy: admin.id,
-            status: "PENDING",
-          },
-        });
+    for (const targetUserId of allTargetUserIds) {
+      const callOut = await db.emergencyCallOut.create({
+        data: {
+          // requestedBy = the target worker User ID.
+          // This lets the worker see the "Accept Mission" button on the mobile app.
+          requestedBy: targetUserId,
+          clientId: clientId || null,
+          title:
+            title || `Emergency Call-Out - ${new Date().toLocaleDateString()}`,
+          message: message || null,
+          startTime: startTime ? new Date(startTime) : new Date(),
+          status: "PENDING",
+          type: type || null,
+          destination: address || null,
+          vehicle: vehicle || null,
+          description: description || message || null,
+          isTeamLeader: true,
+          workerCount: assistantsData.length + 1,
+          groupId: groupId || null,
+          isBroadcast: allTargetUserIds.length > 1,
 
-        // Create a system notification record
-        await db.employeeNotification.create({
-          data: {
-            employeeId,
-            title: `Emergency Call Out: ${title}`,
-            message: message || "You have an emergency call out request.",
-            type: "EMERGENCY",
-            priority: "HIGH",
-            metadata: { callOutId: callOut.id },
-            actionUrl: `/dashboard/emergency-callouts`,
-          },
-        });
+          assistants:
+            assistantsData.length > 0
+              ? {
+                  create: assistantsData.map((a) => ({
+                    userId: a.id,
+                    employeeId: a.employeeId,
+                    freelancerId: a.freeLancerId,
+                    traineeId: a.traineeId,
+                  })),
+                }
+              : undefined,
+        },
+      });
 
-        // Send Push Notification
+      // Notify target worker via push
+      try {
         await sendPushNotification({
-          employeeId,
-          title: `Emergency Call Out: ${title}`,
+          userId: targetUserId,
+          title: `🚨 Emergency Call Out: ${title || "New Dispatch"}`,
           body:
             message ||
             "You have an emergency call out request. Please accept or decline in the app.",
           data: { type: "EMERGENCY_CALL_OUT", callOutId: callOut.id },
-        });
-
-        results.push(callOut);
+        } as any);
+      } catch (e) {
+        console.error("Push failed for user", targetUserId, e);
       }
-    }
 
-    // Process Freelancers
-    if (freelancerIds && Array.isArray(freelancerIds)) {
-      for (const freelancerId of freelancerIds) {
-        const callOut = await db.emergencyCallOut.create({
-          data: {
-            freeLancerId: freelancerId, // Matches schema field name
-            title,
-            message,
-            startTime: new Date(startTime),
-            requestedBy: admin.id,
-            status: "PENDING",
-          },
-        });
-
-        // Freelancers might not have a notification system yet, but we'll create the record if applicable
-        // ... notifications logic if needed ...
-
-        results.push(callOut);
-      }
-    }
-
-    // Process Trainees
-    if (traineeIds && Array.isArray(traineeIds)) {
-      for (const traineeId of traineeIds) {
-        const callOut = await db.emergencyCallOut.create({
-          data: {
-            traineeId,
-            title,
-            message,
-            startTime: new Date(startTime),
-            requestedBy: admin.id,
-            status: "PENDING",
-          },
-        });
-
-        // Trainees might have a notification system/expo token
-        const trainee = await db.trainee.findUnique({
-          where: { id: traineeId },
-          select: { expoPushToken: true },
-        });
-
-        if (trainee?.expoPushToken) {
-          await sendPushNotification({
-            traineeId, // Assuming sendPushNotification supports traineeId or needs adjustment
-            title: `Emergency Call Out: ${title}`,
-            body:
-              message ||
-              "You have an emergency call out request. Please accept or decline in the app.",
-            data: { type: "EMERGENCY_CALL_OUT", callOutId: callOut.id },
-          } as any);
-        }
-
-        results.push(callOut);
-      }
+      results.push(callOut);
     }
 
     return NextResponse.json(results);
@@ -145,86 +130,110 @@ export async function POST(request: Request) {
   }
 }
 
+// GET: Fetch callouts. Filter by requestedBy (User ID) instead of removed FK fields.
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const employeeId = searchParams.get("employeeId");
-    const freelancerId = searchParams.get("freelancerId");
-    const traineeId = searchParams.get("traineeId");
+
+    // Support both new (userId) and legacy param names
+    const userId = searchParams.get("userId");
+    const employeeUserId = searchParams.get("employeeId"); // treat as userId
+    const freelancerUserId = searchParams.get("freelancerId"); // treat as userId
+    const traineeUserId = searchParams.get("traineeId"); // treat as userId
+
     const status = searchParams.get("status");
-    const active = searchParams.get("active"); // Filter for accepted but not completed
-    const date = searchParams.get("date"); // Filter by check-in date
+    const active = searchParams.get("active");
+    const date = searchParams.get("date");
 
     const where: any = {};
-    if (employeeId) where.employeeId = employeeId;
-    if (freelancerId) where.freeLancerId = freelancerId;
-    if (traineeId) where.traineeId = traineeId;
+
+    // Find the user for any of the legacy param types
+    const targetUserId =
+      userId || employeeUserId || freelancerUserId || traineeUserId;
+
+    if (targetUserId) {
+      // If legacy param (employeeId etc.) was an employee/freelancer/trainee record id,
+      // we need to find the linked User. If it's already a User id, this still works.
+      const linkedUser = await db.user.findFirst({
+        where: {
+          OR: [
+            { id: targetUserId },
+            { employeeId: targetUserId },
+            { freeLancerId: targetUserId },
+            { traineeId: targetUserId },
+          ],
+        },
+        select: { id: true },
+      });
+
+      if (linkedUser) {
+        where.requestedBy = linkedUser.id;
+      }
+    }
+
     if (status) where.status = status;
 
     if (active === "true") {
       where.status = "ACCEPTED";
-      where.checkOut = null; // Still active if not checked out
+      where.checkOut = null;
     }
 
-    // Filter by date if provided (check-in date)
     if (date) {
       const startOfDay = new Date(date);
       startOfDay.setHours(0, 0, 0, 0);
-
       const endOfDay = new Date(date);
       endOfDay.setHours(23, 59, 59, 999);
-
-      where.checkIn = {
-        gte: startOfDay,
-        lte: endOfDay,
-      };
+      where.checkIn = { gte: startOfDay, lte: endOfDay };
     }
 
     const callOuts = await db.emergencyCallOut.findMany({
       where,
       orderBy: { requestedAt: "desc" },
       include: {
-        employee: {
-          select: {
-            id: true,
-            employeeNumber: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-            position: true,
-            department: {
-              select: { name: true },
-            },
-          },
-        },
-        freeLancer: {
-          select: {
-            id: true,
-            freeLancerNumber: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-            position: true,
-            department: {
-              select: { name: true },
-            },
-          },
-        },
-        Trainee: {
-          select: {
-            id: true,
-            traineeNumber: true,
-            firstName: true,
-            lastName: true,
-            avatar: true,
-            position: true,
-            department: {
-              select: { name: true },
-            },
-          },
-        },
+        // requestedUser is now the single source of truth for the worker
         requestedUser: {
-          select: { name: true },
+          select: {
+            id: true,
+            name: true,
+            employee: {
+              select: {
+                id: true,
+                employeeNumber: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                position: true,
+                department: { select: { name: true } },
+              },
+            },
+            freeLancer: {
+              select: {
+                id: true,
+                freeLancerNumber: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                position: true,
+                department: { select: { name: true } },
+              },
+            },
+            trainee: {
+              select: {
+                id: true,
+                traineeNumber: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                position: true,
+                department: { select: { name: true } },
+              },
+            },
+          },
+        },
+        assistants: {
+          include: {
+            user: { select: { name: true, avatar: true } },
+          },
         },
       },
     });
@@ -235,6 +244,7 @@ export async function GET(request: Request) {
   }
 }
 
+// PATCH: Worker accepts/declines OR check-in/check-out.
 export async function PATCH(request: Request) {
   try {
     const body = await request.json();
@@ -262,6 +272,47 @@ export async function PATCH(request: Request) {
     if (status) updateData.status = status;
 
     if (status === "ACCEPTED") {
+      const currentCallOut = await db.emergencyCallOut.findUnique({
+        where: { id: callOutId },
+        select: { isBroadcast: true, groupId: true },
+      });
+
+      if (currentCallOut?.isBroadcast && currentCallOut.groupId) {
+        const alreadyClaimed = await db.emergencyCallOut.findFirst({
+          where: {
+            groupId: currentCallOut.groupId,
+            status: { in: ["AWAITING_APPROVAL", "ACCEPTED", "IN_PROGRESS"] },
+            id: { not: callOutId },
+          },
+        });
+
+        if (alreadyClaimed) {
+          return NextResponse.json(
+            {
+              error:
+                "This call-out has already been accepted by another leader.",
+            },
+            { status: 400 },
+          );
+        }
+
+        // Broadcast: move to AWAITING_APPROVAL pending admin final approval
+        updateData.status = "AWAITING_APPROVAL";
+
+        // Cancel others in the broadcast group
+        await db.emergencyCallOut.updateMany({
+          where: {
+            groupId: currentCallOut.groupId,
+            id: { not: callOutId },
+            status: "PENDING",
+          },
+          data: {
+            status: "CANCELLED",
+            notes: "Closed - Accepted by another leader",
+          },
+        });
+      }
+
       updateData.acceptedAt = new Date();
     } else if (status === "DECLINED") {
       updateData.declinedAt = new Date();
@@ -272,7 +323,6 @@ export async function PATCH(request: Request) {
 
     // Handle check-in
     if (checkIn === true) {
-      // Fetch the call-out to check the start time
       const callOut = await db.emergencyCallOut.findUnique({
         where: { id: callOutId },
         select: { startTime: true, status: true },
@@ -285,20 +335,15 @@ export async function PATCH(request: Request) {
         );
       }
 
-      // Validate that the call-out has been accepted
       if (callOut.status !== "ACCEPTED") {
         return NextResponse.json(
-          {
-            error: "Cannot check in to a call-out that hasn't been accepted",
-          },
+          { error: "Cannot check in to a call-out that hasn't been accepted" },
           { status: 400 },
         );
       }
 
-      // Validate that the current time is at or after the scheduled start time
       const now = new Date();
       const startTime = new Date(callOut.startTime);
-
       if (now < startTime) {
         const minutesUntilStart = Math.ceil(
           (startTime.getTime() - now.getTime()) / (1000 * 60),
@@ -319,28 +364,40 @@ export async function PATCH(request: Request) {
       updateData.notes = notes;
     }
 
-    // Handle check-out
+    // Handle check-out: fetch rates from requestedUser → employee/freeLancer/trainee
     if (checkOut === true) {
       const current = await db.emergencyCallOut.findUnique({
         where: { id: callOutId },
         include: {
-          employee: { select: { emergencyCallOutRate: true } },
-          freeLancer: { select: { emergencyCallOutRate: true } },
-          Trainee: { select: { emergencyCallOutRate: true } },
+          requestedUser: {
+            include: {
+              employee: { select: { emergencyCallOutRate: true } },
+              freeLancer: { select: { emergencyCallOutRate: true } },
+              trainee: { select: { emergencyCallOutRate: true } },
+            },
+          },
+          assistants: {
+            include: {
+              employee: { select: { emergencyCallOutRate: true } },
+              freelancer: { select: { emergencyCallOutRate: true } },
+              trainee: { select: { emergencyCallOutRate: true } },
+            },
+          },
         },
       });
 
       if (current && current.checkIn) {
         const checkOutTime = new Date();
-        const durationMs = checkOutTime.getTime() - current.checkIn.getTime();
-        const durationHours = durationMs / (1000 * 60 * 60);
+        const durationHours =
+          (checkOutTime.getTime() - current.checkIn.getTime()) /
+          (1000 * 60 * 60);
 
-        // Get the individual's rate
-        let rate = 0;
-        if (current.employee) rate = current.employee.emergencyCallOutRate;
-        else if (current.freeLancer)
-          rate = current.freeLancer.emergencyCallOutRate;
-        else if (current.Trainee) rate = current.Trainee.emergencyCallOutRate;
+        // Unified rate: works for any user type
+        const mainRate =
+          current.requestedUser?.employee?.emergencyCallOutRate ||
+          current.requestedUser?.freeLancer?.emergencyCallOutRate ||
+          current.requestedUser?.trainee?.emergencyCallOutRate ||
+          0;
 
         updateData.checkOut = checkOutTime;
         updateData.checkOutLat = lat;
@@ -349,8 +406,29 @@ export async function PATCH(request: Request) {
         updateData.duration = durationHours;
         updateData.status = "COMPLETED";
         updateData.completedAt = checkOutTime;
-        updateData.earnings = durationHours * rate;
-        updateData.hourlyRateUsed = rate;
+        updateData.earnings = durationHours * mainRate;
+        updateData.hourlyRateUsed = mainRate;
+
+        if (current.assistants && current.assistants.length > 0) {
+          await Promise.all(
+            current.assistants.map(async (assistant) => {
+              const assistantRate =
+                assistant.employee?.emergencyCallOutRate ||
+                assistant.freelancer?.emergencyCallOutRate ||
+                assistant.trainee?.emergencyCallOutRate ||
+                0;
+
+              return db.callOutAssistant.update({
+                where: { id: assistant.id },
+                data: {
+                  earnings: durationHours * assistantRate,
+                  hourlyRateUsed: assistantRate,
+                  status: "ACCEPTED",
+                },
+              });
+            }),
+          );
+        }
       }
     }
 
@@ -364,4 +442,3 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-

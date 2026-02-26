@@ -8,12 +8,20 @@ import {
 import { MapPin, UserCheck, QrCode, Zap, Moon } from "lucide-react";
 import { AttendanceRecord } from "../types";
 import { safeDecimalToNumber } from "../utils";
+import { ReportsSectionSkeleton } from "./attendance-skeleton";
 
 interface ReportsSectionProps {
   attendanceRecords: AttendanceRecord[];
+  loading?: boolean;
 }
 
-export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
+export function ReportsSection({
+  attendanceRecords,
+  loading,
+}: ReportsSectionProps) {
+  if (loading) {
+    return <ReportsSectionSkeleton />;
+  }
   // Helper function to check if status is a leave status
   const isLeaveStatus = (status: string): boolean => {
     return ["SICK_LEAVE", "ANNUAL_LEAVE", "UNPAID_LEAVE"].includes(status);
@@ -431,4 +439,3 @@ export function ReportsSection({ attendanceRecords }: ReportsSectionProps) {
     </div>
   );
 }
-
