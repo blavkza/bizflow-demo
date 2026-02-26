@@ -407,7 +407,7 @@ export default function KPIsPage() {
           <h3 className="mt-4 text-lg font-semibold">No KPIs found</h3>
           <p className="text-muted-foreground">
             {searchTerm || categoryFilter !== "All" || frequencyFilter !== "All"
-              ? " adjusting your filters"
+              ? "Try adjusting your filters"
               : "Get started by creating your first KPI"}
           </p>
         </div>
