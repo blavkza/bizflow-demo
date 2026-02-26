@@ -6,6 +6,7 @@ import {
   EmployeeStatus,
   LeaveStatus,
 } from "@prisma/client";
+import { sendPushNotification } from "@/lib/expo";
 
 export async function POST(request: NextRequest) {
   try {
@@ -926,6 +927,14 @@ async function checkAndCreateAbsentWarning(
           isRead: false,
           actionUrl: `/dashboard/warnings/${warning.id}`,
         },
+      });
+
+      // Send push notification to the worker
+      await sendPushNotification({
+        employeeId: employeeId,
+        title: "Absence Warning Issued",
+        body: `${reason} (Severity: ${severity})`,
+        data: { warningId: warning.id, type: "WARNING" },
       });
 
       return warning;

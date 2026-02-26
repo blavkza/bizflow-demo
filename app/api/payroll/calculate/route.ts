@@ -503,6 +503,43 @@ async function calculateWorkerPayroll(
     teamwork: mockTeamwork,
   };
 
+  // Calculate tool deductions (Damage/Loss)
+  const toolChecks = await db.toolCheck.findMany({
+    where: {
+      OR: [
+        { employeeId: worker.id },
+        { freelancerId: worker.id },
+        { traineeId: worker.id },
+      ],
+      deductFromWorker: true,
+      damageCost: { gt: 0 },
+      checkDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+  });
+
+  const toolReturns = await db.toolReturn.findMany({
+    where: {
+      OR: [
+        { employeeId: worker.id },
+        { freelancerId: worker.id },
+        { traineeId: worker.id },
+      ],
+      isApproved: true,
+      damageCost: { gt: 0 },
+      returnedDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+  });
+
+  const totalToolDeduction =
+    toolChecks.reduce((sum, check) => sum + Number(check.damageCost || 0), 0) +
+    toolReturns.reduce((sum, ret) => sum + Number(ret.damageCost || 0), 0);
+
   // Calculate bonuses and deductions
   const payrollCalculation = calculatePayroll(
     baseAmount,
@@ -515,6 +552,7 @@ async function calculateWorkerPayroll(
         : "EMPLOYEE",
     performanceMetrics, // Pass metrics to the engine
     attendanceBreakdown,
+    totalToolDeduction, // Pass tool damage/loss amount as damageLossAmount
     0, // existingLoans placeholder
   );
 

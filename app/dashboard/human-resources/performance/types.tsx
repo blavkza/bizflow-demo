@@ -52,7 +52,14 @@ export type PerformanceOverview = {
   trend: number;
 };
 
-export type WarningStatus = "ACTIVE" | "RESOLVED" | "ESCALATED";
+export type WarningStatus =
+  | "ACTIVE"
+  | "RESOLVED"
+  | "ESCALATED"
+  | "APPEALED"
+  | "REJECTED"
+  | "NEXT_STEP"
+  | "NEXT_STEP_ACCEPTED";
 
 export interface Warning {
   id: string;
@@ -67,6 +74,11 @@ export interface Warning {
   resolutionNotes?: string;
   createdAt: string;
   updatedAt: string;
+  appealReason?: string;
+  appealDate?: string;
+  adminDecision?: string;
+  workerResponse?: string;
+  workerResponseDate?: string;
 }
 
 export interface UnifiedPerformanceData {

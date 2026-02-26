@@ -17,7 +17,9 @@ import {
   DepartmentsTab,
   WarningsTab,
   WarningDialog,
+  ResolveWarningDialog,
 } from "./components";
+
 import { Employee, WarningFormData, UnifiedPerformanceData } from "./types";
 import { toast } from "sonner";
 import { useAuth } from "@clerk/nextjs";
@@ -44,7 +46,7 @@ interface UnifiedPerformanceResponse {
 
 // Fetch function for React Query
 const fetchPerformanceData = async (
-  period: string
+  period: string,
 ): Promise<UnifiedPerformanceResponse> => {
   const response = await fetch(`/api/performance/unified?period=${period}`);
   if (!response.ok) {
@@ -69,8 +71,10 @@ export default function EmployeePerformancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState("6months");
   const [isWarningDialogOpen, setIsWarningDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
-    null
+    null,
   );
+  const [selectedWarning, setSelectedWarning] = useState<any>(null);
+  const [isResolveDialogOpen, setIsResolveDialogOpen] = useState(false);
 
   // React Query for performance data
   const {
@@ -101,15 +105,15 @@ export default function EmployeePerformancePage() {
     : false;
 
   const canViewPerfomance = data?.permissions?.includes(
-    UserPermission.Perfomance_VIEW
+    UserPermission.Perfomance_VIEW,
   );
 
   const canCreatePerfomance = data?.permissions?.includes(
-    UserPermission.Perfomance_CREATE
+    UserPermission.Perfomance_CREATE,
   );
 
   const canEditPerfomance = data?.permissions?.includes(
-    UserPermission.Perfomance_EDIT
+    UserPermission.Perfomance_EDIT,
   );
 
   const handleGenerateWarning = (employee: Employee) => {
@@ -117,7 +121,17 @@ export default function EmployeePerformancePage() {
     setIsWarningDialogOpen(true);
   };
 
-  const handleResolveWarning = async (warning: any, employee: Employee) => {
+  const handleResolveWarning = (warning: any, employee: Employee) => {
+    setSelectedWarning({ ...warning, employee });
+    setIsResolveDialogOpen(true);
+  };
+
+  const onResolveUpdate = async (
+    warningId: string,
+    status: string,
+    notes: string,
+    adminDecision?: string,
+  ) => {
     try {
       const response = await fetch(`/api/performance/warnings`, {
         method: "PUT",
@@ -125,23 +139,22 @@ export default function EmployeePerformancePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          warningId: warning.id,
-          status: "RESOLVED",
-          resolutionNotes: `Warning resolved for ${employee.name}`,
+          warningId,
+          status,
+          resolutionNotes: notes,
+          adminDecision,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to resolve warning");
+        throw new Error("Failed to update warning");
       }
 
-      // Invalidate and refetch the performance data
       refetchPerformanceData();
-
-      toast.success(`Warning resolved for ${employee.name}`);
+      toast.success(`Warning status updated`);
     } catch (error) {
-      console.error("Failed to resolve warning:", error);
-      toast.error("Failed to resolve warning. Please try again.");
+      console.error("Failed to update warning:", error);
+      toast.error("Failed to update warning. Please try again.");
     }
   };
 
@@ -160,7 +173,7 @@ export default function EmployeePerformancePage() {
       }
 
       toast.success(
-        `Warning generated successfully for ${selectedEmployee?.name}!`
+        `Warning generated successfully for ${selectedEmployee?.name}!`,
       );
 
       // Invalidate and refetch the performance data
@@ -222,7 +235,7 @@ export default function EmployeePerformancePage() {
                 {" "}
                 • Last updated:{" "}
                 {new Date(
-                  performanceData.overview.calculatedAt
+                  performanceData.overview.calculatedAt,
                 ).toLocaleTimeString()}
               </span>
             )}
@@ -308,6 +321,15 @@ export default function EmployeePerformancePage() {
           employeeName={selectedEmployee.name}
           canEditPerfomance={canEditPerfomance}
           hasFullAccess={hasFullAccess}
+        />
+      )}
+
+      {selectedWarning && (
+        <ResolveWarningDialog
+          open={isResolveDialogOpen}
+          onOpenChange={setIsResolveDialogOpen}
+          onResolveWarning={onResolveUpdate}
+          warning={selectedWarning}
         />
       )}
     </div>

@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { UserPermission, UserRole } from "@prisma/client";
+import {
+  sendPushNotification,
+  sendPushFreelancer,
+  sendPushTrainee,
+} from "@/lib/expo";
 
 // POST - Create a new tool check
 export async function POST(req: Request) {
@@ -109,14 +114,14 @@ export async function POST(req: Request) {
       },
     });
 
-    // If tool is lost or damaged, update the tool status
+    // If tool is lost or damaged, update the tool status and create a warning
     if (
       isLost ||
       (damageCost && parseFloat(damageCost) > 0) ||
       pushToMaintenance
     ) {
       await db.$transaction(async (tx) => {
-        const status = isLost
+        const satusUpdate = isLost
           ? "LOST"
           : pushToMaintenance
             ? "MAINTENANCE"
@@ -125,7 +130,7 @@ export async function POST(req: Request) {
         await tx.tool.update({
           where: { id: toolId },
           data: {
-            status,
+            status: satusUpdate as any,
             condition: isLost ? "LOST" : condition,
             damageCost: damageCost ? parseFloat(damageCost) : undefined,
             damageDescription: damageDescription || undefined,
@@ -142,6 +147,78 @@ export async function POST(req: Request) {
             }),
           },
         });
+
+        // Create Warning for the worker if they were responsible
+        const workerId = employeeId || freelancerId || traineeId;
+        if (
+          workerId &&
+          (isLost || (damageCost && parseFloat(damageCost) > 0))
+        ) {
+          const warningType = isLost ? "Tool Loss" : "Tool Damage";
+          const severity =
+            isLost || parseFloat(damageCost) > 1000 ? "HIGH" : "MEDIUM";
+          const reason = `${warningType}: ${toolCheck.tool.name}. ${
+            isLost
+              ? "Tool reported as lost during inspection."
+              : `Damage cost estimated at R${damageCost}.`
+          } ${damageDescription ? `Details: ${damageDescription}` : ""}`;
+
+          const warning = await tx.warning.create({
+            data: {
+              employeeId: employeeId || null,
+              freeLancerId: freelancerId || null,
+              traineeId: traineeId || null,
+              type: warningType,
+              severity,
+              reason,
+              actionPlan: isLost
+                ? "Responsible for replacement cost."
+                : "Please handle equipment with more care.",
+              status: "ACTIVE",
+              date: new Date(),
+            },
+          });
+
+          // Create notification
+          const notificationTitle = `Warning: ${warningType}`;
+          const notificationMessage = reason;
+
+          await tx.employeeNotification.create({
+            data: {
+              employeeId: employeeId || null,
+              freeLancerId: freelancerId || null,
+              traineeId: traineeId || null,
+              title: notificationTitle,
+              message: notificationMessage,
+              type: "WARNING",
+              priority: "HIGH",
+              actionUrl: `/dashboard/warnings/${warning.id}`,
+            },
+          });
+
+          if (employeeId) {
+            await sendPushNotification({
+              employeeId,
+              title: notificationTitle,
+              body: notificationMessage,
+              data: { warningId: warning.id, type: "WARNING" },
+            });
+          } else if (freelancerId) {
+            await sendPushFreelancer({
+              freelancerId,
+              title: notificationTitle,
+              body: notificationMessage,
+              data: { warningId: warning.id, type: "WARNING" },
+            });
+          } else if (traineeId) {
+            await sendPushTrainee({
+              traineeId,
+              title: notificationTitle,
+              body: notificationMessage,
+              data: { warningId: warning.id, type: "WARNING" },
+            });
+          }
+        }
 
         if (pushToMaintenance) {
           const workerName = toolCheck.employee

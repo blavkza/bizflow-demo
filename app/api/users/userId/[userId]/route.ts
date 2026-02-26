@@ -599,6 +599,18 @@ export async function GET(
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    // Check if user is suspended
+    if (user.status === "SUSPENDED" || user.trainee?.status === "SUSPENDED") {
+      return NextResponse.json(
+        {
+          error: "Account Suspended",
+          message:
+            "Your account has been suspended. Please contact administration for more information.",
+        },
+        { status: 403 },
+      );
+    }
+
     return NextResponse.json(user);
   } catch (error) {
     console.error("Error fetching user:", error);

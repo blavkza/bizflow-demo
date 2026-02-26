@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sendPushNotification } from "@/lib/expo";
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,8 +33,16 @@ export async function POST(request: NextRequest) {
         message: `You have received a ${severity} severity warning regarding ${type}. Reason: ${reason}`,
         type: "WARNING",
         isRead: false,
-        actionUrl: `/dashboard/human-resources/performance`,
+        actionUrl: `/dashboard/warnings/${warning.id}`,
       },
+    });
+
+    // Send push notification to the worker
+    await sendPushNotification({
+      employeeId: employeeId,
+      title: "New Warning Issued",
+      body: `You have received a ${severity} severity warning regarding ${type}.`,
+      data: { warningId: warning.id, type: "WARNING" },
     });
 
     return NextResponse.json(warning);
@@ -82,6 +91,11 @@ export async function GET(request: NextRequest) {
       status: warning.status,
       resolvedAt: warning.resolvedAt?.toISOString(),
       resolutionNotes: warning.resolutionNotes,
+      appealReason: warning.appealReason,
+      appealDate: warning.appealDate?.toISOString(),
+      adminDecision: warning.adminDecision,
+      workerResponse: warning.workerResponse,
+      workerResponseDate: warning.workerResponseDate?.toISOString(),
       employee: {
         id: warning.employee?.id || "",
         name: warning.employee
@@ -103,7 +117,14 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    const { warningId, status, resolutionNotes } = body;
+    const {
+      warningId,
+      status,
+      resolutionNotes,
+      appealReason,
+      adminDecision,
+      workerResponse,
+    } = body;
 
     if (!warningId) {
       return NextResponse.json(
@@ -112,27 +133,78 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const updateData: any = {
+      status: status,
+      updatedAt: new Date(),
+    };
+
+    if (status === "RESOLVED") {
+      updateData.resolvedAt = new Date();
+      updateData.resolutionNotes = resolutionNotes || "Warning resolved";
+    }
+
+    if (appealReason) {
+      updateData.appealReason = appealReason;
+      updateData.appealDate = new Date();
+      updateData.status = "APPEALED";
+    }
+
+    if (adminDecision) {
+      updateData.adminDecision = adminDecision;
+      // If admin provides a decision, it could be REJECTED or NEXT_STEP
+      if (status) updateData.status = status;
+    }
+
+    if (workerResponse) {
+      updateData.workerResponse = workerResponse;
+      updateData.workerResponseDate = new Date();
+      if (workerResponse === "ACCEPTED") {
+        updateData.status = "NEXT_STEP_ACCEPTED";
+      }
+    }
+
     const updatedWarning = await db.warning.update({
       where: { id: warningId },
-      data: {
-        status: status || "RESOLVED",
-        resolvedAt: new Date(),
-        resolutionNotes: resolutionNotes || "Warning resolved by manager",
-      },
+      data: updateData,
     });
 
-    await db.employeeNotification.create({
-      data: {
-        employeeId: updatedWarning.employeeId,
-        title: "Warning Resolved",
-        message: `Your warning status has been updated to ${
-          status || "RESOLVED"
-        }. Resolution: ${resolutionNotes || "Warning resolved by manager"}`,
-        type: "WARNING",
-        isRead: false,
-        actionUrl: `/dashboard/human-resources/performance`,
-      },
-    });
+    // Notify employee for admin actions
+    if (
+      status === "RESOLVED" ||
+      status === "REJECTED" ||
+      status === "NEXT_STEP"
+    ) {
+      await db.employeeNotification.create({
+        data: {
+          employeeId: updatedWarning.employeeId,
+          title: `Warning ${status}`,
+          message: `Your warning status has been updated to ${status}. ${
+            adminDecision || resolutionNotes || ""
+          }`,
+          type: "WARNING",
+          isRead: false,
+          actionUrl: `/dashboard/warnings/${updatedWarning.id}`,
+        },
+      });
+
+      // Send push notification to the worker
+      if (updatedWarning.employeeId) {
+        await sendPushNotification({
+          employeeId: updatedWarning.employeeId,
+          title: `Warning ${status}`,
+          body: `Your warning status has been updated to ${status}.`,
+          data: { warningId: updatedWarning.id, type: "WARNING" },
+        });
+      }
+    }
+
+    // Notify admin for worker actions (appeal or acceptance)
+    if (appealReason || workerResponse === "ACCEPTED") {
+      // In a real app we'd find the HR managers, for now we just log or notify system
+      console.log(
+        `Worker action on warning ${warningId}: ${appealReason ? "Appealed" : "Accepted next step"}`,
+      );
+    }
 
     return NextResponse.json(updatedWarning);
   } catch (error) {

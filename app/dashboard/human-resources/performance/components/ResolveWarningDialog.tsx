@@ -23,82 +23,158 @@ import {
 interface ResolveWarningDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onResolveWarning: (warningId: string, resolutionNotes: string) => void;
-  warningId: string;
-  employeeName: string;
-  warningType: string;
-  warningReason: string;
+  onResolveWarning: (
+    warningId: string,
+    status: string,
+    notes: string,
+    adminDecision?: string,
+  ) => void;
+  warning: any;
 }
 
 export default function ResolveWarningDialog({
   open,
   onOpenChange,
   onResolveWarning,
-  warningId,
-  employeeName,
-  warningType,
-  warningReason,
+  warning,
 }: ResolveWarningDialogProps) {
-  const [resolutionNotes, setResolutionNotes] = useState("");
+  const [status, setStatus] = useState<string>("RESOLVED");
+  const [notes, setNotes] = useState("");
+  const [adminDecision, setAdminDecision] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const handleResolve = async () => {
-    if (!resolutionNotes.trim()) {
+  // Reset state when warning changes
+  useState(() => {
+    if (warning?.status === "APPEALED") {
+      setStatus("REJECTED");
+    } else {
+      setStatus("RESOLVED");
+    }
+  });
+
+  const handleAction = async () => {
+    if (status === "RESOLVED" && !notes.trim()) {
       alert("Please provide resolution notes");
+      return;
+    }
+
+    if (
+      (status === "REJECTED" || status === "NEXT_STEP") &&
+      !adminDecision.trim()
+    ) {
+      alert("Please provide the admin decision / reasons");
       return;
     }
 
     setSubmitting(true);
     try {
-      await onResolveWarning(warningId, resolutionNotes);
-      setResolutionNotes("");
+      await onResolveWarning(warning.id, status, notes, adminDecision);
+      setNotes("");
+      setAdminDecision("");
       onOpenChange(false);
     } catch (error) {
-      console.error("Failed to resolve warning:", error);
+      console.error("Failed to update warning:", error);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCancel = () => {
-    setResolutionNotes("");
+    setNotes("");
+    setAdminDecision("");
     onOpenChange(false);
   };
 
+  if (!warning) return null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Resolve Warning</DialogTitle>
+          <DialogTitle>Handle Warning: {warning.type}</DialogTitle>
           <DialogDescription>
-            Mark this warning as resolved for {employeeName}.
+            Manage the warning status for {warning.employee.name}.
           </DialogDescription>
         </DialogHeader>
+
         <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <Label>Warning Type</Label>
-            <p className="text-sm text-muted-foreground capitalize">
-              {warningType}
-            </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-xs uppercase text-muted-foreground">
+                Original Reason
+              </Label>
+              <p className="text-sm border p-2 rounded bg-muted/30">
+                {warning.reason}
+              </p>
+            </div>
+            {warning.appealReason && (
+              <div className="space-y-1">
+                <Label className="text-xs uppercase text-amber-600 font-bold">
+                  Worker Appeal
+                </Label>
+                <p className="text-sm border border-amber-200 p-2 rounded bg-amber-50 italic">
+                  "{warning.appealReason}"
+                </p>
+              </div>
+            )}
           </div>
+
           <div className="space-y-2">
-            <Label>Original Reason</Label>
-            <p className="text-sm text-muted-foreground">{warningReason}</p>
+            <Label>Action to Take</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select action" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="RESOLVED">
+                  Mark as Resolved (End Warning)
+                </SelectItem>
+                <SelectItem value="REJECTED">
+                  Reject Appeal (Keep Active)
+                </SelectItem>
+                <SelectItem value="NEXT_STEP">
+                  Issue Next Step (Action Required)
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="resolutionNotes">Resolution Notes *</Label>
-            <Textarea
-              id="resolutionNotes"
-              placeholder="Describe how the issue was resolved, improvements made, or reasons for reversal..."
-              rows={4}
-              value={resolutionNotes}
-              onChange={(e) => setResolutionNotes(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Required. Explain what actions were taken to resolve this warning.
-            </p>
-          </div>
+
+          {status === "RESOLVED" ? (
+            <div className="space-y-2">
+              <Label htmlFor="resolutionNotes">Resolution Notes *</Label>
+              <Textarea
+                id="resolutionNotes"
+                placeholder="Describe how the issue was resolved..."
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="adminDecision">
+                Admin Decision / Instructions *
+              </Label>
+              <Textarea
+                id="adminDecision"
+                placeholder={
+                  status === "REJECTED"
+                    ? "Reason for rejection..."
+                    : "What the worker needs to do next..."
+                }
+                rows={3}
+                value={adminDecision}
+                onChange={(e) => setAdminDecision(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground italic">
+                {status === "REJECTED"
+                  ? "This will be shown to the worker to explain why their appeal was not accepted."
+                  : "The worker will be notified and asked to acknowledge these next steps."}
+              </p>
+            </div>
+          )}
         </div>
+
         <DialogFooter>
           <Button
             variant="outline"
@@ -108,11 +184,15 @@ export default function ResolveWarningDialog({
             Cancel
           </Button>
           <Button
-            onClick={handleResolve}
-            disabled={!resolutionNotes.trim() || submitting}
-            className="bg-green-600 hover:bg-green-700"
+            onClick={handleAction}
+            disabled={submitting}
+            className={
+              status === "RESOLVED"
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-blue-600 hover:bg-blue-700"
+            }
           >
-            {submitting ? "Resolving..." : "Mark as Resolved"}
+            {submitting ? "Processing..." : "Submit Decision"}
           </Button>
         </DialogFooter>
       </DialogContent>

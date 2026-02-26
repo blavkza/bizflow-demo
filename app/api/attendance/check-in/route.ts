@@ -863,7 +863,7 @@ async function checkAndCreateLateWarning(
           message: `${reason} (Severity: ${severity})`,
           type: "WARNING",
           isRead: false,
-          actionUrl: "/dashboard/human-resources/performance",
+          actionUrl: `/dashboard/warnings/${warning.id}`,
         },
       });
 
@@ -871,7 +871,7 @@ async function checkAndCreateLateWarning(
         employeeId: employeeId,
         title: "New Warning Created",
         body: `${reason} (Severity: ${severity})`,
-        data: { warningId: warning.id },
+        data: { warningId: warning.id, type: "WARNING" },
       });
 
       return warning;
@@ -1151,4 +1151,3 @@ function getLeaveTypeDisplayName(leaveType: string): string {
       return "Leave";
   }
 }
-

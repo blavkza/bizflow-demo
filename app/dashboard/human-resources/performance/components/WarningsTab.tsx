@@ -47,12 +47,14 @@ export default function WarningsTab({
   const getFilteredWarnings = (warnings: WarningWithEmployee[]) => {
     switch (warningFilter) {
       case "active":
-        return warnings.filter(
-          (warning) => getWarningStatus(warning) === "ACTIVE"
+        return warnings.filter((warning) =>
+          ["ACTIVE", "APPEALED", "NEXT_STEP", "NEXT_STEP_ACCEPTED"].includes(
+            getWarningStatus(warning),
+          ),
         );
       case "resolved":
         return warnings.filter(
-          (warning) => getWarningStatus(warning) === "RESOLVED"
+          (warning) => getWarningStatus(warning) === "RESOLVED",
         );
       default:
         return warnings;
@@ -63,8 +65,16 @@ export default function WarningsTab({
     switch (status) {
       case "ACTIVE":
         return "destructive";
+      case "APPEALED":
+        return "secondary";
+      case "NEXT_STEP":
+        return "outline";
+      case "NEXT_STEP_ACCEPTED":
+        return "secondary";
       case "RESOLVED":
         return "default";
+      case "REJECTED":
+        return "destructive";
       default:
         return "secondary";
     }
@@ -74,10 +84,18 @@ export default function WarningsTab({
     switch (status) {
       case "ACTIVE":
         return "Active";
+      case "APPEALED":
+        return "Appealed";
+      case "NEXT_STEP":
+        return "Next Step Issued";
+      case "NEXT_STEP_ACCEPTED":
+        return "Step Accepted";
       case "RESOLVED":
         return "Resolved";
+      case "REJECTED":
+        return "Appeal Rejected";
       default:
-        return status;
+        return status.replace(/_/g, " ");
     }
   };
 
@@ -85,8 +103,16 @@ export default function WarningsTab({
     switch (status) {
       case "ACTIVE":
         return "bg-red-50 border-red-200";
+      case "APPEALED":
+        return "bg-amber-50 border-amber-200";
+      case "NEXT_STEP":
+        return "bg-blue-50 border-blue-200";
+      case "NEXT_STEP_ACCEPTED":
+        return "bg-indigo-50 border-indigo-200";
       case "RESOLVED":
         return "bg-green-50 border-green-200";
+      case "REJECTED":
+        return "bg-red-100 border-red-300";
       default:
         return "bg-gray-50 border-gray-200";
     }
@@ -96,8 +122,16 @@ export default function WarningsTab({
     switch (status) {
       case "ACTIVE":
         return "text-red-800";
+      case "APPEALED":
+        return "text-amber-800";
+      case "NEXT_STEP":
+        return "text-blue-800";
+      case "NEXT_STEP_ACCEPTED":
+        return "text-indigo-800";
       case "RESOLVED":
         return "text-green-800";
+      case "REJECTED":
+        return "text-red-900";
       default:
         return "text-gray-800";
     }
@@ -160,15 +194,15 @@ export default function WarningsTab({
     {} as Record<
       string,
       { employee: Employee; warnings: WarningWithEmployee[] }
-    >
+    >,
   );
 
   const totalWarnings = warnings.length;
   const activeWarnings = warnings.filter(
-    (w) => getWarningStatus(w) === "ACTIVE"
+    (w) => getWarningStatus(w) === "ACTIVE",
   ).length;
   const resolvedWarnings = warnings.filter(
-    (w) => getWarningStatus(w) === "RESOLVED"
+    (w) => getWarningStatus(w) === "RESOLVED",
   ).length;
 
   return (
@@ -298,7 +332,7 @@ export default function WarningsTab({
                                   <p className="text-xs text-green-600">
                                     Resolved:{" "}
                                     {new Date(
-                                      warning.resolvedAt
+                                      warning.resolvedAt,
                                     ).toLocaleDateString()}
                                   </p>
                                 )}
@@ -307,7 +341,7 @@ export default function WarningsTab({
 
                             {warning.actionPlan && (
                               <div
-                                className={`mt-2 p-2 rounded ${status === "ACTIVE" ? "bg-red-100" : "bg-green-100"}`}
+                                className={`mt-2 p-2 rounded ${status === "ACTIVE" || status === "APPEALED" ? "bg-red-100" : "bg-green-100"}`}
                               >
                                 <p
                                   className={`text-xs font-medium ${getWarningTextStyle(status)}`}
@@ -319,6 +353,51 @@ export default function WarningsTab({
                                 >
                                   {warning.actionPlan}
                                 </p>
+                              </div>
+                            )}
+
+                            {warning.appealReason && (
+                              <div className="mt-2 p-2 bg-amber-100 rounded border border-amber-200">
+                                <p className="text-xs font-medium text-amber-800 flex justify-between">
+                                  <span>Appeal from worker:</span>
+                                  <span>
+                                    {warning.appealDate
+                                      ? new Date(
+                                          warning.appealDate,
+                                        ).toLocaleDateString()
+                                      : ""}
+                                  </span>
+                                </p>
+                                <p className="text-sm text-amber-900 mt-1 italic">
+                                  "{warning.appealReason}"
+                                </p>
+                              </div>
+                            )}
+
+                            {warning.adminDecision && (
+                              <div className="mt-2 p-2 bg-blue-100 rounded border border-blue-200">
+                                <p className="text-xs font-medium text-blue-800">
+                                  Admin Decision/Next Steps:
+                                </p>
+                                <p className="text-sm text-blue-900 mt-1">
+                                  {warning.adminDecision}
+                                </p>
+                                {warning.workerResponse === "ACCEPTED" && (
+                                  <div className="mt-1 flex items-center text-xs text-green-700 font-medium">
+                                    <Badge
+                                      variant="secondary"
+                                      className="bg-green-200 text-green-800 mr-2"
+                                    >
+                                      ACCEPTED
+                                    </Badge>
+                                    Worker acknowledged on{" "}
+                                    {warning.workerResponseDate
+                                      ? new Date(
+                                          warning.workerResponseDate,
+                                        ).toLocaleDateString()
+                                      : ""}
+                                  </div>
+                                )}
                               </div>
                             )}
 
@@ -334,8 +413,13 @@ export default function WarningsTab({
                             )}
 
                             {(canEditPerfomance || hasFullAccess) &&
-                              status === "ACTIVE" && (
-                                <div className="flex justify-end mt-3">
+                              [
+                                "ACTIVE",
+                                "APPEALED",
+                                "NEXT_STEP",
+                                "NEXT_STEP_ACCEPTED",
+                              ].includes(status) && (
+                                <div className="flex justify-end mt-3 space-x-2">
                                   <Button
                                     variant="outline"
                                     size="sm"
@@ -344,7 +428,9 @@ export default function WarningsTab({
                                     }
                                     className="text-green-600 border-green-600 hover:bg-green-50"
                                   >
-                                    Mark as Resolved
+                                    {status === "APPEALED"
+                                      ? "Review Appeal"
+                                      : "Mark as Resolved"}
                                   </Button>
                                 </div>
                               )}
@@ -352,7 +438,7 @@ export default function WarningsTab({
                         );
                       })}
                     </div>
-                  )
+                  ),
                 )
               )}
             </TabsContent>

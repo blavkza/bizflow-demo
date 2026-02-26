@@ -148,34 +148,14 @@ export function AttendanceList({
   };
 
   const hasBypass = (record: AttendanceRecord): boolean => {
-    // Strictly rely on the flag or rule ID set by the backend
-    if (record.bypassApplied || record.bypassRuleId) return true;
-
-    // Optional: Check if we have an active rule in the current list
-    const person = record.employee || record.freeLancer || record.trainee;
-    if (person && bypassRules && bypassRules.length > 0) {
-      const activeRule = bypassRules.find((rule: any) => {
-        const ruleStart = new Date(rule.startDate);
-        const ruleEnd = new Date(rule.endDate);
-        ruleStart.setHours(0, 0, 0, 0);
-        ruleEnd.setHours(23, 59, 59, 999);
-        const recordDate = new Date(record.date);
-        recordDate.setHours(12, 0, 0, 0);
-
-        const isDateInRange = recordDate >= ruleStart && recordDate <= ruleEnd;
-        const hasEmployee = rule.employees?.some(
-          (e: any) => e.id === person.id,
-        );
-        const hasFreelancer = rule.freelancers?.some(
-          (f: any) => f.id === person.id,
-        );
-        const hasTrainee = rule.trainees?.some((t: any) => t.id === person.id);
-
-        return isDateInRange && (hasEmployee || hasFreelancer || hasTrainee);
-      });
-      if (activeRule) return true;
+    if (record.bypassApplied) return true;
+    if (
+      record.notes?.toLowerCase().includes("bypass") ||
+      record.notes?.toLowerCase().includes("custom time") ||
+      record.notes?.toLowerCase().includes("restrictions bypassed")
+    ) {
+      return true;
     }
-
     return false;
   };
 
@@ -284,15 +264,14 @@ export function AttendanceList({
     // If we have a record, trust what the backend saved, as it might have specific logic
     if (record?.scheduledKnockIn) {
       knockIn = record.scheduledKnockIn;
-      if (record.bypassApplied || record.bypassRuleId) {
+      if (record.bypassApplied) {
         isBypassSchedule = true;
         bypassSource = "record";
 
         // Check if checkout time was recorded as bypass
         if (
           record.scheduledKnockOut &&
-          (record.bypassRuleId ||
-            record.notes?.toLowerCase().includes("bypass"))
+          record.notes?.toLowerCase().includes("bypass")
         ) {
           bypassCheckOutSpecified = true;
         }
@@ -300,7 +279,7 @@ export function AttendanceList({
     }
     if (record?.scheduledKnockOut) {
       knockOut = record.scheduledKnockOut;
-      if (record.bypassApplied || record.bypassRuleId) {
+      if (record.bypassApplied) {
         isBypassSchedule = true;
         bypassSource = "record";
         bypassCheckOutSpecified = true;
@@ -517,11 +496,7 @@ export function AttendanceList({
           let displayText = "";
 
           if (isBypassSchedule) {
-            if (bypassSource === "notes") {
-              displayText = "Manual Schedule: ";
-            } else {
-              displayText = "Bypass Schedule: ";
-            }
+            displayText = "Bypass Schedule: ";
           } else {
             displayText = "Scheduled: ";
           }

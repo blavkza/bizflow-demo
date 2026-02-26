@@ -765,11 +765,19 @@ model Warning {
   reason          String
   actionPlan      String?
   date            DateTime    @default(now())
-  status          String      @default("ACTIVE")
+  status          String      @default("ACTIVE") // ACTIVE, RESOLVED, APPEALED, REJECTED, NEXT_STEP, NEXT_STEP_ACCEPTED
   resolvedAt      DateTime?
   resolutionNotes String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
+  
+  // Appeal fields
+  appealReason    String?
+  appealDate      DateTime?
+  adminDecision   String?    // Instructions for "next step"
+  workerResponse  String?    // e.g. "ACCEPTED"
+  workerResponseDate DateTime?
+
   freeLancerId    String?
   traineeId       String?
   employee        Employee?   @relation(fields: [employeeId], references: [id])
@@ -778,6 +786,7 @@ model Warning {
 
   @@map("warnings")
 }
+
 
 model LeaveRequest {
   id                    String      @id @default(cuid())

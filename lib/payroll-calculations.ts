@@ -292,6 +292,7 @@ export function calculateDeductions(
   employeeType: "EMPLOYEE" | "FREELANCER" | "TRAINEE",
   pensionAmount: number,
   medicalTaxCredit: number,
+  damageLossAmount: number = 0,
   existingLoans: number = 0,
   warnings: string[] = [],
 ): { deductions: DeductionCalculation[]; nonStatutoryDeductionAmount: number } {
@@ -412,7 +413,7 @@ export function calculateDeductions(
   if (hrSettings.damageLossEnabled) {
     const maxDamage =
       (grossAmount * (hrSettings.damageLossMaxPercentage || 25)) / 100;
-    const actualDamage = 0;
+    const actualDamage = damageLossAmount;
     if (actualDamage > 0) {
       addNonStatutoryDeduction({
         type: "DAMAGE_LOSS",
@@ -598,6 +599,7 @@ export function calculatePayroll(
   employeeType: "EMPLOYEE" | "FREELANCER" | "TRAINEE",
   performanceMetrics?: PerformanceMetrics,
   attendanceBreakdown?: any,
+  damageLossAmount: number = 0,
   existingLoans: number = 0,
   dependants: number = 0,
 ): PayrollCalculationResult {
@@ -659,6 +661,7 @@ export function calculatePayroll(
     employeeType,
     pensionAmount,
     medicalTaxCredit,
+    damageLossAmount,
     existingLoans,
     warnings,
   );

@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { ToolStatus, ToolCondition } from "@prisma/client";
-import { sendPushNotification } from "@/lib/expo";
+import {
+  sendPushNotification,
+  sendPushFreelancer,
+  sendPushTrainee,
+} from "@/lib/expo";
 
 export async function PATCH(
   req: Request,
@@ -200,31 +204,120 @@ export async function PATCH(
         } as any,
       });
 
-      // 4. Create Notification for Employee
-      if (toolReturn.employeeId) {
+      // 4. Create Warning if damaged or lost
+      const isDamagedOrLost =
+        finalStatus === ToolStatus.LOST ||
+        finalStatus === ToolStatus.DAMAGED ||
+        (damageCost && Number(damageCost) > 0);
+
+      let warningId: string | undefined;
+
+      if (isDamagedOrLost) {
+        const warningType =
+          finalStatus === ToolStatus.LOST ? "Tool Loss" : "Tool Damage";
+        const severity =
+          finalStatus === ToolStatus.LOST || Number(damageCost) > 1000
+            ? "HIGH"
+            : "MEDIUM";
+        const reason = `${warningType}: ${toolReturn.tool.name}. ${
+          finalStatus === ToolStatus.LOST
+            ? "Tool reported as lost."
+            : `Damage confirmed upon return. Cost: R${damageCost || toolReturn.damageCost || 0}.`
+        } ${adminNotes ? `Admin Notes: ${adminNotes}` : ""}`;
+
+        const warning = await tx.warning.create({
+          data: {
+            employeeId: toolReturn.employeeId || null,
+            freeLancerId: toolReturn.freelancerId || null,
+            traineeId: toolReturn.traineeId || null,
+            type: warningType,
+            severity,
+            reason,
+            actionPlan:
+              finalStatus === ToolStatus.LOST
+                ? "Responsible for replacement cost."
+                : "Please handle equipment with more care.",
+            status: "ACTIVE",
+            date: new Date(),
+          },
+        });
+        warningId = warning.id;
+      }
+
+      // 5. Create Notification for Worker
+      const workerId =
+        toolReturn.employeeId ||
+        toolReturn.freelancerId ||
+        toolReturn.traineeId;
+      if (workerId) {
+        const message = isDamagedOrLost
+          ? `Your return for ${toolReturn.quantity}x ${toolReturn.tool.name} was approved with a warning. Final Damage Cost: R ${damageCost || 0}.`
+          : `Your return for ${toolReturn.quantity}x ${toolReturn.tool.name} was approved.`;
+
         await tx.employeeNotification.create({
           data: {
-            employeeId: toolReturn.employeeId,
-            title: "Tool Return Approved",
-            message: `Your return for ${toolReturn.quantity}x ${toolReturn.tool.name} was approved. Final Damage Cost: R ${damageCost || 0}.`,
+            employeeId: toolReturn.employeeId || null,
+            freeLancerId: toolReturn.freelancerId || null,
+            traineeId: toolReturn.traineeId || null,
+            title: isDamagedOrLost
+              ? "Tool Return Approved (With Warning)"
+              : "Tool Return Approved",
+            message: message,
             type: "TOOLS",
-            priority: "MEDIUM",
+            priority: isDamagedOrLost ? "HIGH" : "MEDIUM",
             channels: ["PUSH", "IN_APP"],
+            actionUrl: warningId
+              ? `/dashboard/warnings/${warningId}`
+              : `/dashboard/tools/${toolReturn.toolId}`,
           },
         });
       }
 
-      return updatedReturn;
+      return { ...updatedReturn, warningId };
     });
 
     // Send push notification
-    if (toolReturn.employeeId) {
+    const workerId =
+      toolReturn.employeeId || toolReturn.freelancerId || toolReturn.traineeId;
+    if (workerId) {
       try {
-        await sendPushNotification({
-          employeeId: toolReturn.employeeId,
-          title: "Tool Return Approved",
-          body: `Your return of ${toolReturn.tool.name} has been processed by admin.`,
-        });
+        const isDamagedOrLost =
+          status === ToolStatus.LOST ||
+          status === ToolStatus.DAMAGED ||
+          (damageCost && Number(damageCost) > 0);
+
+        const pushTitle = isDamagedOrLost
+          ? "Tool Return Approved (With Warning)"
+          : "Tool Return Approved";
+        const pushBody = `Your return of ${toolReturn.tool.name} has been processed by admin.`;
+        const pushData = {
+          warningId: (result as any).warningId,
+          type: isDamagedOrLost ? "WARNING" : "TOOLS",
+          toolId: toolReturn.toolId,
+        };
+
+        if (toolReturn.employeeId) {
+          await sendPushNotification({
+            employeeId: toolReturn.employeeId,
+            title: pushTitle,
+            body: pushBody,
+            data: pushData,
+          });
+        } else if (toolReturn.freelancerId) {
+          await sendPushFreelancer({
+            freelancerId: toolReturn.freelancerId,
+            title: pushTitle,
+            body: pushBody,
+            data: pushData,
+          });
+        } else if (toolReturn.traineeId) {
+          await sendPushTrainee({
+            traineeId: toolReturn.traineeId,
+            title: pushTitle,
+            body: pushBody,
+            data: pushData,
+          });
+        }
       } catch (e) {
         console.error("Push notification failed", e);
       }
