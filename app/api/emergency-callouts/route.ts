@@ -71,18 +71,27 @@ export async function POST(req: Request) {
         status: "PENDING",
 
         // Create leader records for all potential leaders
-        leaders:
-          leadersData.length > 0
-            ? {
-                create: leadersData.map((l) => ({
+        // If self-requested (leadersData is empty), the requester IS the selected leader.
+        leaders: {
+          create:
+            leadersData.length > 0
+              ? leadersData.map((l) => ({
                   userId: l.id,
                   employeeId: l.employeeId,
                   freelancerId: l.freeLancerId,
                   traineeId: l.traineeId,
                   status: "PENDING",
-                })),
-              }
-            : undefined,
+                }))
+              : [
+                  {
+                    userId: user.id,
+                    employeeId: user.employeeId,
+                    freelancerId: user.freeLancerId,
+                    traineeId: user.traineeId,
+                    status: "ACCEPTED",
+                  },
+                ],
+        },
       },
       include: {
         leaders: { include: { user: { select: { name: true } } } },

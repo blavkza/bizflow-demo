@@ -731,6 +731,7 @@ model AttendanceRecord {
   overtimeRequestId      String?
   overtimeAvailabilityId String?
   traineeId              String?
+  shiftReminderSent      Boolean          @default(false)
   employee               Employee?             @relation(fields: [employeeId], references: [id])
   freeLancer             FreeLancer?           @relation(fields: [freeLancerId], references: [id])
   overtimeRequest        OvertimeRequest?      @relation(fields: [overtimeRequestId], references: [id])
@@ -750,6 +751,7 @@ model BreakRecord {
   startTime          DateTime
   endTime            DateTime?
   duration           Int?
+  reminderSent       Boolean          @default(false)
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   attendanceRecord   AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
@@ -2738,6 +2740,7 @@ model OvertimeRequest {
   approvedAt        DateTime?
   approvedBy        String?
   traineeId         String?
+  isCallOut         Boolean            @default(false)
   attendanceRecords AttendanceRecord[]
   employee          Employee?          @relation(fields: [employeeId], references: [id])
   freeLancer        FreeLancer?        @relation(fields: [freeLancerId], references: [id])
@@ -2809,6 +2812,8 @@ model EmergencyCallOut {
   checkOutLng      Float?
   duration         Float?
   notes            String?
+  groupId          String?
+  isBroadcast      Boolean            @default(false)
   type             CallOutType?
   destination      String?
   vehicle          VehicleType?

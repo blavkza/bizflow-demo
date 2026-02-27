@@ -143,6 +143,11 @@ export function OvertimeRequestsList({
                       <Badge variant="outline" className={statusColor}>
                         {request.status}
                       </Badge>
+                      {request.isCallOut && (
+                        <Badge className="bg-blue-600 text-white border-transparent text-[10px] h-5 px-1.5">
+                          CALL OUT
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {person.position} • {person.department?.name}

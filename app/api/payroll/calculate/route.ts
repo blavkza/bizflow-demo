@@ -351,11 +351,14 @@ async function calculateWorkerPayroll(
       status: "APPROVED",
       // date filter is handled by matching records, but we could add it here too
     },
-    select: { date: true },
+    select: { date: true, isCallOut: true },
   });
 
-  const approvedDates = new Set(
-    approvedOvertimeRequests.map((req) => req.date.toISOString().split("T")[0]),
+  const approvedOvertimeMap = new Map(
+    approvedOvertimeRequests.map((req) => [
+      req.date.toISOString().split("T")[0],
+      req.isCallOut,
+    ]),
   );
 
   // Fetch completed Emergency Call Outs where worker was the requester (Team Leader)
@@ -440,12 +443,19 @@ async function calculateWorkerPayroll(
       const recordDateStr = new Date(record.date).toISOString().split("T")[0];
 
       // Only count overtime if it was approved for this date
-      if (approvedDates.has(recordDateStr)) {
+      if (approvedOvertimeMap.has(recordDateStr)) {
         const overtimeHours = Number(record.overtimeHours);
         totalOvertimeHours += overtimeHours;
 
+        // Apply call-out multiplier if this was a mobile call-out request
+        const isCallOutRequest = approvedOvertimeMap.get(recordDateStr);
+        const effectiveMultiplier = isCallOutRequest
+          ? Number(worker.emergencyCallOutRate) || 1.0
+          : 1.0;
+
         // Calculate overtime amount at individual rate
-        const overtimeAmount = overtimeHours * overtimeHourRate;
+        const overtimeAmount =
+          overtimeHours * overtimeHourRate * effectiveMultiplier;
         totalOvertimeAmount += overtimeAmount;
       }
     }

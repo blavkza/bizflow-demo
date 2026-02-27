@@ -197,6 +197,7 @@ export async function POST(request: NextRequest) {
           duration: hours ? parseFloat(hours) : null,
           reason: reason || "Accepting overtime offer",
           status: OvertimeStatus.PENDING,
+          isCallOut: true,
         },
       });
     }

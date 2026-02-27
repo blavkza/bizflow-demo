@@ -69,6 +69,18 @@ export async function POST(request: Request) {
         ? Math.random().toString(36).substring(2, 15)
         : undefined;
 
+    // Pre-fetch target workers' User info for leaders records
+    const targetUsersData = await db.user.findMany({
+      where: { id: { in: allTargetUserIds } },
+      select: {
+        id: true,
+        employeeId: true,
+        freeLancerId: true,
+        traineeId: true,
+      },
+    });
+    const targetUsersMap = new Map(targetUsersData.map((u) => [u.id, u]));
+
     const results = [];
 
     for (const targetUserId of allTargetUserIds) {
@@ -87,7 +99,17 @@ export async function POST(request: Request) {
           destination: address || null,
           vehicle: vehicle || null,
           description: description || message || null,
-          isTeamLeader: true,
+          leaders: {
+            create: [
+              {
+                userId: targetUserId,
+                employeeId: targetUsersMap.get(targetUserId)?.employeeId,
+                freelancerId: targetUsersMap.get(targetUserId)?.freeLancerId,
+                traineeId: targetUsersMap.get(targetUserId)?.traineeId,
+                status: "PENDING",
+              },
+            ],
+          },
           workerCount: assistantsData.length + 1,
           groupId: groupId || null,
           isBroadcast: allTargetUserIds.length > 1,
@@ -371,16 +393,28 @@ export async function PATCH(request: Request) {
         include: {
           requestedUser: {
             include: {
-              employee: { select: { emergencyCallOutRate: true } },
-              freeLancer: { select: { emergencyCallOutRate: true } },
-              trainee: { select: { emergencyCallOutRate: true } },
+              employee: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
+              freeLancer: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
+              trainee: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
             },
           },
           assistants: {
             include: {
-              employee: { select: { emergencyCallOutRate: true } },
-              freelancer: { select: { emergencyCallOutRate: true } },
-              trainee: { select: { emergencyCallOutRate: true } },
+              employee: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
+              freelancer: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
+              trainee: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
             },
           },
         },
@@ -393,11 +427,13 @@ export async function PATCH(request: Request) {
           (1000 * 60 * 60);
 
         // Unified rate: works for any user type
-        const mainRate =
-          current.requestedUser?.employee?.emergencyCallOutRate ||
-          current.requestedUser?.freeLancer?.emergencyCallOutRate ||
-          current.requestedUser?.trainee?.emergencyCallOutRate ||
-          0;
+        const worker =
+          current.requestedUser?.employee ||
+          current.requestedUser?.freeLancer ||
+          current.requestedUser?.trainee;
+        const baseRate = worker?.overtimeHourRate || 50;
+        const multiplier = worker?.emergencyCallOutRate || 1;
+        const effectiveRate = baseRate * multiplier;
 
         updateData.checkOut = checkOutTime;
         updateData.checkOutLat = lat;
@@ -406,23 +442,23 @@ export async function PATCH(request: Request) {
         updateData.duration = durationHours;
         updateData.status = "COMPLETED";
         updateData.completedAt = checkOutTime;
-        updateData.earnings = durationHours * mainRate;
-        updateData.hourlyRateUsed = mainRate;
+        updateData.earnings = durationHours * effectiveRate;
+        updateData.hourlyRateUsed = effectiveRate;
 
         if (current.assistants && current.assistants.length > 0) {
           await Promise.all(
             current.assistants.map(async (assistant) => {
-              const assistantRate =
-                assistant.employee?.emergencyCallOutRate ||
-                assistant.freelancer?.emergencyCallOutRate ||
-                assistant.trainee?.emergencyCallOutRate ||
-                0;
+              const aWorker =
+                assistant.employee || assistant.freelancer || assistant.trainee;
+              const aBaseRate = aWorker?.overtimeHourRate || 50;
+              const aMultiplier = aWorker?.emergencyCallOutRate || 1;
+              const aEffectiveRate = aBaseRate * aMultiplier;
 
               return db.callOutAssistant.update({
                 where: { id: assistant.id },
                 data: {
-                  earnings: durationHours * assistantRate,
-                  hourlyRateUsed: assistantRate,
+                  earnings: durationHours * aEffectiveRate,
+                  hourlyRateUsed: aEffectiveRate,
                   status: "ACCEPTED",
                 },
               });
