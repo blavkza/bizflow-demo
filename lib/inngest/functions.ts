@@ -413,7 +413,8 @@ export const processAutoShiftCheckout = inngest.createFunction(
           notes:
             (record.notes ? record.notes + " | " : "") +
             "Automatically checked out (forgot to knock off)",
-          status: "PRESENT" as any, // Default to present if they finished the shift
+          status:
+            record.status === "LATE" ? ("LATE" as any) : ("PRESENT" as any),
         },
       });
     });
