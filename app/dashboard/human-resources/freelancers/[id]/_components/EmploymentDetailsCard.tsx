@@ -233,11 +233,10 @@ export function EmploymentDetailsCard({
         {/* Emergency Call Out Rate */}
         <div>
           <p className="text-sm font-medium flex items-center text-blue-600">
-            Emergency Call Out Rate
+            Emergency Call Out Multiplier
           </p>
           <p className="text-sm font-semibold">
-            R {freelancer.emergencyCallOutRate?.toFixed(2) || "0.00"} per call
-            out
+            {freelancer.emergencyCallOutRate?.toFixed(2) || "1.00"}x
           </p>
         </div>
 

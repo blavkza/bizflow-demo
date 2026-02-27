@@ -392,7 +392,8 @@ async function calculateWorkerPayroll(
         },
       },
     },
-    include: {
+    select: {
+      earnings: true,
       emergencyCallOut: {
         select: {
           duration: true,

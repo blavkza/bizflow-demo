@@ -325,23 +325,35 @@ export async function PUT(
     } else if (status === "COMPLETED") {
       updateData.completedAt = new Date();
 
-      // Calculate earnings via requestedUser → employee/freeLancer/trainee
+      // Calculate earnings via leaders/assistants → employee/freeLancer/trainee
       const current = await db.emergencyCallOut.findUnique({
         where: { id },
         include: {
           leaders: {
             where: { status: "SELECTED" },
             include: {
-              employee: { select: { emergencyCallOutRate: true } },
-              freelancer: { select: { emergencyCallOutRate: true } },
-              trainee: { select: { emergencyCallOutRate: true } },
+              employee: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
+              freelancer: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
+              trainee: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
             },
           },
           assistants: {
             include: {
-              employee: { select: { emergencyCallOutRate: true } },
-              freelancer: { select: { emergencyCallOutRate: true } },
-              trainee: { select: { emergencyCallOutRate: true } },
+              employee: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
+              freelancer: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
+              trainee: {
+                select: { emergencyCallOutRate: true, overtimeHourRate: true },
+              },
             },
           },
         },
@@ -354,30 +366,32 @@ export async function PUT(
           (1000 * 60 * 60);
 
         const selectedLeader = current.leaders[0];
-        const leaderRate =
-          selectedLeader?.employee?.emergencyCallOutRate ||
-          selectedLeader?.freelancer?.emergencyCallOutRate ||
-          selectedLeader?.trainee?.emergencyCallOutRate ||
-          0;
+        const leaderWorker =
+          selectedLeader?.employee ||
+          selectedLeader?.freelancer ||
+          selectedLeader?.trainee;
+        const leaderBaseRate = leaderWorker?.overtimeHourRate || 50;
+        const leaderMultiplier = leaderWorker?.emergencyCallOutRate || 1;
+        const leaderEffectiveRate = leaderBaseRate * leaderMultiplier;
 
         updateData.checkOut = checkOutTime;
         updateData.duration = durationHours;
-        updateData.earnings = durationHours * leaderRate;
-        updateData.hourlyRateUsed = leaderRate;
+        updateData.earnings = durationHours * leaderEffectiveRate;
+        updateData.hourlyRateUsed = leaderEffectiveRate;
 
         if (current.assistants.length > 0) {
           await Promise.all(
             current.assistants.map((a) => {
-              const rate =
-                a.employee?.emergencyCallOutRate ||
-                a.freelancer?.emergencyCallOutRate ||
-                a.trainee?.emergencyCallOutRate ||
-                0;
+              const aWorker = a.employee || a.freelancer || a.trainee;
+              const aBaseRate = aWorker?.overtimeHourRate || 50;
+              const aMultiplier = aWorker?.emergencyCallOutRate || 1;
+              const aEffectiveRate = aBaseRate * aMultiplier;
+
               return db.callOutAssistant.update({
                 where: { id: a.id },
                 data: {
-                  earnings: durationHours * rate,
-                  hourlyRateUsed: rate,
+                  earnings: durationHours * aEffectiveRate,
+                  hourlyRateUsed: aEffectiveRate,
                   status: "ACCEPTED",
                 },
               });

@@ -350,11 +350,14 @@ export default function TraineeForm({
               name="emergencyCallOutRate"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Emergency Call-out Rate (R)</FormLabel>
+                  <FormLabel>
+                    Emergency Call-out Multiplier (e.g., 1.5)
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder="Enter call-out rate"
+                      step="0.1"
+                      placeholder="e.g., 1.5"
                       {...field}
                     />
                   </FormControl>

@@ -31,7 +31,7 @@ export async function POST(
       pendingTasks,
     } = body;
 
-    // Include requestedUser with all worker-type sub-relations for unified rate lookup.
+    // Include requestedUser and leaders with all worker-type sub-relations for unified rate lookup.
     const callOut = await db.emergencyCallOut.findUnique({
       where: { id },
       include: {
@@ -39,18 +39,66 @@ export async function POST(
           include: {
             user: {
               include: {
-                employee: { select: { emergencyCallOutRate: true } },
-                freeLancer: { select: { emergencyCallOutRate: true } },
-                trainee: { select: { emergencyCallOutRate: true } },
+                employee: {
+                  select: {
+                    emergencyCallOutRate: true,
+                    overtimeHourRate: true,
+                  },
+                },
+                freeLancer: {
+                  select: {
+                    emergencyCallOutRate: true,
+                    overtimeHourRate: true,
+                  },
+                },
+                trainee: {
+                  select: {
+                    emergencyCallOutRate: true,
+                    overtimeHourRate: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        leaders: {
+          where: { status: "SELECTED" },
+          include: {
+            user: {
+              include: {
+                employee: {
+                  select: {
+                    emergencyCallOutRate: true,
+                    overtimeHourRate: true,
+                  },
+                },
+                freeLancer: {
+                  select: {
+                    emergencyCallOutRate: true,
+                    overtimeHourRate: true,
+                  },
+                },
+                trainee: {
+                  select: {
+                    emergencyCallOutRate: true,
+                    overtimeHourRate: true,
+                  },
+                },
               },
             },
           },
         },
         requestedUser: {
           include: {
-            employee: { select: { emergencyCallOutRate: true } },
-            freeLancer: { select: { emergencyCallOutRate: true } },
-            trainee: { select: { emergencyCallOutRate: true } },
+            employee: {
+              select: { emergencyCallOutRate: true, overtimeHourRate: true },
+            },
+            freeLancer: {
+              select: { emergencyCallOutRate: true, overtimeHourRate: true },
+            },
+            trainee: {
+              select: { emergencyCallOutRate: true, overtimeHourRate: true },
+            },
           },
         },
       },
@@ -80,15 +128,19 @@ export async function POST(
     const durationHours =
       (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
 
-    // Unified rate helper — works for employee, freelancer, or trainee user
-    const getEffectiveRate = (u: any) =>
-      u?.employee?.emergencyCallOutRate ||
-      u?.freeLancer?.emergencyCallOutRate ||
-      u?.trainee?.emergencyCallOutRate ||
-      0;
+    // Unified rate helper — returns effective hourly rate (base OT rate * multiplier)
+    const getEffectiveLeaderRate = (u: any) => {
+      const worker = u?.employee || u?.freeLancer || u?.trainee;
+      if (!worker) return 0;
+      const baseRate = worker.overtimeHourRate || 50;
+      const multiplier = worker.emergencyCallOutRate || 1;
+      return baseRate * multiplier;
+    };
 
-    const requesterRate = getEffectiveRate(callOut.requestedUser);
-    const requesterEarnings = durationHours * requesterRate;
+    // Use selected leader if available, otherwise fallback to requestedUser
+    const leaderUser = callOut.leaders[0]?.user || callOut.requestedUser;
+    const leaderEffectiveRate = getEffectiveLeaderRate(leaderUser);
+    const leaderEarnings = durationHours * leaderEffectiveRate;
 
     const updatedCallOut = await db.emergencyCallOut.update({
       where: { id },
@@ -100,8 +152,8 @@ export async function POST(
         status: "COMPLETED",
         completedAt: checkOutTime,
         duration: durationHours,
-        hourlyRateUsed: requesterRate,
-        earnings: requesterEarnings,
+        hourlyRateUsed: leaderEffectiveRate,
+        earnings: leaderEarnings,
         reportDiagnosis: diagnosis,
         reportProposal: proposal,
         reportSolution: solution,
@@ -113,15 +165,19 @@ export async function POST(
     // Update assistants' earnings
     if (callOut.assistants && callOut.assistants.length > 0) {
       for (const assistant of callOut.assistants) {
-        if (assistant.status === "ACCEPTED" && assistant.user) {
-          const assistantRate = getEffectiveRate(assistant.user);
-          const assistantEarnings = durationHours * assistantRate;
+        if (
+          (assistant.status === "ACCEPTED" ||
+            assistant.status === "SELECTED") &&
+          assistant.user
+        ) {
+          const assistantEffectiveRate = getEffectiveLeaderRate(assistant.user);
+          const assistantEarnings = durationHours * assistantEffectiveRate;
 
           await db.callOutAssistant.update({
             where: { id: assistant.id },
             data: {
               earnings: assistantEarnings,
-              hourlyRateUsed: assistantRate,
+              hourlyRateUsed: assistantEffectiveRate,
             },
           });
         }
