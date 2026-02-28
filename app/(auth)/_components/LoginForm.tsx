@@ -91,12 +91,14 @@ export default function LoginForm() {
                         </Label>
                       </div>
                       <div className="relative">
-                        <Clerk.Input
-                          type={showPassword ? "text" : "password"}
-                          required
-                          className="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/30"
-                          placeholder="Enter your password"
-                        />
+                        <Clerk.Input asChild>
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            required
+                            className="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/30"
+                            placeholder="Enter your password"
+                          />
+                        </Clerk.Input>
                         <button
                           type="button"
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
