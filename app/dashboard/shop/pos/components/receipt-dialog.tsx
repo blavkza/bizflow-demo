@@ -89,7 +89,7 @@ export function ReceiptDialog({
     setLoadingStockAwait(true);
     try {
       const response = await fetch(
-        `/api/shop/sales/${completedSale.id}/stock-awaits`
+        `/api/shop/sales/${completedSale.id}/stock-awaits`,
       );
       if (response.ok) {
         const data = await response.json();
@@ -178,7 +178,7 @@ export function ReceiptDialog({
       console.log("Downloading receipt with data:", completedSale);
       const blob = await receiptGenerator.generateReceiptPDF(
         completedSale,
-        receiptSize
+        receiptSize,
       );
 
       if (!blob || blob.size === 0) {
@@ -187,7 +187,7 @@ export function ReceiptDialog({
 
       await receiptGenerator.downloadReceipt(
         blob,
-        `receipt-${completedSale.saleNumber || "unknown"}.html`
+        `receipt-${completedSale.saleNumber || "unknown"}.html`,
       );
       toast({
         title: "Receipt Downloaded",
@@ -287,7 +287,7 @@ export function ReceiptDialog({
 
     const requiredFields = ["id", "saleNumber", "total", "paymentMethod"];
     const missingFields = requiredFields.filter(
-      (field) => !completedSale[field]
+      (field) => !completedSale[field],
     );
 
     if (missingFields.length > 0) {

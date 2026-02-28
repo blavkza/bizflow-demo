@@ -39,7 +39,7 @@ export default function POSPage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerAddress, setCustomerAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
-    PaymentMethod.CASH
+    PaymentMethod.CASH,
   );
   const [amountReceived, setAmountReceived] = useState("");
   const [discount, setDiscount] = useState(0);
@@ -58,6 +58,56 @@ export default function POSPage() {
     visible: false,
   });
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // ── Cash Drawer ──────────────────────────────────────────────────────────
+  // Calls the local hardware agent (Electron) to fire the ESC/POS drawer command.
+  // Only called for CASH payments. Silently fails so card sales are never blocked.
+  const openCashDrawer = async (saleId: string, saleTotal: number) => {
+    try {
+      const agentKey = process.env.NEXT_PUBLIC_POS_AGENT_KEY;
+      if (!agentKey) {
+        console.warn(
+          "[Drawer] NEXT_PUBLIC_POS_AGENT_KEY not set — skipping drawer open",
+        );
+        return;
+      }
+
+      const res = await fetch("http://localhost:3001/open-drawer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-API-Key": agentKey,
+        },
+        body: JSON.stringify({
+          paymentMethod: "CASH",
+          transactionId: saleId,
+          amount: saleTotal,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.warn("[Drawer] Agent returned error:", body?.error);
+        toast({
+          title: "Cash Drawer Warning",
+          description:
+            body?.error || "Drawer did not open — please open manually.",
+          variant: "default",
+          className: "bg-yellow-50 text-yellow-900 border-yellow-200",
+        });
+      }
+    } catch (err) {
+      // Agent is offline or not installed — DO NOT block the sale
+      console.warn("[Drawer] Hardware agent not reachable:", err);
+      toast({
+        title: "Cash Drawer Offline",
+        description:
+          "POS agent not running — please open the cash drawer manually.",
+        variant: "default",
+        className: "bg-yellow-50 text-yellow-900 border-yellow-200",
+      });
+    }
+  };
 
   // Quotation states
   const [isQuotationDialogOpen, setIsQuotationDialogOpen] = useState(false);
@@ -114,7 +164,7 @@ export default function POSPage() {
 
   const showScanNotice = (
     message: string,
-    type: "error" | "warning" | "info"
+    type: "error" | "warning" | "info",
   ) => {
     setScanNotice({
       message,
@@ -140,7 +190,7 @@ export default function POSPage() {
       if (existingItem.quantity >= product.stock) {
         showScanNotice(
           `Only ${product.stock} units available of ${product.name}. You can still add more, but this exceeds current stock.`,
-          "warning"
+          "warning",
         );
       }
 
@@ -148,8 +198,8 @@ export default function POSPage() {
         cart.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
-            : item
-        )
+            : item,
+        ),
       );
 
       if (product.stock > 0) {
@@ -157,7 +207,7 @@ export default function POSPage() {
       } else {
         showScanNotice(
           `Added ${product.name} to cart (Out of stock)`,
-          "warning"
+          "warning",
         );
       }
     } else {
@@ -180,7 +230,7 @@ export default function POSPage() {
       } else {
         showScanNotice(
           `Added ${product.name} to cart (Out of stock)`,
-          "warning"
+          "warning",
         );
       }
     }
@@ -193,7 +243,7 @@ export default function POSPage() {
     if (product && product.status !== "ACTIVE") {
       showScanNotice(
         `${product.name} is no longer available for sale`,
-        "error"
+        "error",
       );
       removeFromCart(id);
       return;
@@ -206,14 +256,14 @@ export default function POSPage() {
       if (product && newQuantity > product.stock) {
         showScanNotice(
           `Only ${product.stock} units available. You can still proceed, but this exceeds current stock.`,
-          "warning"
+          "warning",
         );
       }
 
       setCart(
         cart.map((item) =>
-          item.id === id ? { ...item, quantity: newQuantity } : item
-        )
+          item.id === id ? { ...item, quantity: newQuantity } : item,
+        ),
       );
     }
   };
@@ -222,8 +272,8 @@ export default function POSPage() {
   const updatePrice = (id: string, newPrice: number) => {
     setCart((prevCart) =>
       prevCart.map((item) =>
-        item.id === id ? { ...item, price: newPrice } : item
-      )
+        item.id === id ? { ...item, price: newPrice } : item,
+      ),
     );
   };
 
@@ -247,72 +297,111 @@ export default function POSPage() {
     setActiveCoupon(null);
   };
 
-  const handleApplyCoupon = async (code: string): Promise<{ success: boolean; message?: string }> => {
-      setCouponLoading(true);
-      try {
-          const res = await fetch(`/api/coupons?code=${code}`);
-          if (!res.ok) throw new Error("Failed to fetch coupon");
-          const fetchedCoupons: Coupon[] = await res.json();
-          // The API returns an array since we used findMany
-          // We need to find the exact match case-insensitive
-          const coupon = fetchedCoupons.find(c => c.code.toLowerCase() === code.toLowerCase());
+  const handleApplyCoupon = async (
+    code: string,
+  ): Promise<{ success: boolean; message?: string }> => {
+    setCouponLoading(true);
+    try {
+      const res = await fetch(`/api/coupons?code=${code}`);
+      if (!res.ok) throw new Error("Failed to fetch coupon");
+      const fetchedCoupons: Coupon[] = await res.json();
+      // The API returns an array since we used findMany
+      // We need to find the exact match case-insensitive
+      const coupon = fetchedCoupons.find(
+        (c) => c.code.toLowerCase() === code.toLowerCase(),
+      );
 
-          if (!coupon) {
-               toast({ title: "Invalid Coupon", description: "Coupon code not found", variant: "destructive" });
-               return { success: false, message: "Coupon code not found" };
-          }
-
-          if (!coupon.isActive) {
-               toast({ title: "Invalid Coupon", description: "This coupon is inactive", variant: "destructive" });
-               return { success: false, message: "Coupon is inactive" };
-          }
-
-          const now = new Date();
-          if (new Date(coupon.startDate) > now) {
-               toast({ title: "Invalid Coupon", description: "This coupon is not yet active", variant: "destructive" });
-               return { success: false, message: "Coupon is not yet active" };
-          }
-
-          if (coupon.endDate && new Date(coupon.endDate) < now) {
-               toast({ title: "Invalid Coupon", description: "This coupon has expired", variant: "destructive" });
-               return { success: false, message: "Coupon has expired" };
-          }
-
-          if (coupon.minOrderAmount && subtotal < coupon.minOrderAmount) {
-               toast({ title: "Requirements Not Met", description: `Minimum order amount of R${coupon.minOrderAmount} required`, variant: "destructive" });
-               return { success: false, message: `Minimum order of R${coupon.minOrderAmount} required` };
-          }
-          
-           // Usage limit check (simple check, backend should double check on checkout)
-           if (coupon.usageLimit && (coupon as any).usedCount >= coupon.usageLimit) {
-               toast({ title: "Limit Reached", description: "This coupon has reached its usage limit", variant: "destructive" });
-               return { success: false, message: "Coupon usage limit reached" };
-           }
-
-          setActiveCoupon(coupon);
-          setDiscount(0); // Clear manual discount
-          toast({ title: "Coupon Applied", description: `${coupon.code} applied successfully` });
-          return { success: true };
-      } catch (error) {
-          console.error(error);
-          toast({ title: "Error", description: "Failed to apply coupon", variant: "destructive" });
-          return { success: false, message: "An unexpected error occurred" };
-      } finally {
-          setCouponLoading(false);
+      if (!coupon) {
+        toast({
+          title: "Invalid Coupon",
+          description: "Coupon code not found",
+          variant: "destructive",
+        });
+        return { success: false, message: "Coupon code not found" };
       }
+
+      if (!coupon.isActive) {
+        toast({
+          title: "Invalid Coupon",
+          description: "This coupon is inactive",
+          variant: "destructive",
+        });
+        return { success: false, message: "Coupon is inactive" };
+      }
+
+      const now = new Date();
+      if (new Date(coupon.startDate) > now) {
+        toast({
+          title: "Invalid Coupon",
+          description: "This coupon is not yet active",
+          variant: "destructive",
+        });
+        return { success: false, message: "Coupon is not yet active" };
+      }
+
+      if (coupon.endDate && new Date(coupon.endDate) < now) {
+        toast({
+          title: "Invalid Coupon",
+          description: "This coupon has expired",
+          variant: "destructive",
+        });
+        return { success: false, message: "Coupon has expired" };
+      }
+
+      if (coupon.minOrderAmount && subtotal < coupon.minOrderAmount) {
+        toast({
+          title: "Requirements Not Met",
+          description: `Minimum order amount of R${coupon.minOrderAmount} required`,
+          variant: "destructive",
+        });
+        return {
+          success: false,
+          message: `Minimum order of R${coupon.minOrderAmount} required`,
+        };
+      }
+
+      // Usage limit check (simple check, backend should double check on checkout)
+      if (coupon.usageLimit && (coupon as any).usedCount >= coupon.usageLimit) {
+        toast({
+          title: "Limit Reached",
+          description: "This coupon has reached its usage limit",
+          variant: "destructive",
+        });
+        return { success: false, message: "Coupon usage limit reached" };
+      }
+
+      setActiveCoupon(coupon);
+      setDiscount(0); // Clear manual discount
+      toast({
+        title: "Coupon Applied",
+        description: `${coupon.code} applied successfully`,
+      });
+      return { success: true };
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to apply coupon",
+        variant: "destructive",
+      });
+      return { success: false, message: "An unexpected error occurred" };
+    } finally {
+      setCouponLoading(false);
+    }
   };
 
   const handleRemoveCoupon = () => {
-      setActiveCoupon(null);
-      toast({ title: "Coupon Removed" });
+    setActiveCoupon(null);
+    toast({ title: "Coupon Removed" });
   };
-
 
   // Calculate totals with VAT and delivery
   // Subtotal based on ORIGINAL prices
   const subtotal = cart.reduce(
-    (sum, item) => sum + (Number(item.originalPrice) || Number(item.price) || 0) * item.quantity,
-    0
+    (sum, item) =>
+      sum +
+      (Number(item.originalPrice) || Number(item.price) || 0) * item.quantity,
+    0,
   );
 
   // Calculate item-level discounts (difference between original and current price)
@@ -330,42 +419,45 @@ export default function POSPage() {
 
   // Apply discount limits from POS settings
   const maxDiscount = posSettings?.maxDiscountRate || 100;
-  
+
   let globalDiscountAmount = 0;
   let actualDiscount = 0;
-  
+
   if (activeCoupon) {
-      if (activeCoupon.type === "PERCENTAGE") {
-          // If coupon applies to specific products only
-          if (activeCoupon.products && activeCoupon.products.length > 0) {
-             // Calculate discount only on specific items
-             const applicableItemIds = activeCoupon.products.map(p => p.id);
-             const applicableSubtotal = cart.reduce((sum, item) => {
-                 if (applicableItemIds.includes(item.id)) {
-                     // Use current price (already potentially discounted at item level) for base
-                     return sum + (Number(item.price) || 0) * item.quantity;
-                 }
-                 return sum;
-             }, 0);
-             globalDiscountAmount = (applicableSubtotal * activeCoupon.value) / 100;
-             // Calculate effective global percentage for display based on original subtotal
-             actualDiscount = subtotal > 0 ? (globalDiscountAmount / subtotal) * 100 : 0;
-          } else {
-             // Apply to whole cart (after item discounts)
-             globalDiscountAmount = (cartValueAfterItemDiscounts * activeCoupon.value) / 100;
-             actualDiscount = activeCoupon.value;
+    if (activeCoupon.type === "PERCENTAGE") {
+      // If coupon applies to specific products only
+      if (activeCoupon.products && activeCoupon.products.length > 0) {
+        // Calculate discount only on specific items
+        const applicableItemIds = activeCoupon.products.map((p) => p.id);
+        const applicableSubtotal = cart.reduce((sum, item) => {
+          if (applicableItemIds.includes(item.id)) {
+            // Use current price (already potentially discounted at item level) for base
+            return sum + (Number(item.price) || 0) * item.quantity;
           }
+          return sum;
+        }, 0);
+        globalDiscountAmount = (applicableSubtotal * activeCoupon.value) / 100;
+        // Calculate effective global percentage for display based on original subtotal
+        actualDiscount =
+          subtotal > 0 ? (globalDiscountAmount / subtotal) * 100 : 0;
       } else {
-          // Fixed Amount
-          globalDiscountAmount = Number(activeCoupon.value);
-          actualDiscount = subtotal > 0 ? (globalDiscountAmount / subtotal) * 100 : 0;
+        // Apply to whole cart (after item discounts)
+        globalDiscountAmount =
+          (cartValueAfterItemDiscounts * activeCoupon.value) / 100;
+        actualDiscount = activeCoupon.value;
       }
+    } else {
+      // Fixed Amount
+      globalDiscountAmount = Number(activeCoupon.value);
+      actualDiscount =
+        subtotal > 0 ? (globalDiscountAmount / subtotal) * 100 : 0;
+    }
   } else {
-      // Manual Discount
-      actualDiscount = Math.min(discount, maxDiscount);
-      globalDiscountAmount = (cartValueAfterItemDiscounts * actualDiscount) / 100;
+    // Manual Discount
+    actualDiscount = Math.min(discount, maxDiscount);
+    globalDiscountAmount = (cartValueAfterItemDiscounts * actualDiscount) / 100;
   }
-  
+
   // Total discount is item-level + global
   let discountAmount = itemLevelDiscount + globalDiscountAmount;
 
@@ -380,10 +472,10 @@ export default function POSPage() {
   // Calculate delivery fee
   const freeDeliveryThreshold = posSettings?.freeDeliveryAbove || 500;
   const baseDeliveryFee = posSettings?.deliveryFee || 50;
-  
+
   // Check against the final cart value (after all discounts) for free delivery eligibility?
   // Usually free delivery is based on spending amount.
-  const spendAmount = taxableAmount; 
+  const spendAmount = taxableAmount;
 
   const deliveryAmount =
     isDelivery && posSettings?.deliveryEnabled
@@ -423,7 +515,7 @@ export default function POSPage() {
         cart.filter((item) => {
           const product = products.find((p) => p.id === item.id);
           return product && product.status === "ACTIVE";
-        })
+        }),
       );
 
       return;
@@ -435,7 +527,7 @@ export default function POSPage() {
   const handleManualBarcodeSearch = () => {
     if (barcodeInput.trim()) {
       const product = products.find(
-        (p) => p.sku === barcodeInput.trim().toUpperCase()
+        (p) => p.sku === barcodeInput.trim().toUpperCase(),
       );
 
       if (product) {
@@ -647,7 +739,7 @@ export default function POSPage() {
               deliveryInstructions,
               couponId: activeCoupon?.id, // Add couponId to request
             }),
-          }
+          },
         );
 
         if (!response.ok) {
@@ -656,6 +748,11 @@ export default function POSPage() {
         }
 
         const sale = await response.json();
+
+        // ── Open cash drawer if payment is CASH ──────────────────────────
+        if (paymentMethod === PaymentMethod.CASH) {
+          await openCashDrawer(sale.id, total);
+        }
 
         setCompletedSale({
           ...sale,
@@ -772,6 +869,11 @@ export default function POSPage() {
         const sale = await saleApi.create(saleData);
 
         console.log("Sale created:", sale);
+
+        // ── Open cash drawer if payment is CASH ──────────────────────────
+        if (paymentMethod === PaymentMethod.CASH) {
+          await openCashDrawer(sale.id, total);
+        }
 
         setCompletedSale({
           ...sale,

@@ -158,7 +158,7 @@ class RefundReceiptGenerator {
   // Helper function to calculate tax from total
   private calculateTaxFromTotal(
     total: number,
-    taxRate: number = this.DEFAULT_TAX_RATE
+    taxRate: number = this.DEFAULT_TAX_RATE,
   ): {
     taxAmount: number;
     subtotalBeforeTax: number;
@@ -186,7 +186,7 @@ class RefundReceiptGenerator {
   async generateRefundReceiptHTML(
     refundData: any,
     size: RefundReceiptSize = "thermal",
-    includePrintButton: boolean = true
+    includePrintButton: boolean = true,
   ): Promise<string> {
     // No need to fetch product details since they're already in the structure
     // Calculate tax from total if not provided
@@ -360,7 +360,7 @@ class RefundReceiptGenerator {
                   <td style="padding: 12px; text-align: right; border: 1px solid #ddd; vertical-align: top;">R${this.formatNumber(item.price)}</td>
                   <td style="padding: 12px; text-align: right; border: 1px solid #ddd; vertical-align: top;">R${this.formatNumber(item.total)}</td>
                 </tr>
-              `
+              `,
                 )
                 .join("")}
             </tbody>
@@ -405,7 +405,7 @@ class RefundReceiptGenerator {
 
   private generateThermalRefundReceipt(
     data: RefundReceiptData,
-    includePrintButton: boolean = true
+    includePrintButton: boolean = true,
   ): string {
     const hasLogo = data.company.logo;
 
@@ -560,7 +560,7 @@ class RefundReceiptGenerator {
                   <div>R${this.formatNumber(item.total)}</div>
                 </div>
               </div>
-            `
+            `,
               )
               .join("")}
           </div>
@@ -616,7 +616,7 @@ class RefundReceiptGenerator {
 
   private generateA4RefundReceipt(
     data: RefundReceiptData,
-    includePrintButton: boolean = true
+    includePrintButton: boolean = true,
   ): string {
     const hasLogo = data.company.logo;
 
@@ -817,7 +817,7 @@ class RefundReceiptGenerator {
                   <td style="text-align: right;">R${this.formatNumber(item.price)}</td>
                   <td style="text-align: right;">R${this.formatNumber(item.total)}</td>
                 </tr>
-              `
+              `,
                 )
                 .join("")}
             </tbody>
@@ -861,12 +861,12 @@ class RefundReceiptGenerator {
 
   async generateRefundReceiptPDF(
     refundData: any,
-    size: RefundReceiptSize = "thermal"
+    size: RefundReceiptSize = "thermal",
   ): Promise<Blob> {
     const htmlContent = await this.generateRefundReceiptHTML(
       refundData,
       size,
-      false
+      false,
     );
     const blob = new Blob([htmlContent], { type: "text/html" });
     return blob;
@@ -885,12 +885,12 @@ class RefundReceiptGenerator {
 
   async printRefundReceipt(
     refundData: any,
-    size: RefundReceiptSize = "thermal"
+    size: RefundReceiptSize = "thermal",
   ): Promise<void> {
     const htmlContent = await this.generateRefundReceiptHTML(
       refundData,
       size,
-      true
+      true,
     );
     const printWindow = window.open("", "_blank");
     if (printWindow) {

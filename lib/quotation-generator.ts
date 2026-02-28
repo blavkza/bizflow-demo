@@ -161,7 +161,7 @@ class QuotationGenerator {
   // Helper function to calculate tax from total
   private calculateTaxFromTotal(
     total: number,
-    taxRate: number = this.DEFAULT_TAX_RATE
+    taxRate: number = this.DEFAULT_TAX_RATE,
   ): {
     taxAmount: number;
     subtotalBeforeTax: number;
@@ -176,14 +176,14 @@ class QuotationGenerator {
   }
 
   async fetchProductDetails(
-    quoteItems: SaleQuoteItem[]
+    quoteItems: SaleQuoteItem[],
   ): Promise<SaleQuoteItem[]> {
     try {
       const itemsWithProducts = await Promise.all(
         quoteItems.map(async (item) => {
           try {
             const response = await fetch(
-              `/api/shop/products/${item.shopProductId}`
+              `/api/shop/products/${item.shopProductId}`,
             );
             if (response.ok) {
               const productData = await response.json();
@@ -198,7 +198,7 @@ class QuotationGenerator {
           } catch (error) {
             console.error(
               `Error fetching product ${item.shopProductId}:`,
-              error
+              error,
             );
           }
 
@@ -209,7 +209,7 @@ class QuotationGenerator {
               sku: "N/A",
             },
           };
-        })
+        }),
       );
 
       return itemsWithProducts;
@@ -229,10 +229,10 @@ class QuotationGenerator {
     quoteData: any,
     size: QuotationSize = "thermal",
     includePrintButton: boolean = true,
-    showItemPrices: boolean = true
+    showItemPrices: boolean = true,
   ): Promise<string> {
     const itemsWithProducts = await this.fetchProductDetails(
-      quoteData.items || []
+      quoteData.items || [],
     );
 
     // Calculate tax from total if not provided
@@ -249,7 +249,7 @@ class QuotationGenerator {
         quoteData.total - (quoteData.deliveryFee || 0);
       const calculated = this.calculateTaxFromTotal(
         totalWithoutDelivery,
-        taxRate
+        taxRate,
       );
       taxAmount = calculated.taxAmount;
       subtotalBeforeTax = calculated.subtotalBeforeTax;
@@ -288,22 +288,22 @@ class QuotationGenerator {
       return this.generateA4Quotation(
         safeData,
         includePrintButton,
-        showItemPrices
+        showItemPrices,
       );
     }
     return this.generateThermalQuotation(
       safeData,
       includePrintButton,
-      showItemPrices
+      showItemPrices,
     );
   }
 
   async generateQuotationForEmail(
     quoteData: any,
-    showItemPrices: boolean = true
+    showItemPrices: boolean = true,
   ): Promise<string> {
     const itemsWithProducts = await this.fetchProductDetails(
-      quoteData.items || []
+      quoteData.items || [],
     );
 
     // Calculate tax from total if not provided
@@ -320,7 +320,7 @@ class QuotationGenerator {
         quoteData.total - (quoteData.deliveryFee || 0);
       const calculated = this.calculateTaxFromTotal(
         totalWithoutDelivery,
-        taxRate
+        taxRate,
       );
       taxAmount = calculated.taxAmount;
       subtotalBeforeTax = calculated.subtotalBeforeTax;
@@ -438,7 +438,7 @@ class QuotationGenerator {
                 }
                 <td style="padding: 15px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 700;">R${this.formatNumber(item.total)}</td>
               </tr>
-            `
+            `,
               )
               .join("")}
           </tbody>
@@ -512,7 +512,7 @@ class QuotationGenerator {
   private generateThermalQuotation(
     data: QuotationData,
     includePrintButton: boolean = true,
-    showItemPrices: boolean = true
+    showItemPrices: boolean = true,
   ): string {
     const hasLogo = data.company.logo;
 
@@ -723,7 +723,7 @@ class QuotationGenerator {
                   : ""
               }
             </div>
-          `
+          `,
             )
             .join("")}
         </div>
@@ -818,7 +818,7 @@ class QuotationGenerator {
   private generateA4Quotation(
     data: QuotationData,
     includePrintButton: boolean = true,
-    showItemPrices: boolean = true
+    showItemPrices: boolean = true,
   ): string {
     const hasLogo = data.company.logo;
 
@@ -1085,7 +1085,7 @@ class QuotationGenerator {
                 }
                 <td style="text-align: right; font-weight: 800;">R${this.formatNumber(item.total)}</td>
               </tr>
-            `
+            `,
               )
               .join("")}
           </tbody>
@@ -1164,13 +1164,13 @@ class QuotationGenerator {
   async generateQuotationPDF(
     quoteData: any,
     size: QuotationSize = "thermal",
-    showItemPrices: boolean = true
+    showItemPrices: boolean = true,
   ): Promise<Blob> {
     const htmlContent = await this.generateQuotationHTML(
       quoteData,
       size,
       false,
-      showItemPrices
+      showItemPrices,
     );
     const blob = new Blob([htmlContent], { type: "text/html" });
     return blob;
@@ -1190,13 +1190,13 @@ class QuotationGenerator {
   async printQuotation(
     quoteData: any,
     size: QuotationSize = "thermal",
-    showItemPrices: boolean = true
+    showItemPrices: boolean = true,
   ): Promise<void> {
     const htmlContent = await this.generateQuotationHTML(
       quoteData,
       size,
       true,
-      showItemPrices
+      showItemPrices,
     );
     const printWindow = window.open("", "_blank");
     if (printWindow) {

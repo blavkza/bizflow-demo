@@ -140,7 +140,7 @@ class ReceiptGenerator {
   // Helper function to calculate tax from total
   private calculateTaxFromTotal(
     total: number,
-    taxRate: number = this.DEFAULT_TAX_RATE
+    taxRate: number = this.DEFAULT_TAX_RATE,
   ): {
     taxAmount: number;
     subtotalBeforeTax: number;
@@ -160,7 +160,7 @@ class ReceiptGenerator {
         saleItems.map(async (item) => {
           try {
             const response = await fetch(
-              `/api/shop/products/${item.shopProductId}`
+              `/api/shop/products/${item.shopProductId}`,
             );
             if (response.ok) {
               const productData = await response.json();
@@ -175,7 +175,7 @@ class ReceiptGenerator {
           } catch (error) {
             console.error(
               `Error fetching product ${item.shopProductId}:`,
-              error
+              error,
             );
           }
 
@@ -186,7 +186,7 @@ class ReceiptGenerator {
               sku: "N/A",
             },
           };
-        })
+        }),
       );
 
       return itemsWithProducts;
@@ -218,10 +218,10 @@ class ReceiptGenerator {
   async generateReceiptHTML(
     saleData: any,
     size: ReceiptSize = "thermal",
-    includePrintButton: boolean = true
+    includePrintButton: boolean = true,
   ): Promise<string> {
     const itemsWithProducts = await this.fetchProductDetails(
-      saleData.items || []
+      saleData.items || [],
     );
 
     // Fetch stock await items if sale status is AWAITING_STOCK
@@ -242,7 +242,7 @@ class ReceiptGenerator {
     if (!taxAmount || taxAmount === 0) {
       const calculated = this.calculateTaxFromTotal(
         saleData.total || 0,
-        taxRate
+        taxRate,
       );
       taxAmount = calculated.taxAmount;
       subtotalBeforeTax = calculated.subtotalBeforeTax;
@@ -290,7 +290,7 @@ class ReceiptGenerator {
 
   async generateReceiptForEmail(saleData: any): Promise<string> {
     const itemsWithProducts = await this.fetchProductDetails(
-      saleData.items || []
+      saleData.items || [],
     );
 
     // Fetch stock await items if sale status is AWAITING_STOCK
@@ -311,7 +311,7 @@ class ReceiptGenerator {
     if (!taxAmount || taxAmount === 0) {
       const calculated = this.calculateTaxFromTotal(
         saleData.total || 0,
-        taxRate
+        taxRate,
       );
       taxAmount = calculated.taxAmount;
       subtotalBeforeTax = calculated.subtotalBeforeTax;
@@ -416,7 +416,7 @@ class ReceiptGenerator {
                 <td style="padding: 15px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 600;">R${this.formatNumber(item.price)}</td>
                 <td style="padding: 15px; text-align: right; border: 1px solid #ddd; vertical-align: top; font-weight: 700;">R${this.formatNumber(item.total)}</td>
               </tr>
-            `
+            `,
               )
               .join("")}
           </tbody>
@@ -433,7 +433,7 @@ class ReceiptGenerator {
               <div style="margin: 8px 0; font-weight: 600; font-size: 16px;">
                 <strong>${item.shopProduct?.name}</strong> (SKU: ${item.shopProduct?.sku}) - Awaiting: ${item.quantity}
               </div>
-            `
+            `,
               )
               .join("")}
           </div>
@@ -496,7 +496,7 @@ class ReceiptGenerator {
 
   private generateThermalReceipt(
     data: ReceiptData,
-    includePrintButton: boolean = true
+    includePrintButton: boolean = true,
   ): string {
     const hasLogo = data.company.logo;
 
@@ -692,7 +692,7 @@ class ReceiptGenerator {
                   : ""
               }
             </div>
-          `
+          `,
             )
             .join("")}
         </div>
@@ -707,7 +707,7 @@ class ReceiptGenerator {
               .map(
                 (item) => `
               <div>${item.shopProduct?.name}: ${item.quantity}</div>
-            `
+            `,
               )
               .join("")}
           </div>
@@ -797,7 +797,7 @@ class ReceiptGenerator {
 
   private generateA4Receipt(
     data: ReceiptData,
-    includePrintButton: boolean = true
+    includePrintButton: boolean = true,
   ): string {
     const hasLogo = data.company.logo;
 
@@ -1039,7 +1039,7 @@ class ReceiptGenerator {
                 <td style="text-align: right; font-weight: 700;">R${this.formatNumber(item.price)}</td>
                 <td style="text-align: right; font-weight: 800;">R${this.formatNumber(item.total)}</td>
               </tr>
-            `
+            `,
               )
               .join("")}
           </tbody>
@@ -1059,7 +1059,7 @@ class ReceiptGenerator {
                 <div style="margin: 8px 0; font-weight: 800;">
                   <strong>${item.shopProduct?.name}</strong> (SKU: ${item.shopProduct?.sku}) - Awaiting: ${item.quantity} units
                 </div>
-              `
+              `,
                 )
                 .join("")}
             </div>
@@ -1119,7 +1119,7 @@ class ReceiptGenerator {
 
   async generateReceiptPDF(
     saleData: any,
-    size: ReceiptSize = "thermal"
+    size: ReceiptSize = "thermal",
   ): Promise<Blob> {
     const htmlContent = await this.generateReceiptHTML(saleData, size, false);
     const blob = new Blob([htmlContent], { type: "text/html" });
@@ -1139,7 +1139,7 @@ class ReceiptGenerator {
 
   async printReceipt(
     saleData: any,
-    size: ReceiptSize = "thermal"
+    size: ReceiptSize = "thermal",
   ): Promise<void> {
     const htmlContent = await this.generateReceiptHTML(saleData, size, true);
     const printWindow = window.open("", "_blank");

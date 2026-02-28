@@ -96,7 +96,7 @@ export function QuotationReceiptDialog({
         await quotationGenerator.printQuotation(
           completedQuotation,
           receiptSize,
-          showItemPrices // Pass the toggle state
+          showItemPrices, // Pass the toggle state
         );
         toast({
           title: "Printing Quotation",
@@ -123,11 +123,11 @@ export function QuotationReceiptDialog({
         const blob = await quotationGenerator.generateQuotationPDF(
           completedQuotation,
           receiptSize,
-          showItemPrices // Pass the toggle state
+          showItemPrices, // Pass the toggle state
         );
         await quotationGenerator.downloadQuotation(
           blob,
-          `quotation-${completedQuotation.quoteNumber}.html`
+          `quotation-${completedQuotation.quoteNumber}.html`,
         );
         toast({
           title: "Quotation Downloaded",
@@ -164,7 +164,7 @@ export function QuotationReceiptDialog({
         const quotationHTML =
           await quotationGenerator.generateQuotationForEmail(
             completedQuotation,
-            showItemPrices // Pass the toggle state
+            showItemPrices, // Pass the toggle state
           );
 
         const response = await fetch("/api/shop/sales/send-receipt", {
