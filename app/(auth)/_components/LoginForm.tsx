@@ -10,15 +10,16 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Loader2, Building2, ArrowRight } from "lucide-react";
+import { Loader2, Building2, ArrowRight, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
@@ -89,12 +90,25 @@ export default function LoginForm() {
                           Password
                         </Label>
                       </div>
-                      <Clerk.Input
-                        type="password"
-                        required
-                        className="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/30"
-                        placeholder="Enter your password"
-                      />
+                      <div className="relative">
+                        <Clerk.Input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          className="flex h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800/30"
+                          placeholder="Enter your password"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                       <Clerk.FieldError className="text-xs text-destructive" />
                     </Clerk.Field>
                   </div>

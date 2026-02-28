@@ -1,0 +1,4 @@
+/c/Users/Lucia/private/PRODUCTION/biz-flow-software/financialApp/app/(auth)/results.txt
+/c/Users/Lucia/private/PRODUCTION/biz-flow-software/financialApp/app/(auth)/sign-in/[[...sign-in]]/page.tsx
+/c/Users/Lucia/private/PRODUCTION/biz-flow-software/financialApp/app/(auth)/_components/LeftSideInfor.tsx
+/c/Users/Lucia/private/PRODUCTION/biz-flow-software/financialApp/app/(auth)/_components/LoginForm.tsx
